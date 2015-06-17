@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__description__ = 'hmmpgmd python client: reads a fasta file and searches for significant hits in a resident hmmpgmd database.'
+__description__ = 'Reads a fasta file containing protein sequences and searches for significant in a memory based hmmpgmd database.'
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL"
 
@@ -11,12 +11,14 @@ import math
 import re
 import time 
 import os
-from Bio import SeqIO
-from tempfile import NamedTemporaryFile
 import subprocess
-from collections import defaultdict
-from server import DBDATA
 import cPickle
+from tempfile import NamedTemporaryFile
+from collections import defaultdict
+
+from Bio import SeqIO
+
+from server import DBDATA
 
 def unpack_hit(bindata, z):
     (name, acc, desc, window_length, sort_key, score, pre_score, sum_score,
