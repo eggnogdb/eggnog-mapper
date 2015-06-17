@@ -18,11 +18,6 @@ from collections import defaultdict
 from server import DBDATA
 import cPickle
 
-from pymongo import MongoClient
-mongoCli = MongoClient()
-mongoDB = mongoCli.eggnog4_1
-db_nog_lineages = mongoDB.nog_lineages
-
 def unpack_hit(bindata, z):
     (name, acc, desc, window_length, sort_key, score, pre_score, sum_score,
      pvalue, pre_pvalue, sum_pvalue, nexpected, nregions, nclustered, noverlaps,
@@ -60,10 +55,14 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=N
                     hits.append((name, evalue, score))
                     if max_hits and len(hits) == max_hits:
                         break
+        else:
+            s.close()
+            raise ValueError('hmmpgmd error: %s' %data[:50])
+
         s.close()
         return  elapsed, hits
 
-def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None, return_seq=False):
+def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None):
     try:
         max_hits = int(max_hits)
     except Exception:
@@ -71,6 +70,12 @@ def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='h
         
     for record in SeqIO.parse(msf, msfformat):
         name = record.id
+        if skip and name in skip:
+            continue
+        if maxseqlen and len(record.seq) > maxseqlen:           
+            yield name, -1, [], None
+            continue
+        
         seq = str(record.seq)
         seq = re.sub("-.", "", seq)
         data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
@@ -167,9 +172,32 @@ if __name__ == "__main__":
     parser.add_argument('--maxhits', dest='maxhits', type=int, help="max number of hits to report")
     parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits using EggNOG hierarchical group lineages")
     parser.add_argument('--refine_method', type=int, default=2)
+    parser.add_argument('--output', type=str)
+    parser.add_argument('--maxseqlen', type=int)
+    parser.add_argument('--resume', action="store_true")
+   
     parser.add_argument('fastafile', metavar="fastafile", nargs=1, help='query file')
     
     args = parser.parse_args()
+    VISITED = set()
+    if args.output:
+        if args.resume:
+            print "Resuming previous run. Reading computed output from", args.output
+            VISITED = set([line.split('\t')[0].strip() for line in open(args.output) if not line.startswith('#')])
+            print len(VISITED), 'processed queries'
+            OUT = open(args.output, 'a')
+        else:
+            OUT = open(args.output, 'w')
+    else:
+        OUT = sys.stdout
+
+    if args.refine:
+        
+        from pymongo import MongoClient
+        mongoCli = MongoClient()
+        mongoDB = mongoCli.eggnog4_1
+        db_nog_lineages = mongoDB.nog_lineages
+
 
     args.port = DBDATA[args.db]['client_port']
     idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
@@ -179,14 +207,16 @@ if __name__ == "__main__":
         exit(-1)
 
         
-    print '# ' + time.ctime()
-    print '# ' + ' '.join(sys.argv)
-    print '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score'])
+    print >>OUT, '# ' + time.ctime()
+    print >>OUT, '# ' + ' '.join(sys.argv)
+    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score'])
     total_time = 0
     for qn, (name, elapsed, hits, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
-                                                         evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine)):
-        total_time += elapsed
+                                                         evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
 
+        if elapsed >= 0:
+            total_time += elapsed
+                    
         if args.refine:
             t1 = time.time()
             if args.refine_method == 1:
@@ -230,15 +260,27 @@ if __name__ == "__main__":
             all_hits.sort(reverse=True) # high scores first
             maxhits = args.maxhits if args.maxhits else len(all_hits)
             for h in all_hits[:maxhits]:
-                print '\t'+ '\t'.join(map(str, [name, h[2], h[1], h[0]]))
+                print >>OUT, '\t'+ '\t'.join(map(str, [name, h[2], h[1], h[0]]))
             print 
         else: 
-            for h in hits:
-                hitname = h[0]
-                if idmap: 
-                    hitname = idmap[h[0]][0]
-                print '\t'.join(map(str, [name, hitname, h[1], h[2]]))
-    print '# %d queries scanned' %(qn + 1)
-    print '# Total time (seconds):', total_time
-
+            if elapsed == -1:
+                # error occured 
+                print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR'])
+            elif not hits:
+                print >>OUT, '\t'.join([name, '-', '-', '-'])
+            else:
+                for h in hits:
+                    hitname = h[0]
+                    if idmap: 
+                        hitname = idmap[h[0]][0]
+                    print >>OUT, '\t'.join(map(str, [name, hitname, h[1], h[2]]))
+        
+        OUT.flush()
+        if qn and (qn % 100 == 0):
+            print >>sys.stderr, qn, total_time, "%0.2f q/s" %(float(qn)/total_time)
+            
+    print >>OUT, '# %d queries scanned' %(qn + 1)
+    print >>OUT, '# Total time (seconds):', total_time
+    if args.output:
+        OUT.close()
 
