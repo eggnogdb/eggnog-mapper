@@ -15,7 +15,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--master', dest='master', nargs='+', choices=['euk', 'bact', 'arch'])
     parser.add_argument('--worker', dest='worker', nargs='+', choices=['euk', 'bact', 'arch'])
-
+    parser.add_argument('--cpu', dest='cpu', type=int, default=20)
     args = parser.parse_args()
     
     for dbname in args.master:
@@ -28,6 +28,7 @@ if __name__ == "__main__":
             
 
     for dbname in args.worker:
+        DBDATA[dbname]["cpu"] = args.cpu
         pid = os.fork()
         if pid == 0:
             cmd = HMMPGMD + ' --worker localhost --wport %(worker_port)s --pid %(name)s.w.pid --cpu %(cpu)s' %(DBDATA[dbname])
