@@ -1,5 +1,7 @@
-This software allows for bulk mapping of novel sequences to eggNOG 4.1 orthologous groups. 
-Three databases are available: euk (Eukaryotes), bact (Bacteria) and arch (Archea).  
+This software allows for bulk and efficient mapping of novel sequences to eggNOG
+4.1 orthologous groups. It uses HMMER hmmpgmd software to load databases in
+memory and perform parallelized searches. Three precomputed databases are
+currently available: euk (Eukaryotes), bact (Bacteria) and arch (Archea).
 
 ### Installation: 
 

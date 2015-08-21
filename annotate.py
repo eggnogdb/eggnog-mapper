@@ -20,6 +20,9 @@ from Bio import SeqIO
 
 from server import DBDATA
 
+HMMSEARCH = 'hmmsearch'
+HMMSCAN = 'hmmscan'
+
 def unpack_hit(bindata, z):
     (name, acc, desc, window_length, sort_key, score, pre_score, sum_score,
      pvalue, pre_pvalue, sum_pvalue, nexpected, nregions, nclustered, noverlaps,
@@ -98,7 +101,7 @@ def server_up(host, port):
         return False
 
 def hmmscan(fasta, database_path, ncpus=10):
-    HMMSCAN = '/kappa/data/eggnog_deps/bin/hmmer-3.1b1-linux-intel-x86_64_PATCHED/binaries/hmmscan'
+
     F = NamedTemporaryFile()
     F.write(fasta)
     F.flush()
@@ -125,7 +128,7 @@ def hmmscan(fasta, database_path, ncpus=10):
     return byquery
 
 def hmmsearch(query_hmm, target_db, ncpus=10):
-    HMMSEARCH = '/kappa/data/eggnog_deps/bin/hmmer-3.1b1-linux-intel-x86_64_PATCHED/binaries/hmmsearch'
+
     OUT = NamedTemporaryFile()
     cmd = '%s --cpu %s -o /dev/null -Z 190000 --tblout %s %s %s' %(HMMSEARCH, ncpus, OUT.name, query_hmm, target_db)
 
