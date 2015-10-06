@@ -3,6 +3,8 @@ import sqlite3
 import gzip
 import json
 import re
+from collections import defaultdict
+
 
 conn = sqlite3.connect("annotations.db")
 db = conn.cursor()
@@ -30,7 +32,8 @@ def main(args):
     if args.smart:
         tabprint("# query", "OG", "level", "evalue", "score", "Domain source", "domain name", "nseqs", "freq in OG (%)")
         
-    with INPUT:
+    visited = defaultdict(int)
+    with INPUT:        
         for line in INPUT:
             line = line.strip()
             if not line or line.startswith("#"):
@@ -38,6 +41,16 @@ def main(args):
             query, og, evalue, score = line.split('\t')
             if og != '-':
                 level, desc, cats, nm, gos, kegg, domain = dbget(og)
+                if args.maxhits and visited[query] == args.maxhits:
+                    continue
+                
+                if args.level and level not in args.level:
+                    continue
+                
+                if args.maxhits: 
+                    visited[query] += 1
+
+                    
                 if args.desc:
                     tabprint(query, og, level, evalue, score, "Description", desc)
                     tabprint(query, og, level, evalue, score, "COG Categories", cats)
@@ -52,7 +65,8 @@ def main(args):
                     for dom_source, terms in domain.iteritems():
                         for dom_name, nseqs, freq, _ in terms:
                             tabprint(query, og, level, evalue, score, dom_source, dom_name, nseqs, freq)
-                        
+            else:
+                tabprint(query, "-")
                 
 if __name__ == "__main__":
     import argparse
@@ -62,7 +76,11 @@ if __name__ == "__main__":
     parser.add_argument('--kegg', dest='kegg', action='store_true')
     parser.add_argument('--desc', dest='desc', action='store_true')
     parser.add_argument('--smart', dest='smart', action='store_true')
+    parser.add_argument('--restrict_level', dest='level', type=str, nargs="+", help="report only hits from the provided taxonomic level")
+    parser.add_argument('--maxhits', dest='maxhits', type=int, help="report only the first `maxhits` hits")
 
     args = parser.parse_args()
-    
+    if args.level:
+        args.level = set(args.level)
+        
     main(args)

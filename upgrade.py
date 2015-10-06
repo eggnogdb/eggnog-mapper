@@ -26,7 +26,7 @@ if ask("Download/upgrade HMM database?", ["y", "n"]) == "y":
     
     
 if ask("Download/upgrade OG annotations file?", ["y", "n"]) == "y":
-    cmd = 'wget http://eggnogdb.embl.de/download/eggnog_4.1/all_OG_annotations.tsv.gz -O - |gzip  > all_OG_annotations.tsv'
+    cmd = 'wget http://eggnogdb.embl.de/download/eggnog_4.1/all_OG_annotations.tsv.gz -O - |gunzip  > all_OG_annotations.tsv'
     run(cmd)
 
 if ask("Upgrade annotations db?", ["y", "n"]) == "y":
