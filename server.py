@@ -13,12 +13,13 @@ DBDATA = {
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--master', dest='master', nargs='+', choices=['euk', 'bact', 'arch'])
-    parser.add_argument('--worker', dest='worker', nargs='+', choices=['euk', 'bact', 'arch'])
+    parser.add_argument('--db', dest='db', nargs='+', choices=['euk', 'bact', 'arch'])
+    #parser.add_argument('--master', dest='master', nargs='+', choices=['euk', 'bact', 'arch'])
+    #parser.add_argument('--worker', dest='worker', nargs='+', choices=['euk', 'bact', 'arch'])
     parser.add_argument('--cpu', dest='cpu', type=int, default=20)
     args = parser.parse_args()
     
-    for dbname in args.master:
+    for dbname in args.db:
         pid = os.fork()
         if pid == 0:
             cmd = HMMPGMD + ' --master --cport %(client_port)d --wport %(worker_port)s --hmmdb %(db_path)s --pid %(name)s.m.pid' %(DBDATA[dbname])
@@ -27,7 +28,7 @@ if __name__ == "__main__":
             sys.exit(0)
             
 
-    for dbname in args.worker:
+    for dbname in args.db:
         DBDATA[dbname]["cpu"] = args.cpu
         pid = os.fork()
         if pid == 0:
