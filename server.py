@@ -3,7 +3,7 @@ import argparse
 import os
 import time
 
-HMMPGMD = 'hmmer-3.1b2/src/hmmpgmd'
+HMMPGMD = 'hmmpgmd'
 
 DBDATA = {
     'euk': { 'name': 'euk_500', 'db_path':'hmmdb/euk_500/euk_500.hmm', 'client_port':51400, 'worker_port':51401, 'idmap':'hmmdb/euk_500/euk_500.pkl', 'cpu':20},
