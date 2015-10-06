@@ -21,7 +21,7 @@ Three databases are currently available:
 git clone https://github.com/jhcepas/eggnog-mapper.git
 ```
 
-- run `upgrade.sh` to download and parse the hmm and annotation databases. It may take a while.
+- run `upgrade.py` to download and parse the hmm and annotation databases. It may take a while and will require 150GB of disk space.
 ```
 cd eggnog-mapper
 python upgrade.py
