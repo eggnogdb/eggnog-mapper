@@ -11,7 +11,6 @@ Three databases are currently available:
 - BioPython
 - HMMER 3 available in your path
 - sqlite3 
-
 - ~130GB of disk
 - ~130GB of RAM memory (~90GB for the eukaryote specific db, ~32 for the bacterial specific db) 
 
