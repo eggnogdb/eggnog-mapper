@@ -1,23 +1,44 @@
-This software allows for bulk and efficient mapping of novel sequences to eggNOG
-4.1 orthologous groups. It uses HMMER hmmpgmd software to load databases in
-memory and perform parallelized searches. Three precomputed databases are
-currently available: euk (Eukaryotes), bact (Bacteria) and arch (Archea).
+This is a tool for bulk and efficient mapping of novel sequences to eggNOG v4.1
+orthologous groups (OGs). It uses HMMER hmmpgmd to load several precomputed
+databases in memory and perform parallelized searches. Note that **loading all
+databases requires about 150GB of RAM memory.**
 
-### Installation: 
+Three databases are currently available: 
+- euk (Eukaryotes)
+- bact (Bacteria)
+- arch (Archea)
 
-- Install BioPython
-- Install HMMER 3
-- Clone or Download this repository: https://github.com/jhcepas/eggnog-mapper/archive/master.zip
-- Download and decompress eggNOG HMM databases from http://eggnogdb.embl.de/download/eggnog_4.1/hmmdb.euk_bact_arch.tar.gz (it will require ~108GB). 
-- If necessary, mv the uncompressed hmmdb/ directory to the root directory of this tool. 
+
+
+### Requirements: 
+- BioPython
+- HMMER 3 available in your path
+- sqlite3 
+
+- ~150GB of disk
+- ~150GB of RAM memory (~90GB for the eukaryote specific db, ~32 for the bacterial specific db) 
+
+### Install: 
+- Clone or download this repository
+```
+git clone https://github.com/jhcepas/eggnog-mapper.git
+```
+
+- run `upgrade.sh` and follow instructions
+```
+cd eggnog-mapper
+sh upgrade.sh
+```
 
 ### Usage: 
 - start the HMMER server, specifying number of CPUs available and databases to load into memory. Note that the full set of databases will require ~130GB of RAM. 
  
    python server.py --master euk bact arch --worker euk bact arch --cpu 20
 
-- start annotating sequences using the annotate.py script: 
+- Using a different shell, annotate sequences using the annotate.py script: 
 
-   python annotate.py fastaFile.fa --output output.hits --db bact
+   python annotate.py fastaFile.fa --output output.hits --db euk bact
+
+
 
   
