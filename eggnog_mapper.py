@@ -2,7 +2,7 @@
 
 __description__ = 'Reads a fasta file containing protein sequences and searches for significant in a memory based hmmpgmd database.'
 __author__ = 'Jaime Huerta Cepas'
-__license__ = "GPL"
+__license__ = "GPL v2"
 
 import sys
 import socket
@@ -171,17 +171,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', dest='host', default='127.0.0.1')
     parser.add_argument('-p', dest='port', default=51371, type=int)
-    parser.add_argument('--db', dest='db', required=True, choices=DBDATA.keys())
+    parser.add_argument('--db', dest='db', required=True, choices=DBDATA.keys(), help='specify the target database for sequence searches')
     
     parser.add_argument('--evalue', dest='evalue', default=0.001, type=float, help="e-value threshold")
     parser.add_argument('--maxhits', dest='maxhits', type=int, help="max number of hits to report")
-    parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits using EggNOG hierarchical group lineages")
-    parser.add_argument('--refine_method', type=int, default=2)
-    parser.add_argument('--output', type=str)
-    parser.add_argument('--maxseqlen', type=int)
-    parser.add_argument('--resume', action="store_true")
-   
+    parser.add_argument('--output', type=str, help="output file")
+    parser.add_argument('--maxseqlen', type=int, help="exclude query sequences larger than `maxseqlen`")
+    parser.add_argument('--resume', action="store_true", help="Resumes a previous execution skipping reported hits in the output file.")
+    
     parser.add_argument('fastafile', metavar="fastafile", nargs=1, help='query file')
+
+    parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits using EggNOG hierarchical group lineages (experimental)")
+    parser.add_argument('--refine_method', type=int, default=2, help="(experimental)")
     
     args = parser.parse_args()
     VISITED = set()
