@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 
 def ask(string, valid_values, default=-1, case_sensitive=False):
@@ -21,7 +23,7 @@ def run(cmd):
     
 
 if ask("Download/upgrade HMM database?", ["y", "n"]) == "y":
-    cmd = 'wget http://eggnogdb.embl.de/download/eggnog_4.1/hmmdb.euk_bact_arch.tar.gz | tar -zxf'
+    cmd = 'wget http://eggnogdb.embl.de/download/eggnog_4.1/hmmdb.euk_bact_arch.tar.gz -O -| tar -zvxf -'
     run(cmd)
     
     
