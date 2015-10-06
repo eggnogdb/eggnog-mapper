@@ -1,8 +1,12 @@
-This is a tool for bulk and efficient mapping of novel sequences to eggNOG v4.1
-orthologous groups (OGs). It uses HMMER hmmpgmd to load several precomputed
-databases in memory and perform parallelized searches. 
+This is a tool for bulk and efficient annotation of protein sequenes using
+eggNOG v4.1 orthologous groups (OGs). It uses precomputed HMM models and
+HMMER-hmmpgmd to keep databases in memory and perform parallelized searches.
 
-Three databases are currently available: 
+Functional mappings from EggNOG v4.1 include: GO terms, KEGG pathways,
+SMART/PFAM domains, COG functional categories and a consensus functional
+description.
+
+Three taxonomy-restricted databases are currently available: 
 - euk (Eukaryotes)
 - bact (Bacteria)
 - arch (Archea)
