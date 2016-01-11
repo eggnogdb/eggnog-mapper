@@ -5,10 +5,14 @@ import sqlite3
 import gzip
 import json
 import re
+import os
+import sys
 from collections import defaultdict
 
-
-conn = sqlite3.connect("annotations.db")
+BASEPATH = os.path.split(os.path.abspath(__file__))[0]
+DBFILE = os.path.join(BASEPATH, "annotations.db")
+print DBFILE 
+conn = sqlite3.connect(DBFILE)
 db = conn.cursor()
 
 def tabprint(*args):
@@ -41,8 +45,12 @@ def main(args):
             if not line or line.startswith("#"):
                 continue
             query, og, evalue, score = line.split('\t')
-            if og != '-':
-                level, desc, cats, nm, gos, kegg, domain = dbget(og)
+            if og != '-' and og != 'ERROR':
+                try:
+                    level, desc, cats, nm, gos, kegg, domain = dbget(og)
+                except Exception: 
+                    print >>sys.stderr, "Problem processing line:\n%s" % line
+                    raise 
                 if args.maxhits and visited[query] == args.maxhits:
                     continue
                 
