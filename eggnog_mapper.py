@@ -20,6 +20,7 @@ from Bio import SeqIO
 
 from server import DBDATA
 
+BASEPATH = os.path.split(os.path.abspath(__file__))[0]
 HMMSEARCH = 'hmmsearch'
 HMMSCAN = 'hmmscan'
 
