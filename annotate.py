@@ -44,7 +44,7 @@ def main(args):
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            query, og, evalue, score = line.split('\t')
+            query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, devalue = line.split('\t')
             if og != '-' and og != 'ERROR':
                 try:
                     level, desc, cats, nm, gos, kegg, domain = dbget(og)
