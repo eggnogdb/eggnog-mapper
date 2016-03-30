@@ -288,7 +288,8 @@ if __name__ == "__main__":
         
     print >>OUT, '# ' + time.ctime()
     print >>OUT, '# ' + ' '.join(sys.argv)
-    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score'])
+    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto', 'domain_score'])
+    
     total_time = 0
     for qn, (name, elapsed, hits, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
@@ -344,9 +345,9 @@ if __name__ == "__main__":
         else: 
             if elapsed == -1:
                 # error occured 
-                print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR'])
+                print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
             elif not hits:
-                print >>OUT, '\t'.join([name, '-', '-', '-'])
+                print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-',])
             else:
                 for hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore in hits:
                     hitname = hid
