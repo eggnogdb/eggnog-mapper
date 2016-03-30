@@ -223,76 +223,6 @@ def load_nog_lineages():
 
 
 
-def scan_hits2(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=None):
-    hit_list = []
-    hit_models = set()
-    s = socket.socket()
-    try:
-        s.connect((address, port)) 
-    except Exception, e:
-        print address, port, e
-        raise
-    s.sendall(data)
-
-    status = s.recv(16)
-    st, msg_len = struct.unpack("I 4x Q", status)
-    elapsed, nreported = 0, 0
-    if st == 0:
-        binresult = ''
-        while len(binresult) < msg_len:
-            binresult += s.recv(4096)
-    else:
-        s.close()
-        raise ValueError('hmmpgmd error: %s' %data[:50])
-
-
-    statsbin = binresult[0:120]
-    elapsed, nreported, Z, domZ = unpack_stats(binresult[0:120])
-    raw_input("press")
-    nreported += 2
-    hitsbin = binresult[120: 120+ (152 *(nreported))]
-    dombin = binresult[120 + (152 *nreported):]
-    
-    hits = defaultdict(dict)
-    
-    for h in xrange(nreported):
-        start = 152 * h
-        end = start + 152
-        name, evalue, score, ndom = unpack_hit(hitsbin[start:end], Z)
-        hits[h]["name"] = name
-        hits[h]["evalue"] = evalue
-        hits[h]["score"] = score
-        hits[h]["ndom"] = ndom
-        print h, hits[h]
-        
-    start = 0
-    for h in xrange(nreported):
-        end = start + (hits[h]["ndom"] * 72)
-        dom = struct.unpack( "4i 5f 4x d 2i Q 8x" * hits[h]["ndom"], dombin[start:end])
-        start = end
-        print hits[h]
-        print dom
-        raw_input()
-        for d in xrange( hits[h]["ndom"]):
-            alibit = dombin[start: start + 168]
-            (rfline, mmline, csline, model, mline, aseq, ppline, N, hmmname, hmmacc,
-             hmmdesc, hmmfrom, hmmto, M, sqname, sqacc, sqdesc,
-             sqfrom, sqto, L, memsize, mem) = struct.unpack( "7Q I 4x 3Q 3I 4x 6Q I 4x Q", alibit)
-                        
-            print "ALG", (rfline, mmline, csline, model, mline, aseq, ppline, N, hmmname, hmmacc, hmmdesc, hmmfrom, hmmto, M, sqname, sqacc, sqdesc, sqfrom, sqto, L, memsize, mem)
-            # next domain start pos
-            start += 168 + memsize
-                        
-            if (evalue_thr is None or hits[h]["evalue"] <= evalue_thr) and len(hit_models) < max_hits:
-                hit_models.add(hits[h]["name"])
-                print 'HIT', (idmap[name][0], evalue, score, hmmfrom, hmmto, sqfrom, sqto, 0.0)
-                hit_list.append((hits[h]["name"], hits[h]["evalue"], hits[h]["score"], hmmfrom, hmmto, sqfrom, sqto, 0.0))
-                
-
-        
-    s.close()
-    return  elapsed, hit_list
-
 
 
 
@@ -313,6 +243,8 @@ if __name__ == "__main__":
     parser.add_argument('-a', dest='host', default='127.0.0.1')
     parser.add_argument('-p', dest='port', default=51371, type=int)
     parser.add_argument('--db', dest='db', required=True, choices=DBDATA.keys(), help='specify the target database for sequence searches')
+    
+    parser.add_argument('--leveldb', dest='level', help='specify a specific taxonomic level database')
     
     parser.add_argument('--evalue', dest='evalue', default=0.001, type=float, help="e-value threshold")
     parser.add_argument('--maxhits', dest='maxhits', type=int, help="max number of hits to report")
