@@ -221,21 +221,6 @@ def load_nog_lineages():
         cPickle.dump(nog2lineage, open('NOG_hierarchy.pkl', 'wb'), protocol=2)
     return nog2lineage
 
-
-
-
-
-
-
-
-        
-
-
-
-
-
-
-
     
 if __name__ == "__main__":
     import argparse
