@@ -11,7 +11,7 @@ from collections import defaultdict
 
 BASEPATH = os.path.split(os.path.abspath(__file__))[0]
 DBFILE = os.path.join(BASEPATH, "annotations.db")
-print DBFILE 
+
 conn = sqlite3.connect(DBFILE)
 db = conn.cursor()
 
