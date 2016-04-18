@@ -161,9 +161,9 @@ def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='h
             etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
             
         if return_seq: 
-            yield name, etime, hits, seq
+            yield name, etime, hits, len(seq), seq
         else:
-            yield name, etime, hits, None
+            yield name, etime, hits, len(seq), None
 
 def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None):    
     seq = re.sub("-.", "", seq)    
@@ -297,11 +297,11 @@ if __name__ == "__main__":
 
     print >>OUT, '# ' + time.ctime()
     print >>OUT, '# ' + ' '.join(sys.argv)
-    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto', 'domain_score'])
+    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score', 'query_length', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto', 'domain_score'])
         
     total_time = 0
     print >>sys.stderr, "Analysis starts now" 
-    for qn, (name, elapsed, hits, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
+    for qn, (name, elapsed, hits, seqlen, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
 
         if elapsed >= 0:
@@ -355,15 +355,15 @@ if __name__ == "__main__":
         else: 
             if elapsed == -1:
                 # error occured 
-                print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
+                print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
             elif not hits:
-                print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-',])
+                print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-', '-'])
             else:
                 for hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore in hits:
                     hitname = hid
                     if idmap: 
                         hitname = idmap[hid][0]
-                    print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore]))
+                    print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto, domscore]))
         
         OUT.flush()
         if qn and (qn % 25 == 0):

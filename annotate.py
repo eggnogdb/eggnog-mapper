@@ -62,7 +62,7 @@ def main(args):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, devalue = line.split('\t')       
+        query, og, evalue, score, querylen, hmmfrom, hmmto, qfrom, qto, devalue = line.split('\t')       
         if query not in visited: 
             query_list.append(query)
             visited[query] = 0
