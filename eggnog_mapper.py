@@ -15,6 +15,7 @@ import subprocess
 import cPickle
 from tempfile import NamedTemporaryFile
 from collections import defaultdict
+from hashlib import md5
 
 from Bio import SeqIO
 
@@ -123,29 +124,55 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=N
     s.close()
     return  elapsed, hits
 
-def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None):
+def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, cache=None):
+    if cache:
+        seqnum2md5 = {}
+        for seqnum, record in enumerate(SeqIO.parse(msf, msfformat)):
+            seqnum2md5[seqnum] = md5(str(record.seq)).hexdigest()
+        
     try:
         max_hits = int(max_hits)
     except Exception:
         max_hits = None
         
-    for record in SeqIO.parse(msf, msfformat):
+    for seqnum, record in enumerate(SeqIO.parse(msf, msfformat)):                
         name = record.id
         if skip and name in skip:
             continue
         if maxseqlen and len(record.seq) > maxseqlen:           
             yield name, -1, [], None
             continue
-        
-        seq = str(record.seq)
-        seq = re.sub("-.", "", seq)
-        data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
-        etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
+
+        if not record.seq:
+            continue
+
+        if cache and seqnum2md5[seqnum] in cached_hits:
+            name, evalue, score, hmmfrom, hmmto, sqfrom, sqto, bitscore = cached_hits[seqnum2md5[seqnum]]
+            if evalue_thr is None or evalue <= evalue_thr:
+                for h in cached_hits:
+                    hit_models.add(name)
+                    hits.append((name, evalue, score, hmmfrom, hmmto, sqfrom, sqto, bitscore))
+                    if max_hits and len(hit_models) == max_hits:
+                        break
+        else:
+            seq = str(record.seq)
+            seq = re.sub("-.", "", seq)
+            data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
+            etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
+            
         if return_seq: 
             yield name, etime, hits, seq
         else:
             yield name, etime, hits, None
 
+def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None):    
+    seq = re.sub("-.", "", seq)    
+    data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
+    
+    etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
+    print etime
+    return name, etime, hits
+            
 def server_up(host, port):
     import socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -183,7 +210,6 @@ def hmmscan(fasta, database_path, ncpus=10):
     return byquery
 
 def hmmsearch(query_hmm, target_db, ncpus=10):
-
     OUT = NamedTemporaryFile()
     cmd = '%s --cpu %s -o /dev/null -Z 1000000 --tblout %s %s %s' %(HMMSEARCH, ncpus, OUT.name, query_hmm, target_db)
 
@@ -220,7 +246,6 @@ def load_nog_lineages():
             nog2lineage[fields[0].split('@')[0]] = map(lambda x: tuple(x.split('@')), fields[2].split(','))
         cPickle.dump(nog2lineage, open('NOG_hierarchy.pkl', 'wb'), protocol=2)
     return nog2lineage
-
     
 if __name__ == "__main__":
     import argparse
@@ -241,6 +266,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits using EggNOG hierarchical group lineages (experimental)")
     parser.add_argument('--refine_method', type=int, default=2, help="(experimental)")
+    parser.add_argument('--cache', type=str)
     
     args = parser.parse_args()
     VISITED = set()
@@ -255,13 +281,11 @@ if __name__ == "__main__":
     else:
         OUT = sys.stdout
 
-    if args.refine:
-        
+    if args.refine:        
         from pymongo import MongoClient
         mongoCli = MongoClient()
         mongoDB = mongoCli.eggnog4_1
         db_nog_lineages = mongoDB.nog_lineages
-
 
     args.port = DBDATA[args.db]['client_port']
     idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
@@ -269,13 +293,14 @@ if __name__ == "__main__":
     if not server_up(args.host, args.port):
         print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(args.host, args.port)
         exit(-1)
-
         
+
     print >>OUT, '# ' + time.ctime()
     print >>OUT, '# ' + ' '.join(sys.argv)
     print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto', 'domain_score'])
-    
+        
     total_time = 0
+    print >>sys.stderr, "Analysis starts now" 
     for qn, (name, elapsed, hits, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
 
@@ -341,9 +366,12 @@ if __name__ == "__main__":
                     print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore]))
         
         OUT.flush()
-        if qn and (qn % 100 == 0):
-            print >>sys.stderr, qn, total_time, "%0.2f q/s" %(float(qn)/total_time)
+        if qn and (qn % 25 == 0):
+            print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
+            sys.stderr.flush()
             
+    print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
+    sys.stderr.flush()
     print >>OUT, '# %d queries scanned' %(qn + 1)
     print >>OUT, '# Total time (seconds):', total_time
     if args.output:

@@ -7,6 +7,7 @@ import json
 import re
 import os
 import sys
+import gzip
 from collections import defaultdict
 
 BASEPATH = os.path.split(os.path.abspath(__file__))[0]
@@ -18,8 +19,8 @@ db = conn.cursor()
 get_setdict = lambda: defaultdict(set)
 get_listdict = lambda: defaultdict(list)
     
-def tabprint(*args):
-    print '\t'.join(map(str, args))
+def tabprint(buff, *args):
+    print >>buff, '\t'.join(map(str, args))
 
 def dbget(og):
     cmd = 'SELECT level, description, COG_categories, nm, GO_freq, KEGG_freq, SMART_freq from annotations WHERE og="%s";' %og
@@ -93,53 +94,59 @@ def main(args):
             print >>sys.stderr, "target OG not found: %s" % line
             continue
         hitinfo = [og, level, nm, evalue, hmmfrom, hmmto, qfrom, qto]            
-        if args.desc:
-            #tabprint(query, og, level, evalue, score, "Description", desc)
-            #tabprint(query, og, level, evalue, score, "COG Categories", cats)
-            per_query[query][("desc", desc)].append(hitinfo + [0, 100.0])
-            per_query[query][("cats", desc)].append(hitinfo + [0, 100.0])
 
-        if args.go: 
-            for go_cat, terms in gos.iteritems():
-                for goid, goname, evidence, nseqs, freq, _ in terms:
-                    #tabprint(query, og, level, evalue, score, "GO_"+go_cat, goid, goname, evidence, nseqs, freq)
-                    per_query[query][("go", goid, goname)].append(hitinfo+[nseqs, freq, evidence])
+        #tabprint(query, og, level, evalue, score, "Description", desc)
+        #tabprint(query, og, level, evalue, score, "COG Categories", cats)
+        per_query[query][("desc", desc)].append(hitinfo + ['NA', 100.0])
+        per_query[query][("cats", cats)].append(hitinfo + ['NA', 100.0])
+        for go_cat, terms in gos.iteritems():
+            for goid, goname, evidence, nseqs, freq, _ in terms:
+                #tabprint(query, og, level, evalue, score, "GO_"+go_cat, goid, goname, evidence, nseqs, freq)
+                per_query[query][("go", goid, goname)].append(hitinfo + [nseqs, freq, evidence])
 
-        if args.kegg: 
-            for pathway, nseqs, freq, _ in kegg:
-                #tabprint(query, og, level, evalue, score, pathway, nseqs, freq)
-                per_query[query][("kegg", pathway)].append(hitinfo+[nseqs, freq])
-
-        if args.smart:
-            for dom_source, terms in domain.iteritems():
-                for dom_name, nseqs, freq, _ in terms:
-                    #tabprint(query, og, level, evalue, score, dom_source, dom_name, nseqs, freq)
-                    per_query[query][(dom_source, dom_name)].append(hitinfo+[nseqs, freq])
-        #else:
-        #    tabprint(query, "-")
+        for pathway, nseqs, freq, _ in kegg:
+            #tabprint(query, og, level, evalue, score, pathway, nseqs, freq)
+            per_query[query][("kegg", pathway)].append(hitinfo+[nseqs, freq])
 
 
-    #print tabprint("#query", "nhits", "nOGs", "max freq")
+        for dom_source, terms in domain.iteritems():
+            for dom_name, nseqs, freq, _ in terms:
+                #tabprint(query, og, level, evalue, score, dom_source, dom_name, nseqs, freq)
+                per_query[query][(dom_source, dom_name)].append(hitinfo+[nseqs, freq])
+
+    OUT = {
+        'kegg': gzip.open(args.output+'.KEGG.gz', "w:gz"),
+        'go':   gzip.open(args.output+'.GeneOntology.gz', "w:gz"),
+        'desc': gzip.open(args.output+'.description.gz', "w:gz"),
+        'cats': gzip.open(args.output+'.COG_categories.gz', "w:gz"),
+        'PFAM': gzip.open(args.output+'.PFAM.gz', "w:gz"),
+        'SMART': gzip.open(args.output+'.SMART.gz', "w:gz"),
+    }
     for qname in query_list:
         for k in sorted(per_query[qname]):
             hit_details = per_query[qname][k]
             n_ogs = len(set([v[0] for v in hit_details]))
-            n_hits = len(hit_details)            
-            tabprint(qname, n_ogs, n_hits, *(list(k) + hit_details[0]))
-            for i in xrange(1, len(hit_details)):
-                tabprint(" "*len(qname), "", "", *(list(k) + hit_details[i]))
-            
-                
+            n_hits = len(hit_details)
+
+            tabprint(OUT[k[0]], qname, n_ogs, n_hits, *(list(k) + hit_details[0]))
+            if args.full_report:
+                for i in xrange(1, len(hit_details)):
+                    tabprint(OUT[k[1]], " "*len(qname), "", "", *(list(k) + hit_details[i]))
+    for v in OUT.values():
+        v.close()        
+    print >>sys.stderr, "Done!"
+    
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('hitsfile', metavar="hitsfile", nargs=1, help='query file containng a list of hits returned by eggnog_mapper.py')
-    parser.add_argument('--go', dest='go', action='store_true')
-    parser.add_argument('--kegg', dest='kegg', action='store_true')
-    parser.add_argument('--desc', dest='desc', action='store_true')
-    parser.add_argument('--smart', dest='smart', action='store_true')
+    parser.add_argument('--full_report', dest='full_report', action='store_true')
+    #parser.add_argument('--go', dest='go', action='store_true')    
+    #parser.add_argument('--kegg', dest='kegg', action='store_true')
+    #parser.add_argument('--desc', dest='desc', action='store_true')
+    #parser.add_argument('--smart', dest='smart', action='store_true')
     parser.add_argument('--restrict_level', dest='level', type=str, nargs="+", help="report only hits from the provided taxonomic level")
-    parser.add_argument('--nr_output', dest="nr", type=str, help="non redundant outgroup")
+    parser.add_argument('--output', dest="output", type=str, required=True)
     parser.add_argument('--maxhits', dest='maxhits', type=int, help="report only the first `maxhits` hits")
 
     args = parser.parse_args()
