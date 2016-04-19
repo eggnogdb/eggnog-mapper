@@ -97,17 +97,16 @@ def main(args):
 
         #tabprint(query, og, level, evalue, score, "Description", desc)
         #tabprint(query, og, level, evalue, score, "COG Categories", cats)
-        per_query[query][("desc", desc)].append(hitinfo + ['NA', 100.0])
-        per_query[query][("cats", cats)].append(hitinfo + ['NA', 100.0])
+        per_query[query][("desc", desc)].append(hitinfo + ['NA', 'NA'])
+        per_query[query][("cats", cats)].append(hitinfo + ['NA', 'NA'])
         for go_cat, terms in gos.iteritems():
             for goid, goname, evidence, nseqs, freq, _ in terms:
                 #tabprint(query, og, level, evalue, score, "GO_"+go_cat, goid, goname, evidence, nseqs, freq)
-                per_query[query][("go", goid, goname)].append(hitinfo + [nseqs, freq, evidence])
+                per_query[query][("go", goid, goname)].append(hitinfo + [nseqs, freq])
 
         for pathway, nseqs, freq, _ in kegg:
             #tabprint(query, og, level, evalue, score, pathway, nseqs, freq)
             per_query[query][("kegg", pathway)].append(hitinfo+[nseqs, freq])
-
 
         for dom_source, terms in domain.iteritems():
             for dom_name, nseqs, freq, _ in terms:
@@ -115,23 +114,32 @@ def main(args):
                 per_query[query][(dom_source, dom_name)].append(hitinfo+[nseqs, freq])
 
     OUT = {
-        'kegg': gzip.open(args.output+'.KEGG.gz', "w:gz"),
-        'go':   gzip.open(args.output+'.GeneOntology.gz', "w:gz"),
-        'desc': gzip.open(args.output+'.description.gz', "w:gz"),
-        'cats': gzip.open(args.output+'.COG_categories.gz', "w:gz"),
-        'PFAM': gzip.open(args.output+'.PFAM.gz', "w:gz"),
-        'SMART': gzip.open(args.output+'.SMART.gz', "w:gz"),
+        'kegg': gzip.open(args.output+'.KEGG_pathways.txt.gz', "w:gz"),
+        'go':   gzip.open(args.output+'.GeneOntology.txt.gz', "w:gz"),
+        'desc': gzip.open(args.output+'.description.txt.gz', "w:gz"),
+        'cats': gzip.open(args.output+'.COG_categories.txt.gz', "w:gz"),
+        'PFAM': gzip.open(args.output+'.PFAM.txt.gz', "w:gz"),
+        'SMART': gzip.open(args.output+'.SMART.txt.gz', "w:gz"),
     }
+
+    
+    header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, score, evalue, hmmfrom, hmmto, seqfrom, seqto, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
+    for F in OUT.values():
+        print >>F, '#'+'\t'.join(header)
+    
+    
     for qname in query_list:
         for k in sorted(per_query[qname]):
             hit_details = per_query[qname][k]
             n_ogs = len(set([v[0] for v in hit_details]))
             n_hits = len(hit_details)
 
-            tabprint(OUT[k[0]], qname, n_ogs, n_hits, *(list(k) + hit_details[0]))
+            tabprint(OUT[k[0]], qname, *(hit_details[0]+list(k)))
             if args.full_report:
                 for i in xrange(1, len(hit_details)):
-                    tabprint(OUT[k[1]], " "*len(qname), "", "", *(list(k) + hit_details[i]))
+                    tabprint(OUT[k[1]], " "*len(qname), *(hit_details[i]+list(k)))
+
+                    
     for v in OUT.values():
         v.close()        
     print >>sys.stderr, "Done!"

@@ -303,7 +303,6 @@ if __name__ == "__main__":
     print >>sys.stderr, "Analysis starts now" 
     for qn, (name, elapsed, hits, seqlen, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
-
         if elapsed >= 0:
             total_time += elapsed
                     
