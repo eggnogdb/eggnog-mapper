@@ -140,7 +140,7 @@ def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='h
         if skip and name in skip:
             continue
         if maxseqlen and len(record.seq) > maxseqlen:           
-            yield name, -1, [], None
+            yield name, -1, [], len(record.seq), None
             continue
 
         if not record.seq:
