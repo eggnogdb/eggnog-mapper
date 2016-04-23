@@ -32,6 +32,8 @@ def get_best_hit(target_seq, target_og):
 
     if best_hit:
         best_hit_name = best_hit[2]
+        best_hit_evalue = best_hit[4]
+        best_hit_score = best_hit[5]
         orthologs = sorted(get_grainned_orthologs_by_member([best_hit_name]))
         pname = Counter(get_preferred_names_dict(orthologs).values())
         name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
@@ -40,11 +42,13 @@ def get_best_hit(target_seq, target_og):
         else:
             best_name = '-'
     else:
+        best_hit_evalue = '-'
+        best_hit_score = '-'
         best_hit_name = '-'
         best_name = '-'
         orthologs = []
         
-    return [best_name, best_hit_name, orthologs]
+    return [best_hit_name, best_hit_evalue, best_hit_score, best_name, orthologs]
 
 def get_preferred_names_dict(names):
     query = {'$or': [{"n":n.split('.', 1)[1], "t":int(n.split('.', 1)[0])} for n in names]} 
@@ -169,11 +173,22 @@ def process_hits_file(hits_file, query_fasta):
     return result
                     
 if __name__ == "__main__":
-    target_seq = sys.argv[1]
-    target_og  = sys.argv[2]
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--hits', dest='hitsfile', type=str, help="hits file", required=True)
+    parser.add_argument('-f', dest='fastafile', type=str, help="fasta file", required=True)
+    parser.add_argument('-o', dest='output', type=str, help="output")
+
+    args = parser.parse_args()
     
-    #print best_hit(target_seq, target_og)
-    results = process_hits_file(target_seq, target_og)
+    results = process_hits_file(args.hitsfile, args.fastafile)
+    if args.output:
+        OUT = open(args.output, "w")
+    else:
+        OUT = sys.stdout
+    print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs".split(','))
     for r in results[0]:
-        print '\t'.join(map(str, (r[0], r[1], r[2], ','.join(r[3]))))
+        print >>OUT, '\t'.join(map(str, (r[0], r[1], r[2], r[3], r[4], ','.join(r[5]))))
         
+    if args.output:
+        OUT.close()
