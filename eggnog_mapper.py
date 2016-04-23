@@ -20,6 +20,7 @@ from hashlib import md5
 from Bio import SeqIO
 
 from server import DBDATA
+from refine import refine_hit
 
 BASEPATH = os.path.split(os.path.abspath(__file__))[0]
 HMMSEARCH = 'hmmsearch'
@@ -269,8 +270,6 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    print "Loading OG data..."
-    og2level = cPickle.load(open("og2level.pkl"))
     
     VISITED = set()
     if args.output:
@@ -284,48 +283,43 @@ if __name__ == "__main__":
     else:
         OUT = sys.stdout
 
-
     args.port = DBDATA[args.db]['client_port']
     idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
     
     if not server_up(args.host, args.port):
         print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(args.host, args.port)
         exit(-1)
-        
 
     print >>OUT, '# ' + time.ctime()
     print >>OUT, '# ' + ' '.join(sys.argv)
-    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score', 'query_length', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto', 'domain_score'])
+    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score', 'query_length', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto'])
         
     total_time = 0
-    print >>sys.stderr, "Analysis starts now" 
+    print >>sys.stderr, "Analysis starts now"
+    last_time = time.time()
     for qn, (name, elapsed, hits, seqlen, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
-        if elapsed >= 0:
-            total_time += elapsed
+        #if elapsed >= 0:
+        #    total_time += elapsed
         
         # Process hits
         if elapsed == -1:
             # error occured 
-            print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
+            print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
         elif not hits:            
-            print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-', '-'])
+            print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-'])
         else:
             for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
                 hitname = hid
                 level = "NA"
                 if idmap:                    
                     hitname = idmap[hid][0]                    
-                    level = og2level.get(hitname, 'unknown')
                     
-                if args.refine and hitindex == 0:
-                    print pjoin(FILES_PATH, "fasta", level, "%s.fa" %)
-
-                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto, domscore]))
-                    
-                    
-                
+                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto]))
+                                                        
         OUT.flush()
+        total_time += time.time() - last_time
+        last_time = time.time()
         if qn and (qn % 25 == 0):
             print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
             sys.stderr.flush()
