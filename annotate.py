@@ -93,7 +93,7 @@ def main(args):
         except KeyError: 
             print >>sys.stderr, "target OG not found: %s" % line
             continue
-        hitinfo = [og, level, nm, evalue, hmmfrom, hmmto, qfrom, qto]            
+        hitinfo = [og, level, nm, evalue, score, hmmfrom, hmmto, qfrom, qto]            
 
         #tabprint(query, og, level, evalue, score, "Description", desc)
         #tabprint(query, og, level, evalue, score, "COG Categories", cats)
@@ -102,16 +102,19 @@ def main(args):
         for go_cat, terms in gos.iteritems():
             for goid, goname, evidence, nseqs, freq, _ in terms:
                 #tabprint(query, og, level, evalue, score, "GO_"+go_cat, goid, goname, evidence, nseqs, freq)
-                per_query[query][("go", goid, goname)].append(hitinfo + [nseqs, freq])
+                if float(freq) >= args.min_prevalence:
+                    per_query[query][("go", goid, goname)].append(hitinfo + [nseqs, freq])
 
         for pathway, nseqs, freq, _ in kegg:
             #tabprint(query, og, level, evalue, score, pathway, nseqs, freq)
-            per_query[query][("kegg", pathway)].append(hitinfo+[nseqs, freq])
+            if float(freq) >= args.min_prevalence:
+                per_query[query][("kegg", pathway)].append(hitinfo+[nseqs, freq])
 
         for dom_source, terms in domain.iteritems():
             for dom_name, nseqs, freq, _ in terms:
                 #tabprint(query, og, level, evalue, score, dom_source, dom_name, nseqs, freq)
-                per_query[query][(dom_source, dom_name)].append(hitinfo+[nseqs, freq])
+                if float(freq) >= args.min_prevalence:
+                    per_query[query][(dom_source, dom_name)].append(hitinfo+[nseqs, freq])
 
     OUT = {
         'kegg': gzip.open(args.output+'.KEGG_pathways.txt.gz', "w:gz"),
@@ -123,7 +126,7 @@ def main(args):
     }
 
     
-    header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, score, evalue, hmmfrom, hmmto, seqfrom, seqto, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
+    header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, OG_size, evalue, score, hmmfrom, hmmto, seqfrom, seqto, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
     for F in OUT.values():
         print >>F, '#'+'\t'.join(header)
     
@@ -154,6 +157,7 @@ if __name__ == "__main__":
     #parser.add_argument('--desc', dest='desc', action='store_true')
     #parser.add_argument('--smart', dest='smart', action='store_true')
     parser.add_argument('--restrict_level', dest='level', type=str, nargs="+", help="report only hits from the provided taxonomic level")
+    parser.add_argument('--min_prevalence', dest='min_prevalence', type=float, default=50.0)
     parser.add_argument('--output', dest="output", type=str, required=True)
     parser.add_argument('--maxhits', dest='maxhits', type=int, help="report only the first `maxhits` hits")
 
