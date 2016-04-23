@@ -264,11 +264,14 @@ if __name__ == "__main__":
     
     parser.add_argument('fastafile', metavar="fastafile", nargs=1, help='query file')
 
-    parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits using EggNOG hierarchical group lineages (experimental)")
-    parser.add_argument('--refine_method', type=int, default=2, help="(experimental)")
+    parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits searching best protein within the matching group")
     parser.add_argument('--cache', type=str)
     
     args = parser.parse_args()
+
+    print "Loading OG data..."
+    og2level = cPickle.load(open("og2level.pkl"))
+    
     VISITED = set()
     if args.output:
         if args.resume:
@@ -281,11 +284,6 @@ if __name__ == "__main__":
     else:
         OUT = sys.stdout
 
-    if args.refine:        
-        from pymongo import MongoClient
-        mongoCli = MongoClient()
-        mongoDB = mongoCli.eggnog4_1
-        db_nog_lineages = mongoDB.nog_lineages
 
     args.port = DBDATA[args.db]['client_port']
     idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
@@ -305,65 +303,28 @@ if __name__ == "__main__":
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
         if elapsed >= 0:
             total_time += elapsed
-                    
-        if args.refine:
-            t1 = time.time()
-            if args.refine_method == 1:
-                all_hits = []
-                refine_databases = set()
-                for h in hits:
-                    hitname = h[0]
-                    if idmap: 
-                        hitname = idmap[h[0]][0]
-                    nog_database_path = os.path.join('/kappa/data/eggnog41/build_db/hmm_db/', '%s@NOG'%hitname, '%s@NOG.hmm'%hitname)
-                    refine_databases.add(nog_database_path)
-                print refine_databases
-                for dbpath in refine_databases:
-                    if os.path.exists(dbpath+'.h3f'):
-                        for query, refinehits in hmmscan('>%s\n%s' %(name, seq), dbpath).iteritems():
-                            for subhit in refinehits:
-                                all_hits.append([subhit[2], subhit[1], subhit[0]])
-            else:
-                all_hits = []
-                hmm_models = set()
-                hit_names = [idmap[h[0]][0] for h in hits]
-                for match in db_nog_lineages.find({'g': {'$in':hit_names} }, {'f':1}):
-                    hmm_models.update(match['f'])
-                hmm_models.discard('')
-
-                F = NamedTemporaryFile()
-                F.write('>%s\n%s' %(name, seq))
-                F.flush()
-                dbpath = F.name
-                for i, hmm_file in enumerate(hmm_models):
-                    level = hmm_file.split('.', 1)[0]
-                    query_hmm = os.path.join('/kappa/data/eggnog41/build_db/final_files/%s_hmm/%s' %(level, hmm_file))
-                    print '\r%05d/%05d' %(i, len(hmm_models)),
-                    sys.stdout.flush()
-                    for query, refinehits in hmmsearch(query_hmm, dbpath).iteritems():
-                        for subhit in refinehits:
-                            all_hits.append([subhit[2], subhit[1], subhit[0]])
-                F.close()
-            print time.time() - t1
-            # dump hits
-            all_hits.sort(reverse=True) # high scores first
-            maxhits = args.maxhits if args.maxhits else len(all_hits)
-            for h in all_hits[:maxhits]:
-                print >>OUT, '\t'+ '\t'.join(map(str, [name, h[2], h[1], h[0]]))
-            print 
-        else: 
-            if elapsed == -1:
-                # error occured 
-                print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
-            elif not hits:
-                print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-', '-'])
-            else:
-                for hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore in hits:
-                    hitname = hid
-                    if idmap: 
-                        hitname = idmap[hid][0]
-                    print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto, domscore]))
         
+        # Process hits
+        if elapsed == -1:
+            # error occured 
+            print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
+        elif not hits:            
+            print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-', '-'])
+        else:
+            for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
+                hitname = hid
+                level = "NA"
+                if idmap:                    
+                    hitname = idmap[hid][0]                    
+                    level = og2level.get(hitname, 'unknown')
+                    
+                if args.refine and hitindex == 0:
+                    print pjoin(FILES_PATH, "fasta", level, "%s.fa" %)
+
+                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto, domscore]))
+                    
+                    
+                
         OUT.flush()
         if qn and (qn % 25 == 0):
             print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
@@ -375,5 +336,3 @@ if __name__ == "__main__":
     print >>OUT, '# Total time (seconds):', total_time
     if args.output:
         OUT.close()
-
-
