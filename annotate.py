@@ -124,13 +124,11 @@ def main(args):
         'PFAM': gzip.open(args.output+'.PFAM.txt.gz', "w:gz"),
         'SMART': gzip.open(args.output+'.SMART.txt.gz', "w:gz"),
     }
-
     
     header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, OG_size, evalue, score, hmmfrom, hmmto, seqfrom, seqto, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
     for F in OUT.values():
         print >>F, '#'+'\t'.join(header)
-    
-    
+        
     for qname in query_list:
         for k in sorted(per_query[qname]):
             hit_details = per_query[qname][k]
