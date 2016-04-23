@@ -62,23 +62,27 @@ def main(args):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        query, og, evalue, score, querylen, hmmfrom, hmmto, qfrom, qto, devalue = line.split('\t')       
+        query, og, evalue, score, querylen, hmmfrom, hmmto, qfrom, qto  = line.split('\t')       
         if query not in visited: 
             query_list.append(query)
             visited[query] = 0
 
-        if og != '-' and og != 'ERROR':
+        if og != '-' and og != 'ERROR':            
             if args.maxhits and visited[query] == args.maxhits:
                 continue
 
             if args.level and level not in args.level:
                 continue
 
+            q_cov = abs(float(qto)-float(qfrom))/float(querylen)
+            if q_cov < args.min_q_coverage:
+                continue
+                
             if args.maxhits: 
                 visited[query] += 1
 
             ogs.add(og)            
-            lines.append((query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, devalue))
+            lines.append((query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov))
             
     print >>sys.stderr, "Loading OG meta data for %s OGs..." %len(ogs)
     og_data = get_og_data(ogs)
@@ -87,13 +91,13 @@ def main(args):
     print >>sys.stderr, "Annotating %s queries..." %len(query_list)
     per_query = defaultdict(get_listdict)
     
-    for query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, devalue in lines:
+    for query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov in lines:
         try:
             level, desc, cats, nm, gos, kegg, domain = og_data[og]
         except KeyError: 
             print >>sys.stderr, "target OG not found: %s" % line
             continue
-        hitinfo = [og, level, nm, evalue, score, hmmfrom, hmmto, qfrom, qto]            
+        hitinfo = [og, level, nm, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov]            
 
         #tabprint(query, og, level, evalue, score, "Description", desc)
         #tabprint(query, og, level, evalue, score, "COG Categories", cats)
@@ -125,7 +129,7 @@ def main(args):
         'SMART': gzip.open(args.output+'.SMART.txt.gz', "w:gz"),
     }
     
-    header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, OG_size, evalue, score, hmmfrom, hmmto, seqfrom, seqto, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
+    header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, OG_size, evalue, score, hmmfrom, hmmto, seqfrom, seqto, query_coverage, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
     for F in OUT.values():
         print >>F, '#'+'\t'.join(header)
         
@@ -156,6 +160,7 @@ if __name__ == "__main__":
     #parser.add_argument('--smart', dest='smart', action='store_true')
     parser.add_argument('--restrict_level', dest='level', type=str, nargs="+", help="report only hits from the provided taxonomic level")
     parser.add_argument('--min_prevalence', dest='min_prevalence', type=float, default=50.0)
+    parser.add_argument('--min_query_coverage', dest='min_q_coverage', type=float, default=0.66)
     parser.add_argument('--output', dest="output", type=str, required=True)
     parser.add_argument('--maxhits', dest='maxhits', type=int, help="report only the first `maxhits` hits")
 
