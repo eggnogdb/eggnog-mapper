@@ -26,6 +26,30 @@ BASEPATH = os.path.split(os.path.abspath(__file__))[0]
 HMMSEARCH = 'hmmsearch'
 HMMSCAN = 'hmmscan'
 
+B62_IDENTITIES = {'A': 4,
+                  'B': 4,
+                  'C': 9,
+                  'D': 6,
+                  'E': 5,
+                  'F': 6,
+                  'G': 6,
+                  'H': 8,
+                  'I': 4,
+                  'K': 5,
+                  'L': 4,
+                  'M': 5,
+                  'N': 6,
+                  'P': 7,
+                  'Q': 5,
+                  'R': 5,
+                  'S': 4,
+                  'T': 5,
+                  'V': 4,
+                  'W': 11,
+                  'X': -1,
+                  'Y': 7,
+                  'Z': 4}
+
 def unpack_hit(bindata, z):
     (name, acc, desc, window_length, sort_key, score, pre_score, sum_score,
      pvalue, pre_pvalue, sum_pvalue, nexpected, nregions, nclustered, noverlaps,
@@ -160,11 +184,13 @@ def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='h
             seq = re.sub("-.", "", seq)
             data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
             etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
-            
+
+        max_score = sum([B62_IDENTITIES.get(nt, 0) for nt in seq])
+        
         if return_seq: 
-            yield name, etime, hits, len(seq), seq
+            yield name, etime, hits, len(seq), seq, max_score
         else:
-            yield name, etime, hits, len(seq), None
+            yield name, etime, hits, len(seq), None, max_score
 
 def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None):    
     seq = re.sub("-.", "", seq)    
@@ -269,7 +295,7 @@ if __name__ == "__main__":
     parser.add_argument('--cache', type=str)
     
     args = parser.parse_args()
-
+    print ' '.join(sys.argv)
     
     VISITED = set()
     if args.output:
@@ -297,7 +323,7 @@ if __name__ == "__main__":
     total_time = 0
     print >>sys.stderr, "Analysis starts now"
     last_time = time.time()
-    for qn, (name, elapsed, hits, seqlen, seq) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
+    for qn, (name, elapsed, hits, seqlen, seq, maxscore) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
         #if elapsed >= 0:
         #    total_time += elapsed
@@ -305,9 +331,9 @@ if __name__ == "__main__":
         # Process hits
         if elapsed == -1:
             # error occured 
-            print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
+            print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
         elif not hits:            
-            print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-'])
+            print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-', '-'])
         else:
             for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
                 hitname = hid
@@ -315,7 +341,7 @@ if __name__ == "__main__":
                 if idmap:                    
                     hitname = idmap[hid][0]                    
                     
-                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto]))
+                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto, hscore/float(maxscore)]))
                                                         
         OUT.flush()
         total_time += time.time() - last_time
