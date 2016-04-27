@@ -6,12 +6,20 @@ import time
 from collections import Counter
 import cPickle
 from pymongo import MongoClient
+import gzip
+
 mongoCli = MongoClient()
 mongoDB = mongoCli.eggnog4_1
 db_speciation = mongoDB.sp_events
 db_members = mongoDB.members
 
 PHMMER_BIN = "/g/bork1/huerta/_soft/hmmer-3.1b2/src/phmmer"
+
+def gopen(fname):
+    if fname.endswith('.gz'):
+        return gzip.open(fname, 'r:gz')
+    else:
+        return open(fname)
 
 def get_best_hit(target_seq, target_og):    
     tempout = str(uuid.uuid4())
@@ -20,23 +28,27 @@ def get_best_hit(target_seq, target_og):
     status = os.system(cmd)
     best_hit = None
     if status == 0:
-        for line in open(tempout):
+        for line in gopen(tempout):
             if line.startswith('#'):
                 continue
             else:
-                best_hit = line.split()
+                best_hit = line.split()                
                 break
         os.remove(tempout)
     else:
         raise ValueError('Error running')
 
     if best_hit:
-        best_hit_name = best_hit[2]
+        best_hit_name = best_hit[0]
         best_hit_evalue = best_hit[4]
         best_hit_score = best_hit[5]
         orthologs = sorted(get_grainned_orthologs_by_member([best_hit_name]))
-        pname = Counter(get_preferred_names_dict(orthologs).values())
-        name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
+        if orthologs:
+            pname = Counter(get_preferred_names_dict(orthologs).values())
+            name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
+        else:
+            name_ranking = [[0, 0, 0]]
+            
         if name_ranking[0][1] > 2:
             best_name = name_ranking[0][0]
         else:
@@ -51,7 +63,7 @@ def get_best_hit(target_seq, target_og):
     return [best_hit_name, best_hit_evalue, best_hit_score, best_name, orthologs]
 
 def get_preferred_names_dict(names):
-    query = {'$or': [{"n":n.split('.', 1)[1], "t":int(n.split('.', 1)[0])} for n in names]} 
+    query = {'$or': [{"n":n.split('.', 1)[1], "t":int(n.split('.', 1)[0])} for n in names]}
     return dict([("%s.%s" %(e['t'], e['n']), e['p']) for e in db_members.find(query, {'n':1, 't':1, 'p':1})])
     
 def refine_hit(args):
@@ -142,33 +154,37 @@ def get_sp(a):
 def process_hits_file(hits_file, query_fasta):
     from ete3 import SeqGroup
     from multiprocessing import Pool
-    FASTA_PATH = 'OG_fasta/'    
+    FASTA_PATH = '/home/huerta/eggnog-mapper/OG_fasta/'    
     print "Loading OG data..."
-    og2level = cPickle.load(open("og2level.pkl"))
+    og2level = cPickle.load(open("/home/huerta/eggnog-mapper/og2level.pkl"))
     
     aln = SeqGroup(query_fasta)
     cmds = []
     visited_queries = set()
-    for line in open(hits_file):
+    for line in gopen(hits_file):
         if line.startswith('#'):
-            continue
+            continue        
 
-        fields = line.split('\t')
+        fields = line.split('\t')        
         seq = aln.get_seq(fields[0].strip())
         seqname = fields[0]
         hitname = fields[1]
+        if hitname == '-':
+            continue            
+        
         if seqname in visited_queries:
             continue
         visited_queries.add(seqname)
         level = og2level.get(hitname, 'unknown')            
         target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" %hitname)
         cmds.append([seqname, seq, target_fasta])
-    print len(cmds)
+
     pool = Pool(10)
     result = []
-    process = pool.map_async(refine_hit, cmds, callback=result.append)
-    process.wait()
-    #result.append( refine_hit(cmds[0]))
+    print 'Predicting orthologs...'
+    #process = pool.map_async(refine_hit, cmds, callback=result.append)
+    for r in pool.imap(refine_hit, cmds):
+        result.append(r)
     
     return result
                     
@@ -180,15 +196,16 @@ if __name__ == "__main__":
     parser.add_argument('-o', dest='output', type=str, help="output")
 
     args = parser.parse_args()
-    
+    print ' '.join(sys.argv)
     results = process_hits_file(args.hitsfile, args.fastafile)
     if args.output:
         OUT = open(args.output, "w")
     else:
         OUT = sys.stdout
     print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs".split(','))
-    for r in results[0]:
+    for r in results:
         print >>OUT, '\t'.join(map(str, (r[0], r[1], r[2], r[3], r[4], ','.join(r[5]))))
         
     if args.output:
         OUT.close()
+    print "Done"
