@@ -160,12 +160,12 @@ def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='h
     except Exception:
         max_hits = None
         
-    for seqnum, record in enumerate(SeqIO.parse(msf, msfformat)):                
+    for seqnum, record in enumerate(SeqIO.parse(msf, msfformat)):        
         name = record.id
         if skip and name in skip:
             continue
         if maxseqlen and len(record.seq) > maxseqlen:           
-            yield name, -1, [], len(record.seq), None
+            yield name, -1, [], len(record.seq), None, None
             continue
 
         if not record.seq:
@@ -327,7 +327,7 @@ if __name__ == "__main__":
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
         #if elapsed >= 0:
         #    total_time += elapsed
-        
+        print qn
         # Process hits
         if elapsed == -1:
             # error occured 

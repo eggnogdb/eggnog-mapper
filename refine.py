@@ -151,7 +151,7 @@ def get_grainned_orthologs_by_member(target_members, target_taxa=None, target_no
 def get_sp(a):
     return a
 
-def process_hits_file(hits_file, query_fasta):
+def process_hits_file(hits_file, query_fasta, skip_queries=None):
     from ete3 import SeqGroup
     from multiprocessing import Pool
     FASTA_PATH = '/home/huerta/eggnog-mapper/OG_fasta/'    
@@ -161,6 +161,10 @@ def process_hits_file(hits_file, query_fasta):
     aln = SeqGroup(query_fasta)
     cmds = []
     visited_queries = set()
+
+    if skip_queries:
+        visited_queries.update(skip_queries)
+    
     for line in gopen(hits_file):
         if line.startswith('#'):
             continue        
@@ -169,8 +173,8 @@ def process_hits_file(hits_file, query_fasta):
         seq = aln.get_seq(fields[0].strip())
         seqname = fields[0]
         hitname = fields[1]
-        if hitname == '-':
-            continue            
+        if hitname == '-' or hitname == 'ERROR':
+            continue
         
         if seqname in visited_queries:
             continue
@@ -184,9 +188,10 @@ def process_hits_file(hits_file, query_fasta):
     print 'Predicting orthologs...'
     #process = pool.map_async(refine_hit, cmds, callback=result.append)
     for r in pool.imap(refine_hit, cmds):
-        result.append(r)
+        yield r
+        #result.append(r)
     
-    return result
+    #return result
                     
 if __name__ == "__main__":
     import argparse
@@ -194,16 +199,22 @@ if __name__ == "__main__":
     parser.add_argument('--hits', dest='hitsfile', type=str, help="hits file", required=True)
     parser.add_argument('-f', dest='fastafile', type=str, help="fasta file", required=True)
     parser.add_argument('-o', dest='output', type=str, help="output")
+    parser.add_argument('--resume', dest='resume', action="store_true")
 
     args = parser.parse_args()
     print ' '.join(sys.argv)
-    results = process_hits_file(args.hitsfile, args.fastafile)
-    if args.output:
+
+    skip_queries = None
+    if args.resume and args.output:
+        skip_queries = set([line.strip().split('\t')[0] for line in gopen(args.output)])
+        OUT = open(args.output, "a")
+        print "Skipping", len(skip_queries), 'queries'
+    elif args.output:
         OUT = open(args.output, "w")
     else:
         OUT = sys.stdout
     print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs".split(','))
-    for r in results:
+    for r in process_hits_file(args.hitsfile, args.fastafile, skip_queries):
         print >>OUT, '\t'.join(map(str, (r[0], r[1], r[2], r[3], r[4], ','.join(r[5]))))
         
     if args.output:
