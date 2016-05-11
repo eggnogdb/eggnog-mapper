@@ -149,7 +149,35 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=N
     s.close()
     return  elapsed, hits
 
-def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, cache=None):
+def iter_hits_hmm(hmmfile, msfformat='fasta', address="127.0.0.1", port=51371, dbtype="hmmdb", evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, cache=None):
+    try:
+        max_hits = int(max_hits)
+    except Exception:
+        max_hits = None
+
+    
+    HMMFILE = open(hmmfile)    
+    with open(hmmfile) as HMMFILE:
+        while HMMFILE.tell() != os.fstat(HMMFILE.fileno()).st_size:
+
+            model = ''
+            name = 'Unknown'
+            leng = None
+            for line in HMMFILE:
+                if line.startswith("NAME"):
+                    name = line.split()[-1]
+                if line.startswith("LENG"):
+                    leng = int(line.split()[-1])
+                model += line
+                if line.strip() == '//':
+                    break
+
+            data = '@--%s 1\n%s' %(dbtype, model)
+            etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)    
+            yield name, etime, hits, leng, None, 1
+
+    
+def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype="hmmdb", evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, cache=None):    
     if cache:
         seqnum2md5 = {}
         for seqnum, record in enumerate(SeqIO.parse(msf, msfformat)):
@@ -278,7 +306,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', dest='host', default='127.0.0.1')
-    parser.add_argument('-p', dest='port', default=51371, type=int)
+    parser.add_argument('-p', dest='port', default=0, type=int)
     parser.add_argument('--db', dest='db', required=True, choices=DBDATA.keys(), help='specify the target database for sequence searches')
     
     parser.add_argument('--leveldb', dest='level', help='specify a specific taxonomic level database')
@@ -293,7 +321,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits searching best protein within the matching group")
     parser.add_argument('--cache', type=str)
+    parser.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
+    parser.add_argument('--hmm', action="store_true")
     
+        
     args = parser.parse_args()
     print ' '.join(sys.argv)
     
@@ -309,8 +340,11 @@ if __name__ == "__main__":
     else:
         OUT = sys.stdout
 
-    args.port = DBDATA[args.db]['client_port']
-    idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
+    if args.port:
+        idmap = None
+    else:
+        args.port = DBDATA[args.db]['client_port']
+        idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
     
     if not server_up(args.host, args.port):
         print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(args.host, args.port)
@@ -323,7 +357,10 @@ if __name__ == "__main__":
     total_time = 0
     print >>sys.stderr, "Analysis starts now"
     last_time = time.time()
-    for qn, (name, elapsed, hits, seqlen, seq, maxscore) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype='hmmdb',
+    if args.hmm:
+        iter_hits = iter_hits_hmm
+    
+    for qn, (name, elapsed, hits, seqlen, seq, maxscore) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype=args.dbtype,
                                                          evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
         #if elapsed >= 0:
         #    total_time += elapsed
