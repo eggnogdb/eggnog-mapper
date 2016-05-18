@@ -77,7 +77,7 @@ def unpack_ali():
     pass
     
     
-def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=None):
+def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=None, fixed_Z=None):
     hits = []
     hit_models = set()
     s = socket.socket()
@@ -97,7 +97,9 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=N
             binresult += s.recv(4096)
 
         elapsed, nreported, Z, domZ = unpack_stats(binresult[0:120])
-
+        if fixed_Z:
+            Z = fixed_Z
+        
         hits_start = 120
         hits_end = hits_start + (152 * nreported)
         dom_start = hits_end
@@ -149,17 +151,11 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None, max_hits=N
     s.close()
     return  elapsed, hits
 
-def iter_hits_hmm(hmmfile, msfformat='fasta', address="127.0.0.1", port=51371, dbtype="hmmdb", evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, cache=None):
-    try:
-        max_hits = int(max_hits)
-    except Exception:
-        max_hits = None
-
-    
+def iter_hmm_hits(hmmfile, host, port, dbtype="hmmdb",
+                  evalue_thr=None, max_hits=None, skip=None, maxseqlen=None, fixed_Z=None): 
     HMMFILE = open(hmmfile)    
     with open(hmmfile) as HMMFILE:
         while HMMFILE.tell() != os.fstat(HMMFILE.fileno()).st_size:
-
             model = ''
             name = 'Unknown'
             leng = None
@@ -167,63 +163,59 @@ def iter_hits_hmm(hmmfile, msfformat='fasta', address="127.0.0.1", port=51371, d
                 if line.startswith("NAME"):
                     name = line.split()[-1]
                 if line.startswith("LENG"):
-                    leng = int(line.split()[-1])
+                    hmm_leng = int(line.split()[-1])
                 model += line
                 if line.strip() == '//':
                     break
-
+                    
+            if skip and name in skip:
+                continue
+                
             data = '@--%s 1\n%s' %(dbtype, model)
-            etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)    
-            yield name, etime, hits, leng, None, 1
-
+            etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr, max_hits=max_hits, fixed_X=fixed_Z)
+            yield name, etime, hits, hmm_leng, None
     
-def iter_hits(msf, msfformat='fasta', address="127.0.0.1", port=51371, dbtype="hmmdb", evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, cache=None):    
-    if cache:
-        seqnum2md5 = {}
-        for seqnum, record in enumerate(SeqIO.parse(msf, msfformat)):
-            seqnum2md5[seqnum] = md5(str(record.seq)).hexdigest()
-        
-    try:
-        max_hits = int(max_hits)
-    except Exception:
-        max_hits = None
-        
-    for seqnum, record in enumerate(SeqIO.parse(msf, msfformat)):        
+def iter_seq_hits(src, host, port, dbtype,
+                  evalue_thr=None, max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):    
+    for seqnum, record in enumerate(SeqIO.parse(src, "fasta")):        
         name = record.id
         if skip and name in skip:
             continue
+            
         if maxseqlen and len(record.seq) > maxseqlen:           
-            yield name, -1, [], len(record.seq), None, None
+            yield name, -1, [], len(record.seq), None
             continue
 
         if not record.seq:
             continue
 
-        if cache and seqnum2md5[seqnum] in cached_hits:
-            name, evalue, score, hmmfrom, hmmto, sqfrom, sqto, bitscore = cached_hits[seqnum2md5[seqnum]]
-            if evalue_thr is None or evalue <= evalue_thr:
-                for h in cached_hits:
-                    hit_models.add(name)
-                    hits.append((name, evalue, score, hmmfrom, hmmto, sqfrom, sqto, bitscore))
-                    if max_hits and len(hit_models) == max_hits:
-                        break
-        else:
-            seq = str(record.seq)
-            seq = re.sub("-.", "", seq)
-            data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
-            etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
+        seq = str(record.seq)
+        seq = re.sub("-.", "", seq)
+        data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
+        etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr, max_hits=max_hits, fixed_Z=fixed_Z)
 
-        max_score = sum([B62_IDENTITIES.get(nt, 0) for nt in seq])
-        
-        if return_seq: 
-            yield name, etime, hits, len(seq), seq, max_score
-        else:
-            yield name, etime, hits, len(seq), None, max_score
+        #max_score = sum([B62_IDENTITIES.get(nt, 0) for nt in seq])        
+        yield name, etime, hits, len(seq), None
 
+def iter_hits(source, query_type, dbtype, scantype, host, port,
+              evalue_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, fixex_Z=None):
+    try:
+        max_hits = int(max_hits)
+    except Exception:
+        max_hits = None
+    
+    if scantype == 'mem' and query_type == "seq":
+        return iter_seq_hits(source, host, port, dbtype=dbtype, evalue_thr=evalue_thr, max_hits=max_hits)
+    elif scantype == 'mem' and query_type == "hmm" and dbtype == "seqdb":
+        return iter_hmm_hits(src, )
+    elif scantype == 'disk' and query_type == "seq":
+        return hmmscan(source, host)
+    else:
+        raise ValueError('not supported')         
+            
 def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_thr=None, max_hits=None):    
     seq = re.sub("-.", "", seq)    
-    data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)
-    
+    data = '@--%s 1\n>%s\n%s\n//' %(dbtype, name, seq)    
     etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
     print etime
     return name, etime, hits
@@ -238,31 +230,63 @@ def server_up(host, port):
     else: 
         return False
 
-def hmmscan(fasta, database_path, ncpus=10):
-    F = NamedTemporaryFile()
-    F.write(fasta)
-    F.flush()
+def safe_cast(v):
+    try:
+        return float(v)
+    except ValueError:
+        return v.strip()
+        
+def hmmscan(query_file, database_path, ncpus=10, fixed_Z=None):
+    #F = NamedTemporaryFile()
+    #F.write(fasta)
+    #F.flush()
     OUT = NamedTemporaryFile()
-    cmd = '%s --cpu %s -o /dev/null -Z 10000000 --tblout %s %s %s' %(HMMSCAN, ncpus, OUT.name, database_path, F.name)
+    cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' %(HMMSCAN, ncpus, OUT.name, database_path, query_file)
+    
     #print cmd
     sts = subprocess.call(cmd, shell=True)
     byquery = defaultdict(list)
 
+    last_query = None
+    hit_list = []
+    last_query_len = None
     if sts == 0:
         for line in OUT:
+            # TBLOUT
             #['#', '---', 'full', 'sequence', '----', '---', 'best', '1', 'domain', '----', '---', 'domain', 'number', 'estimation', '----']
             #['#', 'target', 'name', 'accession', 'query', 'name', 'accession', 'E-value', 'score', 'bias', 'E-value', 'score', 'bias', 'exp', 'reg', 'clu', 'ov', 'env', 'dom', 'rep', 'inc', 'description', 'of', 'target']
             #['#-------------------', '----------', '--------------------', '----------', '---------', '------', '-----', '---------', '------', '-----', '---', '---', '---', '---', '---', '---', '---', '---', '---------------------']
             #['delNOG20504', '-', '553220', '-', '1.3e-116', '382.9', '6.2', '3.4e-116', '381.6', '6.2', '1.6', '1', '1', '0', '1', '1', '1', '1', '-']
-            if line.startswith('#'): continue
-            fields = line.split() # output is not tab delimited! Should I trust this split?
-            hit, _, query, _ , evalue, score, bias, devalue, dscore, dbias = fields[0:10]
-            evalue, score, bias, devalue, dscore, dbias = map(float, [evalue, score, bias, devalue, dscore, dbias])
-            byquery[query].append([hit, evalue, score])
+            #fields = line.split() # output is not tab delimited! Should I trust this split?
+            #hit, _, query, _ , evalue, score, bias, devalue, dscore, dbias = fields[0:10]
+            
+            #DOMTBLOUT
+            #                                                                             --- full sequence --- -------------- this domain -------------   hmm coord   ali coord   env coord
+            # target name        accession   tlen query name            accession   qlen   E-value  score  bias   #  of  c-Evalue  i-Evalue  score  bias  from    to  from    to  from    to  acc description of target
+            #------------------- ---------- -----  -------------------- ---------- ----- --------- ------ ----- --- --- --------- --------- ------ ----- ----- ----- ----- ----- ----- ----- ---- ---------------------
+            #Pkinase              PF00069.22   264 1000565.METUNv1_02451 -            858   4.5e-53  180.2   0.0   1   1   2.4e-56   6.6e-53  179.6   0.0     1   253   580   830   580   838 0.89 Protein kinase domain
+            
+            
+            if line.startswith('#'):
+                continue
+            fields = line.split()
+            (hitname, hacc, tlen, qname, qacc, qlen, evalue, score, bias, didx, dnum, c_evalue,
+             i_evalue, d_score, d_bias, hmmfrom, hmmto, seqfrom, seqto, env_from, env_to, acc) = map(safe_cast, fields[:22])
+            if last_query and qname != last_query:
+                yield last_query, -1, hit_list, last_query_len, None
+                hit_list = []
+                last_query = qname
+                last_query_len = None
+            hit_list.append([hitname, evalue, score, hmmfrom, hmmto, seqfrom, seqto, d_score])
+            last_query = qname
+            if last_query_len and last_query_len != qlen:
+                raise ValuerError("Inconsistent qlen when parsing hmmscan output")
+            last_query_len = qlen
+
+        yield last_query, 0, hit_list, last_query_len, None
             
     OUT.close()
-    F.close()
-    return byquery
+
 
 def hmmsearch(query_hmm, target_db, ncpus=10):
     OUT = NamedTemporaryFile()
@@ -301,110 +325,132 @@ def load_nog_lineages():
             nog2lineage[fields[0].split('@')[0]] = map(lambda x: tuple(x.split('@')), fields[2].split(','))
         cPickle.dump(nog2lineage, open('NOG_hierarchy.pkl', 'wb'), protocol=2)
     return nog2lineage
-    
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-a', dest='host', default='127.0.0.1')
-    parser.add_argument('-p', dest='port', default=0, type=int)
-    parser.add_argument('--db', dest='db', choices=DBDATA.keys(), help='specify the target database for sequence searches')
-    
-    parser.add_argument('--leveldb', dest='level', help='specify a specific taxonomic level database')
-    
-    parser.add_argument('--evalue', dest='evalue', default=0.001, type=float, help="e-value threshold")
-    parser.add_argument('--maxhits', dest='maxhits', type=int, help="max number of hits to report")
-    parser.add_argument('--output', type=str, help="output file")
-    parser.add_argument('--maxseqlen', type=int, help="exclude query sequences larger than `maxseqlen`")
-    parser.add_argument('--resume', action="store_true", help="Resumes a previous execution skipping reported hits in the output file.")
-    
-    parser.add_argument('fastafile', metavar="fastafile", nargs=1, help='query file')
 
-    parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits searching best protein within the matching group")
-    parser.add_argument('--cache', type=str)
-    parser.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
-    parser.add_argument('--hmm', action="store_true")
-    parser.add_argument('--idmap', dest='idmap', type=str)
-    
-        
-    args = parser.parse_args()
-    print >>sys.stderr,  ' '.join(sys.argv)
-
-    if args.port:
-        idmap = None
-        if args.idmap:
-            idmap = {}
-            for _lnum, _line in enumerate(open(args.idmap)):
-                if _lnum == 0 or not _line.strip():
-                    continue
-                _seqid, _seqname = map(str, _line.strip().split(' '))
-                _seqid = int(_seqid)
-                idmap[_seqid] = [_seqname]
-            print >>sys.stderr, len(idmap), "names loaded", 
-    else:
-        if not args.db:
-            parser.error('--db argument is required')
-                
-        args.port = DBDATA[args.db]['client_port']
+def main(args):    
+    if args.db in DBDATA:
+        db = DBDATA
+        port = DBDATA[args.db]["client_port"]
+        host = "localhost"
         idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
+        scantype = 'mem'
+    elif os.path.isfile(args.db):
+        idmap = None
+        port = None
+        host = args.db
+        scantype = 'disk'
+    else:
+        db = None
+        scantype = 'mem'
+        if ":" in args.db:
+            host, port = args.db.split(":")
+            host = host.strip()            
+            port = int(port)
+        else:
+            host = 'localhost'
+            port = int(args.db)
+        idmap = None
 
+    if port and not server_up(host, port):
+        print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(host, port)
+        exit(-1)
+        
+    if port and args.idmap:
+        idmap = {}
+        for _lnum, _line in enumerate(open(args.idmap)):
+            if _lnum == 0 or not _line.strip():
+                continue
+            _seqid, _seqname = map(str, _line.strip().split(' '))
+            _seqid = int(_seqid)
+            idmap[_seqid] = [_seqname]
+        print >>sys.stderr, len(idmap), "names loaded", 
     
     VISITED = set()
     if args.output:
         if args.resume:
             print "Resuming previous run. Reading computed output from", args.output
             VISITED = set([line.split('\t')[0].strip() for line in open(args.output) if not line.startswith('#')])
-            print len(VISITED), 'processed queries'
+            print len(VISITED), 'processed queries skipped'
             OUT = open(args.output, 'a')
         else:
             OUT = open(args.output, 'w')
     else:
         OUT = sys.stdout
 
-    
-    if not server_up(args.host, args.port):
-        print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(args.host, args.port)
-        exit(-1)
 
+    HEADER = ['query', 'hit', 'e-value', 'sum_score', 'query_length', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto', 'q_coverage']
     print >>OUT, '# ' + time.ctime()
     print >>OUT, '# ' + ' '.join(sys.argv)
-    print >>OUT, '# ' + '\t'.join(['query', 'hit', 'e-value', 'sum_score', 'query_length', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto'])
+    print >>OUT, '# ' + '\t'.join(HEADER)
         
+    print >>sys.stderr, "Analysis starts now."
     total_time = 0
-    print >>sys.stderr, "Analysis starts now"
     last_time = time.time()
-    if args.hmm:
-        iter_hits = iter_hits_hmm
-    
-    for qn, (name, elapsed, hits, seqlen, seq, maxscore) in enumerate(iter_hits(args.fastafile[0], address=args.host, port=args.port, dbtype=args.dbtype,
-                                                         evalue_thr=args.evalue, max_hits=args.maxhits, return_seq=args.refine, skip=VISITED, maxseqlen=args.maxseqlen)):
-        #if elapsed >= 0:
-        #    total_time += elapsed
-        print qn
-        # Process hits
+    for qn, (name, elapsed, hits, querylen, seq) in enumerate(iter_hits(args.fastafile[0],
+                                                                            args.qtype,
+                                                                            args.dbtype,
+                                                                            scantype,
+                                                                            host,
+                                                                            port,
+                                                                            evalue_thr=args.evalue,
+                                                                            qcov_thr=args.qcov,
+                                                                            fixed_Z=args.Z,                                                                                
+                                                                            max_hits=args.maxhits,
+                                                                            skip=VISITED,
+                                                                            maxseqlen=args.maxseqlen)):
+        print qn    
         if elapsed == -1:
             # error occured 
-            print >>OUT, '\t'.join([name, 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR', 'ERROR'])
+            print >>OUT, '\t'.join([name] + ['ERROR'] * len(HEADER))
         elif not hits:            
-            print >>OUT, '\t'.join([name, '-', '-', '-', '-', '-', '-', '-', '-', '-'])
+            print >>OUT, '\t'.join([name] + ['-'] * len(HEADER))
         else:
             for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
                 hitname = hid
-                level = "NA"
+                level = "-"
                 if idmap:                    
-                    hitname = idmap[hid][0]
-                    
-                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto, hscore/float(maxscore)]))
-                                                        
+                    hitname = idmap[hid][0]                    
+                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, querylen, hmmfrom, hmmto, sqfrom, sqto, (sqto-sqfrom)/querylen]))                                                        
         OUT.flush()
+
+        # monitoring
         total_time += time.time() - last_time
         last_time = time.time()
         if qn and (qn % 25 == 0):
             print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
             sys.stderr.flush()
-            
+
+    # finish
     print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
     sys.stderr.flush()
     print >>OUT, '# %d queries scanned' %(qn + 1)
     print >>OUT, '# Total time (seconds):', total_time
     if args.output:
         OUT.close()
+    
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
+    # server
+    parser.add_argument('--db', required=True, dest='db', help='specify the target database for sequence searches')
+    parser.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
+    parser.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
+    parser.add_argument('--idmap', dest='idmap', type=str)
+    
+    parser.add_argument('--evalue', dest='evalue', default=0.001, type=float, help="e-value threshold")
+    parser.add_argument('--maxhits', dest='maxhits', type=int, help="max number of hits to report")
+    parser.add_argument('--maxseqlen', type=int, help="exclude query sequences larger than `maxseqlen`")
+    parser.add_argument('--qcov', type=float, help="min query coverage (from 0 to 1)")
+    parser.add_argument('--Z', dest='Z', type=float, help='NOT IMPLEMENTED YET')
+    
+    parser.add_argument('--output', type=str, help="output file")    
+    parser.add_argument('--resume', action="store_true", help="Resumes a previous execution skipping reported hits in the output file.")
+    
+    parser.add_argument('fastafile', metavar="fastafile", nargs=1, help='query file')
+
+    #parser.add_argument('--refine', action="store_true", dest='refine', help="Refine hits searching best protein within the matching group")
+    #parser.add_argument('--cache', type=str)
+    args = parser.parse_args()
+    main(args)
+
