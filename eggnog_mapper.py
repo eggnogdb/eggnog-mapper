@@ -307,7 +307,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', dest='host', default='127.0.0.1')
     parser.add_argument('-p', dest='port', default=0, type=int)
-    parser.add_argument('--db', dest='db', required=True, choices=DBDATA.keys(), help='specify the target database for sequence searches')
+    parser.add_argument('--db', dest='db', choices=DBDATA.keys(), help='specify the target database for sequence searches')
     
     parser.add_argument('--leveldb', dest='level', help='specify a specific taxonomic level database')
     
@@ -323,10 +323,30 @@ if __name__ == "__main__":
     parser.add_argument('--cache', type=str)
     parser.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
     parser.add_argument('--hmm', action="store_true")
+    parser.add_argument('--idmap', dest='idmap', type=str)
     
         
     args = parser.parse_args()
-    print ' '.join(sys.argv)
+    print >>sys.stderr,  ' '.join(sys.argv)
+
+    if args.port:
+        idmap = None
+        if args.idmap:
+            idmap = {}
+            for _lnum, _line in enumerate(open(args.idmap)):
+                if _lnum == 0 or not _line.strip():
+                    continue
+                _seqid, _seqname = map(str, _line.strip().split(' '))
+                _seqid = int(_seqid)
+                idmap[_seqid] = [_seqname]
+            print >>sys.stderr, len(idmap), "names loaded", 
+    else:
+        if not args.db:
+            parser.error('--db argument is required')
+                
+        args.port = DBDATA[args.db]['client_port']
+        idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
+
     
     VISITED = set()
     if args.output:
@@ -340,11 +360,6 @@ if __name__ == "__main__":
     else:
         OUT = sys.stdout
 
-    if args.port:
-        idmap = None
-    else:
-        args.port = DBDATA[args.db]['client_port']
-        idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
     
     if not server_up(args.host, args.port):
         print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(args.host, args.port)
@@ -376,7 +391,7 @@ if __name__ == "__main__":
                 hitname = hid
                 level = "NA"
                 if idmap:                    
-                    hitname = idmap[hid][0]                    
+                    hitname = idmap[hid][0]
                     
                 print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, seqlen, hmmfrom, hmmto, sqfrom, sqto, hscore/float(maxscore)]))
                                                         
