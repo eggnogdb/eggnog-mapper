@@ -2,11 +2,11 @@
 
 eggnog-mapper is a tool designed for bulk and efficient mappings of protein
 sequences aginst HMM databases. Several preconfigured databases are provided
-based on eggNOG v4.5 orthologous groups (OGs), allowing also 1) functionally
-annotated sequences based on orthology predictions 2) generate fast orthology
-assignments of novel sequences against 2031 organisms.
+based on **eggNOG v4.5 orthologous groups** (OGs), allowing to functionally
+annotate novel sequences based on orthology predictions. Furthermore, fast orthology
+assignments of novel sequences can be executed against 2031 organisms.
 
-Alternatively, some of the scripts under this package can be used to map protein
+Some of the scripts under this package can be used to map protein
 sequences against any random HMMER3 database. 
 
 This tool is also used for the web services currently hosted at
@@ -14,21 +14,19 @@ http://beta-eggnogdb.embl.de/#/app/seqmapper.
 
 ## Current Tools: 
 
-- `server.py`: preloads eggNOG HMM databases into memory. Three eggNOG
-taxonomy-restricted databases are currently available: 
-  - euk (Eukaryotes) 
-  - bact (Bacteria) 
-  - arch (Archea)
+- `server.py`: preloads eggNOG HMM databases into memory using hmmpgmd from [HMMER3](http://hmmer.org/). Three eggNOG
+  taxonomy-restricted databases are currently available: `euk`(Eukaryotes), 
+  `bact` (Bacteria), `arch` (Archea).
 
-- `eggnog_mapper.py`: map protein sequences against the above mentioned eggNOG HMMER
-   databases. Alternatively, `eggnog_mapper.py` can also be used as a tool for mapping sequences
-   against a regular HMMER3 database. 
+- `eggnog_mapper.py`: maps protein sequences against the above mentioned 
+  eggNOG HMM-databases. `eggnog_mapper.py` can also be used
+  as for mapping sequences against custom HMMER3 databases. 
  
-- `annotate.py`: reads the output of eggnog_mapper and link hits to functional
-  eggNOG-based annotations. Functional mappings: GO terms, KEGG pathways, COG
+- `annotate.py`: reads the output produced by eggnog_mapper and provides functional
+  predictions based on eggNOG-based orthology annotations. Functional mappings include GO terms, KEGG pathways, COG
   functional categories and a consensus functional description.
 
-- `refine.py`: reads the ouput of eggnog_mapper and uses eggNOG precomputed fine
+- `refine.py` (experimental): reads the ouput of eggnog_mapper and uses eggNOG precomputed fine
   grained orthology assignments to predict orthologs for the query
   sequences. Additionally, functional annotations and predicted protein names
   (sub-families) can be refined using orthology predictions.
