@@ -20,6 +20,8 @@ from hashlib import md5
 from Bio import SeqIO
 
 from server import DBDATA
+import server
+
 from refine import refine_hit
 
 BASEPATH = os.path.split(os.path.abspath(__file__))[0]
@@ -230,6 +232,14 @@ def server_up(host, port):
     else: 
         return False
 
+def server_functional(host, port, dbtype):
+    try:
+        get_hits("test", "TESTSEQ", host, port, dbtype)
+    except Exception, e:
+        print 'Server not ready', e
+        return False
+    return True
+    
 def safe_cast(v):
     try:
         return float(v)
@@ -326,7 +336,14 @@ def load_nog_lineages():
         cPickle.dump(nog2lineage, open('NOG_hierarchy.pkl', 'wb'), protocol=2)
     return nog2lineage
 
-def main(args):    
+def generate_idmap(dbpath):
+    cmd = """hmmstat %s |grep -v '#'|awk '{print $1" "$2}' > %s""" %(dbpath, dbpath+'.idmap')
+    print 'Generating idmap in', dbpath+'.idmap'
+    return os.system(cmd) == 0
+        
+def main(args):
+    master_db, worker_db = None, None
+    
     if args.db in DBDATA:
         db = DBDATA
         port = DBDATA[args.db]["client_port"]
@@ -334,10 +351,39 @@ def main(args):
         idmap = cPickle.load(open(DBDATA[args.db]['idmap'], 'rb'))
         scantype = 'mem'
     elif os.path.isfile(args.db):
-        idmap = None
-        port = None
-        host = args.db
-        scantype = 'disk'
+        if args.usemem:
+            if not args.idmap:
+                if generate_idmap(args.db):
+                    args.idmap = args.db+".idmap"
+                    print >>sys.stderr, "idmap succesfully created!"
+                else:
+                    print >>sys.stderr, "idmap could not be created!"
+                    idmap = None
+            else:
+                idmap = None
+                
+            for try_port in range(52000, 53000, 2):
+                print >>sys.stderr, "Loading server at localhost, port", try_port, try_port+1
+                dbpath, master_db, worker_db = server.load_server(args.db, try_port, try_port+1, args.cpu)
+                port = try_port
+                host = 'localhost'
+                ready = False
+                while 1:
+                    print >>sys.stderr, "Waiting for server to become ready..."
+                    time.sleep(1)
+                    if not server.check_pid(master_db.pid) or not server.check_pid(worker_db.pid):
+                        break
+                    elif server_functional(host, port, args.dbtype):
+                        ready = True
+                        break                   
+                if ready:
+                    break
+            scantype = 'mem'
+        else:
+            idmap = None
+            port = None
+            host = args.db
+            scantype = 'disk'
     else:
         db = None
         scantype = 'mem'
@@ -354,15 +400,22 @@ def main(args):
         print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(host, port)
         exit(-1)
         
-    if port and args.idmap:
+    if args.idmap:
+        print >>sys.stderr, "Reading idmap"
         idmap = {}
         for _lnum, _line in enumerate(open(args.idmap)):
-            if _lnum == 0 or not _line.strip():
-                continue
-            _seqid, _seqname = map(str, _line.strip().split(' '))
+            if not _line.strip():
+                continue                
+            try:
+                _seqid, _seqname = map(str, _line.strip().split(' '))
+            except ValueError:
+                if _lnum == 0:
+                    continue # idmap generate by esl_reformat has an info line at begining
+                else:
+                    raise                   
             _seqid = int(_seqid)
             idmap[_seqid] = [_seqname]
-        print >>sys.stderr, len(idmap), "names loaded", 
+        print >>sys.stderr, len(idmap), "names loaded" 
     
     VISITED = set()
     if args.output:
@@ -397,7 +450,7 @@ def main(args):
                                                                             max_hits=args.maxhits,
                                                                             skip=VISITED,
                                                                             maxseqlen=args.maxseqlen)):
-        print qn    
+
         if elapsed == -1:
             # error occured 
             print >>OUT, '\t'.join([name] + ['ERROR'] * len(HEADER))
@@ -426,14 +479,22 @@ def main(args):
     print >>OUT, '# Total time (seconds):', total_time
     if args.output:
         OUT.close()
-    
+
+    if master_db:
+        master_db.terminate()
+    if worker_db:
+        worker_db.terminate()
+        
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
 
     # server
-    parser.add_argument('--db', required=True, dest='db', help='specify the target database for sequence searches')
+    parser.add_argument('--db', required=True, dest='db', help='specify the target database for sequence searches. Choose among: euk,bact,arch, host:port, or local hmmpressed database')
+    parser.add_argument('--usemem', action="store_true", help='If a local hmmpressed databased is provided as target, this flag allows to store the database in memory prior to all computations. Database is unloaded when finished.')
+    parser.add_argument('--cpu', type=int, default=1)
+    
     parser.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
     parser.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
     parser.add_argument('--idmap', dest='idmap', type=str)
