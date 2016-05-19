@@ -62,7 +62,7 @@ def main(args):
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        query, og, evalue, score, querylen, hmmfrom, hmmto, qfrom, qto, norm_score  = line.split('\t')       
+        query, og, evalue, score, querylen, hmmfrom, hmmto, qfrom, qto = line.split('\t')       
         if query not in visited: 
             query_list.append(query)
             visited[query] = 0
@@ -78,7 +78,7 @@ def main(args):
             if q_cov < args.min_q_coverage:
                 continue
 
-            norm_score = float(norm_score)
+            #norm_score = float(norm_score)
             # if norm_score < 0.2:
             #     print "SKIP", norm_score
             #     continue
@@ -89,7 +89,7 @@ def main(args):
                 visited[query] += 1
 
             ogs.add(og)            
-            lines.append((query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov, norm_score))
+            lines.append((query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov))
             
     print >>sys.stderr, "Loading OG meta data for %s OGs..." %len(ogs)
     og_data = get_og_data(ogs)
@@ -103,11 +103,11 @@ def main(args):
         'go':   gzip.open(args.output+'.GeneOntology.txt.gz', "w:gz"),
         'desc': gzip.open(args.output+'.description.txt.gz', "w:gz"),
         'cats': gzip.open(args.output+'.COG_categories.txt.gz', "w:gz"),
-        'PFAM': gzip.open(args.output+'.PFAM.txt.gz', "w:gz"),
+#        'PFAM': gzip.open(args.output+'.PFAM.txt.gz', "w:gz"),
         'SMART': gzip.open(args.output+'.SMART.txt.gz', "w:gz"),
     }
     
-    header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, OG_size, evalue, score, hmmfrom, hmmto, seqfrom, seqto, query_coverage, norm_score, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
+    header = map(str.strip, "query_name, eggNOG_OG, OG_taxonomic_level, OG_size, evalue, score, hmmfrom, hmmto, seqfrom, seqto, query_coverage, nseqs_in_OG_with_term, term_prevalence_in_OG, term_type, term_info".split(','))
     for F in OUT.values():
         print >>F, '#'+'\t'.join(header)
     
@@ -126,7 +126,7 @@ def main(args):
                 for i in xrange(1, len(hit_details)):
                     tabprint(OUT[k[0]], " "*len(query), *(hit_details[i]+list(k)))
 
-    for query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov, norm_score in lines:        
+    for query, og, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov in lines:        
         if last_query is not None and query != last_query:
             print_results()
             query_data = defaultdict(list)
@@ -135,7 +135,7 @@ def main(args):
         except KeyError: 
             print >>sys.stderr, "target OG not found: %s" % line
             continue
-        hitinfo = [og, level, nm, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov, norm_score]            
+        hitinfo = [og, level, nm, evalue, score, hmmfrom, hmmto, qfrom, qto, q_cov]            
 
         query_data[("desc", desc)].append(hitinfo + ['NA', 'NA'])
         query_data[("cats", cats)].append(hitinfo + ['NA', 'NA'])
@@ -150,11 +150,11 @@ def main(args):
                 if ("kegg", pathway) not in query_data or args.full_report:
                     query_data[("kegg", pathway)].append(hitinfo+[nseqs, freq])
 
-        for dom_source, terms in domain.iteritems():
-            for dom_name, nseqs, freq, _ in terms:
-                if float(freq) >= args.min_prevalence:
-                    if (dom_source, dom_name) not in query_data or args.full_report:
-                        query_data[(dom_source, dom_name)].append(hitinfo + [nseqs, freq])
+        # for dom_source, terms in domain.iteritems():
+        #     for dom_name, nseqs, freq, _ in terms:
+        #         if float(freq) >= args.min_prevalence:
+        #             if (dom_source, dom_name) not in query_data or args.full_report:
+        #                 query_data[(dom_source, dom_name)].append(hitinfo + [nseqs, freq])
                     
 
         last_query = query
