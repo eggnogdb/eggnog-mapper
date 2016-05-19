@@ -6,8 +6,11 @@ import os
 import time
 import subprocess
 from multiprocessing import Process
+import signal
+from time import sleep
+from distutils.spawn import find_executable
 
-HMMPGMD_BIN = 'hmmpgmd'
+HMMPGMD_BIN = find_executable('hmmpgmd')
 BASEPATH = os.path.split(os.path.abspath(__file__))[0]
 
 # Predefined eggnog databases
@@ -17,33 +20,46 @@ DBDATA = {
     'arch':{ 'name': 'arch_1', 'db_path':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.hmm'), 'client_port':51600, 'worker_port':51601, 'idmap':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.pkl'), 'cpu':20},
     }
 
-def load_server(dbpath, client_port, worker_port, cpu):        
-    FNULL = open(os.devnull, 'w')
+def safe_exit(a, b):
+    if CHILD_PROC:
+        CHILD_PROC.kill()
+    sys.exit(0)
+    
+CHILD_PROC = None
+    
+def load_server(dbpath, client_port, worker_port, cpu, output=None):
+    global CHILD_PID
+    if not output:
+        OUT = open(os.devnull, 'w')
+    else:
+        OUT = output
+        
+    signal.signal(signal.SIGINT, safe_exit)
+    signal.signal(signal.SIGTERM, safe_exit)
+    
     def start_master():
         cmd = HMMPGMD_BIN +' --master --cport %d --wport %s --hmmdb %s' %(client_port, worker_port, dbpath)
-        subprocess.call(cmd, shell=True, stderr=FNULL, stdout=FNULL)
-        
+        CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
+        while 1:
+            sleep(60)
+              
     def start_worker():
         cmd = HMMPGMD_BIN +' --worker localhost --wport %s --cpu %d' %(worker_port, cpu)
-        subprocess.call(cmd, shell=True, stderr=FNULL, stdout=FNULL)
+        CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
+        while 1:
+            sleep(60)
         
-    
     master = Process(target=start_master)
     master.start()
 
     worker = Process(target=start_worker)
     worker.start()
-    return dbpath, master, worker
-
     
-def check_pid(pid):
+    return dbpath, master, worker
+    
+def alive(p):
     """ Check For the existence of a unix pid. """
-    try:
-        os.kill(pid, 0)
-    except OSError:
-        return False
-    else:
-        return True
+    return p.is_alive()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -56,11 +72,11 @@ if __name__ == "__main__":
     
     for dbname in args.db:
         db = DBDATA[dbname]
-        checker.append(load_server(db['db_path'], db['client_port'], db['worker_port'], db['cpu']))
+        checker.append(load_server(db['db_path'], db['client_port'], db['worker_port'], db['cpu'], sys.stdout))
 
     # Keep the server runninf
     while 1:
         print 'Eggnog-mapper serving databases...', time.ctime()
         for dbpath, master, worker in checker:
-            print "  % 30s - Master (% 5d):%s - Worker (% 5d):%s" (dbpath, master.pid, check_pid(master.pid), worker.pid, check_pid(worker.pid))        
+            print "  % 30s - Master (% 5d):%s - Worker (% 5d):%s" (dbpath, master.pid, alive(master), worker.pid, alive(worker))        
         time.sleep(60)
