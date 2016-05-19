@@ -15,9 +15,9 @@ BASEPATH = os.path.split(os.path.abspath(__file__))[0]
 
 # Predefined eggnog databases
 DBDATA = {
-    'euk': { 'name': 'euk_500', 'db_path':os.path.join(BASEPATH, 'hmmdb/euk_500/euk_500.hmm'), 'client_port':51400, 'worker_port':51401, 'idmap':os.path.join(BASEPATH, 'hmmdb/euk_500/euk_500.pkl'), 'cpu':20},
-    'bact':{ 'name': 'bact_50', 'db_path':os.path.join(BASEPATH, 'hmmdb/bact_50/bact_50.hmm'), 'client_port':51500, 'worker_port':51501, 'idmap':os.path.join(BASEPATH, 'hmmdb/bact_50/bact_50.pkl'), 'cpu':20},
-    'arch':{ 'name': 'arch_1', 'db_path':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.hmm'), 'client_port':51600, 'worker_port':51601, 'idmap':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.pkl'), 'cpu':20},
+    'euk': { 'name': 'euk_500', 'db_path':os.path.join(BASEPATH, 'hmmdb/euk_500/euk_500.hmm'), 'client_port':51400, 'worker_port':51401, 'idmap':os.path.join(BASEPATH, 'hmmdb/euk_500/euk_500.pkl')},
+    'bact':{ 'name': 'bact_50', 'db_path':os.path.join(BASEPATH, 'hmmdb/bact_50/bact_50.hmm'), 'client_port':51500, 'worker_port':51501, 'idmap':os.path.join(BASEPATH, 'hmmdb/bact_50/bact_50.pkl')},
+    'arch':{ 'name': 'arch_1', 'db_path':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.hmm'), 'client_port':51600, 'worker_port':51601, 'idmap':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.pkl')},
     }
 
 def safe_exit(a, b):
@@ -64,15 +64,15 @@ def alive(p):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--db', dest='db', nargs='+', choices=['euk', 'bact', 'arch'])
-    parser.add_argument('--cpu', dest='cpu', type=int, default=20)
-        
+    parser.add_argument('--cpu', dest='cpu', type=int, default=4)
+    
     args = parser.parse_args()
 
     checker = []
     
     for dbname in args.db:
         db = DBDATA[dbname]
-        checker.append(load_server(db['db_path'], db['client_port'], db['worker_port'], db['cpu'], sys.stdout))
+        checker.append(load_server(db['db_path'], db['client_port'], db['worker_port'], args.cpu, sys.stdout))
 
     # Keep the server runninf
     while 1:
