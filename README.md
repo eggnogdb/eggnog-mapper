@@ -1,14 +1,20 @@
 # Description
 
-eggnog-mapper is a tool designed for bulk and efficient annotation of protein
-sequences using precomputed HMM models from the eggNOG v4.5 orthologous groups
-(OGs) database. It is the tool used for the web services currently hosgted at
+eggnog-mapper is a tool designed for bulk and efficient mappings of protein
+sequences aginst HMM databases. Several preconfigured databases are provided
+based on eggNOG v4.5 orthologous groups (OGs), allowing also 1) functionally
+annotated sequences based on orthology predictions 2) generate fast orthology
+assignments of novel sequences against 2031 organisms.
+
+Alternatively, some of the scripts under this package can be used to map protein
+sequences against any random HMMER3 database. 
+
+This tool is also used for the web services currently hosted at
 http://beta-eggnogdb.embl.de/#/app/seqmapper.
 
-Alternatively, some of the scripts under this package can also be to map
-sequences to any other HMMER3 database.
+## Current Tools: 
 
-- `server.py`: preloads main eggNOG HMM databases into memory.  Three eggNOG
+- `server.py`: preloads eggNOG HMM databases into memory. Three eggNOG
 taxonomy-restricted databases are currently available: 
   - euk (Eukaryotes) 
   - bact (Bacteria) 
