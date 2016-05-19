@@ -54,12 +54,9 @@ cd eggnog-mapper
 python upgrade.py
 ```
 
-Alternatively, you can download any other taxonomicly restricted eggNOG HMM-database from: 
-http://beta-eggnogdb.embl.de/download/eggnog_4.5/hmmdb_levels/
-
 # Usage: 
 
-## Mappings against the main eggNOG databases: 
+## Mapping against the main eggNOG databases: 
 
 1) start the HMMER server in a separate terminal, specifying the number of CPUs available and the target databases to load into memory. Note that the full set of databases will require ~130GB of RAM. 
 Loading the databases may take a few minutes. 
@@ -78,7 +75,6 @@ Loading the databases may take a few minutes.
 ```
 
 
-
 ### Example: annotate a set of bacterial sequences 
 ```
 eggnog_mapper/$ python server.py --db bact
@@ -87,4 +83,22 @@ eggnog_mapper/$ python server.py --db bact
 python eggnog_mapper.py test/testCOG0515.fa --output testCOG0515.hits --db bact --evalue 0.001 --maxhits 20
 python annotate.py testCOG0515.hits --output testCOG0515_annotations
 ```
+
+## Mapping against taxonomically restricted eggNOG databases: 
+
+1) Download any of taxonomicly restricted eggNOG HMM-database from: 
+http://beta-eggnogdb.embl.de/download/eggnog_4.5/hmmdb_levels/
+
+2) map sequences:
+```
+python eggnog_mapper.py test/testCOG0515.fa --output testCOG0515.hits --evalue 0.001 --maxhits 20 --db eggnog_dbs/viruses.all_hmm
+
+``` 
+If the database is very large, consider using the `--usemem` parameter, which allows to preloads the database in memory for faster mappings. 
+```
+python eggnog_mapper.py test/testCOG0515.fa --output testCOG0515.hits --evalue 0.001 --maxhits 20 --db eggnog_dbs/primates.all_hmm --usemem
+```
+
+3) annotate functionally
+...to be completed...
 
