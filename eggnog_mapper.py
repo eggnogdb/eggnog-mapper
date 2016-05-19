@@ -486,17 +486,6 @@ def main(args):
     for p in multiprocessing.active_children():
         p.terminate()
         
-    time.sleep(1)
-    for p in multiprocessing.active_children():
-        print p.is_alive(), p.pid
-
-        
-#    if master_db:
-#        master_db.terminate()
-#    if worker_db:
-#        worker_db.terminate()
-
-
 
 if __name__ == "__main__":
     import argparse
@@ -527,5 +516,4 @@ if __name__ == "__main__":
     #parser.add_argument('--cache', type=str)
     args = parser.parse_args()
     main(args)
-    print "Done"
 
