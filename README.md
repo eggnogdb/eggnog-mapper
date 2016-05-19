@@ -14,7 +14,7 @@ http://beta-eggnogdb.embl.de/#/app/seqmapper.
 
 ## Current Tools: 
 
-- `server.py`: preloads eggNOG HMM databases into memory. Three eggNOG
+- `server.py`: preloads eggNOG HMM databases into memory using hmmpgmd from [HMMER3](http://hmmer.org/). Three eggNOG
   taxonomy-restricted databases are currently available: `euk`(Eukaryotes), 
   `bact` (Bacteria), `arch` (Archea).
 
