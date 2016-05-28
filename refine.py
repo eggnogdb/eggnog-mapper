@@ -3,10 +3,11 @@ import tempfile
 import uuid
 import os
 import time
-from collections import Counter
-import cPickle
-from pymongo import MongoClient
 import gzip
+import cPickle
+from collections import Counter, defaultdict 
+
+from pymongo import MongoClient
 
 mongoCli = MongoClient()
 mongoDB = mongoCli.eggnog4_1
@@ -14,6 +15,8 @@ db_speciation = mongoDB.sp_events
 db_members = mongoDB.members
 
 PHMMER_BIN = "/g/bork1/huerta/_soft/hmmer-3.1b2/src/phmmer"
+CPU = 20
+
 
 def gopen(fname):
     if fname.endswith('.gz'):
@@ -71,6 +74,7 @@ def refine_hit(args):
     F = tempfile.NamedTemporaryFile(dir="./", delete=True)
     F.write('>%s\n%s' %(seqname, seq))
     F.flush()    
+
     best_hit = get_best_hit(F.name, group_fasta)
     F.close()
 
@@ -97,8 +101,6 @@ def get_grainned_orthologs_by_member(target_members, target_taxa=None, target_no
     else:
         target_taxa = set()
     
-    # all_taxa = query_taxa | target_taxa
-        
     orthology = {}
     target_members = set(target_members)
     for event in db_speciation.find(query, {'z':1, 'm':1, 'n':1, 'l':1}):
@@ -125,7 +127,7 @@ def get_grainned_orthologs_by_member(target_members, target_taxa=None, target_no
                     key2 = (sp2, tuple(sorted(co2)))
                     orthology.setdefault(key1, set()).add(key2)
                     
-        # merge by side1 coorthologs
+        # merge by side2 coorthologs
         targets = target_taxa or by_sp1.keys()
         for sp1, co1 in by_sp2.iteritems():
             if target_members & co1:
@@ -157,11 +159,15 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None):
     FASTA_PATH = '/home/huerta/eggnog-mapper/OG_fasta/'    
     print "Loading OG data..."
     og2level = cPickle.load(open("/home/huerta/eggnog-mapper/og2level.pkl"))
-    
+
     aln = SeqGroup(query_fasta)
     cmds = []
     visited_queries = set()
 
+    for name, seqid in aln.name2id.items():
+        aln.name2id[name.split()[0]] = seqid
+        del aln.name2id[name]
+    
     if skip_queries:
         visited_queries.update(skip_queries)
     
@@ -183,7 +189,7 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None):
         target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" %hitname)
         cmds.append([seqname, seq, target_fasta])
 
-    pool = Pool(10)
+    pool = Pool(CPU)
     result = []
     print 'Predicting orthologs...'
     #process = pool.map_async(refine_hit, cmds, callback=result.append)
@@ -200,10 +206,25 @@ if __name__ == "__main__":
     parser.add_argument('-f', dest='fastafile', type=str, help="fasta file", required=True)
     parser.add_argument('-o', dest='output', type=str, help="output")
     parser.add_argument('--resume', dest='resume', action="store_true")
+    parser.add_argument('--gos', action="store_true")
 
     args = parser.parse_args()
     print ' '.join(sys.argv)
 
+    seq2go = defaultdict(set)
+    if args.gos:
+        print 'loading gos'
+        # for line in open("member2gos.tsv"):
+        #     seqname, data = line.strip().split('\t')
+        #     for reg in data.split(','):
+        #         goterm = reg.split('|')[1].strip()
+        #         seq2go[seqname].add(goterm)
+        # print len(seq2go)
+        # cPickle.dump(seq2go, open("seq2gos.pkl", "w"), 2)
+        seq2go =  cPickle.load(open("/home/huerta/eggnog-mapper/seq2gos.pkl"))
+        print seq2go.items()[:4]
+        
+    print 'mapping'
     skip_queries = None
     if args.resume and args.output:
         skip_queries = set([line.strip().split('\t')[0] for line in gopen(args.output)])
@@ -214,9 +235,15 @@ if __name__ == "__main__":
     else:
         OUT = sys.stdout
     print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs".split(','))
-    for r in process_hits_file(args.hitsfile, args.fastafile, skip_queries):
-        print >>OUT, '\t'.join(map(str, (r[0], r[1], r[2], r[3], r[4], ','.join(r[5]))))
-        
+    for qn, r in enumerate(process_hits_file(args.hitsfile, args.fastafile, skip_queries)):
+        orthologs = r[5]
+        gos = set()
+        for o in orthologs:
+            gos.update(seq2go.get(o, [None]))            
+        gos.discard(None)
+        print >>OUT, '\t'.join(map(str, (r[0], r[1], r[2], r[3], r[4], ','.join(orthologs), ','.join(sorted(gos)))))
+        print qn
+                
     if args.output:
         OUT.close()
     print "Done"

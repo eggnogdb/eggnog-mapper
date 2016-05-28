@@ -162,7 +162,6 @@ def main(args):
     print_results()
     query_data = None
                     
-                    
     for v in OUT.values():
         v.close()        
     print >>sys.stderr, "Done!"
@@ -174,7 +173,7 @@ if __name__ == "__main__":
     parser.add_argument('--full_report', dest='full_report', action='store_true')
     parser.add_argument('--restrict_level', dest='level', type=str, nargs="+", help="report only hits from the provided taxonomic level")
     parser.add_argument('--min_prevalence', dest='min_prevalence', type=float, default=50.0)
-    parser.add_argument('--min_query_coverage', dest='min_q_coverage', type=float, default=0.66)
+    parser.add_argument('--min_query_coverage', dest='min_q_coverage', type=float, default=0.33)
     parser.add_argument('--output', dest="output", type=str, required=True)
     parser.add_argument('--maxhits', dest='maxhits', type=int, help="report only the first `maxhits` hits")
 
