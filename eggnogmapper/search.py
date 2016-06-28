@@ -140,7 +140,7 @@ def iter_hmm_hits(hmmfile, host, port, dbtype="hmmdb",
                 continue
 
             data = '@--%s 1\n%s' %(dbtype, model)
-            etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr, max_hits=max_hits, fixed_X=fixed_Z)
+            etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr, max_hits=max_hits, fixed_Z=fixed_Z)
             yield name, etime, hits, hmm_leng, None
 
 def iter_seq_hits(src, translate, host, port, dbtype,
@@ -174,7 +174,7 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     if scantype == 'mem' and query_type == "seq":
         return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
     elif scantype == 'mem' and query_type == "hmm" and dbtype == "seqdb":
-        return iter_hmm_hits(src)
+        return iter_hmm_hits(source, host, port)
     elif scantype == 'disk' and query_type == "seq":
         return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
     else:

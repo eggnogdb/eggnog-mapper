@@ -119,19 +119,23 @@ def main(args):
         print >>sys.stderr, len(idmap), "names loaded"        
 
 
+    hits_file = "%s.hits" %args.output
+    annot_file = "%s.annot" %args.output
+
+    if pexists(hits_file) and not args.resume and not args.override:
+        print "Output files already present. User --resume or --override to continue"
+        sys.exit(1)
+            
     # Start scanning sequences 
-    if not args.hitsfile:
+    if not args.annotate_only:
         VISITED = set()
-        if args.output:
-            if args.resume:
-                print "Resuming previous run. Reading computed output from", args.output
-                VISITED = set([line.split('\t')[0].strip() for line in open(args.output) if not line.startswith('#')])
-                print len(VISITED), 'processed queries skipped'
-                OUT = open(args.output, 'a')
-            else:
-                OUT = open(args.output, 'w')
+        if args.resume:
+            print "Resuming previous run. Reading computed output from", args.output
+            VISITED = set([line.split('\t')[0].strip() for line in open(args.output) if not line.startswith('#')])
+            print len(VISITED), 'processed queries skipped'
+            OUT = open(hits_file, 'a')
         else:
-            OUT = sys.stdout
+            OUT = open(hits_file, 'w')
 
         print >>sys.stderr, "Analysis starts now."
 
@@ -157,7 +161,6 @@ def main(args):
                                                                                    max_hits=args.maxhits,
                                                                                    skip=VISITED,
                                                                                    maxseqlen=args.maxseqlen)):
-
             if elapsed == -1:
                 # error occured
                 print >>OUT, '\t'.join([name] + ['ERROR'] * len(HEADER))
@@ -185,15 +188,13 @@ def main(args):
         sys.stderr.flush()
         print >>OUT, '# %d queries scanned' %(qn + 1)
         print >>OUT, '# Total time (seconds):', ellapsed_time
-        if args.output:
-            OUT.close()
-
+        OUT.close()
 
     start_time = time.time()
-    if not args.hitsonly and args.db in EGGNOG_DATABASES:
-        OUT = open('gos.tsv', "w")
-        print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs".split(','))
-        for qn, r in enumerate(process_hits_file(args.hitsfile, args.input, translate=args.translate, cpu=args.cpu)):
+    if not args.hits_only and args.db in EGGNOG_DATABASES:
+        OUT = open(annot_file, "w")
+        print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs, GO, KEGG(pathway)".split(','))
+        for qn, r in enumerate(process_hits_file(hits_file, args.input, translate=args.translate, cpu=args.cpu)):
             if qn and (qn % 25 == 0):
                 total_time = time.time() - start_time
                 print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
@@ -204,9 +205,12 @@ def main(args):
             best_hit_evalue = r[2]
             best_hit_score = r[3]
             if best_hit_name != '-' and float(best_hit_score) >= 20: 
-                orthologs = sorted(annota.refine_orthologs_by_member([best_hit_name],target_level='strNOG')['all'])
+                _orthologs = sorted(annota.refine_orthologs_by_member([best_hit_name])['one2one'])
+                orthologs = sorted(annota.get_member_orthologs(best_hit_name)['one2one'])
+                
                 if orthologs:
-                    pname = Counter(annota.get_preferred_names_dict(orthologs).values())
+                    pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
+                    _pname = Counter(annota.get_preferred_names_dict(orthologs).values())
                     name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
                 else:
                     name_ranking = [[0, 0, 0]]
@@ -216,8 +220,16 @@ def main(args):
                 else:
                     best_name = '-'
                     
-                by_seq, gos = annota.get_gos(orthologs)
-                print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name, ','.join(orthologs), ','.join(sorted(gos)))))
+                _by_seq, _gos = annota.get_gos(orthologs, set(["IEA", "ND"]))
+
+                assert sorted(orthologs) == sorted(_orthologs)
+                assert sorted(pname.items()) == sorted(_pname.items())
+                
+                print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
+                                                 ','.join(orthologs),
+                                                 ','.join(sorted(gos)),
+                                                 ','.join(sorted(keggs))
+                                             )))
 
         print >>OUT, '# Total time (seconds):', time.time()-start_time
         OUT.close()
@@ -225,7 +237,7 @@ def main(args):
     print 'done'        
     for p in multiprocessing.active_children():
         p.terminate()
-
+    print 'finish'
 
 def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False, cpu=1):
     print "Loading OG data..."
@@ -261,9 +273,10 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False
 
     pool = multiprocessing.Pool(cpu)
     print 'Predicting orthologs...'
+
     for r in pool.imap(search.refine_hit, cmds):
         yield r
-    print 'done1'
+    print 'done'
         
 if __name__ == "__main__":
 
@@ -302,17 +315,16 @@ if __name__ == "__main__":
                     help="Resumes a previous execution skipping reported hits in the output file.")
     g3.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
-    g3.add_argument("--hitsonly", action="store_true",
+    g3.add_argument("--hits_only", action="store_true",
                     help="Skip fine-grained orthology basedannotation, reporting only HMM hits.")    
+    g3.add_argument("--annotate_only", action="store_true",
+                    help="Skip mapping. Use existing hits file")
     
     # exec mode (1 required)
     g4 = parser.add_argument_group('Exection options') 
     g4.add_argument('-i', dest="input",
                     help='Computes annotations for the provided FASTA file')
 
-    g4.add_argument('--hitsfile', type=str,
-                    help='')
-    
     g4.add_argument('--translate', action="store_true",
                     help='Assumes sequences are genes instead of proteines')
 

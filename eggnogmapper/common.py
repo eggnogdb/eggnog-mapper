@@ -5,6 +5,7 @@ import os
 
 from distutils.spawn import find_executable
 from os.path import join as pjoin
+from os.path import exists as pexists
 
 #import sys
 #sys.path.append("/g/bork1/huerta/_soft/hmmer-3.1b2/src/")
@@ -23,14 +24,7 @@ PHMMER = find_executable('phmmer')
 DATA_PATH = pjoin(BASE_PATH, "data")
 FASTA_PATH = pjoin(DATA_PATH, "OG_fasta")
 HMMDB_PATH = pjoin(DATA_PATH, "hmmdb_levels")
-ANNOTDB_PATH = ''
-
-# Predefined eggnog databases
-# DBDATA = {
-#     'euk': { 'name': 'euk_500', 'db_path':os.path.join(BASEPATH, 'hmmdb/euk_500/euk_500.hmm'), 'client_port':51400, 'worker_port':51401, 'idmap':os.path.join(BASEPATH, 'hmmdb/euk_500/euk_500.pkl')},
-#     'bact':{ 'name': 'bact_50', 'db_path':os.path.join(BASEPATH, 'hmmdb/bact_50/bact_50.hmm'), 'client_port':51500, 'worker_port':51501, 'idmap':os.path.join(BASEPATH, 'hmmdb/bact_50/bact_50.pkl')},
-#     'arch':{ 'name': 'arch_1', 'db_path':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.hmm'), 'client_port':51600, 'worker_port':51601, 'idmap':os.path.join(BASEPATH, 'hmmdb/arch_1/arch_1.pkl')},
-#     }
+EGGNOGDB_PATH = pjoin(BASE_PATH, "db", "eggnog.db")
 
 def get_db_info(level):
     if level == 'euk':
@@ -48,7 +42,7 @@ CITATION:
 If you use this software, please cite:
 
 [1] eggNOG-mapper: eggNOG-mapper: fast proteome-scale functional annotation through orthology assignments.
-aime Huerta-Cepas, Kristoffer Forslund, Damian Szklarczyk, Lars Juhl Jensen, Christian von Mering and Peer Bork.
+aime Huerta-Cepas, Kristoffer Forslund, Damian Szklarczyk, Lars Juhl Jensen, Christian von Mering and Peer Bork. In preparation.
 
 [2] eggNOG 4.5: a hierarchical orthology framework with improved functional annotations for eukaryotic, prokaryotic and viral sequences.
 Jaime Huerta-Cepas, Damian Szklarczyk, Kristoffer Forslund, Helen Cook, Davide Heller, Mathias C. Walter, Thomas Rattei, Daniel R. Mende, Shinichi Sunagawa, Michael Kuhn, Lars Juhl Jensen, Christian von Mering, and Peer Bork.
