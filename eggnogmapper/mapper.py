@@ -15,6 +15,7 @@ import argparse
 from common import *
 import search
 import annota
+import annota_mongo
 import seqio
 
 from server import server_functional, load_server
@@ -205,12 +206,12 @@ def main(args):
             best_hit_evalue = r[2]
             best_hit_score = r[3]
             if best_hit_name != '-' and float(best_hit_score) >= 20: 
-                _orthologs = sorted(annota.refine_orthologs_by_member([best_hit_name])['one2one'])
+                _orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
                 orthologs = sorted(annota.get_member_orthologs(best_hit_name)['one2one'])
                 
                 if orthologs:
                     pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                    _pname = Counter(annota.get_preferred_names_dict(orthologs).values())
+                    _pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
                     name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
                 else:
                     name_ranking = [[0, 0, 0]]
@@ -220,10 +221,13 @@ def main(args):
                 else:
                     best_name = '-'
                     
-                _by_seq, _gos = annota.get_gos(orthologs, set(["IEA", "ND"]))
+                by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
 
+                # TEST
                 assert sorted(orthologs) == sorted(_orthologs)
                 assert sorted(pname.items()) == sorted(_pname.items())
+                print sorted(orthologs) == sorted(_orthologs)
+                print sorted(pname.items()) == sorted(_pname.items())
                 
                 print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
                                                  ','.join(orthologs),
@@ -234,7 +238,7 @@ def main(args):
         print >>OUT, '# Total time (seconds):', time.time()-start_time
         OUT.close()
 
-    print 'done'        
+
     for p in multiprocessing.active_children():
         p.terminate()
     print 'finish'
@@ -276,7 +280,6 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False
 
     for r in pool.imap(search.refine_hit, cmds):
         yield r
-    print 'done'
         
 if __name__ == "__main__":
 

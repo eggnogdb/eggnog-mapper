@@ -12,7 +12,8 @@ http://beta-eggnogdb.embl.de/#/app/seqmapper.
 
 # Requirements: 
 - Python 2.7+
-- BioPython
+- BioPython (not required if input file is protein based)
+- wget 
 - HMMER 3 available in your path
 
 Depending on your target databases, 
