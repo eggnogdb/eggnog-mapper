@@ -5,7 +5,7 @@ from distutils.spawn import find_executable
 from os.path import join as pjoin
 from os.path import exists as pexists
 
-EGGNOG_DATABASES = {k:51700+(i*2) for i, k in enumerate('NOG,aciNOG,acidNOG,acoNOG,actNOG,agaNOG,agarNOG,apiNOG,aproNOG,aquNOG,arNOG,arcNOG,artNOG,arthNOG,ascNOG,aveNOG,bacNOG,bactNOG,bacteNOG,basNOG,bctoNOG,biNOG,bproNOG,braNOG,carNOG,chaNOG,chlNOG,chlaNOG,chloNOG,chlorNOG,chloroNOG,chorNOG,chrNOG,cloNOG,cocNOG,creNOG,cryNOG,cyaNOG,cytNOG,debNOG,defNOG,dehNOG,deiNOG,delNOG,dipNOG,dotNOG,dproNOG,droNOG,eproNOG,eryNOG,euNOG,eurNOG,euroNOG,eurotNOG,fiNOG,firmNOG,flaNOG,fuNOG,fusoNOG,gproNOG,haeNOG,halNOG,homNOG,hymNOG,hypNOG,inNOG,kinNOG,lepNOG,lilNOG,maNOG,magNOG,meNOG,metNOG,methNOG,methaNOG,necNOG,negNOG,nemNOG,onyNOG,opiNOG,perNOG,plaNOG,pleNOG,poaNOG,prNOG,proNOG,rhaNOG,roNOG,sacNOG,saccNOG,sorNOG,sordNOG,sphNOG,spiNOG,spriNOG,strNOG,synNOG,tenNOG,thaNOG,theNOG,therNOG,thermNOG,treNOG,veNOG,verNOG,verrNOG,virNOG'.split(','))}
+EGGNOG_DATABASES = {k:51700+(i*2) for i, k in enumerate('NOG,aciNOG,acidNOG,acoNOG,actNOG,agaNOG,agarNOG,apiNOG,aproNOG,aquNOG,arNOG,arcNOG,artNOG,arthNOG,ascNOG,aveNOG,bacNOG,bactNOG,bacteNOG,basNOG,bctoNOG,biNOG,bproNOG,braNOG,carNOG,chaNOG,chlNOG,chlaNOG,chloNOG,chlorNOG,chloroNOG,chorNOG,chrNOG,cloNOG,cocNOG,creNOG,cryNOG,cyaNOG,cytNOG,debNOG,defNOG,dehNOG,deiNOG,delNOG,dipNOG,dotNOG,dproNOG,droNOG,eproNOG,eryNOG,euNOG,eurNOG,euroNOG,eurotNOG,fiNOG,firmNOG,flaNOG,fuNOG,fusoNOG,gproNOG,haeNOG,halNOG,homNOG,hymNOG,hypNOG,inNOG,kinNOG,lepNOG,lilNOG,maNOG,magNOG,meNOG,metNOG,methNOG,methaNOG,necNOG,negNOG,nemNOG,onyNOG,opiNOG,perNOG,plaNOG,pleNOG,poaNOG,prNOG,proNOG,rhaNOG,roNOG,sacNOG,saccNOG,sorNOG,sordNOG,sphNOG,spiNOG,spriNOG,strNOG,synNOG,tenNOG,thaNOG,theNOG,therNOG,thermNOG,treNOG,veNOG,verNOG,verrNOG,virNOG,viruses'.split(','))}
 EGGNOG_DATABASES.update({'euk':51400, 'bact':51500, 'arch':51600})
 
 BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0]+'/..')
@@ -18,7 +18,8 @@ PHMMER = find_executable('phmmer')
 DATA_PATH = pjoin(BASE_PATH, "data")
 FASTA_PATH = pjoin(DATA_PATH, "OG_fasta")
 HMMDB_PATH = pjoin(DATA_PATH, "hmmdb_levels")
-EGGNOGDB_PATH = pjoin(BASE_PATH, "db", "eggnog.db")
+EGGNOGDB_FILE = pjoin(DATA_PATH, "eggnog.db")
+
 
 def get_db_info(level):
     if level == 'euk':
@@ -29,8 +30,7 @@ def get_db_info(level):
         return (pjoin(HMMDB_PATH,"arch_1/arch_1.hmm"), EGGNOG_DATABASES[level])
     else:
         return (pjoin(HMMDB_PATH, level+"_hmm", level + "_hmm.all_hmm"), EGGNOG_DATABASES[level])
-
-
+    
 CITATION = """
 CITATION:
 If you use this software, please cite:
@@ -59,13 +59,13 @@ def gopen(fname):
     else:
         return open(fname)
 
-def load_nog_lineages():
-    if os.path.exists('NOG_hierarchy.pkl'):
-        nog2lineage = cPickle.load(open('NOG_hierarchy.pkl'))
-    else:
-        nog2lineage = {}
-        for line in open('../build_db/NOG_hierarchy.tsv'):
-            fields = line.strip().split('\t')
-            nog2lineage[fields[0].split('@')[0]] = map(lambda x: tuple(x.split('@')), fields[2].split(','))
-        cPickle.dump(nog2lineage, open('NOG_hierarchy.pkl', 'wb'), protocol=2)
-    return nog2lineage
+# def load_nog_lineages():
+#     if os.path.exists('NOG_hierarchy.pkl'):
+#         nog2lineage = cPickle.load(open('NOG_hierarchy.pkl'))
+#     else:
+#         nog2lineage = {}
+#         for line in open('../build_db/NOG_hierarchy.tsv'):
+#             fields = line.strip().split('\t')
+#             nog2lineage[fields[0].split('@')[0]] = map(lambda x: tuple(x.split('@')), fields[2].split(','))
+#         cPickle.dump(nog2lineage, open('NOG_hierarchy.pkl', 'wb'), protocol=2)
+#     return nog2lineage

@@ -24,12 +24,15 @@ def server_up(host, port):
         return False
 
 def server_functional(host, port, dbtype):
-    try:
-        search.get_hits("test", "TESTSEQ", host, port, dbtype)
-    except Exception, e:
-        print 'Server not ready', e
-        return False
-    return True
+    if server_up(host, port):
+        try:
+            search.get_hits("test", "TESTSEQ", host, port, dbtype)
+        except Exception, e:
+            #print 'Server not ready', e
+            return False
+        else:
+            return True
+    return False
 
 def safe_exit(a, b):
     if CHILD_PROC:
