@@ -1,14 +1,9 @@
 from __future__ import absolute_import
-from __future__ import print_function
 
 import os
-
 from distutils.spawn import find_executable
 from os.path import join as pjoin
 from os.path import exists as pexists
-
-#import sys
-#sys.path.append("/g/bork1/huerta/_soft/hmmer-3.1b2/src/")
 
 EGGNOG_DATABASES = {k:51700+(i*2) for i, k in enumerate('NOG,aciNOG,acidNOG,acoNOG,actNOG,agaNOG,agarNOG,apiNOG,aproNOG,aquNOG,arNOG,arcNOG,artNOG,arthNOG,ascNOG,aveNOG,bacNOG,bactNOG,bacteNOG,basNOG,bctoNOG,biNOG,bproNOG,braNOG,carNOG,chaNOG,chlNOG,chlaNOG,chloNOG,chlorNOG,chloroNOG,chorNOG,chrNOG,cloNOG,cocNOG,creNOG,cryNOG,cyaNOG,cytNOG,debNOG,defNOG,dehNOG,deiNOG,delNOG,dipNOG,dotNOG,dproNOG,droNOG,eproNOG,eryNOG,euNOG,eurNOG,euroNOG,eurotNOG,fiNOG,firmNOG,flaNOG,fuNOG,fusoNOG,gproNOG,haeNOG,halNOG,homNOG,hymNOG,hypNOG,inNOG,kinNOG,lepNOG,lilNOG,maNOG,magNOG,meNOG,metNOG,methNOG,methaNOG,necNOG,negNOG,nemNOG,onyNOG,opiNOG,perNOG,plaNOG,pleNOG,poaNOG,prNOG,proNOG,rhaNOG,roNOG,sacNOG,saccNOG,sorNOG,sordNOG,sphNOG,spiNOG,spriNOG,strNOG,synNOG,tenNOG,thaNOG,theNOG,therNOG,thermNOG,treNOG,veNOG,verNOG,verrNOG,virNOG'.split(','))}
 EGGNOG_DATABASES.update({'euk':51400, 'bact':51500, 'arch':51600})
@@ -19,7 +14,6 @@ HMMSEARCH = find_executable('hmmsearch')
 HMMSCAN = find_executable('hmmscan')
 HMMPGMD = find_executable('hmmpgmd')
 PHMMER = find_executable('phmmer')
-
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 FASTA_PATH = pjoin(DATA_PATH, "OG_fasta")
