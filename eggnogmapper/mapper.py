@@ -11,6 +11,7 @@ import cPickle
 from collections import defaultdict, Counter
 import multiprocessing
 import argparse
+import re
 
 from common import *
 import search
@@ -24,6 +25,10 @@ def main(args):
     host = 'localhost'
     if args.db in EGGNOG_DATABASES:
         dbpath, port = get_db_info(args.db)
+        if not pexists(dbpath+".h3f"):
+            print dbpath
+            print download_database(args.db)
+            raw_input("press")
         try:
             idmap = cPickle.load(open(dbpath.replace('.hmm', '.pkl'), 'rb'))
         except IOError:
@@ -36,8 +41,8 @@ def main(args):
             scantype = 'mem'
         else:
             port = None
-            scantpye = 'disk'
-        
+            scantype = 'disk'
+
     elif os.path.isfile(args.db+'.h3f'):
         if args.usemem:
             scantype = 'mem'
@@ -57,6 +62,7 @@ def main(args):
             port = None
             dbpath = args.db
             scantype = 'disk'
+        
     elif ":" in args.db:
         host, port = args.db.split(":")
         host = host.strip()
@@ -95,7 +101,7 @@ def main(args):
     else:
         scantype = 'disk'
         host = dbpath
-        
+    
     # Exits if trying to connect to a dead server
     if port and not server_functional(host, port, args.dbtype):
         print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(host, port)
@@ -119,7 +125,6 @@ def main(args):
             idmap[_seqid] = [_seqname]
         print >>sys.stderr, len(idmap), "names loaded"        
 
-
     hits_file = "%s.hits" %args.output
     annot_file = "%s.annot" %args.output
 
@@ -131,8 +136,8 @@ def main(args):
     if not args.annotate_only:
         VISITED = set()
         if args.resume:
-            print "Resuming previous run. Reading computed output from", args.output
-            VISITED = set([line.split('\t')[0].strip() for line in open(args.output) if not line.startswith('#')])
+            print "Resuming previous run. Reading computed output from", hits_file
+            VISITED = set([line.split('\t')[0].strip() for line in open(hits_file) if not line.startswith('#')])
             print len(VISITED), 'processed queries skipped'
             OUT = open(hits_file, 'a')
         else:
@@ -148,6 +153,7 @@ def main(args):
         last_time = time.time()
         start_time = time.time()
         qn = 0
+
         for qn, (name, elapsed, hits, querylen, seq) in enumerate(search.iter_hits(args.input,
                                                                                    args.translate,
                                                                                    args.qtype,
@@ -161,7 +167,8 @@ def main(args):
                                                                                    fixed_Z=args.Z,
                                                                                    max_hits=args.maxhits,
                                                                                    skip=VISITED,
-                                                                                   maxseqlen=args.maxseqlen)):
+                                                                                   maxseqlen=args.maxseqlen,
+                                                                                   cpus=args.cpu)):
             if elapsed == -1:
                 # error occured
                 print >>OUT, '\t'.join([name] + ['ERROR'] * len(HEADER))
@@ -170,9 +177,9 @@ def main(args):
             else:
                 for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
                     hitname = hid
-                    level = "-"
                     if idmap:
                         hitname = idmap[hid][0]
+                                                    
                     print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, int(querylen), int(hmmfrom), int(hmmto), int(sqfrom), int(sqto), float(sqto-sqfrom)/querylen]))
             OUT.flush()
 
@@ -195,7 +202,7 @@ def main(args):
     if not args.hits_only and args.db in EGGNOG_DATABASES:
         OUT = open(annot_file, "w")
         print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs, GO, KEGG(pathway)".split(','))
-        for qn, r in enumerate(process_hits_file(hits_file, args.input, translate=args.translate, cpu=args.cpu)):
+        for qn, r in enumerate(process_hits_file(hits_file, args.input, args.db, translate=args.translate, cpu=args.cpu)):
             if qn and (qn % 25 == 0):
                 total_time = time.time() - start_time
                 print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
@@ -206,12 +213,12 @@ def main(args):
             best_hit_evalue = r[2]
             best_hit_score = r[3]
             if best_hit_name != '-' and float(best_hit_score) >= 20: 
-                _orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
-                orthologs = sorted(annota.get_member_orthologs(best_hit_name)['one2one'])
+                #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
+                orthologs = sorted(annota.get_member_orthologs(best_hit_name)[args.orthotype])
                 
                 if orthologs:
                     pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                    _pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
+                    #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
                     name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
                 else:
                     name_ranking = [[0, 0, 0]]
@@ -221,13 +228,12 @@ def main(args):
                 else:
                     best_name = '-'
                     
-                by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
-
                 # TEST
-                assert sorted(orthologs) == sorted(_orthologs)
-                assert sorted(pname.items()) == sorted(_pname.items())
-                print sorted(orthologs) == sorted(_orthologs)
-                print sorted(pname.items()) == sorted(_pname.items())
+                #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
+                # assert sorted(orthologs) == sorted(_orthologs)
+                # assert sorted(pname.items()) == sorted(_pname.items())
+                # print sorted(orthologs) == sorted(_orthologs)
+                # print sorted(pname.items()) == sorted(_pname.items())
                 
                 print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
                                                  ','.join(orthologs),
@@ -243,12 +249,16 @@ def main(args):
         p.terminate()
     print 'finish'
 
-def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False, cpu=1):
-    print "Loading OG data..."
-    og2level = cPickle.load(open("/home/huerta/eggnog-mapper/og2level.pkl"))
-
-    sequences = {name:seq for name, seq in seqio.iter_fasta_seqs(query_fasta, translate=translate)}
-    
+def process_hits_file(hits_file, query_fasta, eggnogdb, skip_queries=None, translate=False, cpu=1):        
+    if eggnogdb in set(['euk', 'bact', 'arch']):
+        print 'loading OG levels'
+        og2level = cPickle.load(open(pjoin(DATA_PATH, 'og2level.pkl')))
+        level = None
+    else:
+        og2level = None
+        level = eggnogdb
+        
+    sequences = {name:seq for name, seq in seqio.iter_fasta_seqs(query_fasta, translate=translate)}    
     cmds = []
     visited_queries = set()
 
@@ -262,24 +272,31 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False
         fields = map(str.strip, line.split('\t'))
         seqname = fields[0]
         hitname = fields[1]
-
+        
         if hitname == '-' or hitname == 'ERROR':
             continue
             
         if seqname in visited_queries:
             continue
 
-        seq = sequences[seqname] 
-        visited_queries.add(seqname)
-        level = og2level.get(hitname, 'unknown')            
-        target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" %hitname)
-        cmds.append([seqname, seq, target_fasta])
+        # names in hmm database files are not clean eggnog OG names
+        m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', hitname)
+        if m: 
+            hitname = re.sub("^ENOG41", "", m.groups()[0])
 
-    pool = multiprocessing.Pool(cpu)
-    print 'Predicting orthologs...'
+        if eggnogdb != 'viruses':
+            seq = sequences[seqname] 
+            visited_queries.add(seqname)
+            if og2level:
+                level = og2level[hitname]            
+            target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" %hitname)
+            cmds.append([seqname, seq, target_fasta])
 
-    for r in pool.imap(search.refine_hit, cmds):
-        yield r
+    if cmds:
+        pool = multiprocessing.Pool(cpu)
+        print 'Predicting orthologs...'
+        for r in pool.imap(search.refine_hit, cmds):
+            yield r
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -312,7 +329,7 @@ if __name__ == "__main__":
     
     
     g3 = parser.add_argument_group('Output options')
-    g3.add_argument('--output', type=str, help="base name for output files")
+    g3.add_argument('--output', type=str, help="base name for output files", required=True)
     g3.add_argument('--resume', action="store_true",
                     help="Resumes a previous execution skipping reported hits in the output file.")
     g3.add_argument('--override', action="store_true",
@@ -340,8 +357,11 @@ if __name__ == "__main__":
                     this flag will allocate the whole database in memory using hmmpgmd.
                     Database will be unloaded after execution.""")
     
-    g4.add_argument('--cpu', type=int, default=1)
+    g4.add_argument('--cpu', type=int, default=2)
 
+    parser.add_argument('--orthotype', choices=["one2one", "many2one", "one2many", "many2many", "all", "best"],
+                      default="one2one")
+    
     args = parser.parse_args()
 
     if args.servermode and args.input:
@@ -350,6 +370,9 @@ if __name__ == "__main__":
         parser.error('Execution must be specified. Choose between: -i [fastafile]  or --servermode')
     if not args.db:
         parser.error('A target databse must be specified with --db')
+
+    if args.db in EGGNOG_DATABASES and not args.hits_only:
+        annota.connect()
         
     main(args)
 

@@ -144,7 +144,7 @@ def iter_hmm_hits(hmmfile, host, port, dbtype="hmmdb",
             yield name, etime, hits, hmm_leng, None
 
 def iter_seq_hits(src, translate, host, port, dbtype,
-                  evalue_thr=None, score_thr=None, max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
+                  evalue_thr=None, score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None, skip=None):
 
     for seqnum, (name, seq) in enumerate(seqio.iter_fasta_seqs(src, translate=translate)):
         if skip and name in skip:
@@ -165,18 +165,18 @@ def iter_seq_hits(src, translate, host, port, dbtype,
         yield name, etime, hits, len(seq), None
 
 def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
-              evalue_thr=None, score_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, fixex_Z=None):
+              evalue_thr=None, score_thr=None, max_hits=None, return_seq=False, skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, fixex_Z=None, cpus=1):
     try:
         max_hits = int(max_hits)
     except Exception:
         max_hits = None
 
     if scantype == 'mem' and query_type == "seq":
-        return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
+        return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip)
     elif scantype == 'mem' and query_type == "hmm" and dbtype == "seqdb":
         return iter_hmm_hits(source, host, port)
     elif scantype == 'disk' and query_type == "seq":
-        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
+        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus)
     else:
         raise ValueError('not supported')
 
@@ -186,7 +186,10 @@ def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb', evalue_
     etime, hits = scan_hits(data, address=address, port=port, evalue_thr=evalue_thr, max_hits=max_hits)
     return name, etime, hits
 
-def hmmscan(query_file, translate, database_path, ncpus=10, evalue_thr=None, score_thr=None, max_hits=None, fixed_Z=None):
+def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None, score_thr=None, max_hits=None, fixed_Z=None):
+    if not HMMSCAN:
+        raise ValueError('hmmscan not found in path')
+        
     OUT = NamedTemporaryFile()
     if translate:
         print 'translating query input file'
@@ -196,7 +199,7 @@ def hmmscan(query_file, translate, database_path, ncpus=10, evalue_thr=None, sco
         Q.flush()
         query_file = Q.name
         
-    cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' %(HMMSCAN, ncpus, OUT.name, database_path, query_file)    
+    cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' %(HMMSCAN, cpus, OUT.name, database_path, query_file)
     print '#', cmd
     #print cmd
     sts = subprocess.call(cmd, shell=True)
@@ -252,9 +255,12 @@ def hmmscan(query_file, translate, database_path, ncpus=10, evalue_thr=None, sco
     if translate:
         Q.close()
         
-def hmmsearch(query_hmm, target_db, ncpus=10):
+def hmmsearch(query_hmm, target_db, cpus=1):
+    if not HMMSEARCH:
+        raise ValueError('hmmsearch not found in path')
+
     OUT = NamedTemporaryFile()
-    cmd = '%s --cpu %s -o /dev/null -Z 1000000 --tblout %s %s %s' %(HMMSEARCH, ncpus, OUT.name, query_hmm, target_db)
+    cmd = '%s --cpu %s -o /dev/null -Z 1000000 --tblout %s %s %s' %(HMMSEARCH, cpus, OUT.name, query_hmm, target_db)
 
     sts = subprocess.call(cmd, shell=True)
     byquery = defaultdict(list)
@@ -287,10 +293,14 @@ def refine_hit(args):
 
     return [seqname] + best_hit
 
-def get_best_hit(target_seq, target_og):    
+def get_best_hit(target_seq, target_og):
+    if not PHMMER:
+        raise ValueError('phmmer not found in path')
+
     tempout = str(uuid.uuid4())
     cmd = "%s --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" %(
         PHMMER, tempout, target_seq, target_og)
+    print cmd
     status = os.system(cmd)
     best_hit = None
     if status == 0:
@@ -300,7 +310,6 @@ def get_best_hit(target_seq, target_og):
                 continue
             else:
                 best_hit = line.split()
-                print best_hit
                 break
         os.remove(tempout)
     else:

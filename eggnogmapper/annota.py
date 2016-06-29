@@ -1,10 +1,15 @@
 from __future__ import absolute_import
 from collections import Counter
 import sqlite3
-from common import EGGNOGDB_PATH
+from common import EGGNOGDB_FILE
 
-conn = sqlite3.connect(EGGNOGDB_PATH)
-db = conn.cursor()
+conn = None
+db = None
+
+def connect():
+    global conn, db
+    conn = sqlite3.connect(EGGNOGDB_FILE)
+    db = conn.cursor()
 
 def get_member_annotations(names, excluded_gos):
     in_clause = ','.join(['"%s"' %n for n in names])    
