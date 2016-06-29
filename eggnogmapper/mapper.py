@@ -282,7 +282,6 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False
         yield r
         
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser()
 
     # server
@@ -323,21 +322,24 @@ if __name__ == "__main__":
     g3.add_argument("--annotate_only", action="store_true",
                     help="Skip mapping. Use existing hits file")
     
-    # exec mode (1 required)
+    # exec mode 
     g4 = parser.add_argument_group('Exection options') 
     g4.add_argument('-i', dest="input",
                     help='Computes annotations for the provided FASTA file')
 
     g4.add_argument('--translate', action="store_true",
-                    help='Assumes sequences are genes instead of proteines')
+                    help='Assume sequences are genes instead of proteins')
 
-    
     g4.add_argument("--servermode", action="store_true",
-                    help='Loads target database in memory and keeps running in server mode.')  
+                    help='Loads target database in memory and keeps running in server mode,'
+                    ' so another instance of eggnog-mapper can connect to this sever.'
+                    ' Auto turns on the --usemem flag')
+    
     g4.add_argument('--usemem', action="store_true",
                     help="""If a local hmmpressed database is provided as target using --db,
                     this flag will allocate the whole database in memory using hmmpgmd.
                     Database will be unloaded after execution.""")
+    
     g4.add_argument('--cpu', type=int, default=1)
 
     args = parser.parse_args()
