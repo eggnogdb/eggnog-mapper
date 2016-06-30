@@ -1,7 +1,8 @@
 from __future__ import absolute_import
 from collections import Counter
 import sqlite3
-from common import EGGNOGDB_FILE
+
+from .common import EGGNOGDB_FILE
 
 conn = None
 db = None
