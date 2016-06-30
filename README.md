@@ -1,48 +1,91 @@
 # Description
 
-eggnog-mapper is a tool designed for efficient functinal annotation of proteins
-using precomputed eggNOG-based orthology assignments. Obvious examples include
-the annotation of novel genomes, transcriptomes or even metagenomic sequences.
+eggnog-mapper is a tool designed for fast functinal annotation of proteins using
+precomputed eggNOG-based orthology assignments. Obvious examples include the
+annotation of complete novel genomes, transcriptomes or even metagenomic gene
+catalogs.
 
-The tool can also be used for fast mapping of any kind of sequences to
-precomputed HMM databases.
+The tool can also be used for fast mapping of of sequences against custom HMM
+databases. 
 
 This tool is also used for the web services currently hosted at
 http://beta-eggnogdb.embl.de/#/app/seqmapper.
 
-# Requirements: 
+# Software Requirements: 
+
 - Python 2.7+
-- BioPython (not required if input file is protein based)
 - wget 
-- HMMER 3 available in your path
+- HMMER 3 binaries available in your PATH
+- BioPython (not required if input file contain protein sequences)
 
-Depending on your target databases, 
-- ~130GB of disk
-- ~130GB of RAM memory (~90GB for the eukaryotes DB, ~32 for the bacteria DB) 
+# Storage Requirements:
+ 
+- ~130GB of disk for the three main eggNOG databases (euk, bact, arch).
 
-# Install: 
-- Clone or download this repository (master branch)
+- from 1 to 40 GBs for each taxonomic-specific eggNOG HMM databases. You don't
+  have to download all, just pick the ones you are interested.
+
+(you can check the size of individual datasets at
+http://beta-eggnogdb.embl.de/download/eggnog_4.5/hmmdb_levels/)
+
+# Memory requirements:
+
+eggnog-mapper allows to run very fast searches by allocating the HMM databases
+into memory (using HMMER3 hmmpgmd program). This is enabled by means of the
+`--usemem` flag and will require a lot of RAM memory (depending on the size of
+the target database). As a reference:
+
+- ~90GB to load the optimized eukaryotic databases (euk)
+- ~32GB to load the optimized bacterial database (bact)
+- ~10GB to load the optimized archeal database (arch)
+
+Note: 
+
+- Searches are still possible in low memory systems. However, Disk I/O will be
+  the a bottleneck (specially when using multiple CPUs). Place databases in
+  the fastest disk posible.
+
+
+# Installation 
+
+- Download the lastest version of eggnog-mapper from https://github.com/jhcepas/eggnog-mapper/releases
+
 ```
-git clone https://github.com/jhcepas/eggnog-mapper.git
+wget https://github.com/jhcepas/eggnog-mapper/releases && tar -zxf latest.tar.gz
 ```
 
-- run `bootstrap.py` to download and parse eggNOG HMM and annotation databases. It may take a while and will require about 150GB of disk space.
+# eggNOG databases retrieval 
+
+- eggNOG mapper provides 107 taxonomically restricted HMM databases (`xxxNOG`),
+  three optimized databases (Eukaryota-`euk`, Bacteria-`bact` and Archea-`arch`)
+  and a virus specific database (`viruses`).
+
+- The three optimized databases include all HMM models from their corresponding
+  taxonomic levels in eggNOG (euNOG, bactNOG, arNOG) plus additional models
+  spliting large alignments into taxonomically restricted (smaller) HMM
+  models. In particular, HMM models with more than 500 (euk) or 50 (bact)
+  sequences are expanded. The `arch` database includes all models from all
+  archeal taxonomic levels in eggNOG.
+
+- taxonomically restricted databases are listed here and can be referred by its
+  code (i.e. maNOG for Mammals).
+
+
+To download a given database, execute: 
 ```
-cd eggnog-mapper
-python upgrade.py
+ execute `download_eggnog_databases.py` to retrieve your preferred eggNOG
+  database. This may take a while and may require substantial . For example: 
+
+```
+download_eggnog_databases.py euk bact arch viruses
 ```
 
 # Usage: 
 
 ## Mapping and annotation using eggNOG databases
 
-### Optimized databases:
+### Using the optimized databases:
 
-Three optimized databases are provided covering Eukaryota, Bacteria and
-Archea. These databases include all HMM models from their corresponding
-taxonomic levels in eggNOG. Additionally, for those HMM models including more
-than 50 eukaryotic or 500 bacterial sequences, fine-grained HMM models covering
-other taxonmic eggNOG levels are included.
 
 ### Example: annotate a set of bacterial sequences 
 ```
