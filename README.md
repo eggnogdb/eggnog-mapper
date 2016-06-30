@@ -75,58 +75,26 @@ wget https://github.com/jhcepas/eggnog-mapper/releases && tar -zxf latest.tar.gz
   code (i.e. maNOG for Mammals).
 
 
-To download a given database, execute: 
-```
- execute `download_eggnog_databases.py` to retrieve your preferred eggNOG
-  database. This may take a while and may require substantial . For example: 
+To download a given database, execute the download script providing a the list
+of databases to fetch:
 
 ```
 download_eggnog_databases.py euk bact arch viruses
 ```
 
-# Usage: 
+# Basic Usage
 
 ## Mapping and annotation using eggNOG databases
 
-### Using the optimized databases:
-
-
-### Example: annotate a set of bacterial sequences 
 ```
-eggnog_mapper/$ python server.py --db bact
-
-# in a different shell
-python eggnog_mapper.py test/testCOG0515.fa --output testCOG0515.hits --db bact --evalue 0.001 --maxhits 20
-python annotate.py testCOG0515.hits --output testCOG0515_annotations
-```
-
-### Taxonomic restricted databases
-
-eggNOG v4.5 provides a granularity of 107 taxomic levels that can be used to
-restrict sequence mapping and functional annotation.  Levels are listed at
-http://eggnogdb.embl.de/#/app/downloads. You can refer to any level code as
-target database (i.e. maNOG for Mammal). The viral dataset is also available
-(code 'viruses').
-
-### Example: annotate a set of bacterial sequences 
-```
-eggnog_mapper/$ python server.py --db bact
-
-# in a different shell
-python eggnog_mapper.py test/testCOG0515.fa --output testCOG0515.hits --db bact --evalue 0.001 --maxhits 20
-python annotate.py testCOG0515.hits --output testCOG0515_annotations
+python emapper.py -i protsequences.fa --output testCOG0515.hits --db bact
 ```
 
 ## Mapping to custom databases
 
-Functional annotation is not available when using a custom HMM dataset. 
+You can also provide a custom hmmpressed HMMR3 database. For this, just provide
+the path and base name of the database (removing the `.h3f` like extension).
 
-### Example: annotate a set of bacterial sequences 
 ```
-eggnog_mapper/$ python server.py --db bact
-
-# in a different shell
-python eggnog_mapper.py test/testCOG0515.fa --output testCOG0515.hits --db bact --evalue 0.001 --maxhits 20
-python annotate.py testCOG0515.hits --output testCOG0515_annotations
+python emapper.py -i protsequences.fa --output testCOG0515.hits --db custom/database.hmm
 ```
-
