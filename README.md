@@ -48,13 +48,17 @@ Note:
 
 # Installation 
 
-- Download the lastest version of eggnog-mapper from https://github.com/jhcepas/eggnog-mapper/releases
+## Download
+
+- Download the latest version of eggnog-mapper from
+  https://github.com/jhcepas/eggnog-mapper/releases. The program does not
+  require compilation nor installation.
 
 ```
 wget https://github.com/jhcepas/eggnog-mapper/releases && tar -zxf latest.tar.gz
 ```
 
-# eggNOG databases retrieval 
+## eggNOG database retrieval 
 
 - eggNOG mapper provides 107 taxonomically restricted HMM databases (`xxxNOG`),
   three optimized databases (Eukaryota-`euk`, Bacteria-`bact` and Archea-`arch`)
