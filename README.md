@@ -98,3 +98,18 @@ the path and base name of the database (removing the `.h3f` like extension).
 ```
 python emapper.py -i protsequences.fa --output testCOG0515.hits --db custom/database.hmm
 ```
+
+
+# Output files
+
+eggnog-mapper will produce two text tab-delimited files: 
+
+- `outputname.hits`: A list of HMM hits for each query sequence in the input
+  file.
+
+- `outputname.hits.annot`: A list of HMM hits for each query sequence in the
+  input file, and their associated eggNOG functional description and COG
+  functional category.
+
+- `outputname.annot`: A list of predicted orthologs, gene name, GO terms and
+  KEGG pathways associated to each query sequence.
