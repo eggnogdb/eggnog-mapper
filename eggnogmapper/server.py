@@ -8,8 +8,8 @@ import subprocess
 from multiprocessing import Process
 import signal
 
-from common import *
-import search
+from .common import *
+from . import search
 
 CHILD_PROC = None
 

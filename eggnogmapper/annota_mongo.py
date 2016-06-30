@@ -9,7 +9,8 @@ mongoDB = mongoCli.eggnog4_1
 db_speciation = mongoDB.sp_events
 db_members = mongoDB.members
 
-from common import BASE_PATH
+from .common import BASE_PATH
+
 conn2 = sqlite3.connect(os.path.join(BASE_PATH, 'db', 'test.db'))
 db2 = conn2.cursor()
 

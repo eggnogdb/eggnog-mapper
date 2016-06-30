@@ -16,9 +16,9 @@ from tempfile import NamedTemporaryFile
 import uuid
 from collections import defaultdict, Counter
 
-import seqio
-import annota
-from common import *
+from . import seqio
+from . import annota
+from .common import *
 
 B62_IDENTITIES = {'A': 4, 'B': 4, 'C': 9, 'D': 6, 'E': 5, 'F': 6, 'G': 6, 'H': 8,
                   'I': 4, 'K': 5, 'L': 4, 'M': 5, 'N': 6, 'P': 7, 'Q': 5, 'R': 5,

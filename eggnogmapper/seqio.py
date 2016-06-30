@@ -3,12 +3,14 @@ import re
 import gzip
 
 CLEAN_SEQ = re.compile("[\s\-\.]+")
-from Bio.Seq import Seq
-from Bio.Alphabet import generic_dna
-
-def iter_fasta_seqs(source, translate=False):
+def iter_fasta_seqs(source, translate=False):    
     """Iter seq records in a FASTA file"""
 
+    if translate:
+        from Bio.Seq import Seq
+        from Bio.Alphabet import generic_dna
+        
+    
     if os.path.isfile(source):
         if source.endswith('.gz'):
             _source = gzip.open(source)
