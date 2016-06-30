@@ -87,7 +87,7 @@ download_eggnog_databases.py euk bact arch viruses
 ## Mapping and annotation using eggNOG databases
 
 ```
-python emapper.py -i protsequences.fa --output testCOG0515.hits --db bact
+python emapper.py -i ProtSequences.fa --output OutputBaseName --db bact
 ```
 
 ## Mapping to custom databases
@@ -96,9 +96,8 @@ You can also provide a custom hmmpressed HMMR3 database. For this, just provide
 the path and base name of the database (removing the `.h3f` like extension).
 
 ```
-python emapper.py -i protsequences.fa --output testCOG0515.hits --db custom/database.hmm
+python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db custom/database.hmm
 ```
-
 
 # Output files
 
@@ -113,3 +112,33 @@ eggnog-mapper will produce two text tab-delimited files:
 
 - `outputname.annot`: A list of predicted orthologs, gene name, GO terms and
   KEGG pathways associated to each query sequence.
+
+
+# Advance usage
+
+## Speeding up annotation using memory based multi-threaded based searches.
+
+If only one input file is going to be annotated, simply use the `--usemem` and
+`--cpu XX` options. For instance: 
+
+```
+python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db custom/database.hmm --usemem --cpu 10
+``` 
+
+If you are planning to use the same database for annotating multiple files, you
+can start eggnog-mapper in server mode (this will load the target database in
+memory and keep it there until stopped). Then you can use another eggnog-mapper
+instance to connect to the server. For instance, 
+
+In terminal 1, execute:
+
+```
+python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db arch --cpu 10 --usemem --servermode
+```
+
+This will load the memory and give you the address to connect to the
+database. Then, in a different terminal, execute:
+
+```
+python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db localhost:43000 
+```
