@@ -361,7 +361,7 @@ if __name__ == "__main__":
     
     g4.add_argument('--cpu', type=int, default=2)
 
-    parser.add_argument('--orthotype', choices=["one2one", "many2one", "one2many", "many2many", "all", "best"],
+    parser.add_argument('--orthotype', choices=["one2one", "many2one", "one2many", "many2many", "all"],
                       default="one2one")
     
     args = parser.parse_args()
