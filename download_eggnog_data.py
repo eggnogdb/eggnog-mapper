@@ -12,7 +12,11 @@ def run(cmd):
 def download_hmm_database(level):
     level_base_path = get_level_base_path(level)
     url = 'http://beta-eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/hmmdb_levels/%s/' %level_base_path
-    cmd = 'mkdir -p %s; cd %s; wget -N -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(HMMDB_PATH, HMMDB_PATH, url)
+    if not args.force:
+        flag = '-N'
+    else:
+        flag = ''
+    cmd = 'mkdir -p %s; cd %s; wget %s -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(HMMDB_PATH, HMMDB_PATH, flag, url)
     run(cmd)
 
 def download_annotations():
