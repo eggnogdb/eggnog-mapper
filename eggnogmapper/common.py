@@ -20,6 +20,16 @@ FASTA_PATH = pjoin(DATA_PATH, "OG_fasta")
 HMMDB_PATH = pjoin(DATA_PATH, "hmmdb_levels")
 EGGNOGDB_FILE = pjoin(DATA_PATH, "eggnog.db")
 
+def get_level_base_path(level):
+    if level == 'euk':
+        level = 'euk_500'
+    elif level == 'bact':
+        level = 'euk_50'
+    elif level == 'arch':
+        level = 'arch_1'
+    else:
+        level = level+"_hmm"
+    return level    
 
 def get_db_info(level):
     if level == 'euk':
