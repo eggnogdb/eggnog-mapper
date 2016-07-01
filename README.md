@@ -76,8 +76,9 @@ git clone https://github.com/jhcepas/eggnog-mapper.git
   sequences are expanded. The `arch` database includes all models from all
   archeal taxonomic levels in eggNOG.
 
-- taxonomically restricted databases are listed here and can be referred by its
-  code (i.e. maNOG for Mammals).
+- taxonomically restricted databases are listed
+  [here](http://beta-eggnogdb.embl.de/#/app/downloads). They can be referred by
+  its code (i.e. maNOG for Mammals).
 
 
 To download a given database, execute the download script providing a the list
