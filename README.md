@@ -16,28 +16,31 @@ http://beta-eggnogdb.embl.de/#/app/seqmapper.
 - Python 2.7+
 - wget 
 - HMMER 3 binaries available in your PATH
-- BioPython (not required if input file contain protein sequences)
+- BioPython (not required if input sequences are proteins)
 
 # Storage Requirements:
- 
-- ~130GB of disk for the three main eggNOG databases (euk, bact, arch).
 
-- from 1 to 40 GBs for each taxonomic-specific eggNOG HMM databases. You don't
-  have to download all, just pick the ones you are interested.
+- ~20GB for the eggNOG annotation database
+
+- ~20GB for eggNOG fasta files
+
+- ~130GB for the three optimized eggNOG databases (euk, bact, arch), and from
+  1GB to 35GB for each taxonomic-specific eggNOG HMM database. You don't have to
+  download all, just pick the ones you are interested.
 
 (you can check the size of individual datasets at
 http://beta-eggnogdb.embl.de/download/eggnog_4.5/hmmdb_levels/)
 
 # Memory requirements:
 
-eggnog-mapper allows to run very fast searches by allocating the HMM databases
-into memory (using HMMER3 hmmpgmd program). This is enabled by means of the
-`--usemem` flag and will require a lot of RAM memory (depending on the size of
-the target database). As a reference:
+eggnog-mapper allows to run very fast searches by allocating the target HMM
+databases into memory (using the HMMER3 hmmpgmd program). This is enabled when
+using of the `--usemem` or `--servermode` flags, and it will require a lot of
+RAM memory (depending on the size of the target database). As a reference:
 
-- ~90GB to load the optimized eukaryotic databases (euk)
-- ~32GB to load the optimized bacterial database (bact)
-- ~10GB to load the optimized archeal database (arch)
+- ~90GB to load the optimized eukaryotic databases (`euk`)
+- ~32GB to load the optimized bacterial database (`bact`)
+- ~10GB to load the optimized archeal database (`arch`)
 
 Note: 
 
@@ -88,8 +91,33 @@ This will fetch and decompress all precomputed eggNOG data into the data/ direct
 
 ## Mapping and annotation using eggNOG databases
 
+- Disk based searches on the optimized bacterial database 
+
 ```
 python emapper.py -i test/polb.fa --output polb_bact -d bact
+```
+
+- Disk based searches on the optimized database of viral models
+
+```
+python emapper.py -i test/polb.fa --output polb_viruses  -d viruses
+```
+
+- Disk based searches on the mammal specific database
+
+```
+python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG
+```
+
+- Disk based searches on the mammal specific database using RAM memmory allocation
+
+```
+python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG --usemem
+```
+
+- Mapping sequences and skipping functional annotation
+```
+python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG --hitsonly 
 ```
 
 ## Mapping to custom databases
