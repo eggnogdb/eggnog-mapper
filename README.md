@@ -79,15 +79,17 @@ To download a given database, execute the download script providing a the list
 of databases to fetch:
 
 ```
-download_eggnog_databases.py euk bact arch viruses
+download_eggnog_data.py euk bact arch viruses
 ```
+
+This will fetch and decompress all precomputed eggNOG data into the data/ directory. 
 
 # Basic Usage
 
 ## Mapping and annotation using eggNOG databases
 
 ```
-python emapper.py -i ProtSequences.fa --output OutputBaseName --db bact
+python emapper.py -i test/polb.fa --output OutputBaseName --db bact
 ```
 
 ## Mapping to custom databases
@@ -96,7 +98,7 @@ You can also provide a custom hmmpressed HMMR3 database. For this, just provide
 the path and base name of the database (removing the `.h3f` like extension).
 
 ```
-python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db custom/database.hmm
+python emapper.py -i test/polb.fa --output OutputBaseName --db custom/database.hmm
 ```
 
 # Output files
@@ -122,7 +124,7 @@ If only one input file is going to be annotated, simply use the `--usemem` and
 `--cpu XX` options. For instance: 
 
 ```
-python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db custom/database.hmm --usemem --cpu 10
+python emapper.py -i test/polb.fa --output polb --db custom/database.hmm --usemem --cpu 10
 ``` 
 
 If you are planning to use the same database for annotating multiple files, you
@@ -133,12 +135,12 @@ instance to connect to the server. For instance,
 In terminal 1, execute:
 
 ```
-python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db arch --cpu 10 --usemem --servermode
+python emapper.py -i test/polb.fa --output polb --db arch --cpu 10 --usemem --servermode
 ```
 
 This will load the memory and give you the address to connect to the
 database. Then, in a different terminal, execute:
 
 ```
-python emapper.py -i ProtSequences.fa --output OutputBaseNAme --db localhost:43000 
+python emapper.py -i ProtSequences.fa --output polb --db localhost:43000 
 ```
