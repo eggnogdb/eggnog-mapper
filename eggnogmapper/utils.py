@@ -191,7 +191,7 @@ def ask(string, valid_values=None, default=-1, case_sensitive=False, color='gree
         valid_values = [value.lower() for value in valid_values]
     while v not in valid_values:
         if color:
-            string = colorify(string, "green")
+            string = colorify(string, "yellow")
         v = input("%s [%s] " % (string,','.join(valid_values) ))
         if v == '' and default >= 0:
             v = valid_values[default]

@@ -51,19 +51,24 @@ if __name__ == "__main__":
         args.dbs = EGGNOG_DATABASES
 
         
-    if not pexists(pjoin(DATA_PATH, 'eggnog.db')):
+    if args.force or not pexists(pjoin(DATA_PATH, 'eggnog.db')):
         if args.allyes or ask("Download main annotation database?") == 'y':
-            print colorify('Downloading "eggnog.db" at %s...' %DATA_PATH, 'yellow')
+            print colorify('Downloading "eggnog.db" at %s...' %DATA_PATH, 'green')
             download_annotations()
-
-    if not pexists(pjoin(DATA_PATH, 'OG_fasta')):        
-        if args.allyes or ask("Download OG fasta files for annotation refinement (~20GB after decompression)?") == 'y':
-            print colorify('Downloading fasta files " at %s/OG_fasta...' %DATA_PATH, 'yellow')
-            download_groups()
+    else:
+        print colorify('Skipping eggnog.db database (already present). Use -f to force download', 'lblue')
         
-    if args.allyes or ask("Download %d databases (%s)?"%(len(args.dbs), ','.join(args.dbs))) == 'y':
+    if args.force or not pexists(pjoin(DATA_PATH, 'OG_fasta')):        
+        if args.allyes or ask("Download OG fasta files for annotation refinement (~20GB after decompression)?") == 'y':
+            print colorify('Downloading fasta files " at %s/OG_fasta...' %DATA_PATH, 'green')
+            download_groups()
+
+            
+    if args.allyes or ask("Download %d HMM database(s): %s?"%(len(args.dbs), ','.join(args.dbs))) == 'y':
         for db in args.dbs:
-            print colorify('Downloading %s HMM database " at %s/%s\_hmm ...' %(db, HMMDB_PATH, db), 'yellow')
+            #args.force or
+            
+            print colorify('Downloading %s HMM database " at %s/%s\_hmm ...' %(db, HMMDB_PATH, db), 'green')
             download_hmm_database(db)
 
 
