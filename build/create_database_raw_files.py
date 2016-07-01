@@ -1,5 +1,6 @@
 import sys
 from collections import defaultdict
+import cPickle
 
 from pymongo import MongoClient
 import sqlite3
@@ -8,6 +9,12 @@ mongoCli = MongoClient()
 mongoDB = mongoCli.eggnog4_1
 db_speciation = mongoDB.sp_events
 db_members = mongoDB.members
+
+#og2group
+og2group = dict([tuple(map(str.strip, line.split())) for line in open('og2groups.tsv')])
+with open("og2group.pkl", "wb") as GROUPS:
+    cPickle.dump(og2group, GROUPS, 2)
+   
 
 # Load new names
 old2new = {}

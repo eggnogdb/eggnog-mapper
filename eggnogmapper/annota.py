@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 from collections import Counter
 import sqlite3
+import json
 
 from .common import EGGNOGDB_FILE
 
@@ -12,6 +13,23 @@ def connect():
     conn = sqlite3.connect(EGGNOGDB_FILE)
     db = conn.cursor()
 
+def get_og_annotations(ogname):
+    # og VARCHAR(16) PRIMARY KEY,
+    # level VARCHAR(16),
+    # nm INTEGER,
+    # description TEXT,
+    # COG_categories VARCHAR(8),
+    # GO_freq TEXT,
+    # KEGG_freq TEXT,
+    # SMART_freq TEXT,
+    # proteins TEXT);    
+    cmd = 'SELECT level, nm, description, COG_categories FROM og WHERE og.og = "%s"' %ogname
+    level, nm, desc, cat = None, None, None, None
+    if db.execute(cmd):
+        level, nm, desc, cat = db.fetchone()
+        cat = ','.join(json.loads(cat))
+    return level, nm, desc, cat
+    
 def get_member_annotations(names, excluded_gos):
     in_clause = ','.join(['"%s"' %n for n in names])    
     cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' %in_clause
