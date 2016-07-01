@@ -18,7 +18,7 @@ def download_hmm_database(level):
         level = 'arch_1'
         
     url = 'http://beta-eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/hmmdb_levels/%s_hmm/' %level
-    cmd = 'mkdir -p %s; cd %s; wget -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(HMMDB_PATH, HMMDB_PATH, url)
+    cmd = 'mkdir -p %s; cd %s; wget -N -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(HMMDB_PATH, HMMDB_PATH, url)
     run(cmd)
 
 def download_annotations():
@@ -64,11 +64,11 @@ if __name__ == "__main__":
             download_groups()
     else:
         print colorify('Skipping OG_fasta/ database (already present). Use -f to force download', 'lblue')
-
             
     if args.allyes or ask("Download %d HMM database(s): %s?"%(len(args.dbs), ','.join(args.dbs))) == 'y':
         for db in args.dbs:
-            #args.force or
+            #fimp
+            #pexists(pjoin(HMMDB_PATH, db+'_hmm', '' ))
             
             print colorify('Downloading %s HMM database " at %s/%s\_hmm ...' %(db, HMMDB_PATH, db), 'green')
             download_hmm_database(db)
