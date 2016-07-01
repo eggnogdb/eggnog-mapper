@@ -153,6 +153,13 @@ def main(args):
             idmap[_seqid] = [_seqname]
         print >>sys.stderr, len(idmap), "names loaded"        
 
+    if args.servermode:
+        while True:
+            print colorify("Server ready listening at %s:%s and using %d CPU cores" %(host, port, args.cpu), 'green')
+            print colorify("Use `emapper.py -d %s:%s (...)` to search against this server" %(host, port), 'lblue')
+            time.slee(10)            
+        sys.exit(0)
+                
     hits_file = "%s.hits" %args.output
     hits_annot_file = "%s.annot" %hits_file
     annot_file = "%s.annot" %args.output
@@ -335,7 +342,7 @@ if __name__ == "__main__":
 
     # server
     g1 = parser.add_argument_group('Target database options')
-    g1.add_argument('--db',  dest='db', help='specify the target database for sequence searches. Choose among: euk,bact,arch, host:port, or local hmmpressed database')    
+    g1.add_argument('-d', dest='db', help='specify the target database for sequence searches. Choose among: euk,bact,arch, host:port, or local hmmpressed database')    
     g1.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
     g1.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
     g1.add_argument('--idmap', dest='idmap', type=str)
@@ -403,6 +410,9 @@ if __name__ == "__main__":
     if not args.db:
         parser.error('A target databse must be specified with --db')
 
+    if args.servermode:
+        args.usemem = True
+        
     if args.db in EGGNOG_DATABASES and not args.hits_only:
         annota.connect()
         
