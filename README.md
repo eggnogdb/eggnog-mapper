@@ -118,9 +118,7 @@ eggnog-mapper will produce two text tab-delimited files:
 
 ## Example Output:
 
-```
-python emapper.py -d euk -i test/polb.fa -o polb_bact
-head polb_euk.*
+```bash
 $ python emapper.py -d euk -i test/polb.fa -o polb_bact --override
 Sequence mapping starts now!
 processed queries:0 total_time:86.3751051426 rate:0.00 q/s
