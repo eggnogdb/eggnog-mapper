@@ -111,7 +111,7 @@ python emapper.py -i test/polb.fa --output polb_viruses  -d viruses
 python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG
 ```
 
-- Disk based searches on the mammal specific database using RAM memmory allocation
+- Memory based searches on the mammal specific database
 
 ```
 python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG --usemem
