@@ -24,6 +24,14 @@ from eggnogmapper import seqio
 from eggnogmapper.server import server_functional, load_server
 from eggnogmapper.utils import colorify
 
+def cleanup_og_name(name):
+    # names in hmm database files are not clean eggnog OG names
+    m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
+    if m:
+        name = m.groups()[0]
+    name = re.sub("^ENOG41", "", name)
+    return name
+
 
 def main(args):
     host = 'localhost'
@@ -146,12 +154,18 @@ def main(args):
         print >>sys.stderr, len(idmap), "names loaded"        
 
     hits_file = "%s.hits" %args.output
+    hits_annot_file = "%s.annot" %hits_file
     annot_file = "%s.annot" %args.output
 
     if pexists(hits_file) and not args.resume and not args.override:
         print "Output files already present. User --resume or --override to continue"
         sys.exit(1)
-            
+
+
+    hits_header = map(str.strip, "#query_name, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage".split(','))
+    hits_annot_header = map(str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
+    annot_header = map(str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs, GO, KEGG(pathway)".split(',')) 
+    
     # Start scanning sequences 
     if not args.annotate_only:
         VISITED = set()
@@ -165,10 +179,11 @@ def main(args):
 
         print >>sys.stderr, "Analysis starts now."
 
-        HEADER = ['query', 'hit', 'e-value', 'sum_score', 'query_length', 'hmmfrom', 'hmmto', 'seqfrom', 'seqto', 'q_coverage']
+
+       
         print >>OUT, '# ' + time.ctime()
         print >>OUT, '# ' + ' '.join(sys.argv)
-        print >>OUT, '# ' + '\t'.join(HEADER)
+        print >>OUT, '# ' + '\t'.join(hits_header)
         total_time = 0
         last_time = time.time()
         start_time = time.time()
@@ -191,9 +206,9 @@ def main(args):
                                                                                    cpus=args.cpu)):
             if elapsed == -1:
                 # error occured
-                print >>OUT, '\t'.join([name] + ['ERROR'] * len(HEADER))
+                print >>OUT, '\t'.join([name] + ['ERROR'] * len(hits_header))
             elif not hits:
-                print >>OUT, '\t'.join([name] + ['-'] * len(HEADER))
+                print >>OUT, '\t'.join([name] + ['-'] * len(hits_header))
             else:
                 for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
                     hitname = hid
@@ -220,64 +235,67 @@ def main(args):
 
     start_time = time.time()
     if not args.hits_only and args.db in EGGNOG_DATABASES:
-        OUT = open(annot_file, "w")
-        print >>OUT, '\t'.join("#query_seq, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs, GO, KEGG(pathway)".split(','))
-        for qn, r in enumerate(process_hits_file(hits_file, args.input, args.db, translate=args.translate, cpu=args.cpu)):
-            if qn and (qn % 25 == 0):
-                total_time = time.time() - start_time
-                print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
-                sys.stderr.flush()
-            
-            query_name = r[0]
-            best_hit_name = r[1]
-            best_hit_evalue = r[2]
-            best_hit_score = r[3]
-            if best_hit_name != '-' and float(best_hit_score) >= 20: 
-                #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
-                orthologs = sorted(annota.get_member_orthologs(best_hit_name)[args.orthotype])
+        with open(hits_annot_file, "w") as OUT:
+            print >>OUT, '\t'.join(hits_annot_header)
+            for line in open(hits_file):
+                if not line.strip() or line.startswith('#'):
+                    continue
+                query, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage = map(str.strip, line.split('\t'))
+                hitname = cleanup_og_name(hit)                    
+                level, nm, desc, cats = annota.get_og_annotations(hitname)
+                print >>OUT, '\t'.join(map(str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
                 
-                if orthologs:
-                    pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                    #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
-                    name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
-                else:
-                    name_ranking = [[0, 0, 0]]
-            
-                if name_ranking[0][1] > 2:
-                    best_name = name_ranking[0][0]
-                else:
-                    best_name = '-'
-                    
-                # TEST
-                #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
-                # assert sorted(orthologs) == sorted(_orthologs)
-                # assert sorted(pname.items()) == sorted(_pname.items())
-                # print sorted(orthologs) == sorted(_orthologs)
-                # print sorted(pname.items()) == sorted(_pname.items())
-                
-                print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
-                                                 ','.join(orthologs),
-                                                 ','.join(sorted(gos)),
-                                                 ','.join(sorted(keggs))
-                                             )))
+        if args.db != 'viruses':
+            OUT = open(annot_file, "w")
+            print >>OUT, '\t'.join(annot_header)
+            for qn, r in enumerate(process_hits_file(hits_annot_file, args.input, translate=args.translate, cpu=args.cpu)):
+                if qn and (qn % 25 == 0):
+                    total_time = time.time() - start_time
+                    print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
+                    sys.stderr.flush()
 
-        print >>OUT, '# Total time (seconds):', time.time()-start_time
-        OUT.close()
+                query_name = r[0]
+                best_hit_name = r[1]
+                best_hit_evalue = r[2]
+                best_hit_score = r[3]
+                if best_hit_name != '-' and float(best_hit_score) >= 20: 
+                    #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
+                    orthologs = sorted(annota.get_member_orthologs(best_hit_name)[args.orthotype])
+
+                    if orthologs:
+                        pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
+                        #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
+                        name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
+                    else:
+                        name_ranking = [[0, 0, 0]]
+
+                    if name_ranking[0][1] > 2:
+                        best_name = name_ranking[0][0]
+                    else:
+                        best_name = '-'
+
+                    # TEST
+                    #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
+                    # assert sorted(orthologs) == sorted(_orthologs)
+                    # assert sorted(pname.items()) == sorted(_pname.items())
+                    # print sorted(orthologs) == sorted(_orthologs)
+                    # print sorted(pname.items()) == sorted(_pname.items())
+
+                    print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
+                                                     ','.join(orthologs),
+                                                     ','.join(sorted(gos)),
+                                                     ','.join(sorted(keggs))
+                                                 )))
+
+            print >>OUT, '# Total time (seconds):', time.time()-start_time
+            OUT.close()
 
 
     for p in multiprocessing.active_children():
         p.terminate()
     print 'finish'
 
-def process_hits_file(hits_file, query_fasta, eggnogdb, skip_queries=None, translate=False, cpu=1):        
-    if eggnogdb in set(['euk', 'bact', 'arch']):
-        print 'loading OG levels'
-        og2level = cPickle.load(open(pjoin(DATA_PATH, 'og2level.pkl')))
-        level = None
-    else:
-        og2level = None
-        level = eggnogdb
-        
+def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False, cpu=1):        
     sequences = {name:seq for name, seq in seqio.iter_fasta_seqs(query_fasta, translate=translate)}    
     cmds = []
     visited_queries = set()
@@ -291,26 +309,20 @@ def process_hits_file(hits_file, query_fasta, eggnogdb, skip_queries=None, trans
 
         fields = map(str.strip, line.split('\t'))
         seqname = fields[0]
-        hitname = fields[1]
         
-        if hitname == '-' or hitname == 'ERROR':
+        if fields[1] == '-' or fields[1] == 'ERROR':
             continue
             
         if seqname in visited_queries:
             continue
 
-        # names in hmm database files are not clean eggnog OG names
-        m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', hitname)
-        if m: 
-            hitname = re.sub("^ENOG41", "", m.groups()[0])
-
-        if eggnogdb != 'viruses':
-            seq = sequences[seqname] 
-            visited_queries.add(seqname)
-            if og2level:
-                level = og2level[hitname]            
-            target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" %hitname)
-            cmds.append([seqname, seq, target_fasta])
+        hitname = cleanup_og_name(fields[1])
+        level = fields[2]
+        
+        seq = sequences[seqname] 
+        visited_queries.add(seqname)
+        target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" %hitname)
+        cmds.append([seqname, seq, target_fasta])
 
     if cmds:
         pool = multiprocessing.Pool(cpu)

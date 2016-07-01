@@ -30,6 +30,9 @@ CREATE TABLE member(
 .import ogs.tsv og
 
 .separator "\t"
+.import ogs_virus.tsv og
+
+.separator "\t"
 .import members.tsv member
 
 .separator "\t"
