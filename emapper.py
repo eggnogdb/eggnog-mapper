@@ -36,10 +36,10 @@ def main(args):
             raise ValueError('Database not found')
         
         if not args.hits_only:
-            if pexists(pjoin(DATA_PATH, 'eggnog.db')):
+            if not pexists(pjoin(DATA_PATH, 'eggnog.db')):
                 print colorify('Database eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
-            if pexists(pjoin(DATA_PATH, 'OG_fasta')):
+            if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
                 print colorify('Database OG_fasta not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
             
