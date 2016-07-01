@@ -30,8 +30,8 @@ def main(args):
     if args.db in EGGNOG_DATABASES:
 
         db_base_file, dbname = get_db_info(args.db)
-        db_present = set(pexists(db_base_file+".h3"+ext) for ext in 'fimp')
-        if db_present != set(True):
+        db_present = set([pexists(db_base_file+".h3"+ext) for ext in 'fimp'])
+        if False in db_present:
             print colorify('Database %s (%s) not present. Use download_eggnog_database.py to fetch it' %(dbname, args.db), 'red')
             raise ValueError('Database not found')
         
