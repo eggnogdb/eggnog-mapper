@@ -119,7 +119,7 @@ python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG --usemem
 
 - Mapping sequences and skipping functional annotation
 ```
-python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG --hitsonly 
+python emapper.py -i test/p53.fa --output p53_maNOG -d maNOG --hits_only 
 ```
 
 ## Mapping to custom databases
