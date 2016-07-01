@@ -12,6 +12,7 @@ BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0]+'/..')
 
 HMMSEARCH = find_executable('hmmsearch')
 HMMSCAN = find_executable('hmmscan')
+HMMSTAT = find_executable('hmmstat')
 HMMPGMD = find_executable('hmmpgmd')
 PHMMER = find_executable('phmmer')
 

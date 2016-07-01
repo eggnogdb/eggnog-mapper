@@ -1,12 +1,14 @@
 from __future__ import absolute_import
 from collections import Counter
 import sqlite3
-import json
+import re
 
 from .common import EGGNOGDB_FILE
 
 conn = None
 db = None
+
+cog_cat_cleaner = re.compile('[\[\]u\'\"]+')
 
 def connect():
     global conn, db
@@ -27,7 +29,7 @@ def get_og_annotations(ogname):
     level, nm, desc, cat = None, None, None, None
     if db.execute(cmd):
         level, nm, desc, cat = db.fetchone()
-        cat = ','.join(json.loads(cat))
+        cat = re.sub(cog_cat_cleaner, '', cat)
     return level, nm, desc, cat
     
 def get_member_annotations(names, excluded_gos):

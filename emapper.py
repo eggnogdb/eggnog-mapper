@@ -21,7 +21,7 @@ from eggnogmapper import search
 from eggnogmapper import annota
 #from eggnogmapper import annota_mongo
 from eggnogmapper import seqio
-from eggnogmapper.server import server_functional, load_server
+from eggnogmapper.server import server_functional, load_server, generate_idmap, shutdown_server
 from eggnogmapper.utils import colorify
 
 def cleanup_og_name(name):
@@ -32,15 +32,20 @@ def cleanup_og_name(name):
     name = re.sub("^ENOG41", "", name)
     return name
 
-
 def main(args):
     host = 'localhost'
+    idmap = None
+    if args.usemem:
+        scantype = 'mem'
+    else:
+        scantype = 'disk'
+        
     if args.db in EGGNOG_DATABASES:
-
-        db_base_file, dbname = get_db_info(args.db)
-        db_present = set([pexists(db_base_file+".h3"+ext) for ext in 'fimp'])
+        dbpath, port = get_db_info(args.db)
+        db_present = [pexists(dbpath+"."+ext) for ext in 'h3f h3i h3m h3p idmap'.split()]
         if False in db_present:
-            print colorify('Database %s (%s) not present. Use download_eggnog_database.py to fetch it' %(dbname, args.db), 'red')
+            print db_present
+            print colorify('Database %s not present. Use download_eggnog_database.py to fetch it' %(args.db), 'red')
             raise ValueError('Database not found')
         
         if not args.hits_only:
@@ -50,68 +55,60 @@ def main(args):
             if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
                 print colorify('Database OG_fasta not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
-            
-        
-        dbpath, port = get_db_info(args.db)
-        if not pexists(dbpath+".h3f"):
-            print dbpath
-            print download_database(args.db)
-            raw_input("press")
-        try:
-            idmap = cPickle.load(open(dbpath.replace('.hmm', '.pkl'), 'rb'))
-        except IOError:
-            idmap = None
-            
-        if port: 
+                
+        if scantype == 'mem':
+            idmap_file = dbpath+'.idmap'
             end_port = port+1
             
-        if args.usemem or server_functional(host, port, args.dbtype):
-            scantype = 'mem'
-        else:
-            port = None
-            scantype = 'disk'
-
     elif os.path.isfile(args.db+'.h3f'):
-        if args.usemem:
-            scantype = 'mem'
-            if not args.idmap:
-                if server.generate_idmap(args.db):
-                    args.idmap = args.db+".idmap"
+        dbpath = args.db
+        if scantype == 'mem':
+            idmap_file = args.db+".idmap"            
+            if not pexists(idmap_file):
+                if generate_idmap(args.db):
+                    idmap_file = args.db+".idmap"
                     print >>sys.stderr, "idmap succesfully created!"
                 else:
-                    print >>sys.stderr, "idmap could not be created!"
-                    idmap = None
-            else:
-                idmap = None
+                    raise ValueError("idmap could not be created!")
             port = 53000
             end_port = 53200
         else:
-            idmap = None
+            idmap_file = None
             port = None
-            dbpath = args.db
-            scantype = 'disk'
         
     elif ":" in args.db:
-        host, port = args.db.split(":")
-        host = host.strip()
+        dbname, host, port = map(str.strip, args.db.split(":"))
+        scantype = 'mem'        
         port = int(port)
-        idmap = None
-        dbpath = None
-        scantype = 'mem'
+        if dbname in EGGNOG_DATABASES:
+            dbfile, port = get_db_info(dbname)
+            args.db = dbname
+            if not args.hits_only:
+                annota.connect()
+        else:
+            dbfile = dbname
+            
+        idmap_file = dbfile+'.idmap'
+        if not pexists(idmap_file):
+            raise ValueError("idmap file not found: %s" %idmap_file)
+        dbpath = host
+
+        if not server_functional(host, port, args.dbtype):
+            print colorify("eggnog-mapper server not found at %s:%s" %(host, port), 'red')
+            exit(-1)        
     else:
         ValueError('Invalid database name/server')
 
     # If memory based searches requested, load server if necessary
-    if args.usemem and not server_functional(host, port, args.dbtype):
+    if scantype == "mem" and not server_functional(host, port, args.dbtype):
         master_db, worker_db = None, None
         for try_port in range(port, end_port, 2):
-            print >>sys.stderr, "Loading server at localhost, port", try_port, try_port+1
+            print colorify("Loading server at localhost, port %s-%s" %(try_port, try_port+1), 'lblue')
             dbpath, master_db, worker_db = load_server(dbpath, try_port, try_port+1, args.cpu)
             port = try_port
-
             ready = False
             while 1:
-                print >>sys.stderr, "Waiting for server to become ready...", host, try_port
+                print "Waiting for server to become ready...", host, try_port
                 time.sleep(1)
                 if not master_db.is_alive() or not worker_db.is_alive():
                     master_db.terminate()
@@ -123,42 +120,37 @@ def main(args):
                     ready = True
                     break
             if ready:
+                dbpath = host
                 break
-    if port:
-        scantype = 'mem'        
-    else:
-        scantype = 'disk'
-        host = dbpath
-    
-    # Exits if trying to connect to a dead server
-    if port and not server_functional(host, port, args.dbtype):
-        print >>sys.stderr, "hmmpgmd Server not found at %s:%s" %(host, port)
-        exit(-1)
-
-    # Loads idmaps if file is provided 
-    if args.idmap:
-        print >>sys.stderr, "Reading idmap"
+    elif scantype == "mem":
+        print colorify("Server already running!", 'yellow')
+        dbpath = host
+                
+    if scantype == "mem":
+        print colorify("Reading idmap %s" %idmap_file, color='lblue')
         idmap = {}
-        for _lnum, _line in enumerate(open(args.idmap)):
+        for _lnum, _line in enumerate(open(idmap_file)):
             if not _line.strip():
                 continue
             try:
                 _seqid, _seqname = map(str, _line.strip().split(' '))
             except ValueError:
                 if _lnum == 0:
-                    continue # idmap generate by esl_reformat has an info line at begining
+                    continue # idmap generated by esl_reformat has an info line at beginning
                 else:
                     raise
             _seqid = int(_seqid)
             idmap[_seqid] = [_seqname]
         print >>sys.stderr, len(idmap), "names loaded"        
 
+    # If server mode, just listen for connections
     if args.servermode:
         while True:
             print colorify("Server ready listening at %s:%s and using %d CPU cores" %(host, port, args.cpu), 'green')
-            print colorify("Use `emapper.py -d %s:%s (...)` to search against this server" %(host, port), 'lblue')
-            time.slee(10)            
+            print colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" %(args.db, host, port), 'lblue')
+            time.sleep(10)            
         sys.exit(0)
+        
                 
     hits_file = "%s.hits" %args.output
     hits_annot_file = "%s.annot" %hits_file
@@ -177,16 +169,14 @@ def main(args):
     if not args.annotate_only:
         VISITED = set()
         if args.resume:
-            print "Resuming previous run. Reading computed output from", hits_file
+            print colorify("Resuming previous run. Reading computed output from %s" %hits_file, 'yellow')
             VISITED = set([line.split('\t')[0].strip() for line in open(hits_file) if not line.startswith('#')])
-            print len(VISITED), 'processed queries skipped'
+            print len(VISITED), 'queries skipped'
             OUT = open(hits_file, 'a')
         else:
             OUT = open(hits_file, 'w')
 
-        print >>sys.stderr, "Analysis starts now."
-
-
+        print colorify("Sequence mapping starts now!", 'green')
        
         print >>OUT, '# ' + time.ctime()
         print >>OUT, '# ' + ' '.join(sys.argv)
@@ -201,7 +191,7 @@ def main(args):
                                                                                    args.qtype,
                                                                                    args.dbtype,
                                                                                    scantype,
-                                                                                   host,
+                                                                                   dbpath,
                                                                                    port,
                                                                                    evalue_thr=args.evalue,
                                                                                    score_thr=args.score,                                                                               
@@ -213,9 +203,9 @@ def main(args):
                                                                                    cpus=args.cpu)):
             if elapsed == -1:
                 # error occured
-                print >>OUT, '\t'.join([name] + ['ERROR'] * len(hits_header))
+                print >>OUT, '\t'.join([name] + ['ERROR'] * (len(hits_header)-1))
             elif not hits:
-                print >>OUT, '\t'.join([name] + ['-'] * len(hits_header))
+                print >>OUT, '\t'.join([name] + ['-'] * (len(hits_header)-1))
             else:
                 for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
                     hitname = hid
@@ -234,23 +224,29 @@ def main(args):
 
         # finish
         ellapsed_time = time.time()-start_time
-        print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))
+        print colorify("processed queries:%s total_time:%s rate:%s" %(qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))), 'lblue')
         sys.stderr.flush()
         print >>OUT, '# %d queries scanned' %(qn + 1)
         print >>OUT, '# Total time (seconds):', ellapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn)/ellapsed_time))        
         OUT.close()
 
     start_time = time.time()
+    print colorify("Functional annotation starts now! ", 'green')
     if not args.hits_only and args.db in EGGNOG_DATABASES:
         with open(hits_annot_file, "w") as OUT:
             print >>OUT, '\t'.join(hits_annot_header)
             for line in open(hits_file):
                 if not line.strip() or line.startswith('#'):
                     continue
+
                 query, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage = map(str.strip, line.split('\t'))
-                hitname = cleanup_og_name(hit)                    
-                level, nm, desc, cats = annota.get_og_annotations(hitname)
-                print >>OUT, '\t'.join(map(str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
+                if hit not in ['ERROR', '-']:
+                    hitname = cleanup_og_name(hit)                    
+                    level, nm, desc, cats = annota.get_og_annotations(hitname)
+                    print >>OUT, '\t'.join(map(str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
+                else:
+                    print >>OUT, '\t'.join([name] + [hit] * (len(hits_annot_header)-1))
                 
         if args.db != 'viruses':
             OUT = open(annot_file, "w")
@@ -258,7 +254,7 @@ def main(args):
             for qn, r in enumerate(process_hits_file(hits_annot_file, args.input, translate=args.translate, cpu=args.cpu)):
                 if qn and (qn % 25 == 0):
                     total_time = time.time() - start_time
-                    print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
+                    print colorify("processed queries:%s total_time:%s rate:%s" %(qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))), 'lblue')
                     sys.stderr.flush()
 
                 query_name = r[0]
@@ -298,9 +294,11 @@ def main(args):
             OUT.close()
 
 
-    for p in multiprocessing.active_children():
-        p.terminate()
-    print 'finish'
+    #for p in multiprocessing.active_children():
+    #    p.terminate()
+    #    p.join()
+    shutdown_server()    
+    print colorify('Done', 'green')
 
 def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False, cpu=1):        
     sequences = {name:seq for name, seq in seqio.iter_fasta_seqs(query_fasta, translate=translate)}    
@@ -333,19 +331,18 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False
 
     if cmds:
         pool = multiprocessing.Pool(cpu)
-        print 'Predicting orthologs...'
         for r in pool.imap(search.refine_hit, cmds):
             yield r
-        
+        pool.terminate()
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # server
     g1 = parser.add_argument_group('Target database options')
-    g1.add_argument('-d', dest='db', help='specify the target database for sequence searches. Choose among: euk,bact,arch, host:port, or local hmmpressed database')    
+    g1.add_argument('-d', dest='db', help=('specify the target database for sequence searches'
+                    '. Choose among: euk,bact,arch, host:port, or a local hmmpressed database'))    
     g1.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
     g1.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
-    g1.add_argument('--idmap', dest='idmap', type=str)
     
     g2 = parser.add_argument_group('Sequence search options')
     g2.add_argument('--maxhits', dest='maxhits', type=int, default=25,
@@ -361,14 +358,14 @@ if __name__ == "__main__":
     g2.add_argument('--Z', dest='Z', type=float, default=40000000,
                     help='fix database size (allows comparing e-values among databases). Default=40,000,000')
 
-    g2.add_argument('--othologs_evalue', dest='ortho_evalue', default=0.001, type=float,
-                    help="E-value threshold for ortholog dectection. Default=0.001")
-    g2.add_argument('--orthologs_score', dest='ortho_score', default=60, type=float,
-                    help="Bit score threshold for ortholog detection. Default=60")
+    #g2.add_argument('--othologs_evalue', dest='ortho_evalue', default=0.001, type=float,
+    #                help="E-value threshold for ortholog dectection. Default=0.001")
+    # g2.add_argument('--orthologs_score', dest='ortho_score', default=60, type=float,
+    #                 help="Bit score threshold for ortholog detection. Default=60")
     
     
     g3 = parser.add_argument_group('Output options')
-    g3.add_argument('--output', type=str, help="base name for output files", required=True)
+    g3.add_argument('--output', '-o', type=str, help="base name for output files")
     g3.add_argument('--resume', action="store_true",
                     help="Resumes a previous execution skipping reported hits in the output file.")
     g3.add_argument('--override', action="store_true",
@@ -409,9 +406,13 @@ if __name__ == "__main__":
         parser.error('Execution must be specified. Choose between: -i [fastafile]  or --servermode')
     if not args.db:
         parser.error('A target databse must be specified with --db')
-
+        
     if args.servermode:
         args.usemem = True
+        
+    if not args.output and not args.servermode:
+        parser.error("a base name for output files has to be provided with --output")
+
         
     if args.db in EGGNOG_DATABASES and not args.hits_only:
         annota.connect()

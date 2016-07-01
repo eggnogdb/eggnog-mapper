@@ -9,9 +9,12 @@ from multiprocessing import Process
 import signal
 
 from .common import *
+from .utils import colorify
 from . import search
 
 CHILD_PROC = None
+MASTER = None
+WORKER = None
 
 def server_up(host, port):
     import socket
@@ -40,7 +43,7 @@ def safe_exit(a, b):
     sys.exit(0)
         
 def load_server(dbpath, client_port, worker_port, cpu, output=None):
-    global CHILD_PID
+    global CHILD_PID, MASTER, WORKER
     if not output:
         OUT = open(os.devnull, 'w')
     else:
@@ -61,13 +64,26 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None):
         while 1:
             time.sleep(60)
         
-    master = Process(target=start_master)
-    master.start()
+    MASTER = Process(target=start_master)
+    MASTER.start()
 
-    worker = Process(target=start_worker)
-    worker.start()
+    WORKER = Process(target=start_worker)
+    WORKER.start()
     
-    return dbpath, master, worker
+    return dbpath, MASTER, WORKER
+
+def shutdown_server():
+    global MASTER, WORKER
+    try:
+        os.killpg(os.getpgid(MASTER.pid), signal.SIGTERM)
+    except (OSError, AttributeError):
+        pass
+    try:
+        os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
+    except (OSError, AttributeError):
+        pass
+ 
+    
     
 def alive(p):
     """ Check For the existence of a unix pid. """
@@ -75,29 +91,10 @@ def alive(p):
 
 
 def generate_idmap(dbpath):
+    if dbpath.endswith(".h3f"):
+        dbpath = dbpath.replace(".h3f", "")
     cmd = """%s %s |grep -v '#'|awk '{print $1" "$2}' > %s""" %(HMMSTAT, dbpath, dbpath+'.idmap')
+    print colorify(cmd, "cyan")
     print('Generating idmap in '+dbpath+'.idmap')
     return os.system(cmd) == 0
-
-
-
     
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--db', dest='db', nargs='+', choices=['euk', 'bact', 'arch'])
-    parser.add_argument('--cpu', dest='cpu', type=int, default=4)
-    
-    args = parser.parse_args()
-
-    checker = []
-    
-    for dbname in args.db:
-        db = DBDATA[dbname]
-        checker.append(load_server(db['db_path'], db['client_port'], db['worker_port'], args.cpu, sys.stdout))
-
-    # Keep the server runninf
-    while 1:
-        print 'Eggnog-mapper serving databases...', time.ctime()
-        for dbpath, master, worker in checker:
-            print "  % 30s - Master (% 5d):%s - Worker (% 5d):%s" (dbpath, master.pid, alive(master), worker.pid, alive(worker))        
-        time.sleep(60)

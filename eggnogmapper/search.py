@@ -200,7 +200,7 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None, score
         query_file = Q.name
         
     cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' %(HMMSCAN, cpus, OUT.name, database_path, query_file)
-    print '#', cmd
+    #print '#', cmd
     #print cmd
     sts = subprocess.call(cmd, shell=True)
     byquery = defaultdict(list)
@@ -300,7 +300,7 @@ def get_best_hit(target_seq, target_og):
     tempout = str(uuid.uuid4())
     cmd = "%s --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" %(
         PHMMER, tempout, target_seq, target_og)
-    print cmd
+    #print cmd
     status = os.system(cmd)
     best_hit = None
     if status == 0:
