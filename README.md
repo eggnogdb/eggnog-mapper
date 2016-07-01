@@ -53,12 +53,14 @@ Note:
 
 ## Download
 
-- Download the latest version of eggnog-mapper from
+- Download and decompress the latest version of eggnog-mapper from
   https://github.com/jhcepas/eggnog-mapper/releases. The program does not
   require compilation nor installation.
 
+- or clone this git repository:
+
 ```
-wget https://github.com/jhcepas/eggnog-mapper/archive/latest.tar.gz && tar -zxf latest.tar.gz
+git clone https://github.com/jhcepas/eggnog-mapper.git
 ```
 
 ## eggNOG database retrieval 
