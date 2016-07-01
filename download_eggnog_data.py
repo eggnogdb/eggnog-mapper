@@ -1,23 +1,17 @@
 #!/usr/bin/env python
 import os
 from argparse import ArgumentParser
-from eggnogmapper.common import EGGNOG_DATABASES, DATA_PATH, HMMDB_PATH, pexists, pjoin
+from eggnogmapper.common import EGGNOG_DATABASES, DATA_PATH, HMMDB_PATH, pexists, pjoin, get_level_base_path
 from eggnogmapper.utils import ask, colorify
 
 def run(cmd):
     print colorify(cmd, 'cyan')
     if not args.simulate:
         os.system(cmd)
-
-def download_hmm_database(level):
-    if level == 'euk':
-        level = 'euk_500'
-    elif level == 'bact':
-        level = 'euk_50'
-    elif level == 'arch':
-        level = 'arch_1'
         
-    url = 'http://beta-eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/hmmdb_levels/%s_hmm/' %level
+def download_hmm_database(level):
+    level_base_path = get_level_base_path(level)
+    url = 'http://beta-eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/hmmdb_levels/%s/' %level_base_path
     cmd = 'mkdir -p %s; cd %s; wget -N -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(HMMDB_PATH, HMMDB_PATH, url)
     run(cmd)
 

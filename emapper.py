@@ -22,10 +22,28 @@ from eggnogmapper import annota
 #from eggnogmapper import annota_mongo
 from eggnogmapper import seqio
 from eggnogmapper.server import server_functional, load_server
+from eggnogmapper.utils import colorify
+
 
 def main(args):
     host = 'localhost'
     if args.db in EGGNOG_DATABASES:
+
+        db_base_file, dbname = get_db_info(args.db)
+        db_present = set(pexists(db_base_file+".h3"+ext) for ext in 'fimp')
+        if db_present != set(True):
+            print colorify('Database %s (%s) not present. Use download_eggnog_database.py to fetch it' %(dbname, args.db), 'red')
+            raise ValueError('Database not found')
+        
+        if not args.hits_only:
+            if pexists(pjoin(DATA_PATH, 'eggnog.db')):
+                print colorify('Database eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
+                raise ValueError('Database not found')
+            if pexists(pjoin(DATA_PATH, 'OG_fasta')):
+                print colorify('Database OG_fasta not present. Use download_eggnog_database.py to fetch it', 'red')
+                raise ValueError('Database not found')
+            
+        
         dbpath, port = get_db_info(args.db)
         if not pexists(dbpath+".h3f"):
             print dbpath
