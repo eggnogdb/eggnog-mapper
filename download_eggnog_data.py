@@ -62,6 +62,8 @@ if __name__ == "__main__":
         if args.allyes or ask("Download OG fasta files for annotation refinement (~20GB after decompression)?") == 'y':
             print colorify('Downloading fasta files " at %s/OG_fasta...' %DATA_PATH, 'green')
             download_groups()
+    else:
+        print colorify('Skipping OG_fasta/ database (already present). Use -f to force download', 'lblue')
 
             
     if args.allyes or ask("Download %d HMM database(s): %s?"%(len(args.dbs), ','.join(args.dbs))) == 'y':
