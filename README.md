@@ -61,7 +61,7 @@ wget https://github.com/jhcepas/eggnog-mapper/releases && tar -zxf latest.tar.gz
 ## eggNOG database retrieval 
 
 - eggNOG mapper provides 107 taxonomically restricted HMM databases (`xxxNOG`),
-  three optimized databases (Eukaryota-`euk`, Bacteria-`bact` and Archea-`arch`)
+  three optimized databases [Eukaryota (`euk`), Bacteria (`bact`) and Archea (`arch`)]
   and a virus specific database (`viruses`).
 
 - The three optimized databases include all HMM models from their corresponding
