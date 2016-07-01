@@ -112,8 +112,9 @@ eggnog-mapper will produce two text tab-delimited files:
   input file, and their associated eggNOG functional description and COG
   functional category.
 
-- `outputname.annot`: A list of predicted orthologs, gene name, GO terms and
-  KEGG pathways associated to each query sequence.
+- `outputname.annot`: A list of predicted fine-grained orthologs, gene names, GO
+  terms and KEGG pathways associated to each query sequence. (*the viruses
+  database does not support fine grained annotation*)
 
 
 # Advance usage
