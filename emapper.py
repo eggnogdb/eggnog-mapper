@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-__description__ = 'Run protein sequences searches against eggNOG precompiled hmm databases or custom hmm files, allowing to run computaions on memmory.'
+__description__ = 'A program for bulk functional annotation of novel protein sequences using EggNOG orthology database'
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
