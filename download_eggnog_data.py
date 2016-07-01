@@ -23,12 +23,12 @@ def download_hmm_database(level):
 
 def download_annotations():
     url = 'http://beta-eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/eggnog.db.gz' 
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && gunzip eggnog.db.gz' %(DATA_PATH, url)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz' %(DATA_PATH, url)
     run(cmd)
     
 def download_groups():
     url = 'http://beta-eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/OG_fasta.tar.gz' 
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O OG_fasta.tar.gz  %s && tar -zxf OG_fasta.tar.gz && rm OG_fasta.tar.gz' %(DATA_PATH,  url)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O OG_fasta.tar.gz  %s && echo Decompressing... && tar -zxf OG_fasta.tar.gz && rm OG_fasta.tar.gz' %(DATA_PATH,  url)
     run(cmd)
 
 if __name__ == "__main__":
@@ -53,15 +53,17 @@ if __name__ == "__main__":
         
     if not pexists(pjoin(DATA_PATH, 'eggnog.db')):
         if args.allyes or ask("Download main annotation database?") == 'y':
+            print colorify('Downloading "eggnog.db" at %s...' %DATA_PATH, 'yellow')
             download_annotations()
 
-    if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
-        if args.allyes or ask("Download OG fasta files for annotation refinement?") == 'y':
+    if not pexists(pjoin(DATA_PATH, 'OG_fasta')):        
+        if args.allyes or ask("Download OG fasta files for annotation refinement (~20GB after decompression)?") == 'y':
+            print colorify('Downloading fasta files " at %s/OG_fasta...' %DATA_PATH, 'yellow')
             download_groups()
         
     if args.allyes or ask("Download %d databases (%s)?"%(len(args.dbs), ','.join(args.dbs))) == 'y':
         for db in args.dbs:
-            print "Downloading", colorify(db, 'yellow')
+            print colorify('Downloading %s HMM database " at %s/%s\_hmm ...' %(db, HMMDB_PATH, db), 'yellow')
             download_hmm_database(db)
 
 
