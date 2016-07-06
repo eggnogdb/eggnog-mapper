@@ -25,7 +25,7 @@ def get_level_base_path(level):
     if level == 'euk':
         level = 'euk_500'
     elif level == 'bact':
-        level = 'euk_50'
+        level = 'bact_50'
     elif level == 'arch':
         level = 'arch_1'
     else:
