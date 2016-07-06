@@ -219,16 +219,16 @@ def main(args):
             total_time += time.time() - last_time
             last_time = time.time()
             if qn and (qn % 25 == 0):
-                print >>sys.stderr, qn, total_time, "%0.2f q/s" %((float(qn)/total_time))
+                print >>sys.stderr, qn+1, total_time, "%0.2f q/s" %((float(qn+1)/total_time))
                 sys.stderr.flush()
 
         # finish
         ellapsed_time = time.time()-start_time
-        print colorify("processed queries:%s total_time:%s rate:%s" %(qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))), 'lblue')
+        print colorify("processed queries:%s total_time:%s rate:%s" %(qn+1, total_time, "%0.2f q/s" %((float(qn+1)/ellapsed_time))), 'lblue')
         sys.stderr.flush()
         print >>OUT, '# %d queries scanned' %(qn + 1)
         print >>OUT, '# Total time (seconds):', ellapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn)/ellapsed_time))        
+        print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))        
         OUT.close()
 
     start_time = time.time()
