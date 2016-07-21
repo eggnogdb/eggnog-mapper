@@ -339,6 +339,8 @@ if __name__ == "__main__":
 
     # server
     g1 = parser.add_argument_group('Target database options')
+    g1.add_argument('--guessdb', help='guess eggnog db based on the provided taxid', type=int)
+    
     g1.add_argument('-d', dest='db', help=('specify the target database for sequence searches'
                     '. Choose among: euk,bact,arch, host:port, or a local hmmpressed database'))    
     g1.add_argument('--dbtype', dest="dbtype", choices=["hmmdb", "seqdb"], default="hmmdb")
@@ -405,7 +407,17 @@ if __name__ == "__main__":
     if not (args.servermode or args.input):
         parser.error('Execution must be specified. Choose between: -i [fastafile]  or --servermode')
     if not args.db:
-        parser.error('A target databse must be specified with --db')
+        if args.guessdb:
+            from ete3 import NCBITaxa
+            ncbi = NCBITaxa()
+            lineage = ncbi.get_lineage(args.guessdb)
+            for tid in reversed(lineage):
+                if tid in TAXID2LEVEL:
+                    print tid, TAXID2LEVEL[tid]
+                    args.db = TAXID2LEVEL[tid]
+                    break
+        if not args.db:
+            parser.error('A target databse must be specified with --db')
         
     if args.servermode:
         args.usemem = True
