@@ -101,7 +101,7 @@ def main(args):
         ValueError('Invalid database name/server')
 
     # If memory based searches requested, load server if necessary
-    if scantype == "mem" and not :
+    if scantype == "mem" and not connecting_to_server:
         master_db, worker_db = None, None
         for try_port in range(port, end_port, 2):
             print colorify("Loading server at localhost, port %s-%s" %(try_port, try_port+1), 'lblue')
