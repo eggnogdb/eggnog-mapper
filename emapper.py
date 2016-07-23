@@ -40,7 +40,7 @@ def main(args):
         scantype = 'mem'
     else:
         scantype = 'disk'
-        
+    connecting_to_server = False
     if args.db in EGGNOG_DATABASES:
         dbpath, port = get_db_info(args.db)
         db_present = [pexists(dbpath+"."+ext) for ext in 'h3f h3i h3m h3p idmap'.split()]
@@ -60,7 +60,7 @@ def main(args):
                 
         if scantype == 'mem':
             idmap_file = dbpath+'.idmap'
-            end_port = port+1
+            end_port = port+200
             
     elif os.path.isfile(args.db+'.h3f'):
         dbpath = args.db
@@ -95,12 +95,13 @@ def main(args):
 
         if not server_functional(host, port, args.dbtype):
             print colorify("eggnog-mapper server not found at %s:%s" %(host, port), 'red')
-            exit(-1)        
+            exit(-1)
+        connecting_to_server = True
     else:
         ValueError('Invalid database name/server')
 
     # If memory based searches requested, load server if necessary
-    if scantype == "mem" and not server_functional(host, port, args.dbtype):
+    if scantype == "mem" and not :
         master_db, worker_db = None, None
         for try_port in range(port, end_port, 2):
             print colorify("Loading server at localhost, port %s-%s" %(try_port, try_port+1), 'lblue')
@@ -241,11 +242,8 @@ def main(args):
         print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))        
         OUT.close()
         if args.scratch_dir:
-            print "   Copying result file %s from scratch" %(hits_file)
+            print "   Copying result file %s from scratch to %s" %(hits_file, output_dir)
             shutil.copy(hits_file, args.output_dir)
-
-       
-    shutdown_server()    
         
     if args.db in EGGNOG_DATABASES:
         if not args.no_refine:
@@ -273,7 +271,7 @@ def main(args):
             print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))                            
             OUT.close()
             if args.scratch_dir:
-                print "   Copying result file %s from scratch" %(refine_file)
+                print "   Copying result file %s from scratch to %s" %(refine_file, output_dir)
                 shutil.copy(refine_file, args.output_dir)
 
         if not args.no_annot:
@@ -302,7 +300,7 @@ def main(args):
                 print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))                    
                 OUT.close()
                 if args.scratch_dir:
-                    print "   Copying result file %s from scratch" %(hits_annot_file)
+                    print "   Copying result file %s from scratch to %s" %(hits_annot_file, output_dir)
                     shutil.copy(hits_annot_file, args.output_dir)
 
                 
@@ -353,19 +351,21 @@ def main(args):
                 print >>OUT, '# Total time (seconds):', time.time()-start_time
                 OUT.close()
                 if args.scratch_dir:
-                    print "   Copying result file %s from scratch" %(annot_file)
+                    print "   Copying result file %s from scratch to %s" %(annot_file, output_dir)
                     shutil.copy(annot_file, args.output_dir)
 
 
     if args.scratch_dir:
         for f in [hits_file, refine_file, hits_annot_file, annot_file]:
+            print " Cleaning", f
             silent_rm(f)
     
     #for p in multiprocessing.active_children():
     #    p.terminate()
     #    p.join()
     print colorify('Done', 'green')
-
+    shutdown_server()
+    
 def process_hits_file(hits_file, query_fasta, og2level, skip_queries=None, translate=False, cpu=1):        
     sequences = {name:seq for name, seq in seqio.iter_fasta_seqs(query_fasta, translate=translate)}    
     cmds = []
