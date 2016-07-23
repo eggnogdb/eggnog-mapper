@@ -242,7 +242,7 @@ def main(args):
         print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))        
         OUT.close()
         if args.scratch_dir:
-            print "   Copying result file %s from scratch to %s" %(hits_file, output_dir)
+            print "   Copying result file %s from scratch to %s" %(hits_file, args.output_dir)
             shutil.copy(hits_file, args.output_dir)
         
     if args.db in EGGNOG_DATABASES:
@@ -271,7 +271,7 @@ def main(args):
             print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))                            
             OUT.close()
             if args.scratch_dir:
-                print "   Copying result file %s from scratch to %s" %(refine_file, output_dir)
+                print "   Copying result file %s from scratch to %s" %(refine_file, args.output_dir)
                 shutil.copy(refine_file, args.output_dir)
 
         if not args.no_annot:
@@ -300,7 +300,7 @@ def main(args):
                 print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))                    
                 OUT.close()
                 if args.scratch_dir:
-                    print "   Copying result file %s from scratch to %s" %(hits_annot_file, output_dir)
+                    print "   Copying result file %s from scratch to %s" %(hits_annot_file, args.output_dir)
                     shutil.copy(hits_annot_file, args.output_dir)
 
                 
@@ -351,7 +351,7 @@ def main(args):
                 print >>OUT, '# Total time (seconds):', time.time()-start_time
                 OUT.close()
                 if args.scratch_dir:
-                    print "   Copying result file %s from scratch to %s" %(annot_file, output_dir)
+                    print "   Copying result file %s from scratch to %s" %(annot_file, args.output_dir)
                     shutil.copy(annot_file, args.output_dir)
 
 
@@ -508,8 +508,12 @@ if __name__ == "__main__":
         print args.output_dir
         parser.error("--output_dir should point to an existing directory")
         
-    main(args)
-
+    try: 
+        main(args)
+    except:
+        shutdown_server()
+        raise
+        sys.exit(1)
 
 
 
