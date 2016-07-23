@@ -177,7 +177,7 @@ def main(args):
     # Start scanning sequences 
     if not args.annotate_only:
         VISITED = set()
-        if args.resume:
+        if args.resume and pexists(hits_file):
             print colorify("Resuming previous run. Reading computed output from %s" %hits_file, 'yellow')
             VISITED = set([line.split('\t')[0].strip() for line in open(hits_file) if not line.startswith('#')])
             print len(VISITED), 'queries skipped'
