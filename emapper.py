@@ -12,6 +12,7 @@ from collections import defaultdict, Counter
 import multiprocessing
 import argparse
 import re
+import shutil
 
 SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
@@ -48,10 +49,11 @@ def main(args):
             print colorify('Database %s not present. Use download_eggnog_database.py to fetch it' %(args.db), 'red')
             raise ValueError('Database not found')
         
-        if not args.hits_only:
+        if not args.no_annot:
             if not pexists(pjoin(DATA_PATH, 'eggnog.db')):
                 print colorify('Database eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
+        if not args.no_refine:
             if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
                 print colorify('Database OG_fasta not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
@@ -83,8 +85,6 @@ def main(args):
         if dbname in EGGNOG_DATABASES:
             dbfile, port = get_db_info(dbname)
             args.db = dbname
-            if not args.hits_only:
-                annota.connect()
         else:
             dbfile = dbname
             
@@ -107,7 +107,7 @@ def main(args):
             dbpath, master_db, worker_db = load_server(dbpath, try_port, try_port+1, args.cpu)
             port = try_port
             ready = False
-            while 1:
+            for _ in xrange(TIMEOUT_LOAD_SERVER):
                 print "Waiting for server to become ready...", host, try_port
                 time.sleep(1)
                 if not master_db.is_alive() or not worker_db.is_alive():
@@ -153,15 +153,24 @@ def main(args):
         
                 
     hits_file = "%s.hits" %args.output
-    hits_annot_file = "%s.annot" %hits_file
-    annot_file = "%s.annot" %args.output
-
+    refine_file = "%s.refined_hits" %args.output
+    hits_annot_file = "%s.hits.annot" %args.output
+    annot_file = "%s.refined_hits.annot" %args.output
+    os.chdir(args.output_dir)
+    
     if pexists(hits_file) and not args.resume and not args.override:
         print "Output files already present. User --resume or --override to continue"
         sys.exit(1)
 
+    if args.override and args.scratch_dir:
+        for f in [hits_file, refine_file, hits_annot_file, annot_file]:
+            silent_cp(f, args.scratch_dir)
 
+    if args.scratch_dir:
+        os.chdir(args.scratch_dir)
+        
     hits_header = map(str.strip, "#query_name, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage".split(','))
+    refine_header = map(str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score".split(','))
     hits_annot_header = map(str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
     annot_header = map(str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs, GO, KEGG(pathway)".split(',')) 
     
@@ -212,7 +221,8 @@ def main(args):
                     if idmap:
                         hitname = idmap[hid][0]
                                                     
-                    print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, int(querylen), int(hmmfrom), int(hmmto), int(sqfrom), int(sqto), float(sqto-sqfrom)/querylen]))
+                    print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, int(querylen),
+                                                     int(hmmfrom), int(hmmto), int(sqfrom), int(sqto), float(sqto-sqfrom)/querylen]))
             OUT.flush()
 
             # monitoring
@@ -230,77 +240,133 @@ def main(args):
         print >>OUT, '# Total time (seconds):', ellapsed_time
         print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))        
         OUT.close()
+        if args.scratch_dir:
+            print "   Copying result file %s from scratch" %(hits_file)
+            shutil.copy(hits_file, args.output_dir)
 
-    start_time = time.time()
-    print colorify("Functional annotation starts now! ", 'green')
-    if not args.hits_only and args.db in EGGNOG_DATABASES:
-        with open(hits_annot_file, "w") as OUT:
-            print >>OUT, '\t'.join(hits_annot_header)
-            for line in open(hits_file):
-                if not line.strip() or line.startswith('#'):
-                    continue
-
-                query, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage = map(str.strip, line.split('\t'))
-                if hit not in ['ERROR', '-']:
-                    hitname = cleanup_og_name(hit)                    
-                    level, nm, desc, cats = annota.get_og_annotations(hitname)
-                    print >>OUT, '\t'.join(map(str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
-                else:
-                    print >>OUT, '\t'.join([name] + [hit] * (len(hits_annot_header)-1))
-                
-        if args.db != 'viruses':
-            OUT = open(annot_file, "w")
-            print >>OUT, '\t'.join(annot_header)
-            for qn, r in enumerate(process_hits_file(hits_annot_file, args.input, translate=args.translate, cpu=args.cpu)):
+       
+    shutdown_server()    
+        
+    if args.db in EGGNOG_DATABASES:
+        if not args.no_refine:
+            print colorify("Hit refinement starts now", 'green')
+            start_time = time.time()
+            og2level = dict([tuple(map(str.strip, line.split('\t'))) for line in gopen(OGLEVELS_FILE)])
+            OUT = open(refine_file, "w")
+            print >>OUT, '\t'.join(refine_header)
+            qn = 0
+            for qn, r in enumerate(process_hits_file(hits_file, args.input, og2level, translate=args.translate, cpu=args.cpu)):
                 if qn and (qn % 25 == 0):
                     total_time = time.time() - start_time
                     print colorify("processed queries:%s total_time:%s rate:%s" %(qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))), 'lblue')
                     sys.stderr.flush()
-
                 query_name = r[0]
                 best_hit_name = r[1]
                 best_hit_evalue = r[2]
                 best_hit_score = r[3]
                 if best_hit_name != '-' and float(best_hit_score) >= 20: 
-                    #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
-                    orthologs = sorted(annota.get_member_orthologs(best_hit_name)[args.orthotype])
-
-                    if orthologs:
-                        pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                        #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
-                        name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
-                    else:
-                        name_ranking = [[0, 0, 0]]
-
-                    if name_ranking[0][1] > 2:
-                        best_name = name_ranking[0][0]
-                    else:
-                        best_name = '-'
-
-                    # TEST
-                    #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
-                    # assert sorted(orthologs) == sorted(_orthologs)
-                    # assert sorted(pname.items()) == sorted(_pname.items())
-                    # print sorted(orthologs) == sorted(_orthologs)
-                    # print sorted(pname.items()) == sorted(_pname.items())
-
-                    print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
-                                                     ','.join(orthologs),
-                                                     ','.join(sorted(gos)),
-                                                     ','.join(sorted(keggs))
-                                                 )))
-
-            print >>OUT, '# Total time (seconds):', time.time()-start_time
+                    print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score)))
+                    OUT.flush()
+            ellapsed_time = time.time() - start_time
+            print >>OUT, '# %d queries scanned' %(qn + 1)
+            print >>OUT, '# Total time (seconds):', ellapsed_time
+            print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))                            
             OUT.close()
+            if args.scratch_dir:
+                print "   Copying result file %s from scratch" %(refine_file)
+                shutil.copy(refine_file, args.output_dir)
+
+        if not args.no_annot:
+            annota.connect()
+            print colorify("Functional annotation of hits starts now", 'green')
+            start_time = time.time()
+            if pexists(hits_file):
+                OUT = open(hits_annot_file, "w")
+                print >>OUT, '\t'.join(hits_annot_header)
+                qn = 0
+                t1 = time.time()
+                for line in open(hits_file):
+                    if not line.strip() or line.startswith('#'):
+                        continue
+                    qn += 1
+                    query, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage = map(str.strip, line.split('\t'))
+                    if hit not in ['ERROR', '-']:
+                        hitname = cleanup_og_name(hit)                    
+                        level, nm, desc, cats = annota.get_og_annotations(hitname)
+                        print >>OUT, '\t'.join(map(str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
+                    else:
+                        print >>OUT, '\t'.join([name] + [hit] * (len(hits_annot_header)-1))
+                elapsed_time = time.time() - t1
+                print >>OUT, '# %d queries scanned' %(qn + 1)
+                print >>OUT, '# Total time (seconds):', ellapsed_time
+                print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))                    
+                OUT.close()
+                if args.scratch_dir:
+                    print "   Copying result file %s from scratch" %(hits_annot_file)
+                    shutil.copy(hits_annot_file, args.output_dir)
+
+                
+            if args.db != 'viruses' and pexists(refine_file):
+                print colorify("Functional annotation of refined hits starts now", 'green')
+                OUT = open(annot_file, "w")
+                print >>OUT, '\t'.join(annot_header)
+                qn = 0
+                for line in open(refine_file):
+                    if not line.strip() or line.startswith('#'):
+                        continue
+                    if qn and (qn % 25 == 0):
+                        total_time = time.time() - start_time
+                        print colorify("processed queries:%s total_time:%s rate:%s" %(qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))), 'lblue')
+                        sys.stderr.flush()
+                    r = map(str.strip, line.split('\t'))
+                    query_name = r[0]
+                    best_hit_name = r[1]
+                    best_hit_evalue = r[2]
+                    best_hit_score = r[3]
+                    if best_hit_name != '-' and float(best_hit_score) >= 20: 
+                        #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
+                        orthologs = sorted(annota.get_member_orthologs(best_hit_name)[args.orthotype])
+                        if orthologs:
+                            pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
+                            #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
+                            name_ranking = sorted(pname.items(), key=lambda x:x[1], reverse=True)
+                        else:
+                            name_ranking = [[0, 0, 0]]
+
+                        if name_ranking[0][1] > 2:
+                            best_name = name_ranking[0][0]
+                        else:
+                            best_name = '-'
+
+                        # TEST
+                        #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
+                        # assert sorted(orthologs) == sorted(_orthologs)
+                        # assert sorted(pname.items()) == sorted(_pname.items())
+                        # print sorted(orthologs) == sorted(_orthologs)
+                        # print sorted(pname.items()) == sorted(_pname.items())
+                        print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
+                                                         ','.join(orthologs),
+                                                         ','.join(sorted(gos)),
+                                                         ','.join(sorted(keggs))
+                                                     )))
+                        OUT.flush()
+                print >>OUT, '# Total time (seconds):', time.time()-start_time
+                OUT.close()
+                if args.scratch_dir:
+                    print "   Copying result file %s from scratch" %(annot_file)
+                    shutil.copy(annot_file, args.output_dir)
 
 
+    if args.scratch_dir:
+        for f in [hits_file, refine_file, hits_annot_file, annot_file]:
+            silent_rm(f)
+    
     #for p in multiprocessing.active_children():
     #    p.terminate()
     #    p.join()
-    shutdown_server()    
     print colorify('Done', 'green')
 
-def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False, cpu=1):        
+def process_hits_file(hits_file, query_fasta, og2level, skip_queries=None, translate=False, cpu=1):        
     sequences = {name:seq for name, seq in seqio.iter_fasta_seqs(query_fasta, translate=translate)}    
     cmds = []
     visited_queries = set()
@@ -322,7 +388,7 @@ def process_hits_file(hits_file, query_fasta, skip_queries=None, translate=False
             continue
 
         hitname = cleanup_og_name(fields[1])
-        level = fields[2]
+        level = og2level[hitname]
         
         seq = sequences[seqname] 
         visited_queries.add(seqname)
@@ -372,10 +438,18 @@ if __name__ == "__main__":
                     help="Resumes a previous execution skipping reported hits in the output file.")
     g3.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
-    g3.add_argument("--hits_only", action="store_true",
-                    help="Skip fine-grained orthology basedannotation, reporting only HMM hits.")    
+    g3.add_argument("--no_refine", action="store_true",
+                    help="Skip hit refinement, reporting only HMM hits.")
+    g3.add_argument("--no_annot", action="store_true",
+                    help="Skip functional annotation, reporting only hits")
     g3.add_argument("--annotate_only", action="store_true",
                     help="Skip mapping. Use existing hits file")
+    
+    g3.add_argument("--scratch_dir", type=str,
+                    help="Write output files in a temporary scratch dir, move them to final the final output dir when finished. Speed up large computations using network file systems.")    
+
+    g3.add_argument("--output_dir", default=os.getcwd(), type=str,
+                    help="Where output files should be written")
     
     # exec mode 
     g4 = parser.add_argument_group('Exection options') 
@@ -401,7 +475,9 @@ if __name__ == "__main__":
                       default="one2one")
     
     args = parser.parse_args()
-
+    if args.input:
+        args.input = os.path.realpath(args.input)
+    
     if args.servermode and args.input:
         parser.error('Incompatible execution modes. Choose between -i or --servermode')
     if not (args.servermode or args.input):
@@ -425,9 +501,12 @@ if __name__ == "__main__":
     if not args.output and not args.servermode:
         parser.error("a base name for output files has to be provided with --output")
 
-        
-    if args.db in EGGNOG_DATABASES and not args.hits_only:
-        annota.connect()
+    if args.scratch_dir and not os.path.isdir(args.scratch_dir):
+        parser.error("--scratch_dir should point to an existing directory")
+
+    if args.output_dir and not os.path.isdir(args.output_dir):
+        print args.output_dir
+        parser.error("--output_dir should point to an existing directory")
         
     main(args)
 
