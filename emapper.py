@@ -163,9 +163,11 @@ def main(args):
         print "Output files already present. User --resume or --override to continue"
         sys.exit(1)
 
-    if args.override and args.scratch_dir:
+    if args.resume and args.scratch_dir:
         for f in [hits_file, refine_file, hits_annot_file, annot_file]:
-            silent_cp(f, args.scratch_dir)
+            if pexists(f):
+                print "   Copying input file %s to scratch dir %s" %(f, args.scratch_dir)
+                shutil.copy(f, args.scratch_dir)
 
     if args.scratch_dir:
         os.chdir(args.scratch_dir)
@@ -256,7 +258,7 @@ def main(args):
             for qn, r in enumerate(process_hits_file(hits_file, args.input, og2level, translate=args.translate, cpu=args.cpu)):
                 if qn and (qn % 25 == 0):
                     total_time = time.time() - start_time
-                    print colorify("processed queries:%s total_time:%s rate:%s" %(qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))), 'lblue')
+                    print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" %((float(qn+1)/total_time))
                     sys.stderr.flush()
                 query_name = r[0]
                 best_hit_name = r[1]
@@ -270,6 +272,7 @@ def main(args):
             print >>OUT, '# Total time (seconds):', ellapsed_time
             print >>OUT, '# Rate:', "%0.2f q/s" %((float(qn+1)/ellapsed_time))                            
             OUT.close()
+            print colorify("processed queries:%s total_time:%s rate:%s" %(qn, total_time, "%0.2f q/s" %((float(qn)/ellapsed_time))), 'lblue')
             if args.scratch_dir:
                 print "   Copying result file %s from scratch to %s" %(refine_file, args.output_dir)
                 shutil.copy(refine_file, args.output_dir)
