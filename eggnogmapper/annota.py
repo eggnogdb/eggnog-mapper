@@ -55,7 +55,6 @@ def get_member_annotations(names, excluded_gos):
 
 
 def get_member_orthologs(member, target_taxa=None):
-    t1 = time.time()
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM member WHERE name = "%s"' % member.strip()
     db.execute(cmd)
@@ -63,7 +62,6 @@ def get_member_orthologs(member, target_taxa=None):
     cmd2 = 'SELECT level, side1, side2 FROM event WHERE i IN (%s)' % event_indexes
     db.execute(cmd2)
     orthology = {}
-    print time.time() - t1
     for level, _side1, _side2 in db.fetchall():
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
@@ -122,4 +120,5 @@ def get_member_orthologs(member, target_taxa=None):
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
             all_orthologs['all'].update(co2)
+            
     return all_orthologs
