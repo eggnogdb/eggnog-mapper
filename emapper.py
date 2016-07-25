@@ -320,12 +320,12 @@ def main(args):
                             str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
                     else:
                         print >>OUT, '\t'.join(
-                            [name] + [hit] * (len(hits_annot_header) - 1))
+                            [query] + [hit] * (len(hits_annot_header) - 1))
                 elapsed_time = time.time() - t1
                 print >>OUT, '# %d queries scanned' % (qn + 1)
-                print >>OUT, '# Total time (seconds):', ellapsed_time
+                print >>OUT, '# Total time (seconds):', elapsed_time
                 print >>OUT, '# Rate:', "%0.2f q/s" % (
-                    (float(qn + 1) / ellapsed_time))
+                    (float(qn + 1) / elapsed_time))
                 OUT.close()
                 if args.scratch_dir:
                     print "   Copying result file %s from scratch to %s" % (hits_annot_file, args.output_dir)
@@ -341,8 +341,10 @@ def main(args):
                         continue
                     if qn and (qn % 25 == 0):
                         total_time = time.time() - start_time
-                        print colorify("processed queries:%s total_time:%s rate:%s" % (qn, total_time, "%0.2f q/s" % ((float(qn) / ellapsed_time))), 'lblue')
+                        print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
+                            (float(qn + 1) / total_time))
                         sys.stderr.flush()
+                    qn += 1
                     r = map(str.strip, line.split('\t'))
                     query_name = r[0]
                     best_hit_name = r[1]
@@ -379,8 +381,7 @@ def main(args):
                                                              sorted(keggs))
                                                          )))
                         OUT.flush()
-                print >>OUT, '# Total time (seconds):', time.time(
-                ) - start_time
+                print >>OUT, '# Total time (seconds):', time.time() - start_time
                 OUT.close()
                 if args.scratch_dir:
                     print "   Copying result file %s from scratch to %s" % (annot_file, args.output_dir)
@@ -549,6 +550,6 @@ if __name__ == "__main__":
     try:
         main(args)
     except:
-        shutdown_server()
+        #shutdown_server()
         raise
         sys.exit(1)
