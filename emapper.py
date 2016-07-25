@@ -21,8 +21,8 @@ from eggnogmapper.server import (
     server_functional, load_server, generate_idmap, shutdown_server)
 from eggnogmapper.utils import colorify
 
-__description__ = ('A program for bulk functional annotation of novel protein '
-                    'sequences using EggNOG orthology database')
+__description__ = ('A program for bulk functional annotation of novel '
+                    'sequences using the EggNOG orthology database')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
@@ -311,18 +311,17 @@ def main(args):
                 for line in open(hits_file):
                     if not line.strip() or line.startswith('#'):
                         continue
-                    if qn and (qn % 25 == 0):
+                    if qn and (qn % 10000 == 0):
                         total_time = time.time() - start_time
                         print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
                             (float(qn + 1) / total_time))
                         sys.stderr.flush()
                     qn += 1
-                    query, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage = map(
-                        str.strip, line.split('\t'))
+                    (query, hit, evalue, sum_score, query_length, hmmfrom, hmmto,
+                     seqfrom, seqto, q_coverage) = map(str.strip, line.split('\t'))
                     if hit not in ['ERROR', '-']:
                         hitname = cleanup_og_name(hit)
-                        level, nm, desc, cats = annota.get_og_annotations(
-                            hitname)
+                        level, nm, desc, cats = annota.get_og_annotations(hitname)
                         print >>OUT, '\t'.join(map(
                             str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
                     else:
