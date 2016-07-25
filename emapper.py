@@ -105,7 +105,7 @@ def main(args):
         ValueError('Invalid database name/server')
 
     # If memory based searches requested, load server if necessary
-    if scantype == "mem" and not connecting_to_server:
+    if scantype == "mem" and not connecting_to_server and not args.annotate_only:
         master_db, worker_db = None, None
         for try_port in range(port, end_port, 2):
             print colorify("Loading server at localhost, port %s-%s" %
@@ -252,8 +252,10 @@ def main(args):
 
         # finish
         ellapsed_time = time.time() - start_time
-        print colorify("processed queries:%s total_time:%s rate:%s" % (qn + 1, total_time, "%0.2f q/s" % ((float(qn + 1) / ellapsed_time))), 'lblue')
-        sys.stderr.flush()
+        print colorify("processed queries:%s total_time:%s rate:%s" %
+                       (qn + 1, total_time,
+                        "%0.2f q/s" % ((float(qn + 1) / ellapsed_time))), 'lblue')
+
         print >>OUT, '# %d queries scanned' % (qn + 1)
         print >>OUT, '# Total time (seconds):', ellapsed_time
         print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / ellapsed_time))
