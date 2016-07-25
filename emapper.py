@@ -311,6 +311,11 @@ def main(args):
                 for line in open(hits_file):
                     if not line.strip() or line.startswith('#'):
                         continue
+                    if qn and (qn % 25 == 0):
+                        total_time = time.time() - start_time
+                        print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
+                            (float(qn + 1) / total_time))
+                        sys.stderr.flush()
                     qn += 1
                     query, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage = map(
                         str.strip, line.split('\t'))
