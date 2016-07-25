@@ -5,6 +5,7 @@ import re
 import time
 
 from .common import EGGNOGDB_FILE
+from .utils import timeit
 
 conn = None
 db = None
@@ -35,7 +36,7 @@ def get_og_annotations(ogname):
         cat = re.sub(cog_cat_cleaner, '', cat)
     return level, nm, desc, cat
 
-
+@timeit
 def get_member_annotations(names, excluded_gos):
     in_clause = ','.join(['"%s"' % n for n in names])
     cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' % in_clause
@@ -53,7 +54,7 @@ def get_member_annotations(names, excluded_gos):
 
     return all_pnames, all_gos, all_kegg
 
-
+@timeit
 def get_member_orthologs(member, target_taxa=None):
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM member WHERE name = "%s"' % member.strip()
@@ -120,5 +121,5 @@ def get_member_orthologs(member, target_taxa=None):
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
             all_orthologs['all'].update(co2)
-            
+
     return all_orthologs
