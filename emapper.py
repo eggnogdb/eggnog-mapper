@@ -130,10 +130,10 @@ def main(args):
                 dbpath = host
                 break
     elif scantype == "mem":
-        print colorify("Server already running!", 'yellow')
+        print colorify("DB Server already running or not needed!", 'yellow')
         dbpath = host
 
-    if scantype == "mem":
+    if scantype == "mem" and not args.annotate_only:
         print colorify("Reading idmap %s" % idmap_file, color='lblue')
         idmap = {}
         for _lnum, _line in enumerate(open(idmap_file)):
@@ -398,6 +398,11 @@ def main(args):
     #    p.terminate()
     #    p.join()
     print colorify('Done', 'green')
+    for f in [hits_file, refine_file, hits_annot_file, annot_file]:
+        colorify('Result files:', 'yellow')
+        if pexists(f):
+            print "   %s" % (f)
+
     shutdown_server()
 
 
@@ -549,9 +554,11 @@ if __name__ == "__main__":
         print args.output_dir
         parser.error("--output_dir should point to an existing directory")
 
+    _total_time = time.time()
     try:
         main(args)
     except:
         #shutdown_server()
         raise
         sys.exit(1)
+    print 'Total time: %g secs' % (time.time()-_total_time)
