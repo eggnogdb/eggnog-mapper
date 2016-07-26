@@ -183,8 +183,9 @@ def main(args):
         str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score".split(','))
     hits_annot_header = map(
         str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
-    annot_header = map(
-        str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score, predicted_name, strict_orthologs, GO, KEGG(pathway)".split(','))
+    annot_header = ("query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
+                    "best_hit_score", "predicted_name", "strict_orthologs", "GO",
+                    "KEGG(pathway)")
 
     # Start scanning sequences
     if not args.annotate_only:
@@ -338,57 +339,9 @@ def main(args):
                     shutil.copy(hits_annot_file, args.output_dir)
 
             if args.db != 'viruses' and pexists(refine_file):
-                print colorify("Functional annotation of refined hits starts now", 'green')
-                OUT = open(annot_file, "w")
-                print >>OUT, '\t'.join(annot_header)
-                qn = 0
-                for line in open(refine_file):
-                    if not line.strip() or line.startswith('#'):
-                        continue
-                    if qn and (qn % 25 == 0):
-                        total_time = time.time() - start_time
-                        print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
-                            (float(qn + 1) / total_time))
-                        sys.stderr.flush()
-                    qn += 1
-                    r = map(str.strip, line.split('\t'))
-                    query_name = r[0]
-                    best_hit_name = r[1]
-                    best_hit_evalue = r[2]
-                    best_hit_score = r[3]
-                    if best_hit_name != '-' and float(best_hit_score) >= 20:
-                        #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
-                        orthologs = sorted(annota.get_member_orthologs(
-                            best_hit_name)[args.orthotype])
-                        if orthologs:
-                            pname, gos, keggs = annota.get_member_annotations(
-                                orthologs, excluded_gos=set(["IEA", "ND"]))
-                            #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
-                            name_ranking = sorted(
-                                pname.items(), key=lambda x: x[1], reverse=True)
-                        else:
-                            name_ranking = [[0, 0, 0]]
+                annotate_refined_hits_sequential(refine_file, annot_file, annot_header)
+                #annotate_refined_hits(refine_file, annot_file+'_new', args.orthotype)
 
-                        if name_ranking[0][1] > 2:
-                            best_name = name_ranking[0][0]
-                        else:
-                            best_name = '-'
-
-                        # TEST
-                        #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
-                        # assert sorted(orthologs) == sorted(_orthologs)
-                        # assert sorted(pname.items()) == sorted(_pname.items())
-                        # print sorted(orthologs) == sorted(_orthologs)
-                        # print sorted(pname.items()) == sorted(_pname.items())
-                        print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
-                                                         ','.join(orthologs),
-                                                         ','.join(sorted(gos)),
-                                                         ','.join(
-                                                             sorted(keggs))
-                                                         )))
-                        OUT.flush()
-                print >>OUT, '# Total time (seconds):', time.time() - start_time
-                OUT.close()
                 if args.scratch_dir:
                     print "   Copying result file %s from scratch to %s" % (annot_file, args.output_dir)
                     shutil.copy(annot_file, args.output_dir)
@@ -408,6 +361,121 @@ def main(args):
             print "   %s" % (f)
 
     shutdown_server()
+
+
+def annotate_refined_hits_sequential(refine_file, annot_file, annot_header):
+    start_time = time.time()
+    print colorify("Functional annotation of refined hits starts now", 'green')
+    OUT = open(annot_file, "w")
+    print >>OUT, '\t'.join(annot_header)
+    qn = 0
+    for line in open(refine_file):
+        if not line.strip() or line.startswith('#'):
+            continue
+        if qn and (qn % 25 == 0):
+            total_time = time.time() - start_time
+            print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
+                (float(qn + 1) / total_time))
+            sys.stderr.flush()
+        qn += 1
+        r = map(str.strip, line.split('\t'))
+        query_name = r[0]
+        best_hit_name = r[1]
+        best_hit_evalue = r[2]
+        best_hit_score = r[3]
+        if best_hit_name != '-' and float(best_hit_score) >= 20:
+            #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
+            orthologs = sorted(annota.get_member_orthologs(
+                best_hit_name)[args.orthotype])
+            if orthologs:
+                pname, gos, keggs = annota.get_member_annotations(
+                    orthologs, excluded_gos=set(["IEA", "ND"]))
+                #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
+                name_ranking = sorted(
+                    pname.items(), key=lambda x: x[1], reverse=True)
+            else:
+                name_ranking = [[0, 0, 0]]
+                gos, keggs = '', ''
+
+            if name_ranking[0][1] > 2:
+                best_name = name_ranking[0][0]
+            else:
+                best_name = '-'
+
+            # TEST
+            #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
+            # assert sorted(orthologs) == sorted(_orthologs)
+            # assert sorted(pname.items()) == sorted(_pname.items())
+            # print sorted(orthologs) == sorted(_orthologs)
+            # print sorted(pname.items()) == sorted(_pname.items())
+            print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
+                                             ','.join(orthologs),
+                                             ','.join(sorted(gos)),
+                                             ','.join(sorted(keggs))
+                                             )))
+            OUT.flush()
+    print >>OUT, '# Total time (seconds):', time.time() - start_time
+    OUT.close()
+
+
+def annotate_refined_hits(refine_file, annot_file, orthotype):
+    start_time = time.time()
+    annot_header = ("query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
+                    "best_hit_score", "predicted_name", "strict_orthologs", "GO",
+                    "KEGG(pathway)2")
+    print colorify("Functional annotation of refined hits starts now", 'green')
+    # Preloads all raw best entries
+    entries = []
+    for line in open(refine_file):
+        if not line.strip() or line.startswith('#'):
+            continue
+        fields = map(str.strip, line.split('\t'))
+        query = fields[0]
+        best_hit_name = fields[1]
+        best_hit_evalue = fields[2]
+        best_hit_score = fields[3]
+        if best_hit_name != '-' and float(best_hit_score) >= 20:
+            entries.append(fields)
+
+    # Get annotations for all unique best hit names
+    all_best_hits = set([e[1] for e in entries])
+    annotations = annota.get_annotated_orthologs(all_best_hits,
+                                                 orthotype,
+                                                 set(["IEA", "ND"]),
+                                                 args.cpu)
+
+    # augment each entry with the annotations available
+    OUT = open(annot_file, "w")
+    print >>OUT, '\t'.join(annot_header)
+    for entry in entries:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score) = entry
+        orthologs, pname, gos, keggs = annotations[best_hit_name]
+        best_name = '-'
+        if pname:
+            name_ranking = sorted(pname.items(), key=lambda x: x[1], reverse=True)
+            if name_ranking[0][1] > 2:
+                best_name = name_ranking[0][0]
+
+        print >>OUT, '\t'.join(map(str, (query_name, best_hit_name,
+                                         best_hit_evalue, best_hit_score,
+                                         best_name,
+                                         ','.join(sorted(orthologs)),
+                                         ','.join(sorted(gos)),
+                                         ','.join(sorted(keggs))
+                                         )))
+        # print '\t'.join(map(str, (query_name, best_hit_name,
+        #                          best_hit_evalue, best_hit_score,
+        #                          best_name,
+        #                          ','.join(sorted(orthologs)),
+        #                          ','.join(sorted(gos)),
+        #                          ','.join(sorted(keggs))
+        #                          )))
+
+        #OUT.flush()
+
+    print >>OUT, '# Total time (seconds):', time.time() - start_time
+    OUT.close()
+
 
 
 def process_hits_file(hits_file, query_fasta, og2level, skip_queries=None, translate=False, cpu=1):
