@@ -181,7 +181,7 @@ def get_member_annotations(names, excluded_gos):
         all_pnames.update([pname.strip()])
     all_kegg.discard('')
     all_gos.discard('')
-    del pname['']
+    del all_pnames['']
 
     return all_pnames, all_gos, all_kegg
 
