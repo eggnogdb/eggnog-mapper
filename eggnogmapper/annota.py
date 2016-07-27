@@ -179,8 +179,9 @@ def get_member_annotations(names, excluded_gos):
             ',') if g and g.split('|')[2] not in excluded_gos])
         all_kegg.update(map(lambda x: str(x).strip(), kegg.strip().split(',')))
         all_pnames.update([pname.strip()])
-    del all_kegg['']
-    del all_gos['']
+    all_kegg.discard('')
+    all_gos.discard('')
+    del pname['']
 
     return all_pnames, all_gos, all_kegg
 
