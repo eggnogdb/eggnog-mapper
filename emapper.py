@@ -106,7 +106,7 @@ def main(args):
         ValueError('Invalid database name/server')
 
     # If memory based searches requested, load server if necessary
-    if scantype == "mem" and not connecting_to_server and not args.annotate_only:
+    if scantype == "mem" and not connecting_to_server and not args.no_search:
         master_db, worker_db = None, None
         for try_port in range(port, end_port, 2):
             print colorify("Loading server at localhost, port %s-%s" %
@@ -134,7 +134,8 @@ def main(args):
         print colorify("DB Server already running or not needed!", 'yellow')
         dbpath = host
 
-    if scantype == "mem" and not args.annotate_only:
+    # Preload seqid map to translate hits from hmmpgmd
+    if scantype == "mem" and not args.no_search:
         print colorify("Reading idmap %s" % idmap_file, color='lblue')
         idmap = {}
         for _lnum, _line in enumerate(open(idmap_file)):
@@ -151,7 +152,7 @@ def main(args):
             idmap[_seqid] = [_seqname]
         print >>sys.stderr, len(idmap), "names loaded"
 
-    # If server mode, just listen for connections
+    # If server mode, just listen for connections and exit when interrupted
     if args.servermode:
         while True:
             print colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green')
@@ -159,193 +160,57 @@ def main(args):
             time.sleep(10)
         sys.exit(0)
 
+    # Setup ouput file names
     hits_file = "%s.hits" % args.output
     refine_file = "%s.refined_hits" % args.output
     hits_annot_file = "%s.hits.annot" % args.output
     annot_file = "%s.refined_hits.annot" % args.output
     os.chdir(args.output_dir)
 
+    # force user to decide what to do with existing files
     if pexists(hits_file) and not args.resume and not args.override:
         print "Output files already present. User --resume or --override to continue"
         sys.exit(1)
 
+    # If resuming in scratch dir, transfer existing files.
     if args.resume and args.scratch_dir:
         for f in [hits_file, refine_file, hits_annot_file, annot_file]:
             if pexists(f):
                 print "   Copying input file %s to scratch dir %s" % (f, args.scratch_dir)
                 shutil.copy(f, args.scratch_dir)
 
+    # Once everything has been transfered to scratch dir, set it as working
+    # directory
     if args.scratch_dir:
         os.chdir(args.scratch_dir)
 
-    hits_header = map(
-        str.strip, "#query_name, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage".split(','))
-    refine_header = map(
-        str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score".split(','))
-    hits_annot_header = map(
-        str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
-
-    annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
-                    "best_hit_score", "predicted_name", "strict_orthologs", "GO",
-                    "KEGG(pathway)")
-
-    # Start scanning sequences
-    if not args.annotate_only:
-        VISITED = set()
-        if args.resume and pexists(hits_file):
-            print colorify("Resuming previous run. Reading computed output from %s" % hits_file, 'yellow')
-            VISITED = set([line.split('\t')[0].strip()
-                           for line in open(hits_file) if not line.startswith('#')])
-            print len(VISITED), 'queries skipped'
-            OUT = open(hits_file, 'a')
-        else:
-            OUT = open(hits_file, 'w')
-
-        print colorify("Sequence mapping starts now!", 'green')
-
-        print >>OUT, '# ' + time.ctime()
-        print >>OUT, '# ' + ' '.join(sys.argv)
-        print >>OUT, '# ' + '\t'.join(hits_header)
-        total_time = 0
-        last_time = time.time()
-        start_time = time.time()
-        qn = 0
-
-        for qn, (name, elapsed, hits, querylen, seq) in enumerate(
-            search.iter_hits(
-                args.input,
-                args.translate,
-                args.qtype,
-                args.dbtype,
-                scantype,
-                dbpath,
-                port,
-                evalue_thr=args.evalue,
-                score_thr=args.score,
-                qcov_thr=args.qcov,
-                fixed_Z=args.Z,
-                max_hits=args.maxhits,
-                skip=VISITED,
-                maxseqlen=args.maxseqlen,
-                cpus=args.cpu)):
-
-            if elapsed == -1:
-                # error occured
-                print >>OUT, '\t'.join(
-                    [name] + ['ERROR'] * (len(hits_header) - 1))
-            elif not hits:
-                print >>OUT, '\t'.join([name] + ['-'] * (len(hits_header) - 1))
-            else:
-                for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
-                    hitname = hid
-                    if idmap:
-                        hitname = idmap[hid][0]
-
-                    print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, int(querylen),
-                                                     int(hmmfrom), int(hmmto), int(sqfrom), int(sqto), float(sqto - sqfrom) / querylen]))
-            OUT.flush()
-
-            # monitoring
-            total_time += time.time() - last_time
-            last_time = time.time()
-            if qn and (qn % 25 == 0):
-                print >>sys.stderr, qn + \
-                    1, total_time, "%0.2f q/s" % ((float(qn + 1) / total_time))
-                sys.stderr.flush()
-
-        # finish
-        ellapsed_time = time.time() - start_time
-        print colorify("processed queries:%s total_time:%s rate:%s" %
-                       (qn + 1, total_time,
-                        "%0.2f q/s" % ((float(qn + 1) / ellapsed_time))), 'lblue')
-
-        print >>OUT, '# %d queries scanned' % (qn + 1)
-        print >>OUT, '# Total time (seconds):', ellapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / ellapsed_time))
-        OUT.close()
+    # Start HMM SCANNING sequences (if requested)
+    if not args.no_search:
+        find_hmm_matches(hits_file, args)
         if args.scratch_dir:
-            print "   Copying result file %s from scratch to %s" % (hits_file, args.output_dir)
+            print " Copying result file %s from scratch to %s" % (hits_file, args.output_dir)
             shutil.copy(hits_file, args.output_dir)
 
+    # if working on a legacy eggNOG database, REFINEMENT and ANNOTATION is
+    # available
     if args.db in EGGNOG_DATABASES:
         if not args.no_refine and args.db != 'viruses' and pexists(hits_file):
-            print colorify("Hit refinement starts now", 'green')
-            start_time = time.time()
-            og2level = dict([tuple(map(str.strip, line.split('\t')))
-                             for line in gopen(OGLEVELS_FILE)])
-            OUT = open(refine_file, "w")
-            print >>OUT, '\t'.join(refine_header)
-            qn = 0
-            for qn, r in enumerate(process_hits_file(hits_file, args.input, og2level, translate=args.translate, cpu=args.cpu)):
-                if qn and (qn % 25 == 0):
-                    total_time = time.time() - start_time
-                    print >>sys.stderr, qn + \
-                        1, total_time, "%0.2f q/s (refinement)" % (
-                            (float(qn + 1) / total_time))
-                    sys.stderr.flush()
-                query_name = r[0]
-                best_hit_name = r[1]
-                best_hit_evalue = r[2]
-                best_hit_score = r[3]
-                if best_hit_name != '-' and float(best_hit_score) >= 20:
-                    print >>OUT, '\t'.join(
-                        map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score)))
-                    OUT.flush()
-            ellapsed_time = time.time() - start_time
-            print >>OUT, '# %d queries scanned' % (qn + 1)
-            print >>OUT, '# Total time (seconds):', ellapsed_time
-            print >>OUT, '# Rate:', "%0.2f q/s" % (
-                (float(qn + 1) / ellapsed_time))
-            OUT.close()
-            print colorify("processed queries:%s total_time:%s rate:%s" % (qn, total_time, "%0.2f q/s" % ((float(qn) / ellapsed_time))), 'lblue')
+            refine_matches(refine_file, hits_file, args)
             if args.scratch_dir:
-                print "   Copying result file %s from scratch to %s" % (refine_file, args.output_dir)
+                print " Copying result file %s from scratch to %s" % (refine_file, args.output_dir)
                 shutil.copy(refine_file, args.output_dir)
 
         if not args.no_annot:
-            annota.connect()
-            print colorify("Functional annotation of hits starts now", 'green')
-            start_time = time.time()
-            if pexists(hits_file):
-                OUT = open(hits_annot_file, "w")
-                print >>OUT, '\t'.join(hits_annot_header)
-                qn = 0
-                t1 = time.time()
-                for line in open(hits_file):
-                    if not line.strip() or line.startswith('#'):
-                        continue
-                    if qn and (qn % 10000 == 0):
-                        total_time = time.time() - start_time
-                        print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
-                            (float(qn + 1) / total_time))
-                        sys.stderr.flush()
-                    qn += 1
-                    (query, hit, evalue, sum_score, query_length, hmmfrom, hmmto,
-                     seqfrom, seqto, q_coverage) = map(str.strip, line.split('\t'))
-                    if hit not in ['ERROR', '-']:
-                        hitname = cleanup_og_name(hit)
-                        level, nm, desc, cats = annota.get_og_annotations(hitname)
-                        print >>OUT, '\t'.join(map(
-                            str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
-                    else:
-                        print >>OUT, '\t'.join(
-                            [query] + [hit] * (len(hits_annot_header) - 1))
-                elapsed_time = time.time() - t1
-                print >>OUT, '# %d queries scanned' % (qn + 1)
-                print >>OUT, '# Total time (seconds):', elapsed_time
-                print >>OUT, '# Rate:', "%0.2f q/s" % (
-                    (float(qn + 1) / elapsed_time))
-                OUT.close()
-                if args.scratch_dir:
-                    print "   Copying result file %s from scratch to %s" % (hits_annot_file, args.output_dir)
-                    shutil.copy(hits_annot_file, args.output_dir)
+            annotate_hmm_matches(hits_file, hits_annot_file, args)
+            if args.scratch_dir:
+                print " Copying result file %s from scratch to %s" % (hits_annot_file, args.output_dir)
+                shutil.copy(hits_annot_file, args.output_dir)
 
             if args.db != 'viruses' and pexists(refine_file):
-                annotate_refined_hits_sequential(refine_file, annot_file, annot_header)
+                annotate_refined_hits_sequential(refine_file, annot_file, args)
                 #annotate_refined_hits(refine_file, annot_file+'_new', args.orthotype)
-
                 if args.scratch_dir:
-                    print "   Copying result file %s from scratch to %s" % (annot_file, args.output_dir)
+                    print " Copying result file %s from scratch to %s" % (annot_file, args.output_dir)
                     shutil.copy(annot_file, args.output_dir)
 
     if args.scratch_dir:
@@ -357,6 +222,7 @@ def main(args):
     #    p.terminate()
     #    p.join()
     print colorify('Done', 'green')
+    print CITATION
     for f in [hits_file, refine_file, hits_annot_file, annot_file]:
         colorify('Result files:', 'yellow')
         if pexists(f):
@@ -364,8 +230,160 @@ def main(args):
 
     shutdown_server()
 
+def find_hmm_matches(hits_file, args):
+    hits_header = map(str.strip, "#query_name, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage".split(','))
+    # Cache previous results if resuming is enabled
+    VISITED = set()
+    if args.resume and pexists(hits_file):
+        print colorify("Resuming previous run. Reading computed output from %s" % hits_file, 'yellow')
+        VISITED = set([line.split('\t')[0].strip()
+                       for line in open(hits_file) if not line.startswith('#')])
+        print len(VISITED), 'queries skipped'
+        OUT = open(hits_file, 'a')
+    else:
+        OUT = open(hits_file, 'w')
 
-def annotate_refined_hits_sequential(refine_file, annot_file, annot_header):
+    print colorify("Sequence mapping starts now!", 'green')
+
+    print >>OUT, '# ' + time.ctime()
+    print >>OUT, '# ' + ' '.join(sys.argv)
+    print >>OUT, '# ' + '\t'.join(hits_header)
+    total_time = 0
+    last_time = time.time()
+    start_time = time.time()
+    qn = 0
+
+    for qn, (name, elapsed, hits, querylen, seq) in enumerate(search.iter_hits(
+                                                        args.input,
+                                                        args.translate,
+                                                        args.qtype,
+                                                        args.dbtype,
+                                                        scantype,
+                                                        dbpath,
+                                                        port,
+                                                        evalue_thr=args.evalue,
+                                                        score_thr=args.score,
+                                                        qcov_thr=args.qcov,
+                                                        fixed_Z=args.Z,
+                                                        max_hits=args.maxhits,
+                                                        skip=VISITED,
+                                                        maxseqlen=args.maxseqlen,
+                                                        cpus=args.cpu)):
+
+        if elapsed == -1:
+            # error occured
+            print >>OUT, '\t'.join(
+                [name] + ['ERROR'] * (len(hits_header) - 1))
+        elif not hits:
+            print >>OUT, '\t'.join([name] + ['-'] * (len(hits_header) - 1))
+        else:
+            for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
+                hitname = hid
+                if idmap:
+                    hitname = idmap[hid][0]
+
+                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, int(querylen),
+                                                 int(hmmfrom), int(hmmto), int(sqfrom), int(sqto), float(sqto - sqfrom) / querylen]))
+        OUT.flush()
+
+        # monitoring
+        total_time += time.time() - last_time
+        last_time = time.time()
+        if qn and (qn % 25 == 0):
+            print >>sys.stderr, qn + \
+                1, total_time, "%0.2f q/s" % ((float(qn + 1) / total_time))
+            sys.stderr.flush()
+
+    # Writes final stats
+    ellapsed_time = time.time() - start_time
+    print colorify("processed queries:%s total_time:%s rate:%s" %
+                   (qn + 1, total_time,
+                    "%0.2f q/s" % ((float(qn + 1) / ellapsed_time))), 'lblue')
+    print >>OUT, '# %d queries scanned' % (qn + 1)
+    print >>OUT, '# Total time (seconds):', ellapsed_time
+    print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / ellapsed_time))
+    OUT.close()
+
+
+def annotate_hmm_matches(hits_file, hits_annot_file, args):
+    hits_annot_header = map(str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
+    annota.connect()
+    print colorify("Functional annotation of hits starts now", 'green')
+    start_time = time.time()
+    if pexists(hits_file):
+        OUT = open(hits_annot_file, "w")
+        print >>OUT, '\t'.join(hits_annot_header)
+        qn = 0
+        t1 = time.time()
+        for line in open(hits_file):
+            if not line.strip() or line.startswith('#'):
+                continue
+            if qn and (qn % 10000 == 0):
+                total_time = time.time() - start_time
+                print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
+                    (float(qn + 1) / total_time))
+                sys.stderr.flush()
+            qn += 1
+            (query, hit, evalue, sum_score, query_length, hmmfrom, hmmto,
+             seqfrom, seqto, q_coverage) = map(str.strip, line.split('\t'))
+            if hit not in ['ERROR', '-']:
+                hitname = cleanup_og_name(hit)
+                level, nm, desc, cats = annota.get_og_annotations(hitname)
+                print >>OUT, '\t'.join(map(
+                    str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
+            else:
+                print >>OUT, '\t'.join(
+                    [query] + [hit] * (len(hits_annot_header) - 1))
+        elapsed_time = time.time() - t1
+        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# Total time (seconds):', elapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" % (
+            (float(qn + 1) / elapsed_time))
+        OUT.close()
+
+
+
+def refine_matches(refine_file, hits_file, args):
+    refine_header = map(str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score".split(','))
+
+    print colorify("Hit refinement starts now", 'green')
+    start_time = time.time()
+    og2level = dict([tuple(map(str.strip, line.split('\t')))
+                     for line in gopen(OGLEVELS_FILE)])
+    OUT = open(refine_file, "w")
+    print >>OUT, '\t'.join(refine_header)
+    qn = 0
+    for qn, r in enumerate(process_hits_file(hits_file, args.input, og2level, translate=args.translate, cpu=args.cpu)):
+        if qn and (qn % 25 == 0):
+            total_time = time.time() - start_time
+            print >>sys.stderr, qn + \
+                1, total_time, "%0.2f q/s (refinement)" % (
+                    (float(qn + 1) / total_time))
+            sys.stderr.flush()
+        query_name = r[0]
+        best_hit_name = r[1]
+        best_hit_evalue = r[2]
+        best_hit_score = r[3]
+        if best_hit_name != '-' and float(best_hit_score) >= 20:
+            print >>OUT, '\t'.join(
+                map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score)))
+            OUT.flush()
+    ellapsed_time = time.time() - start_time
+    print >>OUT, '# %d queries scanned' % (qn + 1)
+    print >>OUT, '# Total time (seconds):', ellapsed_time
+    print >>OUT, '# Rate:', "%0.2f q/s" % (
+        (float(qn + 1) / ellapsed_time))
+    OUT.close()
+    print colorify("processed queries:%s total_time:%s rate:%s" % (qn, total_time, "%0.2f q/s" % ((float(qn) / ellapsed_time))), 'lblue')
+
+
+
+
+def annotate_refined_hits_sequential(refine_file, annot_file, args):
+    annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
+                    "best_hit_score", "predicted_name", "strict_orthologs", "GO",
+                    "KEGG(pathway)2")
+
     start_time = time.time()
     print colorify("Functional annotation of refined hits starts now", 'green')
     OUT = open(annot_file, "w")
@@ -387,24 +405,22 @@ def annotate_refined_hits_sequential(refine_file, annot_file, annot_header):
         best_hit_score = r[3]
         if best_hit_name != '-' and float(best_hit_score) >= 20:
             #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
-            orthologs = sorted(annota.get_member_orthologs(
-                best_hit_name)[args.orthotype])
+            orthologs = sorted(annota.get_member_orthologs(best_hit_name)[args.orthotype])
             if orthologs:
-                pname, gos, keggs = annota.get_member_annotations(
-                    orthologs,
+                pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
                 #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
-                name_ranking = sorted(
-                    pname.items(), key=lambda x: x[1], reverse=True)
+                name_ranking = sorted(pname.items(), key=lambda x: x[1], reverse=True)
             else:
                 name_ranking = [[0, 0, 0]]
-                gos, keggs = '', ''
+                gos = ''
+                keggs = ''
 
             if name_ranking[0][1] > 2:
                 best_name = name_ranking[0][0]
             else:
                 best_name = '-'
 
-            # TEST
+            # SANITY TEST
             #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
             # assert sorted(orthologs) == sorted(_orthologs)
             # assert sorted(pname.items()) == sorted(_pname.items())
@@ -559,8 +575,8 @@ if __name__ == "__main__":
                     help="Skip hit refinement, reporting only HMM hits.")
     g3.add_argument("--no_annot", action="store_true",
                     help="Skip functional annotation, reporting only hits")
-    g3.add_argument("--annotate_only", action="store_true",
-                    help="Skip mapping. Use existing hits file")
+    g3.add_argument("--no_search", action="store_true",
+                    help="Skip HMM search mapping. Use existing hits file")
 
     g3.add_argument("--scratch_dir", type=str,
                     help="Write output files in a temporary scratch dir, move them to final the final output dir when finished. Speed up large computations using network file systems.")
