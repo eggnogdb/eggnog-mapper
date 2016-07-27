@@ -114,7 +114,8 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                     alg_start += 168 + memsize
                     dom_start = alg_start
 
-                    if (evalue_thr is None or evalue <= evalue_thr) and (score_thr is not None and score >= score_thr):
+                    if (evalue_thr is None or evalue <= evalue_thr) and \
+                       (score_thr is not None and score >= score_thr):
                         hit_models.add(name)
                         hits.append((name, evalue, score, hmmfrom,
                                      hmmto, sqfrom, sqto, bitscore))

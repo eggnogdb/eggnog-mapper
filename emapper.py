@@ -232,7 +232,10 @@ def main(args):
     shutdown_server()
 
 def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
-    hits_header = map(str.strip, "#query_name, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage".split(','))
+
+    hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
+                   "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
+
     # Cache previous results if resuming is enabled
     VISITED = set()
     if args.resume and pexists(hits_file):
@@ -379,8 +382,11 @@ def refine_matches(refine_file, hits_file, args):
 
 def annotate_refined_hits_sequential(refine_file, annot_file, args):
     annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
-                    "best_hit_score", "predicted_name", "strict_orthologs", "GO",
-                    "KEGG(pathway)2")
+                    "best_hit_score", "predicted_name (one-to-one)",
+                    "orthologs (one-to-one)", "GO (one-to-one)",
+                    "KEGG_pathway (one-to-one)", "predicted_name (in paralogs)",
+                    "one2one_orthologs (in-paralogs)", "GO (in-paralogs)",
+                    "KEGG_pathway (in-paralogs)",)
 
     start_time = time.time()
     print colorify("Functional annotation of refined hits starts now", 'green')
@@ -403,31 +409,45 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
         best_hit_score = r[3]
         if best_hit_name != '-' and float(best_hit_score) >= 20:
             #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
-            orthologs = sorted(annota.get_member_orthologs(best_hit_name)[args.orthotype])
+            all_orthologies = annota.get_member_orthologs(best_hit_name)
+            orthologs = sorted(all_orthologies["one2one"])
+            multi_orthologs = sorted(all_orthologies["all"] - all_orthologies["one2one"])
+
             if orthologs:
                 pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
                 name_ranking = sorted(pname.items(), key=lambda x: x[1], reverse=True)
-            else:
-                name_ranking = [[0, 0, 0]]
-                gos = ''
-                keggs = ''
+                name_candidate, freq = pname.most_common(1)
+                if freq >= 2:
+                    best_name = name_candidate
 
-            if name_ranking[0][1] > 2:
                 best_name = name_ranking[0][0]
             else:
-                best_name = '-'
+                best_name = ''
+                gos = set()
+                keggs = set()
 
-            # SANITY TEST
-            #by_seq, _gos = annota_mongo.get_gos(orthologs, set(["IEA", "ND"]))
-            # assert sorted(orthologs) == sorted(_orthologs)
-            # assert sorted(pname.items()) == sorted(_pname.items())
-            # print sorted(orthologs) == sorted(_orthologs)
-            # print sorted(pname.items()) == sorted(_pname.items())
-            print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score, best_name,
+            if multi_orthologs:
+                multi_pname, multi_gos, multi_keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
+                multi_gos -= gos
+                multi_keggs -= keggs
+                multi_pname.update(pname)
+                name_candidate, freq = multi_pname.most_common(1)
+                if freq >= 2:
+                    multi_best_name = name_candidate
+            else:
+                multi_best_name = ''
+                multi_gos = set()
+                multi_keggs = set()
+
+            print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+                                             best_name,
                                              ','.join(orthologs),
                                              ','.join(sorted(gos)),
-                                             ','.join(sorted(keggs))
+                                             ','.join(sorted(keggs)),
+                                             multi_best_name,
+                                             ','.join(multi_orthologs),
+                                             ','.join(sorted(multi_gos)),
+                                             ','.join(sorted(multi_keggs)),
                                              )))
             OUT.flush()
     elapsed_time = time.time() - start_time
