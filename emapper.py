@@ -186,7 +186,7 @@ def main(args):
 
     # Start HMM SCANNING sequences (if requested)
     if not args.no_search:
-        find_hmm_matches(hits_file, scantype, args)
+        find_hmm_matches(hits_file, dbpath, port, scantype, args)
         if args.scratch_dir:
             print " Copying result file %s from scratch to %s" % (hits_file, args.output_dir)
             shutil.copy(hits_file, args.output_dir)
@@ -230,7 +230,7 @@ def main(args):
 
     shutdown_server()
 
-def find_hmm_matches(hits_file, scantype, args):
+def find_hmm_matches(hits_file, dbpath, port, scantype, args):
     hits_header = map(str.strip, "#query_name, hit, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage".split(','))
     # Cache previous results if resuming is enabled
     VISITED = set()
