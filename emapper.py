@@ -222,12 +222,13 @@ def main(args):
     #    p.terminate()
     #    p.join()
     print colorify('Done', 'green')
-    print CITATION
     for f in [hits_file, refine_file, hits_annot_file, annot_file]:
         colorify('Result files:', 'yellow')
         if pexists(f):
             print "   %s" % (f)
 
+    print 'Total time: %g secs' % (time.time()-_total_time)
+    print CITATION
     shutdown_server()
 
 def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
@@ -300,7 +301,7 @@ def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
     print >>OUT, '# Total time (seconds):', elapsed_time
     print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
     OUT.close()
-    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
+    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
 def annotate_hmm_matches(hits_file, hits_annot_file, args):
     hits_annot_header = map(str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
@@ -337,7 +338,7 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
         print >>OUT, '# Rate:', "%0.2f q/s" % (
             (float(qn + 1) / elapsed_time))
         OUT.close()
-        print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
+        print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
 
 def refine_matches(refine_file, hits_file, args):
@@ -371,7 +372,7 @@ def refine_matches(refine_file, hits_file, args):
     print >>OUT, '# Rate:', "%0.2f q/s" % (
         (float(qn + 1) / elapsed_time))
     OUT.close()
-    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
+    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
 
 
@@ -435,7 +436,7 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
     print >>OUT, '# Rate:', "%0.2f q/s" % (
         (float(qn + 1) / elapsed_time))
     OUT.close()
-    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
+    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
 
 
@@ -654,4 +655,3 @@ if __name__ == "__main__":
         #shutdown_server()
         raise
         sys.exit(1)
-    print 'Total time: %g secs' % (time.time()-_total_time)

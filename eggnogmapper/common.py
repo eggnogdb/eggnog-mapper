@@ -36,29 +36,37 @@ def get_level_base_path(level):
         level = 'arch_1'
     else:
         level = level+"_hmm"
-    return level    
+    return level
 
 def get_db_info(level):
     if level == 'euk':
-        return (pjoin(HMMDB_PATH,"euk_500/euk_500.hmm"), EGGNOG_DATABASES[level]) 
+        return (pjoin(HMMDB_PATH,"euk_500/euk_500.hmm"), EGGNOG_DATABASES[level])
     elif level == 'bact':
         return (pjoin(HMMDB_PATH,"bact_50/bact_50.hmm"), EGGNOG_DATABASES[level])
     elif level == 'arch':
         return (pjoin(HMMDB_PATH,"arch_1/arch_1.hmm"), EGGNOG_DATABASES[level])
     else:
         return (pjoin(HMMDB_PATH, level+"_hmm", level + "_hmm.all_hmm"), EGGNOG_DATABASES[level])
-    
+
 CITATION = """
+================================================================================
 CITATION:
 If you use this software, please cite:
 
-[1] eggNOG-mapper: eggNOG-mapper: fast proteome-scale functional annotation through orthology assignments.
-aime Huerta-Cepas, Kristoffer Forslund, Damian Szklarczyk, Lars Juhl Jensen, Christian von Mering and Peer Bork. In preparation.
+[1] eggNOG-mapper: eggNOG-mapper: fast proteome-scale functional annotation
+    through orthology assignments.
+    Jaime Huerta-Cepas, Kristoffer Forslund, Damian Szklarczyk, Lars Juhl
+    Jensen, Christian von Mering and Peer Bork. In preparation.
 
-[2] eggNOG 4.5: a hierarchical orthology framework with improved functional annotations for eukaryotic, prokaryotic and viral sequences.
-Jaime Huerta-Cepas, Damian Szklarczyk, Kristoffer Forslund, Helen Cook, Davide Heller, Mathias C. Walter, Thomas Rattei, Daniel R. Mende, Shinichi Sunagawa, Michael Kuhn, Lars Juhl Jensen, Christian von Mering, and Peer Bork.
-Nucl. Acids Res. (04 January 2016) 44 (D1): D286-D293. doi: 10.1093/nar/gkv1248
-"""
+[2] eggNOG 4.5: a hierarchical orthology framework with improved functional
+    annotations for eukaryotic, prokaryotic and viral sequences.
+    Jaime Huerta-Cepas, Damian Szklarczyk, Kristoffer Forslund, Helen Cook,
+    Davide Heller, Mathias C. Walter, Thomas Rattei, Daniel R. Mende, Shinichi
+    Sunagawa, Michael Kuhn, Lars Juhl Jensen, Christian von Mering, and Peer
+    Bork. Nucl. Acids Res. (04 January 2016) 44 (D1): D286-D293. doi:
+    10.1093/nar/gkv1248
+
+================================================================================ """
 
 LICENSE = """
 LICENSE:
@@ -90,8 +98,7 @@ def gopen(fname):
 def silent_rm(f):
     if pexists(f):
         os.remove(f)
-        
+
 def silent_cp(f, dst):
     if pexists(f):
         shutil.copy(f, dst)
-    
