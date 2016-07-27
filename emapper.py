@@ -27,7 +27,7 @@ __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
 def cleanup_og_name(name):
-    # names in hmm database files are not clean eggnog OG names
+    # names in the hmm databases are sometiemes not clean eggnog OG names
     m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
     if m:
         name = m.groups()[0]
@@ -42,6 +42,7 @@ def main(args):
         scantype = 'mem'
     else:
         scantype = 'disk'
+
     connecting_to_server = False
     if args.db in EGGNOG_DATABASES:
         dbpath, port = get_db_info(args.db)
@@ -183,7 +184,8 @@ def main(args):
         str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score".split(','))
     hits_annot_header = map(
         str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
-    annot_header = ("query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
+
+    annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
                     "best_hit_score", "predicted_name", "strict_orthologs", "GO",
                     "KEGG(pathway)")
 
@@ -266,7 +268,7 @@ def main(args):
             shutil.copy(hits_file, args.output_dir)
 
     if args.db in EGGNOG_DATABASES:
-        if not args.no_refine:
+        if not args.no_refine and args.db != 'viruses' and pexists(hits_file):
             print colorify("Hit refinement starts now", 'green')
             start_time = time.time()
             og2level = dict([tuple(map(str.strip, line.split('\t')))
@@ -389,7 +391,7 @@ def annotate_refined_hits_sequential(refine_file, annot_file, annot_header):
                 best_hit_name)[args.orthotype])
             if orthologs:
                 pname, gos, keggs = annota.get_member_annotations(
-                    orthologs, excluded_gos=set(["IEA", "ND"]))
+                    orthologs,
                 #_pname = Counter(annota_mongo.get_preferred_names_dict(orthologs).values())
                 name_ranking = sorted(
                     pname.items(), key=lambda x: x[1], reverse=True)
@@ -420,7 +422,7 @@ def annotate_refined_hits_sequential(refine_file, annot_file, annot_header):
 
 def annotate_refined_hits(refine_file, annot_file, orthotype):
     start_time = time.time()
-    annot_header = ("query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
+    annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
                     "best_hit_score", "predicted_name", "strict_orthologs", "GO",
                     "KEGG(pathway)2")
     print colorify("Functional annotation of refined hits starts now", 'green')
