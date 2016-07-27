@@ -170,8 +170,8 @@ def build_orthologs(target_members, events, target_taxa=None):
 def get_member_annotations(names, excluded_gos):
     in_clause = ','.join(['"%s"' % n for n in names])
     cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' % in_clause
-    all_gos = Counter()
-    all_kegg = Counter()
+    all_gos = set()
+    all_kegg = set()
     all_pnames = Counter()
     db.execute(cmd)
     for name, pname, gos, kegg, in db.fetchall():
