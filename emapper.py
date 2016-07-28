@@ -384,9 +384,9 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
     annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
                     "best_hit_score", "predicted_name (one-to-one)",
                     "orthologs (one-to-one)", "GO (one-to-one)",
-                    "KEGG_pathway (one-to-one)", "predicted_name (in paralogs)",
-                    "one2one_orthologs (in-paralogs)", "GO (in-paralogs)",
-                    "KEGG_pathway (in-paralogs)",)
+                    "KEGG_pathway (one-to-one)", "predicted_name (all orthologs)",
+                    "orthologs (not one-to-one)", "GO (not one-to-one)",
+                    "KEGG_pathway (not one-to-one)",)
 
     start_time = time.time()
     print colorify("Functional annotation of refined hits starts now", 'green')
