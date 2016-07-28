@@ -103,7 +103,7 @@ def main(args):
             exit(-1)
         connecting_to_server = True
     else:
-        ValueError('Invalid database name/server')
+        raise ValueError('Invalid database name/server')
 
     # If memory based searches requested, load server if necessary
     if scantype == "mem" and not connecting_to_server and not args.no_search:
