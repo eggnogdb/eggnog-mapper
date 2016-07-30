@@ -415,15 +415,11 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
 
             if orthologs:
                 pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                name_ranking = sorted(pname.items(), key=lambda x: x[1], reverse=True)
-
-                name_candidate, freq = pname.most_common(1)[0] or ('', 0)
-                if freq >= 2:
-                    best_name = name_candidate
-                else:
-                    best_name = ''
-
-                best_name = name_ranking[0][0]
+                best_name = ''
+                if pname:
+                    name_candidate, freq = pname.most_common(1)[0]
+                    if freq >= 2:
+                        best_name = name_candidate
             else:
                 pname = []
                 best_name = ''
@@ -435,12 +431,11 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
                 multi_gos -= gos
                 multi_keggs -= keggs
                 multi_pname.update(pname)
-
-                name_candidate, freq = multi_pname.most_common(1)[0] or ('', 0)
-                if freq >= 2:
-                    multi_best_name = name_candidate
-                else:
-                    multi_best_name = ''
+                multi_best_name = ''
+                if multi_pname:
+                    name_candidate, freq = multi_pname.most_common(1)[0]
+                    if freq >= 2:
+                        multi_best_name = name_candidate
             else:
                 multi_best_name = ''
                 multi_gos = set()
