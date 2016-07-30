@@ -425,6 +425,7 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
 
                 best_name = name_ranking[0][0]
             else:
+                pname = []
                 best_name = ''
                 gos = set()
                 keggs = set()
