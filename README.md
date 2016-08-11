@@ -11,14 +11,16 @@ databases.
 This tool is also used for the web services currently hosted at
 http://beta-eggnogdb.embl.de/#/app/seqmapper.
 
-# Software Requirements: 
+# Requirements
+
+### Software Requirements: 
 
 - Python 2.7+
 - wget 
 - HMMER 3 binaries available in your PATH
 - BioPython (not required if input sequences are proteins)
 
-# Storage Requirements:
+### Storage Requirements:
 
 - ~20GB for the eggNOG annotation database
 
@@ -31,7 +33,7 @@ http://beta-eggnogdb.embl.de/#/app/seqmapper.
 (you can check the size of individual datasets at
 http://beta-eggnogdb.embl.de/download/eggnog_4.5/hmmdb_levels/)
 
-# Memory requirements:
+### Memory requirements:
 
 eggnog-mapper allows to run very fast searches by allocating the target HMM
 databases into memory (using the HMMER3 hmmpgmd program). This is enabled when
