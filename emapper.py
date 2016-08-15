@@ -248,10 +248,10 @@ def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
         OUT = open(hits_file, 'w')
 
     print colorify("Sequence mapping starts now!", 'green')
-
-    print >>OUT, '# ' + time.ctime()
-    print >>OUT, '# ' + ' '.join(sys.argv)
-    print >>OUT, '# ' + '\t'.join(hits_header)
+    if not args.no_file_comments:
+        print >>OUT, '# ' + time.ctime()
+        print >>OUT, '# ' + ' '.join(sys.argv)
+        print >>OUT, '# ' + '\t'.join(hits_header)
     total_time = 0
     last_time = time.time()
     start_time = time.time()
@@ -300,9 +300,10 @@ def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
 
     # Writes final stats
     elapsed_time = time.time() - start_time
-    print >>OUT, '# %d queries scanned' % (qn + 1)
-    print >>OUT, '# Total time (seconds):', elapsed_time
-    print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
+    if not args.no_file_comments:
+        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# Total time (seconds):', elapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
     OUT.close()
     print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
@@ -313,7 +314,8 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
     start_time = time.time()
     if pexists(hits_file):
         OUT = open(hits_annot_file, "w")
-        print >>OUT, '\t'.join(hits_annot_header)
+        if not args.no_file_comments:
+            print >>OUT, '\t'.join(hits_annot_header)
         qn = 0
         t1 = time.time()
         for line in open(hits_file):
@@ -336,10 +338,10 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
                 print >>OUT, '\t'.join(
                     [query] + [hit] * (len(hits_annot_header) - 1))
         elapsed_time = time.time() - t1
-        print >>OUT, '# %d queries scanned' % (qn + 1)
-        print >>OUT, '# Total time (seconds):', elapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" % (
-            (float(qn + 1) / elapsed_time))
+        if not args.no_file_comments:
+            print >>OUT, '# %d queries scanned' % (qn + 1)
+            print >>OUT, '# Total time (seconds):', elapsed_time
+            print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
         OUT.close()
         print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
@@ -352,7 +354,8 @@ def refine_matches(refine_file, hits_file, args):
     og2level = dict([tuple(map(str.strip, line.split('\t')))
                      for line in gopen(OGLEVELS_FILE)])
     OUT = open(refine_file, "w")
-    print >>OUT, '\t'.join(refine_header)
+    if not args.no_file_comments:
+        print >>OUT, '\t'.join(refine_header)
     qn = 0
     for qn, r in enumerate(process_hits_file(hits_file, args.input, og2level, translate=args.translate, cpu=args.cpu)):
         if qn and (qn % 25 == 0):
@@ -370,10 +373,10 @@ def refine_matches(refine_file, hits_file, args):
                 map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score)))
             OUT.flush()
     elapsed_time = time.time() - start_time
-    print >>OUT, '# %d queries scanned' % (qn + 1)
-    print >>OUT, '# Total time (seconds):', elapsed_time
-    print >>OUT, '# Rate:', "%0.2f q/s" % (
-        (float(qn + 1) / elapsed_time))
+    if not args.no_file_comments:
+        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# Total time (seconds):', elapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
     OUT.close()
     print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
@@ -391,7 +394,8 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
     start_time = time.time()
     print colorify("Functional annotation of refined hits starts now", 'green')
     OUT = open(annot_file, "w")
-    print >>OUT, '\t'.join(annot_header)
+    if not args.no_file_comments:
+        print >>OUT, '\t'.join(annot_header)
     qn = 0
     for line in open(refine_file):
         if not line.strip() or line.startswith('#'):
@@ -453,10 +457,10 @@ def annotate_refined_hits_sequential(refine_file, annot_file, args):
                                              )))
             OUT.flush()
     elapsed_time = time.time() - start_time
-    print >>OUT, '# %d queries scanned' % (qn + 1)
-    print >>OUT, '# Total time (seconds):', elapsed_time
-    print >>OUT, '# Rate:', "%0.2f q/s" % (
-        (float(qn + 1) / elapsed_time))
+    if not args.no_file_comments:
+        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# Total time (seconds):', elapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
     OUT.close()
     print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
@@ -490,7 +494,8 @@ def annotate_refined_hits(refine_file, annot_file, orthotype):
 
     # augment each entry with the annotations available
     OUT = open(annot_file, "w")
-    print >>OUT, '\t'.join(annot_header)
+    if not args.no_file_comments:
+        print >>OUT, '\t'.join(annot_header)
     for entry in entries:
         (query_name, best_hit_name, best_hit_evalue, best_hit_score) = entry
         orthologs, pname, gos, keggs = annotations[best_hit_name]
@@ -516,8 +521,8 @@ def annotate_refined_hits(refine_file, annot_file, orthotype):
         #                          )))
 
         #OUT.flush()
-
-    print >>OUT, '# Total time (seconds):', time.time() - start_time
+    if not args.no_file_comments:
+        print >>OUT, '# Total time (seconds):', time.time() - start_time
     OUT.close()
 
 
@@ -632,6 +637,10 @@ if __name__ == "__main__":
 
     parser.add_argument('--orthotype', choices=["one2one", "many2one", "one2many", "many2many", "all"],
                         default="one2one")
+
+    parser.add_argument('--no_file_comments', action="store_true",
+                        default="No header lines nor stats are included in the output files")
+
 
     args = parser.parse_args()
     if args.input:
