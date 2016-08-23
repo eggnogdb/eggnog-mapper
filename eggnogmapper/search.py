@@ -192,11 +192,11 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
         max_hits = None
 
     if scantype == 'mem' and query_type == "seq":
-        return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip)
+        return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
     elif scantype == 'mem' and query_type == "hmm" and dbtype == "seqdb":
-        return iter_hmm_hits(source, host, port)
+        return iter_hmm_hits(source, host, port, maxseqlen=maxseqlen)
     elif scantype == 'disk' and query_type == "seq":
-        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus)
+        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen)
     else:
         raise ValueError('not supported')
 
@@ -212,16 +212,17 @@ def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb',
 
 
 def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
-            score_thr=None, max_hits=None, fixed_Z=None):
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None):
     if not HMMSCAN:
         raise ValueError('hmmscan not found in path')
 
     OUT = NamedTemporaryFile()
-    if translate:
+    if translate or maxseqlen:
         print 'translating query input file'
         Q = NamedTemporaryFile()
-        for name, seq in seqio.iter_fasta_seqs(query_file, translate=True):
-            print >>Q, ">%s\n%s" % (name, seq)
+        for name, seq in seqio.iter_fasta_seqs(query_file, translate=translate):
+            if maxseqlen is None or len(seq) <= maxseqlen:
+                print >>Q, ">%s\n%s" % (name, seq)
         Q.flush()
         query_file = Q.name
 

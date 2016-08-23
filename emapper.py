@@ -34,7 +34,6 @@ def cleanup_og_name(name):
     name = re.sub("^ENOG41", "", name)
     return name
 
-
 def main(args):
     host = 'localhost'
     idmap = None
@@ -583,7 +582,7 @@ if __name__ == "__main__":
                     help="E-value threshold. Default=0.001")
     g2.add_argument('--score', dest='score', default=20, type=float,
                     help="Bit score threshold. Default=20")
-    g2.add_argument('--maxseqlen', type=int, default=5000,
+    g2.add_argument('--maxseqlen', dest='maxseqlen', type=int, default=5000,
                     help="Ignore query sequences larger than `maxseqlen`. Default=5000")
     g2.add_argument('--qcov', type=float,
                     help="min query coverage (from 0 to 1). Default=(disabled)")
