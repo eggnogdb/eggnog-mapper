@@ -185,6 +185,19 @@ def get_member_annotations(names, excluded_gos):
 
     return all_pnames, all_gos, all_kegg
 
+def get_by_member_annotations(names, excluded_gos):
+    in_clause = ','.join(['"%s"' % n for n in names])
+    cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' % in_clause
+    db.execute(cmd)
+    by_member = {}
+    for name, pname, gos, kegg, in db.fetchall():
+        gos = [g.split('|')[1] for g in gos.strip().split(',')
+               if g and g.split('|')[2] not in excluded_gos])
+        keggs = map(lambda x: str(x).strip(), kegg.strip().split(','))
+        pnames = [pname.strip()]
+        by_member[name] = [gos, keggs, pnames]
+    return by_member
+
 def get_member_orthologs(member, target_taxa=None):
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM member WHERE name = "%s"' % member.strip()
