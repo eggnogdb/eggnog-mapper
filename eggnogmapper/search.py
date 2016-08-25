@@ -273,7 +273,7 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
 
             last_query = qname
             if last_query_len and last_query_len != qlen:
-                raise ValuerError(
+                raise ValueError(
                     "Inconsistent qlen when parsing hmmscan output")
             last_query_len = qlen
 
