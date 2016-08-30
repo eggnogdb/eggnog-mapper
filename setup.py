@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 import os
 from setuptools import setup, find_packages
-
     
 #HERE = os.path.abspath(os.path.split(os.path.realpath(__file__))[0])
 
@@ -18,7 +17,7 @@ CLASSIFIERS= [
     "Topic :: Software Development :: Libraries :: Python Modules",
     ]
 
-    
+
 MOD_NAME = "eggnogmapper"
 VERSION = '1.0'
 LONG_DESCRIPTION="""
