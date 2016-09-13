@@ -17,13 +17,15 @@ CREATE TABLE event(
        og VARCHAR(16),
        side1 TEXT,
        side2 TEXT);
+CREATE INDEX event_level_idx ON event (i, level);
 
 DROP TABLE IF EXISTS member;
 CREATE TABLE member(
-       name VARCHAR(32) PRIMARY KEY, 
+       name VARCHAR(32) PRIMARY KEY,
        pname VARCHAR(32),
-       go TEXT, 
-       kegg TEXT, 
+       groups TEXT,
+       go TEXT,
+       kegg TEXT,
        orthoindex TEXT);
 
 .separator "\t"
@@ -37,5 +39,3 @@ CREATE TABLE member(
 
 .separator "\t"
 .import events.tsv event
-
-
