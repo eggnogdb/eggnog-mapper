@@ -34,9 +34,9 @@ def safe_cast(v):
 
 def unpack_hit(bindata, z):
     (name, acc, desc, window_length, sort_key, score, pre_score, sum_score,
-     pvalue, pre_pvalue, sum_pvalue, nexpected, nregions, nclustered, noverlaps,
-     nenvelopes, ndom, flags, nreported, nincluded, best_domain, seqidx, subseq_start,
-     dcl, offset) = struct.unpack("3Q I 4x d 3f 4x 3d f 9I 4Q", bindata)
+     pvalue, pre_pvalue, sum_pvalue, nexpected, nregions, nclustered,
+     noverlaps, nenvelopes, ndom, flags, nreported, nincluded, best_domain,
+     seqidx, subseq_start, dcl, offset) = struct.unpack("3Q I 4x d 3f 4x 3d f 9I 4Q", bindata)
 
     evalue = math.exp(pvalue) * z
     return name, evalue, sum_score, ndom
@@ -182,6 +182,38 @@ def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
         yield name, etime, hits, len(seq), None
 
 
+def find_diamond_hits(src, evalue_thr=None, score_thr=None, fixed_Z=None,
+                      cpu=1, excluded_taxa=None):
+    if not DIAMOND:
+        raise ValueError("diamond not found in path")
+
+    cmd = 'diamond -d %s -q %s --more-sensitive --threads %s -o %s' %\
+          (EGGNOG_DMND_DB, src, cpu, output)
+
+    status = subprocess.call(cmd, shell=True)
+    if status == 0:
+        visited = set()
+        for line in open(target_file):
+            fields = map(str.strip, line.split('\t'))
+            query = fields[0]
+            hit = fields[1]
+            evalue = float(fields[10])
+            score = float(fields[11])
+
+            if query in visited:
+                continue
+
+            if evalue > evalue_thr or score < score_thr:
+                continue
+
+            if excluded_taxa or hit.startswith("%s." % excluded_taxa):
+                continue
+
+            visited.add(query)
+            print '\t'.join([query, hit, evalue, score])
+
+
+
 def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
               evalue_thr=None, score_thr=None, max_hits=None, return_seq=False,
               skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cpus=1):
@@ -325,18 +357,18 @@ def hmmsearch(query_hmm, target_db, cpus=1):
 
 
 def refine_hit(args):
-    seqname, seq, group_fasta = args
+    seqname, seq, group_fasta, excluded_taxa = args
     F = NamedTemporaryFile(dir="./", delete=True)
     F.write('>%s\n%s' % (seqname, seq))
     F.flush()
 
-    best_hit = get_best_hit(F.name, group_fasta)
+    best_hit = get_best_hit(F.name, group_fasta, excluded_taxa)
     F.close()
 
     return [seqname] + best_hit
 
 
-def get_best_hit(target_seq, target_og):
+def get_best_hit(target_seq, target_og, excluded_taxa):
     if not PHMMER:
         raise ValueError('phmmer not found in path')
 
@@ -344,25 +376,25 @@ def get_best_hit(target_seq, target_og):
     cmd = "%s --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" % (PHMMER, tempout, target_seq, target_og)
     # print cmd
     status = os.system(cmd)
-    best_hit = None
+    best_hit_found = False
     if status == 0:
         # take the best hit
         for line in open(tempout):
             if line.startswith('#'):
                 continue
             else:
-                best_hit = line.split()
-                break
+                fields = line.split()
+                best_hit_name = fields[0]
+                best_hit_evalue = float(fields[4])
+                best_hit_score = float(fields[5])
+                if not excluded_taxa or not best_hit_name.startswith("%s." % (excluded_taxa)):
+                    best_hit_found = True
+                    break
         os.remove(tempout)
     else:
         raise ValueError('Error running PHMMER')
 
-    if best_hit:
-        best_hit_name = best_hit[0]
-        best_hit_evalue = best_hit[4]
-        best_hit_score = best_hit[5]
-
-    else:
+    if not best_hit_found:
         best_hit_evalue = '-'
         best_hit_score = '-'
         best_hit_name = '-'

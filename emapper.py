@@ -3,11 +3,11 @@ import sys
 import os
 import time
 import cPickle
-from collections import defaultdict, Counter
 import multiprocessing
 import argparse
 import re
 import shutil
+from collections import defaultdict, Counter
 
 SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
@@ -15,14 +15,13 @@ sys.path.insert(0, SCRIPT_PATH)
 from eggnogmapper.common import *
 from eggnogmapper import search
 from eggnogmapper import annota
-#from eggnogmapper import annota_mongo
 from eggnogmapper import seqio
-from eggnogmapper.server import (
-    server_functional, load_server, generate_idmap, shutdown_server)
 from eggnogmapper.utils import colorify
+from eggnogmapper.server import (server_functional, load_server,
+                                 generate_idmap, shutdown_server)
 
 __description__ = ('A program for bulk functional annotation of novel '
-                    'sequences using the EggNOG orthology database')
+                    'sequences using the EggNOG orthology assignments')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
@@ -34,15 +33,16 @@ def cleanup_og_name(name):
     name = re.sub("^ENOG41", "", name)
     return name
 
-def main(args):
+def setup_hmm_search(args):
     host = 'localhost'
     idmap = None
     if args.usemem:
         scantype = 'mem'
     else:
-        scantype = 'disk'
+       scantype = 'disk'
 
     connecting_to_server = False
+    # If searching against a predefined database name
     if args.db in EGGNOG_DATABASES:
         dbpath, port = get_db_info(args.db)
         db_present = [pexists(dbpath + "." + ext)
@@ -56,6 +56,7 @@ def main(args):
             if not pexists(pjoin(DATA_PATH, 'eggnog.db')):
                 print colorify('Database eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
+
         if not args.no_refine:
             if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
                 print colorify('Database OG_fasta not present. Use download_eggnog_database.py to fetch it', 'red')
@@ -63,8 +64,9 @@ def main(args):
 
         if scantype == 'mem':
             idmap_file = dbpath + '.idmap'
-            end_port = port + 200
+            end_port = 53200
 
+    # If searching against a custom hmm database
     elif os.path.isfile(args.db + '.h3f'):
         dbpath = args.db
         if scantype == 'mem':
@@ -81,6 +83,7 @@ def main(args):
             idmap_file = None
             port = None
 
+    # If searching against a emapper hmm server 
     elif ":" in args.db:
         dbname, host, port = map(str.strip, args.db.split(":"))
         scantype = 'mem'
@@ -94,18 +97,18 @@ def main(args):
         idmap_file = dbfile + '.idmap'
         if not pexists(idmap_file):
             raise ValueError("idmap file not found: %s" % idmap_file)
-        dbpath = host
 
+        dbpath = host
         if not server_functional(host, port, args.dbtype):
-            print colorify("eggnog-mapper server not found at %s:%s" %
-                           (host, port), 'red')
-            exit(-1)
+            print colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red')
+            exit(1)
         connecting_to_server = True
     else:
         raise ValueError('Invalid database name/server')
 
-    # If memory based searches requested, load server if necessary
-    if scantype == "mem" and not connecting_to_server and not args.no_search:
+
+    # If memory based searches requested, start server
+    if scantype == "mem" and not connecting_to_server:
         master_db, worker_db = None, None
         for try_port in range(port, end_port, 2):
             print colorify("Loading server at localhost, port %s-%s" %
@@ -134,7 +137,7 @@ def main(args):
         dbpath = host
 
     # Preload seqid map to translate hits from hmmpgmd
-    if scantype == "mem" and not args.no_search:
+    if scantype == "mem":
         print colorify("Reading idmap %s" % idmap_file, color='lblue')
         idmap = {}
         for _lnum, _line in enumerate(open(idmap_file)):
@@ -158,68 +161,73 @@ def main(args):
             print colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue')
             time.sleep(10)
         sys.exit(0)
+    else:
+        return host, port, dppath, scantype, idmap
 
-    # Setup ouput file names
-    hits_file = "%s.hits" % args.output
-    refine_file = "%s.refined_hits" % args.output
-    hits_annot_file = "%s.hits.annot" % args.output
-    annot_file = "%s.refined_hits.annot" % args.output
-    os.chdir(args.output_dir)
+def main(args):
+    # Output and intermediate files
+    hmm_hits_file = "%s.emapper.hmm_hits" % args.output
+    seed_orthologs_file = "%s.emmaper.seed_orthologs" % args.output
+    annot_file = "%s.emmaper" % args.output
 
+    output_files = (hmm_hits_file, seed_orthologs_file, annot_file)
+   
     # force user to decide what to do with existing files
-    if pexists(hits_file) and not args.resume and not args.override:
-        print "Output files already present. User --resume or --override to continue"
+    os.chdir(args.output_dir)
+    files_present = set([pexists(fname) for fname in output_files])
+    if True in files_present and not args.resume and not args.override:
+        print "Output files detected in disk. Use --resume or --override to continue"
         sys.exit(1)
 
-    # If resuming in scratch dir, transfer existing files.
-    if args.resume and args.scratch_dir:
-        for f in [hits_file, refine_file, hits_annot_file, annot_file]:
-            if pexists(f):
-                print "   Copying input file %s to scratch dir %s" % (f, args.scratch_dir)
-                shutil.copy(f, args.scratch_dir)
-
-    # Once everything has been transfered to scratch dir, set it as working
-    # directory
     if args.scratch_dir:
+        # If resuming in and using --scratch_dir, transfer existing files.
+        if args.resume and args.scratch_dir:
+            for f in output_files:
+                if pexists(f):
+                    print "   Copying input file %s to scratch dir %s" % (f, args.scratch_dir)
+                    shutil.copy(f, args.scratch_dir)
+
+        # Change working dir
         os.chdir(args.scratch_dir)
 
-    # Start HMM SCANNING sequences (if requested)
+    # Step 1. Sequence search
     if not args.no_search:
-        find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args)
-        if args.scratch_dir:
-            print " Copying result file %s from scratch to %s" % (hits_file, args.output_dir)
-            shutil.copy(hits_file, args.output_dir)
+        if args.mode == 'diamond' and not args.no_search:
+            find_diamond_matches(args.input, seed_orthologs_file, args)
 
-    # if working on a legacy eggNOG database, REFINEMENT and ANNOTATION is
-    # available
-    if args.db in EGGNOG_DATABASES:
-        if not args.no_refine and args.db != 'viruses' and pexists(hits_file):
-            refine_matches(refine_file, hits_file, args)
-            if args.scratch_dir:
-                print " Copying result file %s from scratch to %s" % (refine_file, args.output_dir)
-                shutil.copy(refine_file, args.output_dir)
+        elif args.mode == "hmm" and not args.no_search:
+            host, port, dppath, scantype, idmap = setup_hmm_search(args)
+            # Start HMM SCANNING sequences (if requested)
+            if not pexists(hmm_hits_file) or args.override:
+                find_hmm_matches(hmm_hits_file, dbpath, port, scantype, idmap, args)
 
-        if not args.no_annot:
-            annotate_hmm_matches(hits_file, hits_annot_file, args)
-            if args.scratch_dir:
-                print " Copying result file %s from scratch to %s" % (hits_annot_file, args.output_dir)
-                shutil.copy(hits_annot_file, args.output_dir)
+            if not args.no_refine and (not pexists(seed_orthologs_file) or args.override):
+                if args.db == 'viruses':
+                    print 'refined hits in viral database not implemented yet'
+                elif args.db in EGGNOG_DATABASES:
+                        refine_matches(seed_orthologs_file, hmm_hits_file, args)
+                else:
+                    print 'refined hits in viral database not implemented yet'
 
-            if args.db != 'viruses' and pexists(refine_file):
-                annotate_refined_hits_sequential(refine_file, annot_file, args)
-                #annotate_refined_hits(refine_file, annot_file+'_new', args.orthotype)
-                if args.scratch_dir:
-                    print " Copying result file %s from scratch to %s" % (annot_file, args.output_dir)
-                    shutil.copy(annot_file, args.output_dir)
+            if not args.no_annot:
+                annotate_hmm_matches(hmm_hits_file, hits_annot_file, args)
 
+    # Step 2. Annotation
+    if not args.no_annot:
+        if args.annotate_hits_table:
+            annotate_hits_file(args.annotate_hits_table, annot_file, args)
+        else:
+            annotate_hits_file(seed_orthologs_file, annot_file, args)
+
+    # If running in scratch, move files to real output dir and clean up
     if args.scratch_dir:
-        for f in [hits_file, refine_file, hits_annot_file, annot_file]:
-            print " Cleaning", f
-            silent_rm(f)
+        for fname in output_files:
+            if pexists(fname):
+                print " Copying result file %s from scratch to %s" % (fname, args.output_dir)
+                shutil.copy(annot_file, args.output_dir)
+                print "  Cleaning result file %s from scratch dir" %(fname)
 
-    # for p in multiprocessing.active_children():
-    #    p.terminate()
-    #    p.join()
+    # Finalize and exit
     print colorify('Done', 'green')
     for f in [hits_file, refine_file, hits_annot_file, annot_file]:
         colorify('Result files:', 'yellow')
@@ -230,8 +238,8 @@ def main(args):
     print CITATION
     shutdown_server()
 
-def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
 
+def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
     hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                    "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
 
@@ -274,7 +282,7 @@ def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
                                                         cpus=args.cpu)):
 
         if elapsed == -1:
-            # error occured
+            # error occurred
             print >>OUT, '\t'.join(
                 [name] + ['ERROR'] * (len(hits_header) - 1))
         elif not hits:
@@ -285,8 +293,11 @@ def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
                 if idmap:
                     hitname = idmap[hid][0]
 
-                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore, int(querylen),
-                                                 int(hmmfrom), int(hmmto), int(sqfrom), int(sqto), float(sqto - sqfrom) / querylen]))
+                print >>OUT, '\t'.join(map(str, [name, hitname, heval, hscore,
+                                                 int(querylen), int(hmmfrom),
+                                                 int(hmmto), int(sqfrom),
+                                                 int(sqto), float(sqto -
+                                                                  sqfrom) / querylen]))
         OUT.flush()
 
         # monitoring
@@ -306,8 +317,12 @@ def find_hmm_matches(hits_file, dbpath, port, scantype, idmap, args):
     OUT.close()
     print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
+
 def annotate_hmm_matches(hits_file, hits_annot_file, args):
-    hits_annot_header = map(str.strip, "#query_name, hit, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage, members_in_og, og_description, og_COG_categories".split(','))
+    hits_annot_header = map(str.strip, '''#query_name, hit, level, evalue,
+                         sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage,
+                         members_in_og, og_description, og_COG_categories'''.split(','))
+    
     annota.connect()
     print colorify("Functional annotation of hits starts now", 'green')
     start_time = time.time()
@@ -331,8 +346,11 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
             if hit not in ['ERROR', '-']:
                 hitname = cleanup_og_name(hit)
                 level, nm, desc, cats = annota.get_og_annotations(hitname)
-                print >>OUT, '\t'.join(map(
-                    str, [query, hitname, level, evalue, sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats]))
+                print >>OUT, '\t'.join(map( str, [query, hitname, level, evalue,
+                                                  sum_score, query_length,
+                                                  hmmfrom, hmmto, seqfrom,
+                                                  seqto, q_coverage, nm, desc,
+                                                  cats]))
             else:
                 print >>OUT, '\t'.join(
                     [query] + [hit] * (len(hits_annot_header) - 1))
@@ -346,7 +364,8 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
 
 
 def refine_matches(refine_file, hits_file, args):
-    refine_header = map(str.strip, "#query_name, best_hit_eggNOG_ortholog, best_hit_evalue, best_hit_score".split(','))
+    refine_header = map(str.strip, '''#query_name, best_hit_eggNOG_ortholog, 
+                        best_hit_evalue, best_hit_score'''.split(','))
 
     print colorify("Hit refinement starts now", 'green')
     start_time = time.time()
@@ -356,7 +375,10 @@ def refine_matches(refine_file, hits_file, args):
     if not args.no_file_comments:
         print >>OUT, '\t'.join(refine_header)
     qn = 0
-    for qn, r in enumerate(process_hits_file(hits_file, args.input, og2level, translate=args.translate, cpu=args.cpu)):
+    for qn, r in enumerate(process_nog_hits_file(hits_file, args.input, og2level,
+                                                 translate=args.translate,
+                                                 cpu=args.cpu,
+                                                 excluded_taxa=args.excluded_taxa)):
         if qn and (qn % 25 == 0):
             total_time = time.time() - start_time
             print >>sys.stderr, qn + \
@@ -365,168 +387,25 @@ def refine_matches(refine_file, hits_file, args):
             sys.stderr.flush()
         query_name = r[0]
         best_hit_name = r[1]
-        best_hit_evalue = r[2]
-        best_hit_score = r[3]
-        if best_hit_name != '-' and float(best_hit_score) >= 20:
-            print >>OUT, '\t'.join(
-                map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score)))
-            OUT.flush()
-    elapsed_time = time.time() - start_time
-    if not args.no_file_comments:
-        print >>OUT, '# %d queries scanned' % (qn + 1)
-        print >>OUT, '# Total time (seconds):', elapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
-    OUT.close()
-    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
-
-
-
-
-def annotate_refined_hits_sequential(refine_file, annot_file, args):
-    annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
-                    "best_hit_score", "predicted_name (one-to-one)",
-                    "orthologs (one-to-one)", "GO (one-to-one)",
-                    "KEGG_pathway (one-to-one)", "predicted_name (all orthologs)",
-                    "orthologs (not one-to-one)", "GO (not one-to-one)",
-                    "KEGG_pathway (not one-to-one)",)
-
-    start_time = time.time()
-    print colorify("Functional annotation of refined hits starts now", 'green')
-    OUT = open(annot_file, "w")
-    if not args.no_file_comments:
-        print >>OUT, '\t'.join(annot_header)
-    qn = 0
-    for line in open(refine_file):
-        if not line.strip() or line.startswith('#'):
+        if best_hit_name == '-' or best_hit_name == 'ERROR':
             continue
-        if qn and (qn % 25 == 0):
-            total_time = time.time() - start_time
-            print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
-                (float(qn + 1) / total_time))
-            sys.stderr.flush()
-        qn += 1
-        r = map(str.strip, line.split('\t'))
-        query_name = r[0]
-        best_hit_name = r[1]
-        best_hit_evalue = r[2]
-        best_hit_score = r[3]
-        if best_hit_name != '-' and float(best_hit_score) >= 20:
-            #_orthologs = sorted(annota_mongo.refine_orthologs_by_member([best_hit_name])['one2one'])
-            all_orthologies = annota.get_member_orthologs(best_hit_name)
-            orthologs = sorted(all_orthologies["one2one"])
-            multi_orthologs = sorted(all_orthologies["all"] - all_orthologies["one2one"])
-
-            if orthologs:
-                pname, gos, keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                best_name = ''
-                if pname:
-                    name_candidate, freq = pname.most_common(1)[0]
-                    if freq >= 2:
-                        best_name = name_candidate
-            else:
-                pname = []
-                best_name = ''
-                gos = set()
-                keggs = set()
-
-            if multi_orthologs:
-                multi_pname, multi_gos, multi_keggs = annota.get_member_annotations(orthologs, excluded_gos=set(["IEA", "ND"]))
-                multi_gos -= gos
-                multi_keggs -= keggs
-                multi_pname.update(pname)
-                multi_best_name = ''
-                if multi_pname:
-                    name_candidate, freq = multi_pname.most_common(1)[0]
-                    if freq >= 2:
-                        multi_best_name = name_candidate
-            else:
-                multi_best_name = ''
-                multi_gos = set()
-                multi_keggs = set()
-
-            print >>OUT, '\t'.join(map(str, (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-                                             best_name,
-                                             ','.join(orthologs),
-                                             ','.join(sorted(gos)),
-                                             ','.join(sorted(keggs)),
-                                             multi_best_name,
-                                             ','.join(multi_orthologs),
-                                             ','.join(sorted(multi_gos)),
-                                             ','.join(sorted(multi_keggs)),
-                                             )))
-            OUT.flush()
-    elapsed_time = time.time() - start_time
-    if not args.no_file_comments:
-        print >>OUT, '# %d queries scanned' % (qn + 1)
-        print >>OUT, '# Total time (seconds):', elapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
-    OUT.close()
-    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
-
-
-
-def annotate_refined_hits(refine_file, annot_file, orthotype):
-    start_time = time.time()
-    annot_header = ("#query_name", "best_hit_eggNOG_ortholog", "best_hit_evalue",
-                    "best_hit_score", "predicted_name", "strict_orthologs", "GO",
-                    "KEGG(pathway)2")
-    print colorify("Functional annotation of refined hits starts now", 'green')
-    # Preloads all raw best entries
-    entries = []
-    for line in open(refine_file):
-        if not line.strip() or line.startswith('#'):
-            continue
-        fields = map(str.strip, line.split('\t'))
-        query = fields[0]
-        best_hit_name = fields[1]
-        best_hit_evalue = fields[2]
-        best_hit_score = fields[3]
-        if best_hit_name != '-' and float(best_hit_score) >= 20:
-            entries.append(fields)
-
-    # Get annotations for all unique best hit names
-    all_best_hits = set([e[1] for e in entries])
-    annotations = annota.get_annotated_orthologs(all_best_hits,
-                                                 orthotype,
-                                                 set(["IEA", "ND"]),
-                                                 args.cpu)
-
-    # augment each entry with the annotations available
-    OUT = open(annot_file, "w")
-    if not args.no_file_comments:
-        print >>OUT, '\t'.join(annot_header)
-    for entry in entries:
-        (query_name, best_hit_name, best_hit_evalue, best_hit_score) = entry
-        orthologs, pname, gos, keggs = annotations[best_hit_name]
-        best_name = '-'
-        if pname:
-            name_ranking = sorted(pname.items(), key=lambda x: x[1], reverse=True)
-            if name_ranking[0][1] > 2:
-                best_name = name_ranking[0][0]
-
+        best_hit_evalue = float(r[2])
+        best_hit_score = float(r[3])
         print >>OUT, '\t'.join(map(str, (query_name, best_hit_name,
-                                         best_hit_evalue, best_hit_score,
-                                         best_name,
-                                         ','.join(sorted(orthologs)),
-                                         ','.join(sorted(gos)),
-                                         ','.join(sorted(keggs))
-                                         )))
-        # print '\t'.join(map(str, (query_name, best_hit_name,
-        #                          best_hit_evalue, best_hit_score,
-        #                          best_name,
-        #                          ','.join(sorted(orthologs)),
-        #                          ','.join(sorted(gos)),
-        #                          ','.join(sorted(keggs))
-        #                          )))
-
+                                         best_hit_evalue, best_hit_score)))
         #OUT.flush()
+
+    elapsed_time = time.time() - start_time
     if not args.no_file_comments:
-        print >>OUT, '# Total time (seconds):', time.time() - start_time
+        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# Total time (seconds):', elapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
     OUT.close()
+    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
 
-
-def process_hits_file(hits_file, query_fasta, og2level, skip_queries=None, translate=False, cpu=1):
+def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
+                          translate=False, cpu=1, excluded_taxa=None):
     sequences = {name: seq for name, seq in seqio.iter_fasta_seqs(
         query_fasta, translate=translate)}
     cmds = []
@@ -554,69 +433,248 @@ def process_hits_file(hits_file, query_fasta, og2level, skip_queries=None, trans
         seq = sequences[seqname]
         visited_queries.add(seqname)
         target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" % hitname)
-        cmds.append([seqname, seq, target_fasta])
+        cmds.append([seqname, seq, target_fasta, excluded_taxa])
 
     if cmds:
         pool = multiprocessing.Pool(cpu)
         for r in pool.imap(search.refine_hit, cmds):
             yield r
         pool.terminate()
+
+
+def annotate_hits_file(hits_file, annot_file, args):
+    annot_header = ("#query_name",
+                    "seed_eggNOG_ortholog",
+                    "seed_ortholog_evalue",
+                    "seed_ortholog_score",
+                    "predicted_gene_name",
+                    "GO_terms",
+                    "KEGG_pathways",
+                    "Annotation_scope",
+                    "OGs",
+                    )
+
+    start_time = time.time()
+    print colorify("Functional annotation of refined hits starts now", 'green')
+    OUT = open(annot_file, "w")
+    if not args.no_file_comments:
+        print >>OUT, '\t'.join(annot_header)
+    qn = 0
+    for line in open(hits_file):
+        if not line.strip() or line.startswith('#'):
+            continue
+        if qn and (qn % 500 == 0):
+            total_time = time.time() - start_time
+            print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
+                (float(qn + 1) / total_time))
+            sys.stderr.flush()
+        qn += 1
+        r = map(str.strip, line.split('\t'))
+
+        query_name = r[0]
+        best_hit_name = r[1]
+        if best_hit_name == '-' or best_hit_name == 'ERROR':
+            continue
+
+        best_hit_evalue = float(r[2])
+        best_hit_score = float(r[3])
+        if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
+            continue
+
+        match_nogs = annota.get_member_ogs(best_hit_name)
+        if not match_nogs:
+            continue
+
+        match_levels = set([nog.split("@")[1] for nog in match_nogs])
+        if args.tax_scope == "auto":
+            for level in TAXONOMIC_RESOLUTION:
+                if level in match_levels:
+                    annot_levels = LEVEL_CONTENT.get(level, [level])
+                    annot_level_max = "%s[+%d]" %(level, len(annot_levels))
+                    break
+        else:
+            annot_levels = LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope])
+            annot_level_max = "%s (+%d)" %(args.tax_scope, len(annot_levels))
+
+        all_orthologies = annota.get_member_orthologs(best_hit_name, target_levels=annot_levels)
+        orthologs = sorted(all_orthologies[args.target_orthologs])
+        if args.excluded_taxa:
+            orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
+
+        if orthologs:
+            pname, gos, keggs = annota.get_member_annotations(orthologs,
+                                                              excluded_gos=set(["IEA", "ND"]))
+            best_name = ''
+            if pname:
+                name_candidate, freq = pname.most_common(1)[0]
+                if freq >= 2:
+                    best_name = name_candidate
+        else:
+            pname = []
+            best_name = ''
+            gos = set()
+            keggs = set()
+
+        print >>OUT, '\t'.join(map(str, (query_name,
+                                         best_hit_name,
+                                         best_hit_evalue,
+                                         best_hit_score,
+                                         best_name,
+                                         ','.join(orthologs),
+                                         ','.join(sorted(gos)),
+                                         ','.join(sorted(keggs)),
+                                         annot_level_max,
+                                         ','.join(match_nogs),
+                                         )))
+        OUT.flush()
+    elapsed_time = time.time() - start_time
+    if not args.no_file_comments:
+        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# Total time (seconds):', elapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
+    OUT.close()
+    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
+
+
+def parse_args(parser):
+    args = parser.parse_args()
+
+    # No --servermode available for diamond
+    if args.mode == 'diamond' and args.servermode:
+        parser.error('--mode [diamond] and --servermode are mutually exclusive')
+
+    # Output file required unless running in servermode
+    if not args.servermode and not args.output:
+        parser.error('An output project name is required (-o)')
+
+    # Servermode implies using mem-based databases
+    if args.servermode:
+        args.usemem = True
+
+    # Direct annotation implies no searches 
+    if args.annotate_hits_table:
+        args.no_search = True
+
+    # Check inputs for running sequence searches
+    if not args.no_search:
+        if not args.input:
+            parser.error('An input fasta file is required (-i)')
+
+        # HMM
+        if args.mode == 'hmm':
+            if not args.db and not args.guessdb:
+                parser.error('HMMER mode requires specifying a target database (i.e. -d, --guessdb ))')
+            if args.db and args.guessdb:
+                parser.error('-d and --guessdb options are mutually exclusive')
+
+            if args.guessdb:
+                from ete3 import NCBITaxa
+                ncbi = NCBITaxa()
+                lineage = ncbi.get_lineage(args.guessdb)
+                for tid in reversed(lineage):
+                    if tid in TAXID2LEVEL:
+                        print tid, TAXID2LEVEL[tid]
+                        args.db = TAXID2LEVEL[tid]
+                        break
+        # DIAMOND
+        elif args.mode == 'diamond':
+            pass
+
+    return args
+        
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # server
-    g1 = parser.add_argument_group('Target database options')
-    g1.add_argument(
-        '--guessdb', help='guess eggnog db based on the provided taxid', type=int)
+    pg_db = parser.add_argument_group('Target HMM Database Options')
+    pg_db.add_argument('--guessdb', type=int, metavar='',
+                       help='guess eggnog db based on the provided taxid')
 
-    g1.add_argument('-d', dest='db', help=('specify the target database for sequence searches'
-                                           '. Choose among: euk,bact,arch, host:port, or a local hmmpressed database'))
-    g1.add_argument('--dbtype', dest="dbtype",
+    pg_db.add_argument('--database', '-d', dest='db', metavar='',
+                       help=('specify the target database for sequence searches'
+                             '. Choose among: euk,bact,arch, host:port, or a local hmmpressed database'))
+    pg_db.add_argument('--dbtype', dest="dbtype",
                     choices=["hmmdb", "seqdb"], default="hmmdb")
-    g1.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
+    pg_db.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
+    
+    pg_annot = parser.add_argument_group('Annotation Options')
+    pg_annot.add_argument("--tax_scope", type=str, choices=TAXID2LEVEL.values()+["auto"],
+                    default='auto', metavar='',
+                    help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
+                          "particular clade are used for functional transfer. "
+                          "By default, this is automatically adjusted for every query sequence."))
 
-    g2 = parser.add_argument_group('Sequence search options')
-    g2.add_argument('--maxhits', dest='maxhits', type=int, default=25,
+    pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
+                                                         "one2many","many2many", "all"],
+                          default="all",
+                          help='defines what type of orthologs should be used for functional transfer')
+
+    pg_annot.add_argument('--excluded_taxa', type=int, metavar='',
+                          help='(for debuging and benchmarking purposes)')
+
+    pg_hmm = parser.add_argument_group('HMM search_options')
+    pg_hmm.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=25, metavar='',
                     help="Max number of hits to report. Default=25")
-    g2.add_argument('--evalue', dest='evalue', default=0.001, type=float,
+    pg_hmm.add_argument('--hmm_evalue', dest='evalue', default=0.001, type=float, metavar='',
                     help="E-value threshold. Default=0.001")
-    g2.add_argument('--score', dest='score', default=20, type=float,
+    pg_hmm.add_argument('--hmm_score', dest='score', default=20, type=float, metavar='',
                     help="Bit score threshold. Default=20")
-    g2.add_argument('--maxseqlen', dest='maxseqlen', type=int, default=5000,
+    pg_hmm.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='',
                     help="Ignore query sequences larger than `maxseqlen`. Default=5000")
-    g2.add_argument('--qcov', type=float,
+    pg_hmm.add_argument('--hmm_qcov', type=float, metavar='',
                     help="min query coverage (from 0 to 1). Default=(disabled)")
-    g2.add_argument('--Z', dest='Z', type=float, default=40000000,
-                    help='fix database size (allows comparing e-values among databases). Default=40,000,000')
+    pg_hmm.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='',
+                    help='Fixed database size used in phmmer/hmmscan'
+                        ' (allows comparing e-values among databases). Default=40,000,000')
 
-    # g2.add_argument('--othologs_evalue', dest='ortho_evalue', default=0.001, type=float,
-    #                help="E-value threshold for ortholog dectection. Default=0.001")
-    # g2.add_argument('--orthologs_score', dest='ortho_score', default=60, type=float,
-    # help="Bit score threshold for ortholog detection. Default=60")
+    pg_seed = parser.add_argument_group('Seed ortholog search option')
+    pg_seed.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
+                    help='Min E-value expected when searching for seed eggNOG ortholog.'
+                         ' Applies to phmmer/diamond searches. Queries not having a significant'
+                         ' seed orthologs will not be annotated. Default=0.001')
+    pg_seed.add_argument('--seed_ortholog_score', default=60, type=float, metavar='',
+                    help='Min bit score expected when searching for seed eggNOG ortholog.'
+                         ' Applies to phmmer/diamond searches. Queries not having a significant'
+                         ' seed orthologs will not be annotated. Default=60')
 
-    g3 = parser.add_argument_group('Output options')
-    g3.add_argument('--output', '-o', type=str,
+    pg_out = parser.add_argument_group('Output options')
+    pg_out.add_argument('--output', '-o', type=str, metavar='',
                     help="base name for output files")
-    g3.add_argument('--resume', action="store_true",
+    pg_out.add_argument('--resume', action="store_true",
                     help="Resumes a previous execution skipping reported hits in the output file.")
-    g3.add_argument('--override', action="store_true",
+    pg_out.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
-    g3.add_argument("--no_refine", action="store_true",
+    pg_out.add_argument("--no_refine", action="store_true",
                     help="Skip hit refinement, reporting only HMM hits.")
-    g3.add_argument("--no_annot", action="store_true",
+    pg_out.add_argument("--no_annot", action="store_true",
                     help="Skip functional annotation, reporting only hits")
-    g3.add_argument("--no_search", action="store_true",
+    pg_out.add_argument("--no_search", action="store_true",
                     help="Skip HMM search mapping. Use existing hits file")
 
-    g3.add_argument("--scratch_dir", type=str,
-                    help="Write output files in a temporary scratch dir, move them to final the final output dir when finished. Speed up large computations using network file systems.")
 
-    g3.add_argument("--output_dir", default=os.getcwd(), type=str,
+    pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir, 
+                    help='Write output files in a temporary scratch dir, move them to final the final'
+                        ' output dir when finished. Speed up large computations using network file'
+                        ' systems.')
+
+    pg_out.add_argument("--output_dir", default=os.getcwd(), type=existing_dir, metavar='',
                     help="Where output files should be written")
 
+    pg_out.add_argument('--no_file_comments', action="store_true",
+                        default="No header lines nor stats are included in the output files")
+
+    pg_out.add_argument('--keep_mapping_files', action='store_true',
+                        help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
+                        ' DIAMOND search outputs)')
+
     # exec mode
-    g4 = parser.add_argument_group('Exection options')
-    g4.add_argument('-i', dest="input",
+    g4 = parser.add_argument_group('Execution options')
+    g4.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmm',
+                    help='Default:hmm')
+
+
+    g4.add_argument('-i', dest="input", metavar='', type=existing_file, 
                     help='Computes annotations for the provided FASTA file')
 
     g4.add_argument('--translate', action="store_true",
@@ -632,56 +690,26 @@ if __name__ == "__main__":
                     this flag will allocate the whole database in memory using hmmpgmd.
                     Database will be unloaded after execution.""")
 
-    g4.add_argument('--cpu', type=int, default=2)
+    g4.add_argument('--cpu', type=int, default=2, metavar='')
 
-    parser.add_argument('--orthotype', choices=["one2one", "many2one", "one2many", "many2many", "all"],
-                        default="one2one")
-
-    parser.add_argument('--no_file_comments', action="store_true",
-                        default="No header lines nor stats are included in the output files")
+    g4.add_argument('--annotate_hits_table', type=str, metavar='',
+                    help='Annotatate TSV formatted table of query->hits. 4 fields required:'
+                    ' query, hit, evalue, score. Implies --no_search and --no_refine.')
 
 
-    args = parser.parse_args()
-    if args.input:
-        args.input = os.path.realpath(args.input)
+    parser.add_argument('--version', action='store_true')
 
-    if args.servermode and args.input:
-        parser.error(
-            'Incompatible execution modes. Choose between -i or --servermode')
-    if not (args.servermode or args.input):
-        parser.error(
-            'Execution must be specified. Choose between: -i [fastafile]  or --servermode')
-    if not args.db:
-        if args.guessdb:
-            from ete3 import NCBITaxa
-            ncbi = NCBITaxa()
-            lineage = ncbi.get_lineage(args.guessdb)
-            for tid in reversed(lineage):
-                if tid in TAXID2LEVEL:
-                    print tid, TAXID2LEVEL[tid]
-                    args.db = TAXID2LEVEL[tid]
-                    break
-        if not args.db:
-            parser.error('A target databse must be specified with --db')
+    args = parse_args(parser)
 
-    if args.servermode:
-        args.usemem = True
+    if args.version:
+        print get_version()
+        sys.exit(0)
 
-    if not args.output and not args.servermode:
-        parser.error(
-            "a base name for output files has to be provided with --output")
-
-    if args.scratch_dir and not os.path.isdir(args.scratch_dir):
-        parser.error("--scratch_dir should point to an existing directory")
-
-    if args.output_dir and not os.path.isdir(args.output_dir):
-        print args.output_dir
-        parser.error("--output_dir should point to an existing directory")
 
     _total_time = time.time()
     try:
         main(args)
     except:
-        #shutdown_server()
         raise
         sys.exit(1)
+

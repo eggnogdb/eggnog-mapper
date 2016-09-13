@@ -196,12 +196,24 @@ def get_by_member_annotations(names, excluded_gos):
         by_member[str(name)] = [gos, keggs, str(pname)]
     return by_member
 
-def get_member_orthologs(member, target_taxa=None):
+def get_member_ogs(name):
+    cmd = 'SELECT groups FROM member WHERE name == "%s";' % (name)
+    db.execute(cmd)
+    match = db.fetchone()
+    ogs = None
+    if match:
+        ogs = map(lambda x: str(x).strip(), match[0].split(','))
+    return ogs
+
+def get_member_orthologs(member, target_taxa=None, target_levels=None):
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM member WHERE name = "%s"' % member.strip()
     db.execute(cmd)
     event_indexes = str(db.fetchone()[0])
     cmd2 = 'SELECT level, side1, side2 FROM event WHERE i IN (%s)' % event_indexes
+    if target_levels:
+        cmd2 += " AND level IN (%s)" % (','.join(map(lambda x: '"%s"' %x, target_levels)))
+
     db.execute(cmd2)
     orthology = {}
     for level, _side1, _side2 in db.fetchall():
