@@ -83,7 +83,7 @@ def setup_hmm_search(args):
             idmap_file = None
             port = None
 
-    # If searching against a emapper hmm server 
+    # If searching against a emapper hmm server
     elif ":" in args.db:
         dbname, host, port = map(str.strip, args.db.split(":"))
         scantype = 'mem'
@@ -162,16 +162,21 @@ def setup_hmm_search(args):
             time.sleep(10)
         sys.exit(0)
     else:
-        return host, port, dppath, scantype, idmap
+        return host, port, dbpath, scantype, idmap
 
 def main(args):
     # Output and intermediate files
     hmm_hits_file = "%s.emapper.hmm_hits" % args.output
-    seed_orthologs_file = "%s.emmaper.seed_orthologs" % args.output
-    annot_file = "%s.emmaper" % args.output
+    seed_orthologs_file = "%s.emapper.seed_orthologs" % args.output
+    annot_file = "%s.emapper.annotations" % args.output
 
-    output_files = (hmm_hits_file, seed_orthologs_file, annot_file)
-   
+    if args.no_search:
+        output_files = [annot_file]
+    elif args.no_annot:
+        output_files = [hmm_hits_file, seed_orthologs_file]
+    else:
+        output_files = [hmm_hits_file, seed_orthologs_file, annot_file]
+
     # force user to decide what to do with existing files
     os.chdir(args.output_dir)
     files_present = set([pexists(fname) for fname in output_files])
@@ -196,7 +201,7 @@ def main(args):
             find_diamond_matches(args.input, seed_orthologs_file, args)
 
         elif args.mode == "hmm" and not args.no_search:
-            host, port, dppath, scantype, idmap = setup_hmm_search(args)
+            host, port, dbpath, scantype, idmap = setup_hmm_search(args)
             # Start HMM SCANNING sequences (if requested)
             if not pexists(hmm_hits_file) or args.override:
                 find_hmm_matches(hmm_hits_file, dbpath, port, scantype, idmap, args)
@@ -209,11 +214,12 @@ def main(args):
                 else:
                     print 'refined hits in viral database not implemented yet'
 
-            if not args.no_annot:
-                annotate_hmm_matches(hmm_hits_file, hits_annot_file, args)
+            #if not args.no_annot:
+            #    annotate_hmm_matches(hmm_hits_file, hits_annot_file, args)
 
     # Step 2. Annotation
     if not args.no_annot:
+        annota.connect()
         if args.annotate_hits_table:
             annotate_hits_file(args.annotate_hits_table, annot_file, args)
         else:
@@ -229,7 +235,7 @@ def main(args):
 
     # Finalize and exit
     print colorify('Done', 'green')
-    for f in [hits_file, refine_file, hits_annot_file, annot_file]:
+    for f in output_files:
         colorify('Result files:', 'yellow')
         if pexists(f):
             print "   %s" % (f)
@@ -322,7 +328,7 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
     hits_annot_header = map(str.strip, '''#query_name, hit, level, evalue,
                          sum_score, query_length, hmmfrom, hmmto, seqfrom, seqto, query_coverage,
                          members_in_og, og_description, og_COG_categories'''.split(','))
-    
+
     annota.connect()
     print colorify("Functional annotation of hits starts now", 'green')
     start_time = time.time()
@@ -364,7 +370,7 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
 
 
 def refine_matches(refine_file, hits_file, args):
-    refine_header = map(str.strip, '''#query_name, best_hit_eggNOG_ortholog, 
+    refine_header = map(str.strip, '''#query_name, best_hit_eggNOG_ortholog,
                         best_hit_evalue, best_hit_score'''.split(','))
 
     print colorify("Hit refinement starts now", 'green')
@@ -551,7 +557,7 @@ def parse_args(parser):
     if args.servermode:
         args.usemem = True
 
-    # Direct annotation implies no searches 
+    # Direct annotation implies no searches
     if args.annotate_hits_table:
         args.no_search = True
 
@@ -581,7 +587,7 @@ def parse_args(parser):
             pass
 
     return args
-        
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -597,7 +603,7 @@ if __name__ == "__main__":
     pg_db.add_argument('--dbtype', dest="dbtype",
                     choices=["hmmdb", "seqdb"], default="hmmdb")
     pg_db.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
-    
+
     pg_annot = parser.add_argument_group('Annotation Options')
     pg_annot.add_argument("--tax_scope", type=str, choices=TAXID2LEVEL.values()+["auto"],
                     default='auto', metavar='',
@@ -622,7 +628,7 @@ if __name__ == "__main__":
                     help="Bit score threshold. Default=20")
     pg_hmm.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='',
                     help="Ignore query sequences larger than `maxseqlen`. Default=5000")
-    pg_hmm.add_argument('--hmm_qcov', type=float, metavar='',
+    pg_hmm.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='',
                     help="min query coverage (from 0 to 1). Default=(disabled)")
     pg_hmm.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='',
                     help='Fixed database size used in phmmer/hmmscan'
@@ -653,7 +659,7 @@ if __name__ == "__main__":
                     help="Skip HMM search mapping. Use existing hits file")
 
 
-    pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir, 
+    pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
                     help='Write output files in a temporary scratch dir, move them to final the final'
                         ' output dir when finished. Speed up large computations using network file'
                         ' systems.')
@@ -674,7 +680,7 @@ if __name__ == "__main__":
                     help='Default:hmm')
 
 
-    g4.add_argument('-i', dest="input", metavar='', type=existing_file, 
+    g4.add_argument('-i', dest="input", metavar='', type=existing_file,
                     help='Computes annotations for the provided FASTA file')
 
     g4.add_argument('--translate', action="store_true",
@@ -712,4 +718,3 @@ if __name__ == "__main__":
     except:
         raise
         sys.exit(1)
-
