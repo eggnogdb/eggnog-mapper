@@ -222,7 +222,8 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
 
     OUT = NamedTemporaryFile(dir=tempdir)
     if translate or maxseqlen:
-        print 'translating query input file'
+        if translate:
+            print 'translating query input file'
         Q = NamedTemporaryFile()
         for name, seq in seqio.iter_fasta_seqs(query_file, translate=translate):
             if maxseqlen is None or len(seq) <= maxseqlen:

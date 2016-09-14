@@ -1,5 +1,7 @@
 from __future__ import absolute_import
+import sys
 import os
+import time
 from distutils.spawn import find_executable
 from os.path import join as pjoin
 from os.path import exists as pexists
@@ -7,7 +9,7 @@ import gzip
 import shutil
 from subprocess import Popen, PIPE
 
-__VERSION__ = 'emapper-dev'
+__VERSION__ = ''
 
 TIMEOUT_LOAD_SERVER = 1800
 
@@ -93,6 +95,14 @@ def show_binaries():
               FASTA_PATH, HMMDB_PATH, EGGNOGDB_FILE, OGLEVELS_FILE, EGGNOG_DMND_DB):
         print "% 65s" %e, pexists(e)
 
+def get_call_info():
+    text = []
+    text.append('# ' + time.ctime())
+    text.append('# ' + get_version())
+    text.append('# ' + ' '.join(sys.argv))
+    text.append('#')
+    return '\n'.join(text)
+
 def get_version():
     _version = ''
     try:
@@ -108,7 +118,7 @@ def get_version():
             raise
     else:
         if p.returncode == 0:
-            _version += " (git-{})".format(bytes.decode(out).rstrip())
+            _version += "-{}".format(bytes.decode(out).rstrip())
         else:
             # If tags were not available
             # Use a short hash for the current commit (e.g. b2d12f4)
@@ -116,8 +126,13 @@ def get_version():
             out, err = p.communicate()
 
             if p.returncode == 0:
-                _version += " (git-{})".format(bytes.decode(out).rstrip())
-    return __VERSION__ + _version
+                _version += "-{}".format(bytes.decode(out).rstrip())
+    if _version:
+        version = 'emapper' + _version
+    else:
+        version = __VERSION__
+
+    return version
 
 def get_level_base_path(level):
     if level == 'euk':
@@ -140,27 +155,47 @@ def get_db_info(level):
     else:
         return (pjoin(HMMDB_PATH, level+"_hmm", level + "_hmm.all_hmm"), EGGNOG_DATABASES[level])
 
-CITATION = """
+
+def get_citation(addons=['hmmer']):
+    CITATION = """
 ================================================================================
 CITATION:
 If you use this software, please cite:
 
 [1] eggNOG-mapper: eggNOG-mapper: fast proteome-scale functional annotation
-    through orthology assignments.
-    Jaime Huerta-Cepas, Kristoffer Forslund, Damian Szklarczyk, Lars Juhl
-    Jensen, Christian von Mering and Peer Bork. In preparation.
+      through orthology assignments. Jaime Huerta-Cepas, Kristoffer Forslund,
+      Damian Szklarczyk, Lars Juhl Jensen, Christian von Mering and Peer Bork.
+      In preparation.
 
 [2] eggNOG 4.5: a hierarchical orthology framework with improved functional
-    annotations for eukaryotic, prokaryotic and viral sequences.
-    Jaime Huerta-Cepas, Damian Szklarczyk, Kristoffer Forslund, Helen Cook,
-    Davide Heller, Mathias C. Walter, Thomas Rattei, Daniel R. Mende, Shinichi
-    Sunagawa, Michael Kuhn, Lars Juhl Jensen, Christian von Mering, and Peer
-    Bork. Nucl. Acids Res. (04 January 2016) 44 (D1): D286-D293. doi:
-    10.1093/nar/gkv1248
-
-================================================================================
-
+      annotations for eukaryotic, prokaryotic and viral sequences. Jaime
+      Huerta-Cepas, Damian Szklarczyk, Kristoffer Forslund, Helen Cook, Davide
+      Heller, Mathias C. Walter, Thomas Rattei, Daniel R. Mende, Shinichi
+      Sunagawa, Michael Kuhn, Lars Juhl Jensen, Christian von Mering, and Peer
+      Bork. Nucl. Acids Res. (04 January 2016) 44 (D1): D286-D293. doi:
+      10.1093/nar/gkv1248
 """
+
+    if 'hmmer' in addons:
+        CITATION += """
+[3] Accelerated Profile HMM Searches. PLoS Comput. Biol. 7:e1002195. Eddy SR.
+       2011.
+"""
+    elif 'diamond' in addons:
+        CITATION += """
+[3] Fast and Sensitive Protein Alignment using DIAMOND. Buchfink B, Xie C,
+       Huson DH. 2015. Nat. Methods [Internet] 12.
+"""
+
+    CITATION += """
+
+(e.g. Functional annotation was performed using %s [1]
+ based on eggNOG orthology data [2]. Sequence searches were performed
+ using [3].)
+""" %get_version()
+
+    return CITATION
+
 
 LICENSE = """
 LICENSE:
