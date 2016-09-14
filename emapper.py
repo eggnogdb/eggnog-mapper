@@ -205,7 +205,7 @@ def main(args):
         if args.mode == 'diamond' and not args.no_search:
             dump_diamond_matches(args.input, seed_orthologs_file, args)
 
-        elif args.mode == "hmm" and not args.no_search:
+        elif args.mode == 'hmmer' and not args.no_search:
             host, port, dbpath, scantype, idmap = setup_hmm_search(args)
             # Start HMM SCANNING sequences (if requested)
             if not pexists(hmm_hits_file) or args.override:
@@ -243,7 +243,12 @@ def main(args):
             print "   %s" % (f)
 
     print 'Total time: %g secs' % (time.time()-_total_time)
-    print CITATION
+
+    if args.mode == 'hmmer':
+        print get_citation(['hmmer'])
+    elif args.mode == 'diamond':
+        print get_citation(['diamond'])
+
     shutdown_server()
 
 def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
@@ -265,8 +270,15 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if status == 0:
         OUT = open('%s' %seed_orthologs_file, 'w')
+
+        if not args.no_file_comments:
+            print >>OUT, get_call_info()
+            print >>OUT, '#', cmd 
+
         visited = set()
         for line in open(raw_output_file):
+            if not line.strip() or line.startswith('#'):
+                continue
             fields = map(str.strip, line.split('\t'))
             query = fields[0]
             hit = fields[1]
@@ -290,6 +302,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
         raise ValueError('Error running diamond')
     shutil.rmtree(tempdir)
 
+
 def dump_hmm_matches(fasta_file, hits_file, dbpath, port, scantype, idmap, args):
     hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                    "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
@@ -307,8 +320,7 @@ def dump_hmm_matches(fasta_file, hits_file, dbpath, port, scantype, idmap, args)
 
     print colorify("Sequence mapping starts now!", 'green')
     if not args.no_file_comments:
-        print >>OUT, '# ' + time.ctime()
-        print >>OUT, '# ' + ' '.join(sys.argv)
+        print >>OUT, get_call_info()
         print >>OUT, '# ' + '\t'.join(hits_header)
     total_time = 0
     last_time = time.time()
@@ -381,6 +393,7 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
     if pexists(hits_file):
         OUT = open(hits_annot_file, "w")
         if not args.no_file_comments:
+            print >>OUT, get_call_info()
             print >>OUT, '\t'.join(hits_annot_header)
         qn = 0
         t1 = time.time()
@@ -444,8 +457,11 @@ def refine_matches(fasta_file, refine_file, hits_file, args):
     og2level = dict([tuple(map(str.strip, line.split('\t')))
                      for line in gopen(OGLEVELS_FILE)])
     OUT = open(refine_file, "w")
+
     if not args.no_file_comments:
+        print >>OUT, get_call_info()
         print >>OUT, '\t'.join(refine_header)
+
     qn = 0
     for qn, r in enumerate(process_nog_hits_file(hits_file, fasta_file, og2level,
                                                  translate=args.translate,
@@ -540,6 +556,8 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
     print colorify("Functional annotation of refined hits starts now", 'green')
     OUT = open(annot_file, "w")
     if not args.no_file_comments:
+        print >>OUT, '# ' + time.ctime()
+        print >>OUT, '# ' + ' '.join(sys.argv)
         print >>OUT, '\t'.join(annot_header)
 
     qn = 0
@@ -572,12 +590,14 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         if args.tax_scope == "auto":
             for level in TAXONOMIC_RESOLUTION:
                 if level in match_levels:
-                    annot_levels = LEVEL_CONTENT.get(level, [level])
-                    annot_level_max = "%s[+%d]" %(level, len(annot_levels))
+                    annot_levels = set(LEVEL_CONTENT.get(level, [level]))
+                    annot_levels.add(level)
+                    annot_level_max = "%s[%d]" %(level, len(annot_levels))
                     break
         else:
-            annot_levels = LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope])
-            annot_level_max = "%s (+%d)" %(args.tax_scope, len(annot_levels))
+            annot_levels = set(LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope]))
+            annot_levels.add(args.tax_scope)
+            annot_level_max = "%s[%d]" %(args.tax_scope, len(annot_levels))
 
         all_orthologies = annota.get_member_orthologs(best_hit_name, target_levels=annot_levels)
         orthologs = sorted(all_orthologies[args.target_orthologs])
@@ -597,7 +617,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
             best_name = ''
             gos = set()
             keggs = set()
-
+            
         if query_name in seq2bestOG:
             (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
              seqto, q_coverage) = seq2bestOG[query_name]
@@ -624,11 +644,16 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         print >>OUT, '# Total time (seconds):', elapsed_time
         print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
     OUT.close()
-    print colorify(" Processed queries:%s total_time:%s rate:%s" % (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
+    print colorify(" Processed queries:%s total_time:%s rate:%s" %\
+                   (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
 
 def parse_args(parser):
     args = parser.parse_args()
+
+    if args.version:
+        print get_version()
+        sys.exit(0)
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
@@ -656,7 +681,7 @@ def parse_args(parser):
             parser.error('An input fasta file is required (-i)')
 
         # HMM
-        if args.mode == 'hmm':
+        if args.mode == 'hmmer':
             if not args.db and not args.guessdb:
                 parser.error('HMMER mode requires specifying a target database (i.e. -d, --guessdb ))')
             if args.db and args.guessdb:
@@ -757,7 +782,7 @@ if __name__ == "__main__":
                     help="Where output files should be written")
 
     pg_out.add_argument('--no_file_comments', action="store_true",
-                        default="No header lines nor stats are included in the output files")
+                        help="No header lines nor stats are included in the output files")
 
     pg_out.add_argument('--keep_mapping_files', action='store_true',
                         help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
@@ -765,8 +790,8 @@ if __name__ == "__main__":
 
     # exec mode
     g4 = parser.add_argument_group('Execution options')
-    g4.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmm',
-                    help='Default:hmm')
+    g4.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmmer',
+                    help='Default:hmmer')
 
 
     g4.add_argument('-i', dest="input", metavar='', type=existing_file,
@@ -795,10 +820,6 @@ if __name__ == "__main__":
     parser.add_argument('--version', action='store_true')
 
     args = parse_args(parser)
-
-    if args.version:
-        print get_version()
-        sys.exit(0)
 
 
     _total_time = time.time()

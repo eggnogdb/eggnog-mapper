@@ -213,7 +213,6 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
     cmd2 = 'SELECT level, side1, side2 FROM event WHERE i IN (%s)' % event_indexes
     if target_levels:
         cmd2 += " AND level IN (%s)" % (','.join(map(lambda x: '"%s"' %x, target_levels)))
-
     db.execute(cmd2)
     orthology = {}
     for level, _side1, _side2 in db.fetchall():
