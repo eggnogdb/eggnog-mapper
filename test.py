@@ -5,7 +5,7 @@ import os
 def run(cmd):
     cmd = './emapper.py ' + cmd
     print cmd
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     out, err = process.communicate()
     if not out:
         out = ''
@@ -14,7 +14,6 @@ def run(cmd):
     return (process.returncode, out, err)
 
 class Test(unittest.TestCase):
-
     def test_executions(self):
         os.system('rm borrame.emapper.*')
 
@@ -36,14 +35,23 @@ class Test(unittest.TestCase):
         assert st == 0
 
         # should run with no search and read prev table
-        '-i test/polb.fa -d bact:localhost:51500 -o borrame2 --annotate_hits_table borrame.emapper.seed_orthologs'
-
+        st, out, err = run('-i test/polb.fa -d bact:localhost:51500 -o borrame --annotate_hits_table borrame.emapper.seed_orthologs --override')
+        assert st == 0
 
         # should run from disk
-        '-i test/polb.fa -d maNOG -o borrame --override'
+        os.system('rm borrame.emapper.*')
+        st, out, err = run('-i test/polb.fa -d maNOG -o borrame')
+        assert st == 0
 
-        # should
-        '-i test/polb.fa -d maNOG -o borrame --override'
+        # should run from mem
+        os.system('rm borrame.emapper.*')
+        st, out, err = run('-i test/polb.fa -d maNOG -o borrame --usemem')
+        assert st == 0
+
+        # should run from mem
+        os.system('rm borrame.emapper.*')
+        st, out, err = run('-i test/polb.fa -o borrame -m diamond --cpu 0')
+        assert st == 0
 
 
 
