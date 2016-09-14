@@ -185,6 +185,10 @@ def main(args):
         print "Output files detected in disk. Use --resume or --override to continue"
         sys.exit(1)
 
+    if args.override:
+        for outf in output_files:
+            silent_rm(outf)
+
     if args.scratch_dir:
         # If resuming in and using --scratch_dir, transfer existing files.
         if args.resume and args.scratch_dir:
@@ -209,7 +213,7 @@ def main(args):
 
             if not args.no_refine and (not pexists(seed_orthologs_file) or args.override):
                 if args.db == 'viruses':
-                    print 'refined hits in viral database not implemented yet'
+                    print 'Skipping seed ortholog detection in "viruses" database'
                 elif args.db in EGGNOG_DATABASES:
                     refine_matches(args.input, seed_orthologs_file, hmm_hits_file, args)
                 else:
@@ -220,6 +224,8 @@ def main(args):
         annota.connect()
         if args.annotate_hits_table:
             annotate_hits_file(args.annotate_hits_table, annot_file, hmm_hits_file, args)
+        elif args.db == 'viruses':
+            annotate_hmm_matches(hmm_hits_file, annot_file, args)
         else:
             annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args)
 
