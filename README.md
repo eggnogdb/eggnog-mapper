@@ -13,7 +13,7 @@ If you use this software, please cite:
 ```
 [1] Fast genome-wide functional annotation through orthology assignment by
       eggNOG-mapper. Jaime Huerta-Cepas, Damian Szklarczyk, Lars Juhl Jensen,
-      Christian von Mering and Peer Bork. In preparation (2016).
+      Christian von Mering and Peer Bork. Submitted (2016).
 
 [2] eggNOG 4.5: a hierarchical orthology framework with improved functional
       annotations for eukaryotic, prokaryotic and viral sequences. Jaime
