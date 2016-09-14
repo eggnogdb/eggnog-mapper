@@ -51,19 +51,15 @@ def setup_hmm_search(args):
         dbpath, port = get_db_info(args.db)
         db_present = [pexists(dbpath + "." + ext)
                       for ext in 'h3f h3i h3m h3p idmap'.split()]
+
         if False in db_present:
             print db_present
             print colorify('Database %s not present. Use download_eggnog_database.py to fetch it' % (args.db), 'red')
             raise ValueError('Database not found')
 
-        if not args.no_annot:
-            if not pexists(pjoin(DATA_PATH, 'eggnog.db')):
-                print colorify('Database eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
-                raise ValueError('Database not found')
-
         if not args.no_refine:
             if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
-                print colorify('Database OG_fasta not present. Use download_eggnog_database.py to fetch it', 'red')
+                print colorify('Database data/OG_fasta/ not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
 
         if scantype == 'mem':
@@ -654,6 +650,14 @@ def parse_args(parser):
     if args.version:
         print get_version()
         sys.exit(0)
+
+    if not args.no_annot and not pexists(EGGNOGDB_FILE):
+            print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
+            sys.exit(1)
+
+    if not args.mode == 'diamond' and not pexists(EGGNOG_DMND_DB):
+            print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
+            sys.exit(1)
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
