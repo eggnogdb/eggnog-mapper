@@ -53,8 +53,5 @@ class Test(unittest.TestCase):
         st, out, err = run('-i test/polb.fa -o borrame -m diamond --cpu 0')
         assert st == 0
 
-
-
-
 if __name__ == '__main__':
     unittest.main()

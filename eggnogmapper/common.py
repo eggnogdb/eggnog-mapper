@@ -162,10 +162,9 @@ def get_citation(addons=['hmmer']):
 CITATION:
 If you use this software, please cite:
 
-[1] eggNOG-mapper: eggNOG-mapper: fast proteome-scale functional annotation
-      through orthology assignments. Jaime Huerta-Cepas, Kristoffer Forslund,
-      Damian Szklarczyk, Lars Juhl Jensen, Christian von Mering and Peer Bork.
-      In preparation.
+[1] Fast genome-wide functional annotation through orthology assignment by
+      eggNOG-mapper. Jaime Huerta-Cepas, Damian Szklarczyk, Lars Juhl Jensen,
+      Christian von Mering and Peer Bork. In preparation (2016).
 
 [2] eggNOG 4.5: a hierarchical orthology framework with improved functional
       annotations for eukaryotic, prokaryotic and viral sequences. Jaime
@@ -192,6 +191,8 @@ If you use this software, please cite:
 (e.g. Functional annotation was performed using %s [1]
  based on eggNOG orthology data [2]. Sequence searches were performed
  using [3].)
+
+================================================================================
 """ %get_version()
 
     return CITATION
