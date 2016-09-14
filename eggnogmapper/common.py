@@ -70,19 +70,28 @@ TAXONOMIC_RESOLUTION = ["apiNOG",
                         "opiNOG",
                         'euNOG', 'arNOG', 'bactNOG']
 
-BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0]+'/..')
+BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0] + '/..')
 
-HMMSEARCH = find_executable('hmmsearch')
-HMMSCAN = find_executable('hmmscan')
-HMMSTAT = find_executable('hmmstat')
-HMMPGMD = find_executable('hmmpgmd')
-PHMMER = find_executable('phmmer')
+HMMSEARCH = find_executable('hmmsearch') or pjoin(BASE_PATH, 'bin', 'hmmsearch')
+HMMSCAN = find_executable('hmmscan') or pjoin(BASE_PATH, 'bin', 'hmmscan')
+HMMSTAT = find_executable('hmmstat') or pjoin(BASE_PATH, 'bin', 'hmmstat')
+HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'bin', 'hmmpgmd')
+PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'bin', 'phmmer')
+DIAMOND = find_executable('diamond') or pjoin(BASE_PATH, 'bin', 'diamond')
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 FASTA_PATH = pjoin(DATA_PATH, "OG_fasta")
 HMMDB_PATH = pjoin(DATA_PATH, "hmmdb_levels")
 EGGNOGDB_FILE = pjoin(DATA_PATH, "eggnog.db")
 OGLEVELS_FILE = pjoin(DATA_PATH, "og2level.tsv.gz")
+EGGNOG_DMND_DB = pjoin(DATA_PATH, "eggnog_proteins.dmnd")
+
+TEMPDIR = BASE_PATH
+
+def show_binaries():
+    for e in (HMMSEARCH, HMMSCAN, HMMSTAT, HMMPGMD, PHMMER, DIAMOND, DATA_PATH,
+              FASTA_PATH, HMMDB_PATH, EGGNOGDB_FILE, OGLEVELS_FILE, EGGNOG_DMND_DB):
+        print "% 65s" %e, pexists(e)
 
 def get_version():
     _version = ''

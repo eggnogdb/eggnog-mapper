@@ -12,7 +12,7 @@ import subprocess
 import cPickle
 import multiprocessing
 
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, mkdtemp
 import uuid
 from collections import defaultdict, Counter
 
@@ -182,36 +182,6 @@ def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
         yield name, etime, hits, len(seq), None
 
 
-def find_diamond_hits(src, evalue_thr=None, score_thr=None, fixed_Z=None,
-                      cpu=1, excluded_taxa=None):
-    if not DIAMOND:
-        raise ValueError("diamond not found in path")
-
-    cmd = 'diamond -d %s -q %s --more-sensitive --threads %s -o %s' %\
-          (EGGNOG_DMND_DB, src, cpu, output)
-
-    status = subprocess.call(cmd, shell=True)
-    if status == 0:
-        visited = set()
-        for line in open(target_file):
-            fields = map(str.strip, line.split('\t'))
-            query = fields[0]
-            hit = fields[1]
-            evalue = float(fields[10])
-            score = float(fields[11])
-
-            if query in visited:
-                continue
-
-            if evalue > evalue_thr or score < score_thr:
-                continue
-
-            if excluded_taxa or hit.startswith("%s." % excluded_taxa):
-                continue
-
-            visited.add(query)
-            print '\t'.join([query, hit, evalue, score])
-
 
 
 def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
@@ -248,7 +218,9 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
     if not HMMSCAN:
         raise ValueError('hmmscan not found in path')
 
-    OUT = NamedTemporaryFile()
+    tempdir = mkdtemp(prefix='emappertmp_hmmscan_', dir=TEMPDIR)
+
+    OUT = NamedTemporaryFile(dir=tempdir)
     if translate or maxseqlen:
         print 'translating query input file'
         Q = NamedTemporaryFile()
@@ -324,7 +296,7 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
     OUT.close()
     if translate:
         Q.close()
-
+    shutil.rmtree(tempdir)
 
 def hmmsearch(query_hmm, target_db, cpus=1):
     if not HMMSEARCH:
@@ -357,23 +329,25 @@ def hmmsearch(query_hmm, target_db, cpus=1):
 
 
 def refine_hit(args):
-    seqname, seq, group_fasta, excluded_taxa = args
-    F = NamedTemporaryFile(dir="./", delete=True)
+    seqname, seq, group_fasta, excluded_taxa, tempdir = args
+    F = NamedTemporaryFile(delete=True, dir=tempdir)
     F.write('>%s\n%s' % (seqname, seq))
     F.flush()
 
-    best_hit = get_best_hit(F.name, group_fasta, excluded_taxa)
+    best_hit = get_best_hit(F.name, group_fasta, excluded_taxa, tempdir)
     F.close()
 
     return [seqname] + best_hit
 
 
-def get_best_hit(target_seq, target_og, excluded_taxa):
+def get_best_hit(target_seq, target_og, excluded_taxa, tempdir):
     if not PHMMER:
         raise ValueError('phmmer not found in path')
 
-    tempout = str(uuid.uuid4())
-    cmd = "%s --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" % (PHMMER, tempout, target_seq, target_og)
+    tempout = pjoin(tempdir, uuid.uuid4().hex)
+    cmd = "%s --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" %\
+          (PHMMER, tempout, target_seq, target_og)
+
     # print cmd
     status = os.system(cmd)
     best_hit_found = False
