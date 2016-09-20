@@ -29,6 +29,11 @@ __description__ = ('A program for bulk functional annotation of novel '
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
+class emapperException(Exception):
+    def __init__(self, *args, **kargs):
+        sys.excepthook = lambda exctype,exc,traceback: ""
+        super(emapperException, self).__init__(*args, **kargs)
+
 def cleanup_og_name(name):
     # names in the hmm databases are sometiemes not clean eggnog OG names
     m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
@@ -153,7 +158,7 @@ def setup_hmm_search(args):
                     raise
             _seqid = int(_seqid)
             idmap[_seqid] = [_seqname]
-        print >>sys.stderr, len(idmap), "names loaded"
+        print len(idmap), "names loaded"
 
     # If server mode, just listen for connections and exit when interrupted
     if args.servermode:
@@ -161,7 +166,7 @@ def setup_hmm_search(args):
             print colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green')
             print colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue')
             time.sleep(10)
-        sys.exit(0)
+        raise emapperException()
     else:
         return host, port, dbpath, scantype, idmap
 
@@ -183,11 +188,14 @@ def main(args):
     files_present = set([pexists(fname) for fname in output_files])
     if True in files_present and not args.resume and not args.override:
         print "Output files detected in disk. Use --resume or --override to continue"
-        sys.exit(1)
+        raise emapperException()
 
     if args.override:
         for outf in output_files:
             silent_rm(outf)
+
+    print '# ', get_version()
+    print '# ./emapper.py ', ' '.join(sys.argv[1:])
 
     if args.scratch_dir:
         # If resuming in and using --scratch_dir, transfer existing files.
@@ -430,11 +438,13 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
         print colorify(" Processed queries:%s total_time:%s rate:%s" %\
                        (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 
+
 def get_seq_hmm_matches(hits_file):
     annota.connect()
     print colorify("Reading HMM matches", 'green')
     seq2oginfo = {}
     start_time = time.time()
+    hitnames = set()
     if pexists(hits_file):
         for line in open(hits_file):
             if not line.strip() or line.startswith('#'):
@@ -547,14 +557,17 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
                     "KEGG_pathways",
                     "Annotation_tax_scope",
                     "OGs",
-                    "bestOG|evalue|score"
+                    "bestOG|evalue|score",
+                    "COG cat",
+                    "eggNOG annot",
                     )
-    
+    start_time = time.time()
     seq2bestOG = {}
     if pexists(hmm_hits_file):
         seq2bestOG = get_seq_hmm_matches(hmm_hits_file)
 
-    start_time = time.time()
+    seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.itervalues()]))
+
     print colorify("Functional annotation of refined hits starts now", 'green')
     OUT = open(annot_file, "w")
     if not args.no_file_comments:
@@ -619,25 +632,29 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
             best_name = ''
             gos = set()
             keggs = set()
-            
+
         if query_name in seq2bestOG:
             (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
              seqto, q_coverage) = seq2bestOG[query_name]
             bestOG = '%s|%s|%s' %(hitname, evalue, score)
+            og_cat, og_desc = seq2annotOG.get(hitname, ['', ''])
         else:
             bestOG = 'NA|NA|NA'
- 
+            og_cat, og_desc = '', ''
+
+
         print >>OUT, '\t'.join(map(str, (query_name,
                                          best_hit_name,
                                          best_hit_evalue,
                                          best_hit_score,
                                          best_name,
-                                         ','.join(orthologs),
                                          ','.join(sorted(gos)),
-                                         ','.join(sorted(keggs)),
+                                         ','.join(sorted(map(lambda x: "map%05d"%x, map(int, keggs)))),
                                          annot_level_max,
                                          ','.join(match_nogs),
                                          bestOG,
+                                         og_cat,
+                                         og_desc,
                                          )))
         OUT.flush()
     elapsed_time = time.time() - start_time
@@ -658,12 +675,12 @@ def parse_args(parser):
         sys.exit(0)
 
     if not args.no_annot and not pexists(EGGNOGDB_FILE):
-            print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
-            sys.exit(1)
+        print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
+        raise emapperException()
 
     if not args.mode == 'diamond' and not pexists(EGGNOG_DMND_DB):
-            print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
-            sys.exit(1)
+        print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
+        raise emapperException()
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
@@ -684,7 +701,7 @@ def parse_args(parser):
     if args.annotate_hits_table:
         args.no_search = True
         args.no_annot = False
-        
+
     # Check inputs for running sequence searches
     if not args.no_search:
         if not args.input:
@@ -708,27 +725,34 @@ def parse_args(parser):
                         break
         # DIAMOND
         elif args.mode == 'diamond':
-            if args.db or args.guessdb:
-                parser.error('diamond mode does not require -d or --guessdb options')
+            #if args.db or args.guessdb:
+            #    parser.error('diamond mode does not require -d or --guessdb options')
+            pass
 
     return args
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+
     # server
     pg_db = parser.add_argument_group('Target HMM Database Options')
+
     pg_db.add_argument('--guessdb', type=int, metavar='',
                        help='guess eggnog db based on the provided taxid')
 
     pg_db.add_argument('--database', '-d', dest='db', metavar='',
                        help=('specify the target database for sequence searches'
                              '. Choose among: euk,bact,arch, host:port, or a local hmmpressed database'))
+
     pg_db.add_argument('--dbtype', dest="dbtype",
                     choices=["hmmdb", "seqdb"], default="hmmdb")
+
     pg_db.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
 
+
     pg_annot = parser.add_argument_group('Annotation Options')
+
     pg_annot.add_argument("--tax_scope", type=str, choices=TAXID2LEVEL.values()+["auto"],
                     default='auto', metavar='',
                     help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
@@ -743,45 +767,61 @@ if __name__ == "__main__":
     pg_annot.add_argument('--excluded_taxa', type=int, metavar='',
                           help='(for debuging and benchmarking purposes)')
 
+
     pg_hmm = parser.add_argument_group('HMM search_options')
-    pg_hmm.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=25, metavar='',
-                    help="Max number of hits to report. Default=25")
+
+    pg_hmm.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='',
+                    help="Max number of hits to report. Default=1")
+
     pg_hmm.add_argument('--hmm_evalue', dest='evalue', default=0.001, type=float, metavar='',
                     help="E-value threshold. Default=0.001")
+
     pg_hmm.add_argument('--hmm_score', dest='score', default=20, type=float, metavar='',
                     help="Bit score threshold. Default=20")
+
     pg_hmm.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='',
                     help="Ignore query sequences larger than `maxseqlen`. Default=5000")
+
     pg_hmm.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='',
                     help="min query coverage (from 0 to 1). Default=(disabled)")
+
     pg_hmm.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='',
                     help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
 
+
     pg_seed = parser.add_argument_group('Seed ortholog search option')
+
     pg_seed.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
                     help='Min E-value expected when searching for seed eggNOG ortholog.'
                          ' Applies to phmmer/diamond searches. Queries not having a significant'
                          ' seed orthologs will not be annotated. Default=0.001')
+
     pg_seed.add_argument('--seed_ortholog_score', default=60, type=float, metavar='',
                     help='Min bit score expected when searching for seed eggNOG ortholog.'
                          ' Applies to phmmer/diamond searches. Queries not having a significant'
                          ' seed orthologs will not be annotated. Default=60')
 
+
     pg_out = parser.add_argument_group('Output options')
+
     pg_out.add_argument('--output', '-o', type=str, metavar='',
                     help="base name for output files")
+
     pg_out.add_argument('--resume', action="store_true",
                     help="Resumes a previous execution skipping reported hits in the output file.")
+
     pg_out.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
+
     pg_out.add_argument("--no_refine", action="store_true",
                     help="Skip hit refinement, reporting only HMM hits.")
+
     pg_out.add_argument("--no_annot", action="store_true",
                     help="Skip functional annotation, reporting only hits")
+
     pg_out.add_argument("--no_search", action="store_true",
                     help="Skip HMM search mapping. Use existing hits file")
-
 
     pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
                     help='Write output files in a temporary scratch dir, move them to final the final'
@@ -831,10 +871,13 @@ if __name__ == "__main__":
 
     args = parse_args(parser)
 
-
     _total_time = time.time()
     try:
         main(args)
+    except emapperException:
+        sys.exit(1)
     except:
         raise
-        sys.exit(1)
+    else:
+        sys.exit(0)
+
