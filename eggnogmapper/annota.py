@@ -38,6 +38,25 @@ def get_og_annotations(ogname):
     return level, nm, desc, cat
 
 
+def get_ogs_annotations(ognames):
+    # og VARCHAR(16) PRIMARY KEY,
+    # level VARCHAR(16),
+    # nm INTEGER,
+    # description TEXT,
+    # COG_categories VARCHAR(8),
+    # GO_freq TEXT,
+    # KEGG_freq TEXT,
+    # SMART_freq TEXT,
+    # proteins TEXT);
+    query = ','.join(map(lambda x: '"%s"'%x, ognames))
+    cmd = 'SELECT og.og, description, COG_categories FROM og WHERE og.og IN (%s)' % query
+    og2desc = {}
+    if db.execute(cmd):
+        for og, desc, cat in db.fetchall():
+            cat = re.sub(cog_cat_cleaner, '', cat)
+            og2desc[og] = [cat, desc]
+    return og2desc
+
 def get_annotated_orthologs(target_members, orthotype, excluded_gos, cpu):
     # get speciation events associated to target_members
     in_clause = ','.join(['"%s"' %name.strip() for name in target_members])
