@@ -7,9 +7,10 @@ from os.path import join as pjoin
 from os.path import exists as pexists
 import gzip
 import shutil
+import errno
 from subprocess import Popen, PIPE
 
-__VERSION__ = ''
+__VERSION__ = '0.12.2'
 
 TIMEOUT_LOAD_SERVER = 1800
 
