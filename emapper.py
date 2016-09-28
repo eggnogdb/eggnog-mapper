@@ -236,6 +236,8 @@ def main(args):
             annotate_hmm_matches(hmm_hits_file, hmm_hits_file+'.annotations', args)
             OUT = open(annot_file, 'w')
             for line in open(hmm_hits_file+'.annotations'):
+                if line.startswith('#') or not line.strip():
+                    continue
                 (query, hitname, level, evalue, sum_score, query_length,
                  hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats) = line.split("\t")
 
