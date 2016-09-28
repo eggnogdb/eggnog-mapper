@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+
 import sys
 import os
 import time
@@ -10,7 +11,10 @@ import shutil
 import errno
 from subprocess import Popen, PIPE
 
-__VERSION__ = '0.12.2'
+try:
+    from version import __VERSION__
+except ImportError:
+    __VERSION__ = 'unknown'
 
 TIMEOUT_LOAD_SERVER = 1800
 
@@ -131,7 +135,7 @@ def get_version():
     if _version:
         version = 'emapper' + _version
     else:
-        version = __VERSION__
+        version = 'emapper-'+ __VERSION__
 
     return version
 
