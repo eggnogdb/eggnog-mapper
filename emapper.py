@@ -699,7 +699,7 @@ def parse_args(parser):
         print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
         raise emapperException()
 
-    if not args.mode == 'diamond' and not pexists(EGGNOG_DMND_DB):
+    if args.mode == 'diamond' and not pexists(EGGNOG_DMND_DB):
         print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
         raise emapperException()
 
