@@ -621,7 +621,6 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         match_nogs = annota.get_member_ogs(best_hit_name)
         if not match_nogs:
             continue
-
         match_levels = set([nog.split("@")[1] for nog in match_nogs])
         if args.tax_scope == "auto":
             for level in TAXONOMIC_RESOLUTION:
@@ -640,6 +639,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         if args.excluded_taxa:
             orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
 
+        bigg_genes = set()
         if orthologs:
             pname, gos, keggs = annota.get_member_annotations(orthologs,
                                                               excluded_gos=set(["IEA", "ND"]))
@@ -647,7 +647,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
             if args.bigg:
                 bigg_genes = set()
                 for o in orthologs:
-                    bigg_genes.update(BIGG.get(g, ['']))
+                    bigg_genes.update(BIGG.get(o, ['']))
                 bigg_genes.discard('')
 
             best_name = ''
@@ -887,7 +887,7 @@ if __name__ == "__main__":
                         help='Creates an addictional output file with the list of predicted'
                         ' eggNOG orthologs used to transfer functional terms')
 
-    pg_out.add_argument('--bigg', nargs=3, type=float,
+    pg_out.add_argument('--bigg', nargs=3, type=str,
                         help='')
 
 
@@ -926,8 +926,8 @@ if __name__ == "__main__":
 
     if args.bigg:
         BIGG = {}
-        biggfile, bigbident, biggcov = args.bigg
-        biggident, biggcov = float(bigbident), float(biggcov)
+        biggfile, biggident, biggcov = args.bigg
+        biggident, biggcov = float(biggident), float(biggcov)
         for line in open(biggfile):
             egene, bgenes, ident, cov = line.split('\t')
             ident, cov = float(ident), float(cov)

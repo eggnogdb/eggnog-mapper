@@ -75,7 +75,8 @@ TAXONOMIC_RESOLUTION = ["apiNOG",
                         "meNOG",
                         "fuNOG",
                         "opiNOG",
-                        'euNOG', 'arNOG', 'bactNOG']
+                        'euNOG', 'arNOG', 'bactNOG',
+                        'NOG']
 
 BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0] + '/..')
 
