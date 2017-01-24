@@ -582,6 +582,14 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
                     "COG cat",
                     "eggNOG annot",
                     )
+
+    CAFA_FILE = open(annot_file+".cafa2", "w")
+    CAFA_GOS = {}
+    for line in open(os.path.join(BASE_PATH, "eggnog2cafagos.tsv")):
+        name, gos = line.strip().split('\t')
+        CAFA_GOS[name] = map(str.strip, gos.split(','))
+    print 'CAFA_GOS loaded', len(CAFA_GOS)
+    
     start_time = time.time()
     seq2bestOG = {}
     if pexists(hmm_hits_file):
@@ -641,8 +649,16 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
 
         bigg_genes = set()
         if orthologs:
-            pname, gos, keggs = annota.get_member_annotations(orthologs,
-                                                              excluded_gos=set(["IEA", "ND"]))
+            pname, gos, keggs = annota.get_member_annotations_CAFA2(orthologs, CAFA_GOS)
+            for g in gos:
+                print >>CAFA_FILE, '\t'.join([query_name, g, "1.0"])
+
+            if query_name in seq2bestOG:
+                nog = seq2bestOG[query_name][0]
+                proteins = annota.get_og_members(nog)
+                for p in proteins:
+                    for g in CAFA_GOS.get(p, []):
+                        print >>CAFA_FILE, '\t'.join([query_name, g, "0.75"])
 
             if args.bigg:
                 bigg_genes = set()
@@ -708,6 +724,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         print >>OUT, '# Total time (seconds):', elapsed_time
         print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
     OUT.close()
+    CAFA_FILE.close()
     print colorify(" Processed queries:%s total_time:%s rate:%s" %\
                    (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
 

@@ -13,7 +13,6 @@ db = None
 
 cog_cat_cleaner = re.compile('[\[\]u\'\"]+')
 
-
 def connect():
     global conn, db
     conn = sqlite3.connect(EGGNOGDB_FILE)
@@ -36,6 +35,23 @@ def get_og_annotations(ogname):
         level, nm, desc, cat = db.fetchone()
         cat = re.sub(cog_cat_cleaner, '', cat)
     return level, nm, desc, cat
+
+
+def get_og_members(ogname):
+    # og VARCHAR(16) PRIMARY KEY,
+    # level VARCHAR(16),
+    # nm INTEGER,
+    # description TEXT,
+    # COG_categories VARCHAR(8),
+    # GO_freq TEXT,
+    # KEGG_freq TEXT,
+    # SMART_freq TEXT,
+    # proteins TEXT);
+    cmd = 'SELECT proteins FROM og WHERE og.og = "%s"' % ogname
+    proteins = []
+    if db.execute(cmd):
+        proteins = db.fetchone()[0].split(',')
+    return proteins
 
 
 def get_ogs_annotations(ognames):
@@ -202,6 +218,24 @@ def get_member_annotations(names, excluded_gos):
     all_gos.discard('')
     del all_pnames['']
 
+    return all_pnames, all_gos, all_kegg
+
+def get_member_annotations_CAFA2(names, cafa_gos):
+    in_clause = ','.join(['"%s"' % n for n in names])
+    cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' % in_clause
+    all_gos = set()
+    all_kegg = set()
+    all_pnames = Counter()
+    db.execute(cmd)
+    for name, pname, gos, kegg, in db.fetchall():
+        if name in cafa_gos:
+            # report GOs from CAFA2 training set only 
+            all_gos.update(cafa_gos[name])
+        all_kegg.update(map(lambda x: str(x).strip(), kegg.strip().split(',')))
+        all_pnames.update([pname.strip()])
+    all_kegg.discard('')
+    all_gos.discard('')
+    del all_pnames['']
     return all_pnames, all_gos, all_kegg
 
 def get_by_member_annotations(names, excluded_gos):
