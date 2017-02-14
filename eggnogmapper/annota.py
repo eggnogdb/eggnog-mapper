@@ -194,11 +194,14 @@ def get_member_annotations(names, target_go_ev, excluded_go_ev):
     all_pnames = Counter()
     db.execute(cmd)
     for name, pname, gos, kegg, in db.fetchall():
-        for g in gos:
-            _, gid, gevidence = map(str.strip, g.split('|'))
+        for g in gos.strip().split(','):
+            if not g:
+                continue
+            gocat, gid, gevidence = map(str, g.strip().split('|'))
             if not target_go_ev or gevidence in target_go_ev:
                 if not excluded_go_ev or gevidence not in excluded_go_ev:
                     all_gos.add(gid)
+                    #print gid, gevidence
         all_kegg.update(map(lambda x: str(x).strip(), kegg.strip().split(',')))
         all_pnames.update([pname.strip()])
     all_kegg.discard('')
