@@ -83,7 +83,7 @@ if __name__ == "__main__":
     else:
         print colorify('Skipping diamond database (or already present). Use -f to force download', 'lblue')
 
-    if args.dbs != 'none':
+    if set(args.dbs) != set(['none']):
         if args.allyes or ask("Download %d HMM database(s): %s?"%(len(args.dbs), ','.join(args.dbs))) == 'y':
             for db in args.dbs:
                 print colorify('Downloading %s HMM database " at %s/%s\_hmm ...' %(db, HMMDB_PATH, db), 'green')
