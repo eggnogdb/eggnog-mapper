@@ -185,6 +185,16 @@ def build_orthologs(target_members, events, target_taxa=None):
             all_orthologs['all'].update(co2)
     return all_orthologs
 
+def parse_gos(gos, target_go_ev, excluded_go_ev):
+    selected_gos = set()
+    for g in gos.strip().split(','):
+        if not g:
+            continue
+        gocat, gid, gevidence = map(str, g.strip().split('|'))
+        if not target_go_ev or gevidence in target_go_ev:
+            if not excluded_go_ev or gevidence not in excluded_go_ev:
+                selected_gos.add(gid)
+    return selected_gos
 
 def get_member_annotations(names, target_go_ev, excluded_go_ev):
     in_clause = ','.join(['"%s"' % n for n in names])
@@ -194,14 +204,7 @@ def get_member_annotations(names, target_go_ev, excluded_go_ev):
     all_pnames = Counter()
     db.execute(cmd)
     for name, pname, gos, kegg, in db.fetchall():
-        for g in gos.strip().split(','):
-            if not g:
-                continue
-            gocat, gid, gevidence = map(str, g.strip().split('|'))
-            if not target_go_ev or gevidence in target_go_ev:
-                if not excluded_go_ev or gevidence not in excluded_go_ev:
-                    all_gos.add(gid)
-                    #print gid, gevidence
+        all_gos.update(parse_gos(gos, target_go_ev, excluded_go_ev))
         all_kegg.update(map(lambda x: str(x).strip(), kegg.strip().split(',')))
         all_pnames.update([pname.strip()])
     all_kegg.discard('')
@@ -210,15 +213,16 @@ def get_member_annotations(names, target_go_ev, excluded_go_ev):
 
     return all_pnames, all_gos, all_kegg
 
-def get_by_member_annotations(names, excluded_gos):
+def get_by_member_annotations(names, target_go_ev, excluded_go_ev):
     in_clause = ','.join(['"%s"' % n for n in names])
     cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' % in_clause
     db.execute(cmd)
     by_member = {n:[set(), set(), None] for n in names}
     for name, pname, gos, kegg, in db.fetchall():
-        gos = set([str(g.split('|')[1]) for g in gos.strip().split(',') if g and g.split('|')[2] not in excluded_gos])
+        selected_gos parse_gos(gos, target_go_ev, excluded_go_ev)
+        #gos = set([str(g.split('|')[1]) for g in gos.strip().split(',') if g and g.split('|')[2] not in excluded_gos])
         keggs = set(map(lambda x: str(x).strip(), kegg.strip().split(',')))
-        by_member[str(name)] = [gos, keggs, str(pname)]
+        by_member[str(name)] = [selected_gos, keggs, str(pname)]
     return by_member
 
 def get_member_ogs(name):
