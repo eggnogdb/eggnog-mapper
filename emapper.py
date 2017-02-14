@@ -642,7 +642,8 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
 
         if orthologs:
             pname, gos, keggs = annota.get_member_annotations(orthologs,
-                                                              excluded_gos=set(["IEA", "ND"]))
+                                                              target_go_ev=args.go_evidence,
+                                                              excluded_go_ev=args.excluded_gos)
             best_name = ''
             if pname:
                 name_candidate, freq = pname.most_common(1)[0]
@@ -723,6 +724,18 @@ def parse_args(parser):
         args.no_search = True
         args.no_annot = False
 
+
+    # Sets GO evidence bases
+    if args.go_evidence = 'non-electronic':
+        args.go_evidence = set(["EXP","IDA","IPI","IMP","IGI","IEP"])
+        args.go_excluded =  set(["ND", "IEA"])
+
+    elif args.go_evidence = 'non-electronic':
+        args.go_evidence = set()
+        args.go_excluded =  set(["ND", "IEA"])
+    else:
+        raise ValueError('Invalide --go_evidence')
+
     # Check inputs for running sequence searches
     if not args.no_search and not args.servermode:
         if not args.input:
@@ -786,8 +799,13 @@ if __name__ == "__main__":
                           help='defines what type of orthologs should be used for functional transfer')
 
     pg_annot.add_argument('--excluded_taxa', type=int, metavar='',
-                          help='(for debuging and benchmarking purposes)')
+                          help='(for debugging and benchmark purposes)')
 
+    pg_annot.add_argument('--go_evidence', type=str, choice=('experimental', 'non-electronic'),
+                          default='non-electronic',
+                          help='Defines what type of GO terms should be used for annotation:'
+                          'experimental = Use only terms inferred from experimental evidence'
+                          'non-electronic = Use only non-electronically curated terms')
 
     pg_hmm = parser.add_argument_group('HMM search_options')
 
