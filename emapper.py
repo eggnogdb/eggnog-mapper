@@ -643,7 +643,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         if orthologs:
             pname, gos, keggs = annota.get_member_annotations(orthologs,
                                                               target_go_ev=args.go_evidence,
-                                                              excluded_go_ev=args.excluded_gos)
+                                                              excluded_go_ev=args.go_excluded)
             best_name = ''
             if pname:
                 name_candidate, freq = pname.most_common(1)[0]
@@ -726,15 +726,15 @@ def parse_args(parser):
 
 
     # Sets GO evidence bases
-    if args.go_evidence = 'non-electronic':
+    if args.go_evidence == 'experimental':
         args.go_evidence = set(["EXP","IDA","IPI","IMP","IGI","IEP"])
-        args.go_excluded =  set(["ND", "IEA"])
+        args.go_excluded = set(["ND", "IEA"])
 
-    elif args.go_evidence = 'non-electronic':
-        args.go_evidence = set()
-        args.go_excluded =  set(["ND", "IEA"])
+    elif args.go_evidence == 'non-electronic':
+        args.go_evidence = None
+        args.go_excluded = set(["ND", "IEA"])
     else:
-        raise ValueError('Invalide --go_evidence')
+        raise ValueError('Invalid --go_evidence value')
 
     # Check inputs for running sequence searches
     if not args.no_search and not args.servermode:
@@ -801,7 +801,7 @@ if __name__ == "__main__":
     pg_annot.add_argument('--excluded_taxa', type=int, metavar='',
                           help='(for debugging and benchmark purposes)')
 
-    pg_annot.add_argument('--go_evidence', type=str, choice=('experimental', 'non-electronic'),
+    pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
                           default='non-electronic',
                           help='Defines what type of GO terms should be used for annotation:'
                           'experimental = Use only terms inferred from experimental evidence'
