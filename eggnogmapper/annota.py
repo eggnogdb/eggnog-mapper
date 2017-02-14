@@ -186,7 +186,7 @@ def build_orthologs(target_members, events, target_taxa=None):
     return all_orthologs
 
 
-def get_member_annotations(names, excluded_gos):
+def get_member_annotations(names, target_go_ev, excluded_go_ev):
     in_clause = ','.join(['"%s"' % n for n in names])
     cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' % in_clause
     all_gos = set()
@@ -194,8 +194,11 @@ def get_member_annotations(names, excluded_gos):
     all_pnames = Counter()
     db.execute(cmd)
     for name, pname, gos, kegg, in db.fetchall():
-        all_gos.update([g.split('|')[1] for g in gos.strip().split(
-            ',') if g and g.split('|')[2] not in excluded_gos])
+        for g in gos:
+            _, gid, gevidence = map(str.strip, g.split('|'))
+            if not target_go_ev or gevidence in target_go_ev:
+                if not excluded_go_ev or gevidence not in excluded_go_ev:
+                    all_gos.add(gid)
         all_kegg.update(map(lambda x: str(x).strip(), kegg.strip().split(',')))
         all_pnames.update([pname.strip()])
     all_kegg.discard('')
