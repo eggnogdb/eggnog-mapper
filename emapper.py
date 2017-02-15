@@ -294,8 +294,13 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=TEMPDIR)
 
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
-    cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
+    if excluded_taxa:
+        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s –max-target-seqs 25' %\
           (DIAMOND, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+    else:
+        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
+          (DIAMOND, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+
     print colorify('  '+cmd, 'yellow')
     status = subprocess.call(cmd, shell=True,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -304,7 +309,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
 
         if not args.no_file_comments:
             print >>OUT, get_call_info()
-            print >>OUT, '#', cmd 
+            print >>OUT, '#', cmd
 
         visited = set()
         for line in open(raw_output_file):
@@ -322,7 +327,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
             if evalue > evalue_thr or score < score_thr:
                 continue
 
-            if excluded_taxa or hit.startswith("%s." % excluded_taxa):
+            if excluded_taxa and hit.startswith("%s." % excluded_taxa):
                 continue
 
             visited.add(query)
