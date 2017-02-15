@@ -219,7 +219,7 @@ def get_by_member_annotations(names, target_go_ev, excluded_go_ev):
     db.execute(cmd)
     by_member = {n:[set(), set(), None] for n in names}
     for name, pname, gos, kegg, in db.fetchall():
-        selected_gos parse_gos(gos, target_go_ev, excluded_go_ev)
+        selected_gos = parse_gos(gos, target_go_ev, excluded_go_ev)
         #gos = set([str(g.split('|')[1]) for g in gos.strip().split(',') if g and g.split('|')[2] not in excluded_gos])
         keggs = set(map(lambda x: str(x).strip(), kegg.strip().split(',')))
         by_member[str(name)] = [selected_gos, keggs, str(pname)]
