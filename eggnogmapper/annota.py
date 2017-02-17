@@ -13,12 +13,10 @@ db = None
 
 cog_cat_cleaner = re.compile('[\[\]u\'\"]+')
 
-
 def connect():
     global conn, db
     conn = sqlite3.connect(EGGNOGDB_FILE)
     db = conn.cursor()
-
 
 def get_og_annotations(ogname):
     # og VARCHAR(16) PRIMARY KEY,
@@ -196,6 +194,7 @@ def parse_gos(gos, target_go_ev, excluded_go_ev):
                 selected_gos.add(gid)
     return selected_gos
 
+
 def get_member_annotations(names, target_go_ev, excluded_go_ev):
     in_clause = ','.join(['"%s"' % n for n in names])
     cmd = 'SELECT name, pname, go, kegg FROM member WHERE name in (%s);' % in_clause
@@ -220,9 +219,18 @@ def get_by_member_annotations(names, target_go_ev, excluded_go_ev):
     by_member = {n:[set(), set(), None] for n in names}
     for name, pname, gos, kegg, in db.fetchall():
         selected_gos = parse_gos(gos, target_go_ev, excluded_go_ev)
-        #gos = set([str(g.split('|')[1]) for g in gos.strip().split(',') if g and g.split('|')[2] not in excluded_gos])
         keggs = set(map(lambda x: str(x).strip(), kegg.strip().split(',')))
         by_member[str(name)] = [selected_gos, keggs, str(pname)]
+    return by_member
+
+def get_by_member_gos(names, target_go_ev, excluded_go_ev):
+    in_clause = ','.join(['"%s"' % n for n in names])
+    cmd = 'SELECT name, go FROM member WHERE name in (%s);' % in_clause
+    db.execute(cmd)
+    by_member = {n:set() for n in names}
+    for name, gos in db.fetchall():
+        selected_gos = parse_gos(gos, target_go_ev, excluded_go_ev)
+        by_member[str(name)] = selected_gos
     return by_member
 
 def get_member_ogs(name):
