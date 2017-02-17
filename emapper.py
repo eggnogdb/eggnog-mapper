@@ -34,6 +34,7 @@ class emapperException(Exception):
         sys.excepthook = lambda exctype,exc,traceback: ""
         super(emapperException, self).__init__(*args, **kargs)
 
+
 def cleanup_og_name(name):
     # names in the hmm databases are sometiemes not clean eggnog OG names
     m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
@@ -295,7 +296,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
 
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
     if excluded_taxa:
-        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s –max-target-seqs 25' %\
+        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
           (DIAMOND, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
     else:
         cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
@@ -571,9 +572,160 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
         pool.terminate()
 
     shutil.rmtree(tempdir)
+    
 
+def annotate_hit_line(arguments):
+    annota.connect()
+    line, args = arguments
+
+    if not line.strip() or line.startswith('#'):
+        return None
+    r = map(str.strip, line.split('\t'))
+
+    query_name = r[0]
+    best_hit_name = r[1]
+    if best_hit_name == '-' or best_hit_name == 'ERROR':
+        return None
+
+    best_hit_evalue = float(r[2])
+    best_hit_score = float(r[3])
+    if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
+        return None
+
+    match_nogs = annota.get_member_ogs(best_hit_name)
+    if not match_nogs:
+        return None
+
+    match_levels = set([nog.split("@")[1] for nog in match_nogs])
+    if args.tax_scope == "auto":
+        for level in TAXONOMIC_RESOLUTION:
+            if level in match_levels:
+                annot_levels = set(LEVEL_CONTENT.get(level, [level]))
+                annot_levels.add(level)
+                annot_level_max = "%s[%d]" %(level, len(annot_levels))
+                break
+    else:
+        annot_levels = set(LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope]))
+        annot_levels.add(args.tax_scope)
+        annot_level_max = "%s[%d]" %(args.tax_scope, len(annot_levels))
+
+    all_orthologies = annota.get_member_orthologs(best_hit_name, target_levels=annot_levels)
+    orthologs = sorted(all_orthologies[args.target_orthologs])
+    if args.excluded_taxa:
+        orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
+
+    if orthologs:
+        pname, gos, keggs = annota.get_member_annotations(orthologs,
+                                                          target_go_ev=args.go_evidence,
+                                                          excluded_go_ev=args.go_excluded)
+        best_name = ''
+        if pname:
+            name_candidate, freq = pname.most_common(1)[0]
+            if freq >= 2:
+                best_name = name_candidate
+    else:
+        pname = []
+        best_name = ''
+        gos = set()
+        keggs = set()
+
+    return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+            best_name, gos, keggs, annot_level_max, match_nogs, orthologs)
+
+
+def iter_hit_lines(filename, args):
+    for line in open(filename):
+        yield (line, args)
 
 def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
+    annot_header = ("#query_name",
+                    "seed_eggNOG_ortholog",
+                    "seed_ortholog_evalue",
+                    "seed_ortholog_score",
+                    "predicted_gene_name",
+                    "GO_terms",
+                    "KEGG_pathways",
+                    "Annotation_tax_scope",
+                    "OGs",
+                    "bestOG|evalue|score",
+                    "COG cat",
+                    "eggNOG annot",
+                    )
+    start_time = time.time()
+    seq2bestOG = {}
+    if pexists(hmm_hits_file):
+        seq2bestOG = get_seq_hmm_matches(hmm_hits_file)
+
+    seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.itervalues()]))
+
+    print colorify("Functional annotation of refined hits starts now", 'green')
+    OUT = open(annot_file, "w")
+    if args.report_orthologs:
+        ORTHOLOGS = open(annot_file+".orthologs", "w")
+
+    if not args.no_file_comments:
+        print >>OUT, '# ' + time.ctime()
+        print >>OUT, '# ' + ' '.join(sys.argv)
+        print >>OUT, '\t'.join(annot_header)
+
+    qn = 0
+    pool = multiprocessing.Pool(args.cpu)
+    for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
+        if qn and (qn % 500 == 0):
+            total_time = time.time() - start_time
+            print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
+                (float(qn + 1) / total_time))
+            sys.stderr.flush()
+        qn += 1
+        if result:
+            (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+             best_name, gos, keggs, annot_level_max, match_nogs, orthologs) = result
+
+            if query_name in seq2bestOG:
+                (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
+                 seqto, q_coverage) = seq2bestOG[query_name]
+                bestOG = '%s|%s|%s' %(hitname, evalue, score)
+                og_cat, og_desc = seq2annotOG.get(hitname, ['', ''])
+            else:
+                bestOG = 'NA|NA|NA'
+                og_cat, og_desc = '', ''
+
+            if args.report_orthologs:
+                print >>ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+
+            print >>OUT, '\t'.join(map(str, (query_name,
+                                             best_hit_name,
+                                             best_hit_evalue,
+                                             best_hit_score,
+                                             best_name,
+                                             ','.join(sorted(gos)),
+                                             ','.join(sorted(map(lambda x: "map%05d"%x, map(int, keggs)))),
+                                             annot_level_max,
+                                             ','.join(match_nogs),
+                                             bestOG,
+                                             og_cat.replace('\n', ''),
+                                             og_desc.replace('\n', ' '),
+                                             )))
+
+
+        OUT.flush()
+    pool.terminate()
+
+    elapsed_time = time.time() - start_time
+    if not args.no_file_comments:
+        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# Total time (seconds):', elapsed_time
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
+    OUT.close()
+
+    if args.report_orthologs:
+        ORTHOLOGS.close()
+
+    print colorify(" Processed queries:%s total_time:%s rate:%s" %\
+                   (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
+
+
+def annotate_hits_file_sequential(seed_orthologs_file, annot_file, hmm_hits_file, args):
     annot_header = ("#query_name",
                     "seed_eggNOG_ortholog",
                     "seed_ortholog_evalue",
@@ -866,6 +1018,9 @@ if __name__ == "__main__":
 
     pg_out.add_argument("--no_search", action="store_true",
                     help="Skip HMM search mapping. Use existing hits file")
+
+    pg_out.add_argument("--report_orthologs", action="store_true",
+                    help="The list of orthologs used for functional transferred are dumped into a separate file")
 
     pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
                     help='Write output files in a temporary scratch dir, move them to final the final'
