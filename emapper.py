@@ -292,7 +292,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     if not DIAMOND:
         raise ValueError("diamond not found in path")
 
-    tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=TEMPDIR)
+    tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=args.temp_dir)
 
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
     if excluded_taxa:
@@ -379,7 +379,8 @@ def dump_hmm_matches(fasta_file, hits_file, dbpath, port, scantype, idmap, args)
                                                         max_hits=args.maxhits,
                                                         skip=VISITED,
                                                         maxseqlen=args.maxseqlen,
-                                                        cpus=args.cpu)):
+                                                        cpus=args.cpu,
+                                                        base_tempdir=args.temp_dir)):
 
         if elapsed == -1:
             # error occurred
@@ -505,7 +506,8 @@ def refine_matches(fasta_file, refine_file, hits_file, args):
     for qn, r in enumerate(process_nog_hits_file(hits_file, fasta_file, og2level,
                                                  translate=args.translate,
                                                  cpu=args.cpu,
-                                                 excluded_taxa=args.excluded_taxa)):
+                                                 excluded_taxa=args.excluded_taxa,
+                                                 base_tempdir=args.temp_dir)):
         if qn and (qn % 25 == 0):
             total_time = time.time() - start_time
             print >>sys.stderr, qn + \
@@ -533,7 +535,7 @@ def refine_matches(fasta_file, refine_file, hits_file, args):
 
 
 def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
-                          translate=False, cpu=1, excluded_taxa=None):
+                          translate=False, cpu=1, excluded_taxa=None, base_tempdir=None):
     sequences = {name: seq for name, seq in seqio.iter_fasta_seqs(
         query_fasta, translate=translate)}
     cmds = []
@@ -542,7 +544,7 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
     if skip_queries:
         visited_queries.update(skip_queries)
 
-    tempdir = mkdtemp(prefix='emappertmp_phmmer_', dir=TEMPDIR)
+    tempdir = mkdtemp(prefix='emappertmp_phmmer_', dir=base_tempdir)
 
     for line in gopen(hits_file):
         if line.startswith('#'):
@@ -1029,6 +1031,9 @@ if __name__ == "__main__":
 
     pg_out.add_argument("--output_dir", default=os.getcwd(), type=existing_dir, metavar='',
                     help="Where output files should be written")
+
+    pg_out.add_argument("--temp_dir", default=os.getcwd(), type=existing_dir, metavar='',
+                    help="Where temporary files are created. Better if this is a local disk.")
 
     pg_out.add_argument('--no_file_comments', action="store_true",
                         help="No header lines nor stats are included in the output files")

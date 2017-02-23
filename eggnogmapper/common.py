@@ -94,8 +94,6 @@ EGGNOGDB_FILE = pjoin(DATA_PATH, "eggnog.db")
 OGLEVELS_FILE = pjoin(DATA_PATH, "og2level.tsv.gz")
 EGGNOG_DMND_DB = pjoin(DATA_PATH, "eggnog_proteins.dmnd")
 
-TEMPDIR = BASE_PATH
-
 def show_binaries():
     for e in (HMMSEARCH, HMMSCAN, HMMSTAT, HMMPGMD, PHMMER, DIAMOND, DATA_PATH,
               FASTA_PATH, HMMDB_PATH, EGGNOGDB_FILE, OGLEVELS_FILE, EGGNOG_DMND_DB):
