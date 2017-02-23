@@ -186,7 +186,8 @@ def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
 
 def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
               evalue_thr=None, score_thr=None, max_hits=None, return_seq=False,
-              skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cpus=1):
+              skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cpus=1,
+              base_tempdir=None):
 
     try:
         max_hits = int(max_hits)
@@ -198,7 +199,7 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     elif scantype == 'mem' and query_type == "hmm" and dbtype == "seqdb":
         return iter_hmm_hits(source, host, port, maxseqlen=maxseqlen)
     elif scantype == 'disk' and query_type == "seq":
-        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen)
+        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
     else:
         raise ValueError('not supported')
 
@@ -214,11 +215,12 @@ def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb',
 
 
 def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
-            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None):
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
+            base_tempdir=None):
     if not HMMSCAN:
         raise ValueError('hmmscan not found in path')
 
-    tempdir = mkdtemp(prefix='emappertmp_hmmscan_', dir=TEMPDIR)
+    tempdir = mkdtemp(prefix='emappertmp_hmmscan_', dir=base_tempdir)
 
     OUT = NamedTemporaryFile(dir=tempdir)
     if translate or maxseqlen:
