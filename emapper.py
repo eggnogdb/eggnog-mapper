@@ -362,8 +362,7 @@ def dump_hmm_matches(fasta_file, hits_file, dbpath, port, scantype, idmap, args)
     total_time = 0
     last_time = time.time()
     start_time = time.time()
-    qn = 0
-
+    qn = 0 # in case nothing to loop bellow
     for qn, (name, elapsed, hits, querylen, seq) in enumerate(search.iter_hits(
                                                         fasta_file,
                                                         args.translate,
@@ -438,12 +437,13 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
         for line in open(hits_file):
             if not line.strip() or line.startswith('#'):
                 continue
+            qn += 1
             if qn and (qn % 10000 == 0):
                 total_time = time.time() - start_time
-                print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" %\
-                    ((float(qn + 1) / total_time))
+                print >>sys.stderr, qn, total_time, "%0.2f q/s (refinement)" %\
+                    ((float(qn) / total_time))
                 sys.stderr.flush()
-            qn += 1
+
             (query, hit, evalue, sum_score, query_length, hmmfrom, hmmto,
              seqfrom, seqto, q_coverage) = map(str.strip, line.split('\t'))
             if hit not in ['ERROR', '-']:
@@ -459,12 +459,12 @@ def annotate_hmm_matches(hits_file, hits_annot_file, args):
                     [query] + [hit] * (len(hits_annot_header) - 1))
         elapsed_time = time.time() - t1
         if not args.no_file_comments:
-            print >>OUT, '# %d queries scanned' % (qn + 1)
+            print >>OUT, '# %d queries scanned' % (qn)
             print >>OUT, '# Total time (seconds):', elapsed_time
-            print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
+            print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time))
         OUT.close()
         print colorify(" Processed queries:%s total_time:%s rate:%s" %\
-                       (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
+                       (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
 
 
 def get_seq_hmm_matches(hits_file):
@@ -502,7 +502,7 @@ def refine_matches(fasta_file, refine_file, hits_file, args):
         print >>OUT, get_call_info()
         print >>OUT, '\t'.join(refine_header)
 
-    qn = 0
+    qn = 0 # in case no hits in loop bellow
     for qn, r in enumerate(process_nog_hits_file(hits_file, fasta_file, og2level,
                                                  translate=args.translate,
                                                  cpu=args.cpu,
@@ -510,9 +510,7 @@ def refine_matches(fasta_file, refine_file, hits_file, args):
                                                  base_tempdir=args.temp_dir)):
         if qn and (qn % 25 == 0):
             total_time = time.time() - start_time
-            print >>sys.stderr, qn + \
-                1, total_time, "%0.2f q/s (refinement)" % (
-                    (float(qn + 1) / total_time))
+            print >>sys.stderr, qn + 1, total_time, "%0.2f q/s (refinement)" % ((float(qn + 1) / total_time))
             sys.stderr.flush()
         query_name = r[0]
         best_hit_name = r[1]
@@ -637,6 +635,8 @@ def annotate_hit_line(arguments):
 
 def iter_hit_lines(filename, args):
     for line in open(filename):
+        if line.startswith('#') or not line.strip():
+            continue
         yield (line, args)
 
 def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
@@ -673,12 +673,13 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
     qn = 0
     pool = multiprocessing.Pool(args.cpu)
     for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
+        qn += 1
         if qn and (qn % 500 == 0):
             total_time = time.time() - start_time
-            print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
-                (float(qn + 1) / total_time))
+            print >>sys.stderr, qn, total_time, "%0.2f q/s (refinement)" % (
+                (float(qn) / total_time))
             sys.stderr.flush()
-        qn += 1
+
         if result:
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
              best_name, gos, keggs, annot_level_max, match_nogs, orthologs) = result
@@ -715,16 +716,16 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
 
     elapsed_time = time.time() - start_time
     if not args.no_file_comments:
-        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# %d queries scanned' % (qn)
         print >>OUT, '# Total time (seconds):', elapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time))
     OUT.close()
 
     if args.report_orthologs:
         ORTHOLOGS.close()
 
     print colorify(" Processed queries:%s total_time:%s rate:%s" %\
-                   (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
+                   (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
 
 
 def annotate_hits_file_sequential(seed_orthologs_file, annot_file, hmm_hits_file, args):
@@ -759,12 +760,13 @@ def annotate_hits_file_sequential(seed_orthologs_file, annot_file, hmm_hits_file
     for line in open(seed_orthologs_file):
         if not line.strip() or line.startswith('#'):
             continue
+        qn += 1
         if qn and (qn % 500 == 0):
             total_time = time.time() - start_time
-            print >>sys.stderr, qn+1, total_time, "%0.2f q/s (refinement)" % (
-                (float(qn + 1) / total_time))
+            print >>sys.stderr, qn, total_time, "%0.2f q/s (refinement)" % (
+                (float(qn) / total_time))
             sys.stderr.flush()
-        qn += 1
+
         r = map(str.strip, line.split('\t'))
 
         query_name = r[0]
@@ -840,12 +842,12 @@ def annotate_hits_file_sequential(seed_orthologs_file, annot_file, hmm_hits_file
         OUT.flush()
     elapsed_time = time.time() - start_time
     if not args.no_file_comments:
-        print >>OUT, '# %d queries scanned' % (qn + 1)
+        print >>OUT, '# %d queries scanned' % (qn)
         print >>OUT, '# Total time (seconds):', elapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time))
+        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time))
     OUT.close()
     print colorify(" Processed queries:%s total_time:%s rate:%s" %\
-                   (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue')
+                   (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
 
 
 def parse_args(parser):
