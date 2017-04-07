@@ -12,7 +12,7 @@ import errno
 from subprocess import Popen, PIPE
 
 try:
-    from version import __VERSION__
+    from .version import __VERSION__
 except ImportError:
     __VERSION__ = 'unknown'
 
