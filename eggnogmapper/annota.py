@@ -31,8 +31,12 @@ def get_og_annotations(ogname):
     cmd = 'SELECT level, nm, description, COG_categories FROM og WHERE og.og = "%s"' % ogname
     level, nm, desc, cat = None, None, None, None
     if db.execute(cmd):
-        level, nm, desc, cat = db.fetchone()
-        cat = re.sub(cog_cat_cleaner, '', cat)
+        try:
+            level, nm, desc, cat = db.fetchone()
+        except TypeError:                       # avoids crashing ig no annotation for OG viral
+            desc, cat = '', ''
+        else:
+            cat = re.sub(cog_cat_cleaner, '', cat)
     return level, nm, desc, cat
 
 
