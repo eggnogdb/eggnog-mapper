@@ -247,6 +247,7 @@ def get_member_ogs(name):
     return ogs
 
 def get_member_orthologs(member, target_taxa=None, target_levels=None):
+    query_taxa = member.split('.', 1)[0]
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM member WHERE name = "%s"' % member.strip()
     db.execute(cmd)
@@ -264,7 +265,7 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
         for _sp, _side in [(by_sp1, side1),
                            (by_sp2, side2)]:
             for t, s in _side:
-                if not target_taxa or t in target_taxa or t in query_taxa:
+                if not target_taxa or t in target_taxa or t == query_taxa:
                     mid = "%s.%s" % (t, s)
                     _sp.setdefault(t, set()).add(mid)
 
