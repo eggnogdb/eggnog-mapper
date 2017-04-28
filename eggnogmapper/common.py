@@ -88,15 +88,23 @@ PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'bin', 'phmmer')
 DIAMOND = find_executable('diamond') or pjoin(BASE_PATH, 'bin', 'diamond')
 
 DATA_PATH = pjoin(BASE_PATH, "data")
-FASTA_PATH = pjoin(DATA_PATH, "OG_fasta")
-HMMDB_PATH = pjoin(DATA_PATH, "hmmdb_levels")
-EGGNOGDB_FILE = pjoin(DATA_PATH, "eggnog.db")
-OGLEVELS_FILE = pjoin(DATA_PATH, "og2level.tsv.gz")
-EGGNOG_DMND_DB = pjoin(DATA_PATH, "eggnog_proteins.dmnd")
+def get_data_path(): return DATA_PATH
+def get_fasta_path(): return pjoin(DATA_PATH, "OG_fasta")
+def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmdb_levels")
+def get_eggnogdb_file(): return pjoin(DATA_PATH, "eggnog.db")
+def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
+def get_eggnog_dmnd_db(): return pjoin(DATA_PATH, "eggnog_proteins.dmnd")
+
+def set_data_path(data_path):
+    global DATA_PATH
+    DATA_PATH = existing_dir(data_path)
+    # show_binaries()
+
+
 
 def show_binaries():
     for e in (HMMSEARCH, HMMSCAN, HMMSTAT, HMMPGMD, PHMMER, DIAMOND, DATA_PATH,
-              FASTA_PATH, HMMDB_PATH, EGGNOGDB_FILE, OGLEVELS_FILE, EGGNOG_DMND_DB):
+              get_fasta_path(), get_hmmdb_path(), get_eggnogdb_file(), get_oglevels_file(), get_eggnog_dmnd_db()):
         print "% 65s" %e, pexists(e)
 
 def get_call_info():
@@ -151,14 +159,18 @@ def get_level_base_path(level):
 
 def get_db_info(level):
     if level == 'euk':
-        return (pjoin(HMMDB_PATH,"euk_500/euk_500.hmm"), EGGNOG_DATABASES[level])
+        return (pjoin(get_hmmdb_path(),"euk_500/euk_500.hmm"), EGGNOG_DATABASES[level])
     elif level == 'bact':
-        return (pjoin(HMMDB_PATH,"bact_50/bact_50.hmm"), EGGNOG_DATABASES[level])
+        return (pjoin(get_hmmdb_path(),"bact_50/bact_50.hmm"), EGGNOG_DATABASES[level])
     elif level == 'arch':
-        return (pjoin(HMMDB_PATH,"arch_1/arch_1.hmm"), EGGNOG_DATABASES[level])
+        return (pjoin(get_hmmdb_path(),"arch_1/arch_1.hmm"), EGGNOG_DATABASES[level])
     else:
-        return (pjoin(HMMDB_PATH, level+"_hmm", level + "_hmm.all_hmm"), EGGNOG_DATABASES[level])
+        return (pjoin(get_hmmdb_path(), level+"_hmm", level + "_hmm.all_hmm"), EGGNOG_DATABASES[level])
 
+def get_db_present(level):
+    dbpath, port = get_db_info(level)
+    db_present = [pexists(dbpath + "." + ext) for ext in 'h3f h3i h3m h3p idmap'.split()]
+    return db_present
 
 def get_citation(addons=['hmmer']):
     CITATION = """

@@ -64,7 +64,7 @@ def setup_hmm_search(args):
             raise ValueError('Database not found')
 
         if not args.no_refine:
-            if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
+            if not pexists(pjoin(get_data_path(), 'OG_fasta')):
                 print colorify('Database data/OG_fasta/ not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
 
@@ -288,6 +288,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     score_thr = args.seed_ortholog_score
     evalue_thr = args.seed_ortholog_evalue
     excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+    dmnd_db = args.db if args.db else get_eggnog_dmnd_db() 
 
     if not DIAMOND:
         raise ValueError("diamond not found in path")
@@ -297,10 +298,10 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
     if excluded_taxa:
         cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
-          (DIAMOND, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+          (DIAMOND, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
     else:
         cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
-          (DIAMOND, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+          (DIAMOND, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
 
     print colorify('  '+cmd, 'yellow')
     status = subprocess.call(cmd, shell=True,
@@ -495,7 +496,7 @@ def refine_matches(fasta_file, refine_file, hits_file, args):
     print colorify("Hit refinement starts now", 'green')
     start_time = time.time()
     og2level = dict([tuple(map(str.strip, line.split('\t')))
-                     for line in gopen(OGLEVELS_FILE)])
+                     for line in gopen(get_oglevels_file())])
     OUT = open(refine_file, "w")
 
     if not args.no_file_comments:
@@ -562,7 +563,7 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
 
         seq = sequences[seqname]
         visited_queries.add(seqname)
-        target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" % hitname)
+        target_fasta = os.path.join(get_fasta_path(), level, "%s.fa" % hitname)
         cmds.append([seqname, seq, target_fasta, excluded_taxa, tempdir])
 
     if cmds:
@@ -857,13 +858,18 @@ def parse_args(parser):
         print get_version()
         sys.exit(0)
 
-    if not args.no_annot and not pexists(EGGNOGDB_FILE):
+    if args.data_dir:
+        set_data_path(args.data_dir)
+
+    if not args.no_annot and not pexists(get_eggnogdb_file()):
         print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
         raise emapperException()
 
-    if args.mode == 'diamond' and not pexists(EGGNOG_DMND_DB):
-        print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
-        raise emapperException()
+    if args.mode == 'diamond':
+        dmnd_db = args.db if args.db else get_eggnog_dmnd_db()
+        if not pexists(dmnd_db):
+            print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
+            raise emapperException()
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
@@ -942,6 +948,9 @@ if __name__ == "__main__":
 
     pg_db.add_argument('--dbtype', dest="dbtype",
                     choices=["hmmdb", "seqdb"], default="hmmdb")
+
+    pg_db.add_argument("--data_dir", metavar='', type=existing_dir,
+                    help='Directory to use for DATA_PATH.')
 
     pg_db.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
 
