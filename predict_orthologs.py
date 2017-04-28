@@ -16,7 +16,7 @@ from ete3 import NCBITaxa
 # not working: --target_taxa
 
 # TO DO:
-# - debug error for target_taxa option:   
+# - debug error for target_taxa option:
 # File "/g/bork1/huerta/miniconda/lib/python2.7/multiprocessing/pool.py", line 668, in next raise value
 # NameError: global name 'query_taxa' is not defined
 # - test if output_formats are ok (especially the separation of the target_taxa)
@@ -50,27 +50,24 @@ def main(args):
     find_orthologs(seed_orthologs_file, orthologs_file, hmm_hits_file, args)
 
     #os.system("rm %s %s" % (hmm_hits_file, seed_orthologs_file))
-    
+
     print "done"
 
-def find_orthologs(seed_orthologs_file, orthologs_file, hmm_hits_file, args):
+def dump_orthologs(seed_orthologs_file, args):
 
     OUT = open(orthologs_file, "w")
 
     if args.output_format in ("per_query", "per_orthology_type"):
         if args.output_format == "per_query":
-            ortholog_header = ("#QUERY", "TARGET_TAXON", "TAXID", "ORTHOLOGS") 
+            ortholog_header = ("#QUERY", "TARGET_TAXON", "TAXID", "ORTHOLOGS")
         else:
             ortholog_header = ("#QUERY", "ORTHO_TYPE","IN-PARALOGS","TARGET_TAXON", "TAXID", "ORTHOLOGS")
 
         print >> OUT, "\t".join(ortholog_header)
-        
-    if pexists(hmm_hits_file):
-        seq2bestOG = get_seq_hmm_matches(hmm_hits_file)
-         
+
     if args.target_taxa != "all":
         args.target_taxa = normalize_target_taxa(args.target_taxa)
-    
+
     pool = multiprocessing.Pool(args.cpu)
     json_dict = {}
     for query_result in pool.imap(find_orthologs_per_hit, iter_hit_lines(seed_orthologs_file, args)):
@@ -89,7 +86,7 @@ def find_orthologs(seed_orthologs_file, orthologs_file, hmm_hits_file, args):
 
 def find_orthologs_per_hit(arguments):
     """
-    Returns a list of results, one result per query_taxon or 
+    Returns a list of results, one result per query_taxon or
     one unique result if query_taxa is "all"
     Each result is in the form:
     (query_name, all_orthologs, target_taxon_name, target_taxon_taxid, best_hit_name)
@@ -108,7 +105,7 @@ def find_orthologs_per_hit(arguments):
 
     best_hit_evalue = float(r[2])
     best_hit_score = float(r[3])
-    
+
     if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
         return None
 
@@ -123,7 +120,7 @@ def find_orthologs_per_hit(arguments):
             all_orthologs = annota.get_member_orthologs(best_hit_name, target_taxa=species)
             results.append(query_name, all_orthologs, name, taxid, best_hit_name)
         return results
-    
+
 def write_orthologs_in_file(result_line, OUT, args):
     """
     Writes orthologs in file for the output formats "per_query" and "per_orthology_type"
@@ -150,11 +147,10 @@ def write_orthologs_in_file(result_line, OUT, args):
                     elif protein != best_hit_name:
                         orthologs.append(protein)
             print >> OUT, '\t'.join(map(str, (query_name, ortho_type, ",".join(in_paralogs), target_taxon_name, target_taxid, ','.join(all_orthologs[ortho_type]))))
-                                
+
     OUT.flush()
 
 def build_json_format(result_line, json_dict):
-   
     query_name, all_orthologs, target_taxon_name, target_taxid, best_hit_name = result_line
     json_dict[query_name] = {}
     json_dict[query_name][target_taxid] = {}
@@ -173,14 +169,14 @@ def build_json_format(result_line, json_dict):
                     orthologs.append(protein)
 
             json_dict[query_name][target_taxid][ortho_type] = [in_paralogs, orthologs]
-             
+
     return json_dict
 
-    
+
 def iter_hit_lines(filename, args):
     for line in open(filename):
-        yield (line, args)    
-                             
+        yield (line, args)
+
 # def normalize_target_taxa(target_taxa):
 #     """
 #     Receives a list of taxa IDs and/or taxa names and returns this structure:
@@ -208,10 +204,10 @@ def iter_hit_lines(filename, args):
 #                     idx = taxid_lineage.index(target_taxon)
 #                 else:
 #                     idx = name_lineage.index(target_taxon)
-#                 final_taxa[(taxid_lineage[idx], name_lineage[idx])].append(taxid_lineage.pop()) 
+#                 final_taxa[(taxid_lineage[idx], name_lineage[idx])].append(taxid_lineage.pop())
 #     print final_taxa
 #     return final_taxa
-    
+
 
 def normalize_target_taxa(target_taxa):
 
@@ -224,25 +220,25 @@ def normalize_target_taxa(target_taxa):
     }
 
     """
-    final_taxa = defaultdict(list)
     from ete3 import NCBITaxa
     ncbi = NCBITaxa()
-    ncbi.update_taxonomy_database()
+    final_taxa = defaultdict(list)
+
     for taxon in target_taxa:
         taxid = ""
         try:
             taxid = int(taxon)
             taxon = ncbi.get_taxid_translator([taxid])[taxid]
         except ValueError:
-            taxid = ncbi.get_name_translator([taxon])[taxon]        
-        
+            taxid = ncbi.get_name_translator([taxon])[taxon][0]
+
         species = ncbi.get_descendant_taxa(taxid, collapse_subspecies=True)
-        for sp in species: 
+        for sp in species:
             final_taxa[(taxid, taxon)].append(sp)
 
     return final_taxa
 
-    
+
 def parse_args(parser):
     args = parser.parse_args()
 
@@ -343,7 +339,7 @@ if __name__ == "__main__":
     pg_out.add_argument('--keep_mapping_files', action='store_true',
                         help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
                         ' DIAMOND search outputs)')
-    
+
     g4 = parser.add_argument_group('Execution options')
     g4.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmmer',
                     help='Default:hmmer')
@@ -399,7 +395,7 @@ if __name__ == "__main__":
                          ' Applies to phmmer/diamond searches. Queries not having a significant'
                          ' seed orthologs will not be annotated. Default=60')
 
-    
+
     args = parse_args(parser)
 
     try:

@@ -19,14 +19,15 @@ sys.path.insert(0, SCRIPT_PATH)
 from eggnogmapper.common import *
 from eggnogmapper import search
 from eggnogmapper import annota
+from eggnogmapper import orthology
 from eggnogmapper import seqio
 from eggnogmapper.utils import colorify
 from eggnogmapper.server import (server_functional, load_server,
                                  generate_idmap, shutdown_server)
 
 __description__ = ('A program for bulk functional annotation of novel '
-                    'sequences using the EggNOG orthology assignments')
-__author__ = 'Jaime Huerta Cepas'
+                    'sequences using eggNOG phylogeny-based orthology assignments')
+__author__ = 'Jaime Huerta-Cepas'
 __license__ = "GPL v2"
 
 class emapperException(Exception):
@@ -112,7 +113,6 @@ def setup_hmm_search(args):
     else:
         raise ValueError('Invalid database name/server')
 
-
     # If memory based searches requested, start server
     if scantype == "mem" and not connecting_to_server:
         master_db, worker_db = None, None
@@ -176,6 +176,7 @@ def main(args):
     hmm_hits_file = "%s.emapper.hmm_hits" % args.output
     seed_orthologs_file = "%s.emapper.seed_orthologs" % args.output
     annot_file = "%s.emapper.annotations" % args.output
+    orthologs_file = "%s.emapper.orthologs" % args.output
 
     if args.no_search:
         output_files = [annot_file]
@@ -183,6 +184,9 @@ def main(args):
         output_files = [hmm_hits_file, seed_orthologs_file]
     else:
         output_files = [hmm_hits_file, seed_orthologs_file, annot_file]
+
+    if args.report_orthologs:
+        output_files.append(orthologs_file)
 
     # force user to decide what to do with existing files
     os.chdir(args.output_dir)
@@ -231,8 +235,8 @@ def main(args):
     # Step 2. Annotation
     if not args.no_annot:
         annota.connect()
-        if args.annotate_hits_table:
-            annotate_hits_file(args.annotate_hits_table, annot_file, hmm_hits_file, args)
+        if args.seed_orthologs_file:
+            annotate_hits_file(args.seed_orthologs_file, annot_file, hmm_hits_file, orthologs_file, args)
         elif args.db == 'viruses':
             annotate_hmm_matches(hmm_hits_file, hmm_hits_file+'.annotations', args)
             OUT = open(annot_file, 'w')
@@ -257,7 +261,7 @@ def main(args):
                                                      desc.replace('\n', ' '))))
             OUT.close()
         else:
-            annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args)
+            annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, orthologs_file, args)
 
     # If running in scratch, move files to real output dir and clean up
     if args.scratch_dir:
@@ -572,7 +576,6 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
         pool.terminate()
 
     shutil.rmtree(tempdir)
-    
 
 def annotate_hit_line(arguments):
     annota.connect()
@@ -609,7 +612,11 @@ def annotate_hit_line(arguments):
         annot_levels.add(args.tax_scope)
         annot_level_max = "%s[%d]" %(args.tax_scope, len(annot_levels))
 
-    all_orthologies = annota.get_member_orthologs(best_hit_name, target_levels=annot_levels)
+    target_taxa = args._expanded_target_taxa
+    if target_taxa and args.excluded_taxa:
+        target_taxa.discard(args.excluded_taxa)
+    all_orthologies = annota.get_member_orthologs(best_hit_name, target_levels=annot_levels,
+                                                  target_taxa=target_taxa)
     orthologs = sorted(all_orthologies[args.target_orthologs])
     if args.excluded_taxa:
         orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
@@ -630,7 +637,7 @@ def annotate_hit_line(arguments):
         keggs = set()
 
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            best_name, gos, keggs, annot_level_max, match_nogs, orthologs)
+            best_name, gos, keggs, annot_level_max, match_nogs, all_orthologies)
 
 
 def iter_hit_lines(filename, args):
@@ -639,7 +646,7 @@ def iter_hit_lines(filename, args):
             continue
         yield (line, args)
 
-def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
+def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, orthologs_file, args):
     annot_header = ("#query_name",
                     "seed_eggNOG_ortholog",
                     "seed_ortholog_evalue",
@@ -662,8 +669,16 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
 
     print colorify("Functional annotation of refined hits starts now", 'green')
     OUT = open(annot_file, "w")
+    
     if args.report_orthologs:
-        ORTHOLOGS = open(annot_file+".orthologs", "w")
+        ORTHOLOGS = open(orthologs_file, "w")
+        if args.report_orthologs == "per_query":
+            ortholog_header = ("#Query", "Orthologs")
+        elif args.report_orthologs == 'per_species':
+            ortholog_header = ("#Query", "Species", "Orthologs")
+        elif args.report_orthologs == 'per_species_and_type':
+            ortholog_header = ("#Query", "Species","Orthology_Type","In-Paralogs", "Orthologs")
+        print >>ORTHOLOGS, "\t".join(ortholog_header)
 
     if not args.no_file_comments:
         print >>OUT, '# ' + time.ctime()
@@ -693,9 +708,38 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
                 bestOG = 'NA|NA|NA'
                 og_cat, og_desc = '', ''
 
-            if args.report_orthologs:
-                print >>ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+            # report orthologs if requested
+            seed_ortholog_sp = best_hit_name.split(".", 1)[0]
 
+            if args.report_orthologs == "per_query":
+                print >>ORTHOLOGS, '\t'.join([query_name, ','.join(orthologs['all'])])
+            elif args.report_orthologs == "per_species":
+                sorted_orthologs = orthology.sort_orthologs_by_species(orthologs, best_hit_name)
+                for (sp, _, ortho_type), ortho_list in sorted_orthologs.items():
+                    if ortho_type == 'all':
+                        print >>ORTHOLOGS, '\t'.join(map(str, [query_name, sp, ','.join(sorted(ortho_list))]))
+            elif args.report_orthologs == "per_species_and_type" :
+                sorted_orthologs = orthology.sort_orthologs_by_species(orthologs, best_hit_name)
+                for (sp, inparalogs, ortho_type), ortho_list in sorted_orthologs.items():
+                    if ortho_type == 'all':
+                        continue
+                    if sp == seed_ortholog_sp:
+                        if len(inparalogs) > 1:
+                            ortho_type_temp = 'one2many'
+                        else:
+                            ortho_type_temp = 'one2one'
+                        print >>ORTHOLOGS, '\t'.join(map(str, (query_name, sp, ortho_type_temp,
+                                                                best_hit_name,
+                                                                ','.join(inparalogs))))
+                    else:
+                        inparalogs = tuple(sorted(inparalogs - set([best_hit_name])))
+                        print >>ORTHOLOGS, '\t'.join(map(str, (query_name, sp, ortho_type,
+                                                               ",".join(inparalogs),
+                                                               ','.join(ortho_list))))
+            if args.report_orthologs:
+                ORTHOLOGS.flush()
+
+            # report annotations
             print >>OUT, '\t'.join(map(str, (query_name,
                                              best_hit_name,
                                              best_hit_evalue,
@@ -724,128 +768,6 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
     if args.report_orthologs:
         ORTHOLOGS.close()
 
-    print colorify(" Processed queries:%s total_time:%s rate:%s" %\
-                   (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
-
-
-def annotate_hits_file_sequential(seed_orthologs_file, annot_file, hmm_hits_file, args):
-    annot_header = ("#query_name",
-                    "seed_eggNOG_ortholog",
-                    "seed_ortholog_evalue",
-                    "seed_ortholog_score",
-                    "predicted_gene_name",
-                    "GO_terms",
-                    "KEGG_pathways",
-                    "Annotation_tax_scope",
-                    "OGs",
-                    "bestOG|evalue|score",
-                    "COG cat",
-                    "eggNOG annot",
-                    )
-    start_time = time.time()
-    seq2bestOG = {}
-    if pexists(hmm_hits_file):
-        seq2bestOG = get_seq_hmm_matches(hmm_hits_file)
-
-    seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.itervalues()]))
-
-    print colorify("Functional annotation of refined hits starts now", 'green')
-    OUT = open(annot_file, "w")
-    if not args.no_file_comments:
-        print >>OUT, '# ' + time.ctime()
-        print >>OUT, '# ' + ' '.join(sys.argv)
-        print >>OUT, '\t'.join(annot_header)
-
-    qn = 0
-    for line in open(seed_orthologs_file):
-        if not line.strip() or line.startswith('#'):
-            continue
-        qn += 1
-        if qn and (qn % 500 == 0):
-            total_time = time.time() - start_time
-            print >>sys.stderr, qn, total_time, "%0.2f q/s (refinement)" % (
-                (float(qn) / total_time))
-            sys.stderr.flush()
-
-        r = map(str.strip, line.split('\t'))
-
-        query_name = r[0]
-        best_hit_name = r[1]
-        if best_hit_name == '-' or best_hit_name == 'ERROR':
-            continue
-
-        best_hit_evalue = float(r[2])
-        best_hit_score = float(r[3])
-        if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
-            continue
-
-        match_nogs = annota.get_member_ogs(best_hit_name)
-        if not match_nogs:
-            continue
-
-        match_levels = set([nog.split("@")[1] for nog in match_nogs])
-        if args.tax_scope == "auto":
-            for level in TAXONOMIC_RESOLUTION:
-                if level in match_levels:
-                    annot_levels = set(LEVEL_CONTENT.get(level, [level]))
-                    annot_levels.add(level)
-                    annot_level_max = "%s[%d]" %(level, len(annot_levels))
-                    break
-        else:
-            annot_levels = set(LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope]))
-            annot_levels.add(args.tax_scope)
-            annot_level_max = "%s[%d]" %(args.tax_scope, len(annot_levels))
-
-        all_orthologies = annota.get_member_orthologs(best_hit_name, target_levels=annot_levels)
-        orthologs = sorted(all_orthologies[args.target_orthologs])
-        if args.excluded_taxa:
-            orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
-
-        if orthologs:
-            pname, gos, keggs = annota.get_member_annotations(orthologs,
-                                                              target_go_ev=args.go_evidence,
-                                                              excluded_go_ev=args.go_excluded)
-            best_name = ''
-            if pname:
-                name_candidate, freq = pname.most_common(1)[0]
-                if freq >= 2:
-                    best_name = name_candidate
-        else:
-            pname = []
-            best_name = ''
-            gos = set()
-            keggs = set()
-
-        if query_name in seq2bestOG:
-            (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
-             seqto, q_coverage) = seq2bestOG[query_name]
-            bestOG = '%s|%s|%s' %(hitname, evalue, score)
-            og_cat, og_desc = seq2annotOG.get(hitname, ['', ''])
-        else:
-            bestOG = 'NA|NA|NA'
-            og_cat, og_desc = '', ''
-
-
-        print >>OUT, '\t'.join(map(str, (query_name,
-                                         best_hit_name,
-                                         best_hit_evalue,
-                                         best_hit_score,
-                                         best_name,
-                                         ','.join(sorted(gos)),
-                                         ','.join(sorted(map(lambda x: "map%05d"%x, map(int, keggs)))),
-                                         annot_level_max,
-                                         ','.join(match_nogs),
-                                         bestOG,
-                                         og_cat.replace('\n', ''),
-                                         og_desc.replace('\n', ' '),
-                                         )))
-        OUT.flush()
-    elapsed_time = time.time() - start_time
-    if not args.no_file_comments:
-        print >>OUT, '# %d queries scanned' % (qn)
-        print >>OUT, '# Total time (seconds):', elapsed_time
-        print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time))
-    OUT.close()
     print colorify(" Processed queries:%s total_time:%s rate:%s" %\
                    (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
 
@@ -881,10 +803,16 @@ def parse_args(parser):
         args.usemem = True
 
     # Direct annotation implies no searches
-    if args.annotate_hits_table:
+    if args.seed_orthologs_file:
         args.no_search = True
         args.no_annot = False
 
+    # expands requested list of target taxa
+    if args.target_taxa != 'all':
+        args._expanded_target_taxa = orthology.normalize_target_taxa(args.target_taxa)
+    else:
+        # report orthologs from any species by default
+        args._expanded_target_taxa = None
 
     # Sets GO evidence bases
     if args.go_evidence == 'experimental':
@@ -930,7 +858,43 @@ def parse_args(parser):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    # server
+    # input files
+    pg_input = parser.add_argument_group('Input options')
+
+
+    pg_input.add_argument('-i', dest="input", metavar='', type=existing_file,
+                    help='Computes annotations for the provided FASTA file')
+
+    pg_input.add_argument('--seed_orthologs_file', type=str, metavar='',
+                    help='Use a pre-computed list of seed orthologs per query'
+                    ' (skipping the seed ortholog detection phase)'
+                    ' file should be TSV formatted table having 4 fields:'
+                    ' query_name, eggnog_seed_ortholog, evalue, score.'
+                    ' This option implies --no_search and --no_refine.')
+
+    # exec mode
+    pg_exec = parser.add_argument_group('Execution mode options')
+
+    pg_exec.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmmer',
+                    help='Default:hmmer')
+
+    pg_exec.add_argument('--translate', action="store_true",
+                    help='Assume sequences are genes instead of proteins')
+
+    pg_exec.add_argument("--servermode", action="store_true",
+                    help='Loads target database in memory and keeps running in server mode,'
+                    ' so another instance of eggnog-mapper can connect to this sever.'
+                    ' Auto turns on the --usemem flag')
+
+    pg_exec.add_argument('--usemem', action="store_true",
+                    help="""If a local hmmpressed database is provided as target using --db,
+                    this flag will allocate the whole database in memory using hmmpgmd.
+                    Database will be unloaded after execution.""")
+
+    pg_exec.add_argument('--cpu', type=int, default=2, metavar='')
+
+
+    # Hmm server
     pg_db = parser.add_argument_group('Target HMM Database Options')
 
     pg_db.add_argument('--guessdb', type=int, metavar='',
@@ -946,29 +910,8 @@ if __name__ == "__main__":
     pg_db.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
 
 
-    pg_annot = parser.add_argument_group('Annotation Options')
-
-    pg_annot.add_argument("--tax_scope", type=str, choices=TAXID2LEVEL.values()+["auto"],
-                    default='auto', metavar='',
-                    help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
-                          "particular clade are used for functional transfer. "
-                          "By default, this is automatically adjusted for every query sequence."))
-
-    pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
-                                                         "one2many","many2many", "all"],
-                          default="all",
-                          help='defines what type of orthologs should be used for functional transfer')
-
-    pg_annot.add_argument('--excluded_taxa', type=int, metavar='',
-                          help='(for debugging and benchmark purposes)')
-
-    pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
-                          default='non-electronic',
-                          help='Defines what type of GO terms should be used for annotation:'
-                          'experimental = Use only terms inferred from experimental evidence'
-                          'non-electronic = Use only non-electronically curated terms')
-
-    pg_hmm = parser.add_argument_group('HMM search_options')
+    # Hmm search options
+    pg_hmm = parser.add_argument_group('HMM searching options')
 
     pg_hmm.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='',
                     help="Max number of hits to report. Default=1")
@@ -989,8 +932,23 @@ if __name__ == "__main__":
                     help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
 
+    # Annotation options
+    pg_annot = parser.add_argument_group('Annotation Options')
 
-    pg_seed = parser.add_argument_group('Seed ortholog search option')
+    pg_annot.add_argument("--tax_scope", type=str, choices=TAXID2LEVEL.values()+["auto"],
+                    default='auto', metavar='',
+                    help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
+                          "particular clade are used for functional transfer. "
+                          "By default, this is automatically adjusted for every query sequence."))
+
+    pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
+                          default='non-electronic',
+                          help='Defines what type of GO terms should be used for annotation:'
+                          'experimental = Use only terms inferred from experimental evidence'
+                          'non-electronic = Use only non-electronically curated terms')
+
+    # Seed ortholog options
+    pg_seed = parser.add_argument_group('Seed ortholog searching options')
 
     pg_seed.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
                     help='Min E-value expected when searching for seed eggNOG ortholog.'
@@ -1002,7 +960,27 @@ if __name__ == "__main__":
                          ' Applies to phmmer/diamond searches. Queries not having a significant'
                          ' seed orthologs will not be annotated. Default=60')
 
+    # Orthology prediction options
+    pg_orthologs = parser.add_argument_group('Orthology prediction options')
 
+    pg_orthologs.add_argument('--report_orthologs', choices=["per_query", "per_species", "per_species_and_type", "json"],
+                              default="per_query", help="Dumps all predicted orthologs into a separate file using the selected format")
+
+    pg_orthologs.add_argument('--target_orthologs', choices=["one2one", "many2one",
+                                                         "one2many","many2many", "all"],
+                              default="all",
+                              help='Sets what type of orthologs should be used for functional transfer and/or reported.')
+
+    pg_orthologs.add_argument('--target_taxa', type=str,
+                              default="all", nargs="+",
+                              help='Restrict ortholog retrieval to the provided list of taxa. '
+                              'Accepts TaxID numbers and NCBI clade names of single species or whole lineages'
+                              ' (i.e. --target_taxa Mammals 7227 "Gallus gallus").')
+
+    pg_orthologs.add_argument('--excluded_taxa', type=int, metavar='',
+                             help='(for debugging and benchmark purposes)')
+
+    # output options
     pg_out = parser.add_argument_group('Output options')
 
     pg_out.add_argument('--output', '-o', type=str, metavar='',
@@ -1023,7 +1001,7 @@ if __name__ == "__main__":
     pg_out.add_argument("--no_search", action="store_true",
                     help="Skip HMM search mapping. Use existing hits file")
 
-    pg_out.add_argument("--report_orthologs", action="store_true",
+    pg_out.add_argument("--report_used_orthologs", action="store_true",
                     help="The list of orthologs used for functional transferred are dumped into a separate file")
 
     pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
@@ -1040,37 +1018,9 @@ if __name__ == "__main__":
     pg_out.add_argument('--no_file_comments', action="store_true",
                         help="No header lines nor stats are included in the output files")
 
-    pg_out.add_argument('--keep_mapping_files', action='store_true',
-                        help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
-                        ' DIAMOND search outputs)')
-
-    # exec mode
-    g4 = parser.add_argument_group('Execution options')
-    g4.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmmer',
-                    help='Default:hmmer')
-
-
-    g4.add_argument('-i', dest="input", metavar='', type=existing_file,
-                    help='Computes annotations for the provided FASTA file')
-
-    g4.add_argument('--translate', action="store_true",
-                    help='Assume sequences are genes instead of proteins')
-
-    g4.add_argument("--servermode", action="store_true",
-                    help='Loads target database in memory and keeps running in server mode,'
-                    ' so another instance of eggnog-mapper can connect to this sever.'
-                    ' Auto turns on the --usemem flag')
-
-    g4.add_argument('--usemem', action="store_true",
-                    help="""If a local hmmpressed database is provided as target using --db,
-                    this flag will allocate the whole database in memory using hmmpgmd.
-                    Database will be unloaded after execution.""")
-
-    g4.add_argument('--cpu', type=int, default=2, metavar='')
-
-    g4.add_argument('--annotate_hits_table', type=str, metavar='',
-                    help='Annotatate TSV formatted table of query->hits. 4 fields required:'
-                    ' query, hit, evalue, score. Implies --no_search and --no_refine.')
+    # pg_out.add_argument('--keep_mapping_files', action='store_true',
+    #                     help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
+    #                     ' DIAMOND search outputs)')
 
 
     parser.add_argument('--version', action='store_true')
