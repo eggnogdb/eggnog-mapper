@@ -7,19 +7,11 @@ import json
 from eggnogmapper.common import *
 from eggnogmapper import search
 from eggnogmapper import annota
+from eggnogmapper import orthology
 from emapper import setup_hmm_search, dump_hmm_matches, get_seq_hmm_matches, refine_matches
 from ete3 import NCBITaxa
 
-# Example run: python predict_orthologs.py -i test/testCOG0515.fa -d bact
-
-# working options:  --output_format --orthology_type
-# not working: --target_taxa
-
-# TO DO:
-# - debug error for target_taxa option:
-# File "/g/bork1/huerta/miniconda/lib/python2.7/multiprocessing/pool.py", line 668, in next raise value
-# NameError: global name 'query_taxa' is not defined
-# - test if output_formats are ok (especially the separation of the target_taxa)
+# Example run: python predict_orthologs.py -i test/testCOG0515.fa -d arch --output_format per_species_and_type
 
 def main(args):
     fasta_file = args.input
@@ -47,36 +39,42 @@ def main(args):
 
     # Orthologs search
     annota.connect()
-    find_orthologs(seed_orthologs_file, orthologs_file, hmm_hits_file, args)
+    dump_orthologs(seed_orthologs_file, orthologs_file,  args)
 
     #os.system("rm %s %s" % (hmm_hits_file, seed_orthologs_file))
 
     print "done"
 
-def dump_orthologs(seed_orthologs_file, args):
+def dump_orthologs(seed_orthologs_file, orthologs_file, args):
 
     OUT = open(orthologs_file, "w")
 
-    if args.output_format in ("per_query", "per_orthology_type"):
+    if args.output_format != "json":
         if args.output_format == "per_query":
-            ortholog_header = ("#QUERY", "TARGET_TAXON", "TAXID", "ORTHOLOGS")
+            ortholog_header = ("#Query", "Orthologs")
+        elif args.output_format == 'per_species':
+            ortholog_header = ("#Query", "Species", "Orthologs")
         else:
-            ortholog_header = ("#QUERY", "ORTHO_TYPE","IN-PARALOGS","TARGET_TAXON", "TAXID", "ORTHOLOGS")
-
+            ortholog_header = ("#Query", "Species","Orthology_Type","In-Paralogs", "Orthologs")
+            
         print >> OUT, "\t".join(ortholog_header)
 
-    if args.target_taxa != "all":
-        args.target_taxa = normalize_target_taxa(args.target_taxa)
+
+    if args.target_taxa != 'all':
+         args._expanded_target_taxa = orthology.normalize_target_taxa(args.target_taxa)
+    else:
+        # report orthologs from any species by default
+        args._expanded_target_taxa = None
+
 
     pool = multiprocessing.Pool(args.cpu)
     json_dict = {}
-    for query_result in pool.imap(find_orthologs_per_hit, iter_hit_lines(seed_orthologs_file, args)):
-        if query_result:
-            for result_line in query_result:
-                if args.output_format == "json":
-                    json_dict = build_json_format(result_line, json_dict)
-                else:
-                    write_orthologs_in_file(result_line, OUT, args)
+    for result in pool.imap(find_orthologs_per_hit, iter_hit_lines(seed_orthologs_file, args)):
+        if result:
+            if args.output_format == "json":
+                json_dict = build_json_format(result, json_dict)
+            else:
+                write_orthologs_in_file(result, OUT, args)
 
     pool.terminate()
 
@@ -85,12 +83,7 @@ def dump_orthologs(seed_orthologs_file, args):
 
 
 def find_orthologs_per_hit(arguments):
-    """
-    Returns a list of results, one result per query_taxon or
-    one unique result if query_taxa is "all"
-    Each result is in the form:
-    (query_name, all_orthologs, target_taxon_name, target_taxon_taxid, best_hit_name)
-    """
+
     annota.connect()
     line, args = arguments
 
@@ -108,67 +101,74 @@ def find_orthologs_per_hit(arguments):
 
     if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
         return None
+    
+    target_taxa = args._expanded_target_taxa
+        
+    all_orthologs = annota.get_member_orthologs(best_hit_name, target_taxa= target_taxa)
+    return (query_name, all_orthologs, best_hit_name)
 
-    target_taxa = args.target_taxa
-    if target_taxa == "all":
-        all_orthologs = annota.get_member_orthologs(best_hit_name)
-        return [(query_name, all_orthologs, "All", "All", best_hit_name)]
-    else:
-        results = []
-        for taxid, name in target_taxa:
-            species = target_taxa[(taxid,name)]
-            all_orthologs = annota.get_member_orthologs(best_hit_name, target_taxa=species)
-            results.append(query_name, all_orthologs, name, taxid, best_hit_name)
-        return results
 
-def write_orthologs_in_file(result_line, OUT, args):
+def write_orthologs_in_file(result_line, ORTHOLOGS, args):
     """
-    Writes orthologs in file for the output formats "per_query" and "per_orthology_type"
+    Writes orthologs in file for all output formats except json
     """
-    query_name, all_orthologs, target_taxon_name, target_taxid, best_hit_name = result_line
+    query_name, all_orthologs, best_hit_name = result_line
+
 
     if args.output_format == "per_query":
         orthologs = sorted(all_orthologs[args.orthology_type])
-        print >> OUT, '\t'.join(map(str, (query_name, target_taxon_name, target_taxid, ','.join(orthologs))))
-
-    elif args.output_format == "per_orthology_type" :
-        for ortho_type in all_orthologs:
-            if len(all_orthologs[ortho_type])==0 or ortho_type=="all":
+        print >> ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+        
+    elif args.output_format == "per_species":
+        sorted_orthologs = orthology.sort_orthologs_by_species(all_orthologs, best_hit_name)
+        for (sp, _, ortho_type), ortho_list in sorted_orthologs.items():
+            if ortho_type == 'all':
+                print >>ORTHOLOGS, '\t'.join(map(str, [query_name, sp, ','.join(sorted(ortho_list))]))
+    elif args.output_format == "per_species_and_type" :
+        sorted_orthologs = orthology.sort_orthologs_by_species(all_orthologs, best_hit_name)
+        seed_ortholog_sp = best_hit_name.split(".", 1)[0]
+        for (sp, inparalogs, ortho_type), ortho_list in sorted_orthologs.items():
+            if ortho_type == 'all':
                 continue
-            in_paralogs = []
-            orthologs = []
-            if ortho_type == "one2one" or ortho_type == "one2many":
-                in_paralogs.append("N/A")
-                orthologs = all_orthologs[ortho_type]
+            if sp == seed_ortholog_sp:
+                if len(inparalogs) > 1:
+                    ortho_type_temp = 'one2many'
+                else:
+                    ortho_type_temp = 'one2one'
+                print >>ORTHOLOGS, '\t'.join(map(str, (query_name, sp, ortho_type_temp,
+                                                       best_hit_name,
+                                                       ','.join(inparalogs))))
             else:
-                for protein in all_orthologs[ortho_type]:
-                    if protein.split(".")[0] == best_hit_name.split(".")[0] and protein != best_hit_name:
-                        in_paralogs.append(protein)
-                    elif protein != best_hit_name:
-                        orthologs.append(protein)
-            print >> OUT, '\t'.join(map(str, (query_name, ortho_type, ",".join(in_paralogs), target_taxon_name, target_taxid, ','.join(all_orthologs[ortho_type]))))
+                inparalogs = tuple(sorted(inparalogs - set([best_hit_name])))
+                print >>ORTHOLOGS, '\t'.join(map(str, (query_name, sp, ortho_type,
+                                                       ",".join(inparalogs),
+                                                       ','.join(ortho_list))))
+    ORTHOLOGS.flush()
 
-    OUT.flush()
-
+    
 def build_json_format(result_line, json_dict):
-    query_name, all_orthologs, target_taxon_name, target_taxid, best_hit_name = result_line
-    json_dict[query_name] = {}
-    json_dict[query_name][target_taxid] = {}
-    for ortho_type in all_orthologs:
-        if ortho_type == "all":
-            continue
-        if ortho_type == "one2one" or ortho_type == "one2many":
-            json_dict[query_name][target_taxid][ortho_type] = list(all_orthologs[ortho_type])
-        else:
-            in_paralogs = []
-            orthologs = []
-            for protein in all_orthologs[ortho_type]:
-                if protein.split(".")[0] == best_hit_name.split(".")[0] and protein != best_hit_name:
-                    in_paralogs.append(protein)
-                elif protein != best_hit_name:
-                    orthologs.append(protein)
 
-            json_dict[query_name][target_taxid][ortho_type] = [in_paralogs, orthologs]
+    query_name, all_orthologs, best_hit_name = result_line
+    json_dict[query_name] = {}
+
+    sorted_orthologs = orthology.sort_orthologs_by_species(all_orthologs, best_hit_name)
+    seed_ortholog_sp = best_hit_name.split(".", 1)[0]
+    for (sp, inparalogs, ortho_type), ortho_list in sorted_orthologs.items():
+        if sp not in json_dict[query_name].keys():
+            json_dict[query_name][sp]= {}
+        if ortho_type == 'all':
+            continue
+        if sp == seed_ortholog_sp:
+            if len(inparalogs) > 1:
+                ortho_type_temp = 'one2many'
+            else:
+                ortho_type_temp = 'one2one'
+            
+            json_dict[query_name][sp][ortho_type_temp]= [best_hit_name, list(inparalogs)]
+
+        else:
+            inparalogs = tuple(sorted(inparalogs - set([best_hit_name])))
+            json_dict[query_name][sp][ortho_type]= [list(inparalogs), list(ortho_list)]
 
     return json_dict
 
@@ -176,68 +176,6 @@ def build_json_format(result_line, json_dict):
 def iter_hit_lines(filename, args):
     for line in open(filename):
         yield (line, args)
-
-# def normalize_target_taxa(target_taxa):
-#     """
-#     Receives a list of taxa IDs and/or taxa names and returns this structure:
-#     {
-#        (taxon_taxid1, name): [species_taxid1, species_taxid2, ...]],
-#        (taxon_taxid2, name): [species_taxid1, species_taxid2, ...]],
-#        ...
-#     }
-#     """
-#     final_taxa = defaultdict(list)
-#     TAXIDS_F = open("eggnog4.core_species_info.txt", "r")
-#     for line in TAXIDS_F:
-#         fields = line.split("\t")
-#         taxid = fields[0]
-#         name = fields[1]
-#         name_lineage = fields[3].split(",")
-#         taxid_lineage = fields[4].split(",")
-#         if taxid in target_taxa or name in target_taxa:
-#             final_taxa[(taxid, name)].append(taxid)
-#             continue
-#         for target_taxon in target_taxa:
-#             if target_taxon in taxid_lineage or target_taxon in name_lineage:
-#                 idx = 0
-#                 if target_taxon in taxid_lineage:
-#                     idx = taxid_lineage.index(target_taxon)
-#                 else:
-#                     idx = name_lineage.index(target_taxon)
-#                 final_taxa[(taxid_lineage[idx], name_lineage[idx])].append(taxid_lineage.pop())
-#     print final_taxa
-#     return final_taxa
-
-
-def normalize_target_taxa(target_taxa):
-
-    """
-    Receives a list of taxa IDs and/or taxa names and returns this structure:
-    {
-       (taxon_taxid1, name): [species_taxid1, species_taxid2, ...]],
-       (taxon_taxid2, name): [species_taxid1, species_taxid2, ...]],
-       ...
-    }
-
-    """
-    from ete3 import NCBITaxa
-    ncbi = NCBITaxa()
-    final_taxa = defaultdict(list)
-
-    for taxon in target_taxa:
-        taxid = ""
-        try:
-            taxid = int(taxon)
-            taxon = ncbi.get_taxid_translator([taxid])[taxid]
-        except ValueError:
-            taxid = ncbi.get_name_translator([taxon])[taxon][0]
-
-        species = ncbi.get_descendant_taxa(taxid, collapse_subspecies=True)
-        for sp in species:
-            final_taxa[(taxid, taxon)].append(sp)
-
-    return final_taxa
-
 
 def parse_args(parser):
     args = parser.parse_args()
@@ -259,8 +197,8 @@ if __name__ == "__main__":
     parser.add_argument('--target_taxa', type=str,
                           default="all", nargs="+",
                           help='taxa that will be searched for orthologs')
-    parser.add_argument('--output_format', choices=["per_query","per_orthology_type", "json"],
-                         default="per_query", help="Choose the output format among: per_query, per_orthology_type")
+    parser.add_argument('--output_format', choices=["per_query","per_species","per_species_and_type", "json"],
+                         default="per_query", help="Choose the output format among: per_query, per_species or per_orthology_type")
     # server
     pg_db = parser.add_argument_group('Target HMM Database Options')
 
