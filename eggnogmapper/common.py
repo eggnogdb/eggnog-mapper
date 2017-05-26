@@ -169,7 +169,7 @@ def get_db_info(level):
 
 def get_db_present(level):
     dbpath, port = get_db_info(level)
-    db_present = [pexists(dbpath + "." + ext) for ext in 'h3f h3i h3m h3p idmap'.split()]
+    db_present = all([pexists(dbpath + "." + ext) for ext in 'h3f h3i h3m h3p idmap'.split()])
     return db_present
 
 def get_citation(addons=['hmmer']):
