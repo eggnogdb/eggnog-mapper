@@ -288,6 +288,10 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     score_thr = args.seed_ortholog_score
     evalue_thr = args.seed_ortholog_evalue
     excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+    if args.translate:
+        tool = 'blastx'
+    else:
+        tool = 'blastp'
 
     if not DIAMOND:
         raise ValueError("diamond not found in path")
@@ -296,11 +300,11 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
 
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
     if excluded_taxa:
-        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
-          (DIAMOND, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
+          (DIAMOND, tool, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
     else:
-        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
-          (DIAMOND, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
+          (DIAMOND, tool, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
 
     print colorify('  '+cmd, 'yellow')
     status = subprocess.call(cmd, shell=True,
