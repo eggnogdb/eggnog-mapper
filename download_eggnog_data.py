@@ -40,6 +40,9 @@ if __name__ == "__main__":
     parser.add_argument('dbs', metavar='dbs', nargs='+', choices=sorted(EGGNOG_DATABASES.keys()+['all', 'none']),
                         help='list of eggNOG HMM databases to download. Choose "none" if only diamond will be used')
 
+    parser.add_argument('-D', action="store_true", dest='skip_diamond',
+                        help='Do not install the diamond database')
+
     parser.add_argument('-y', action="store_true", dest='allyes',
                         help='assume "yes" to all questions')
 
@@ -58,8 +61,13 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    installed_data_dir = get_data_path()
+
     if args.data_dir:
         set_data_path(args.data_dir)
+
+    if args.force or not pexists(pjoin(get_data_path(), 'og2level.tsv.gz')):
+        shutil.copy2(pjoin(installed_data_dir, 'og2level.tsv.gz'), pjoin(get_data_path(), 'og2level.tsv.gz'))
 
     if 'all' in args.dbs:
         args.dbs = EGGNOG_DATABASES
@@ -86,7 +94,7 @@ if __name__ == "__main__":
         if not args.quiet:
             print colorify('Skipping OG_fasta/ database (already present). Use -f to force download', 'lblue')
 
-    if args.force or not pexists(pjoin(get_data_path(), 'eggnog_proteins.dmnd')):
+    if not args.skip_diamond and (args.force or not pexists(pjoin(get_data_path(), 'eggnog_proteins.dmnd'))):
         if args.allyes or ask("Download diamond database (~4GB after decompression)?") == 'y':
             print colorify('Downloading fasta files " at %s/eggnog_proteins.dmnd...' %get_data_path(), 'green')
             download_diamond_db()

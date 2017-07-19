@@ -288,7 +288,18 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     score_thr = args.seed_ortholog_score
     evalue_thr = args.seed_ortholog_evalue
     excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+    if args.translate:
+        tool = 'blastx'
+    else:
+        tool = 'blastp'
     dmnd_db = args.db if args.db else get_eggnog_dmnd_db() 
+    dmnd_opts = ''
+    if args.matrix is not None:
+        dmnd_opts += ' --matrix %s' % args.matrix
+    if args.gapopen is not None:
+        dmnd_opts += ' --gapopen %d' % args.gapopen
+    if args.gapextend is not None:
+        dmnd_opts += ' --gapextend %d' % args.gapextend
 
     if not DIAMOND:
         raise ValueError("diamond not found in path")
@@ -297,11 +308,12 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
 
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
     if excluded_taxa:
-        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
-          (DIAMOND, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
     else:
-        cmd = '%s blastp -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
-          (DIAMOND, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
+    #diamond blastp --threads "${GALAXY_SLOTS:-12}" --db ./database --query '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164640.dat' --query-gencode '1'  --outfmt '6' qseqid sseqid sallseqid qlen slen pident length nident mismatch positive gapopen gaps ppos qstart qend sstart send qseq sseq evalue bitscore score qframe stitle salltitles qcovhsp --out '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164759.dat'  --compress '0'   --gapopen '10' --gapextend '1' --matrix 'PAM30' --seg 'yes'  --max-target-seqs '25'  --evalue '0.001'  --id '0' --query-cover '0' --block-size '2.0'
 
     print colorify('  '+cmd, 'yellow')
     status = subprocess.call(cmd, shell=True,
@@ -998,6 +1010,17 @@ if __name__ == "__main__":
                     help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
 
+    pg_diamond = parser.add_argument_group('diamond search_options')
+
+    pg_diamond.add_argument('--matrix', dest='matrix', 
+                    choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
+                    default=None, help='Scoring matrix')
+
+    pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
+                    help='Gap open penalty')
+
+    pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
+                    help='Gap extend  penalty')
 
     pg_seed = parser.add_argument_group('Seed ortholog search option')
 

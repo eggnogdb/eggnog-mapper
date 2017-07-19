@@ -169,7 +169,7 @@ def get_db_info(level):
 
 def get_db_present(level):
     dbpath, port = get_db_info(level)
-    db_present = [pexists(dbpath + "." + ext) for ext in 'h3f h3i h3m h3p idmap'.split()]
+    db_present = all([pexists(dbpath + "." + ext) for ext in 'h3f h3i h3m h3p idmap'.split()])
     return db_present
 
 def get_citation(addons=['hmmer']):
@@ -179,8 +179,9 @@ CITATION:
 If you use this software, please cite:
 
 [1] Fast genome-wide functional annotation through orthology assignment by
-      eggNOG-mapper. Jaime Huerta-Cepas, Damian Szklarczyk, Lars Juhl Jensen,
-      Christian von Mering and Peer Bork. Submitted (2016).
+      eggNOG-mapper. Jaime Huerta-Cepas, Kristoffer Forslund, Luis Pedro Coelho,
+      Damian Szklarczyk, Lars Juhl Jensen, Christian von Mering and Peer Bork.
+      Mol Biol Evol (2017). doi: https://doi.org/10.1093/molbev/msx148
 
 [2] eggNOG 4.5: a hierarchical orthology framework with improved functional
       annotations for eukaryotic, prokaryotic and viral sequences. Jaime
@@ -188,7 +189,7 @@ If you use this software, please cite:
       Heller, Mathias C. Walter, Thomas Rattei, Daniel R. Mende, Shinichi
       Sunagawa, Michael Kuhn, Lars Juhl Jensen, Christian von Mering, and Peer
       Bork. Nucl. Acids Res. (04 January 2016) 44 (D1): D286-D293. doi:
-      10.1093/nar/gkv1248
+      https://doi.org/10.1093/nar/gkv1248
 """
 
     if 'hmmer' in addons:
