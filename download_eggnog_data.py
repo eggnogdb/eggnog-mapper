@@ -3,6 +3,7 @@ import os
 from argparse import ArgumentParser
 from eggnogmapper.common import EGGNOG_DATABASES, get_data_path, get_hmmdb_path, pexists, pjoin, get_level_base_path, set_data_path, existing_dir, get_db_present
 from eggnogmapper.utils import ask, colorify
+import shutil
 
 def run(cmd):
     print colorify(cmd, 'cyan')
