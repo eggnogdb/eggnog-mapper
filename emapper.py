@@ -292,7 +292,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
         tool = 'blastx'
     else:
         tool = 'blastp'
-    dmnd_db = args.db if args.db else get_eggnog_dmnd_db() 
+    dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
     dmnd_opts = ''
     if args.matrix is not None:
         dmnd_opts += ' --matrix %s' % args.matrix
@@ -316,9 +316,9 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     #diamond blastp --threads "${GALAXY_SLOTS:-12}" --db ./database --query '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164640.dat' --query-gencode '1'  --outfmt '6' qseqid sseqid sallseqid qlen slen pident length nident mismatch positive gapopen gaps ppos qstart qend sstart send qseq sseq evalue bitscore score qframe stitle salltitles qcovhsp --out '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164759.dat'  --compress '0'   --gapopen '10' --gapextend '1' --matrix 'PAM30' --seg 'yes'  --max-target-seqs '25'  --evalue '0.001'  --id '0' --query-cover '0' --block-size '2.0'
 
     print colorify('  '+cmd, 'yellow')
-    status = subprocess.call(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if status == 0:
+    
+    try:
+	subprocess.check_call(cmd, shell=True,stdout=subprocess.PIPE)
         OUT = open('%s' %seed_orthologs_file, 'w')
 
         if not args.no_file_comments:
@@ -347,10 +347,11 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
             visited.add(query)
             print >>OUT, '\t'.join(map(str, [query, hit, evalue, score]))
         OUT.close()
-    else:
-        print cmd
-        raise ValueError('Error running diamond')
-    shutil.rmtree(tempdir)
+
+    except subprocess.CalledProcessError as e:
+        raise e
+    finally:
+	shutil.rmtree(tempdir)
 
 
 def dump_hmm_matches(fasta_file, hits_file, dbpath, port, scantype, idmap, args):
@@ -878,9 +879,9 @@ def parse_args(parser):
         raise emapperException()
 
     if args.mode == 'diamond':
-        dmnd_db = args.db if args.db else get_eggnog_dmnd_db()
+        dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
         if not pexists(dmnd_db):
-            print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
+            print colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red')
             raise emapperException()
 
     if args.cpu == 0:
@@ -1011,6 +1012,9 @@ if __name__ == "__main__":
                         ' (allows comparing e-values among databases). Default=40,000,000')
 
     pg_diamond = parser.add_argument_group('diamond search_options')
+	
+    pg_diamond.add_argument('--dmnd_db',
+		    help="Path to DIAMOND-compatible database")
 
     pg_diamond.add_argument('--matrix', dest='matrix', 
                     choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
