@@ -21,7 +21,7 @@ CLASSIFIERS= [
 MOD_NAME = "eggnogmapper"
 VERSION = '1.0'
 LONG_DESCRIPTION="""
-Functional annotation of novel sequences using eggNOG orthology assignments.
+Fast functional annotation of novel sequences using eggNOG orthology assignments.
 """
 
 try:
@@ -48,7 +48,7 @@ try:
         maintainer_email = "huerta@embl.de",
         platforms = "OS Independent",
         license = "GPLv3",
-        description = "A Python Environment for (phylogenetic) Tree Exploration",
+        description = "Fast functional annotation of novel sequences using eggNOG orthology assignments.",
         long_description = LONG_DESCRIPTION,
         classifiers = CLASSIFIERS,
         provides = [MOD_NAME],
