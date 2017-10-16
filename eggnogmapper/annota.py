@@ -5,7 +5,7 @@ import re
 import time
 import multiprocessing
 
-from .common import EGGNOGDB_FILE
+from .common import get_eggnogdb_file
 from .utils import timeit
 
 conn = None
@@ -15,7 +15,7 @@ cog_cat_cleaner = re.compile('[\[\]u\'\"]+')
 
 def connect():
     global conn, db
-    conn = sqlite3.connect(EGGNOGDB_FILE)
+    conn = sqlite3.connect(get_eggnogdb_file())
     db = conn.cursor()
 
 def get_og_annotations(ogname):

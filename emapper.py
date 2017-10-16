@@ -64,7 +64,7 @@ def setup_hmm_search(args):
             raise ValueError('Database not found')
 
         if not args.no_refine:
-            if not pexists(pjoin(DATA_PATH, 'OG_fasta')):
+            if not pexists(pjoin(get_data_path(), 'OG_fasta')):
                 print colorify('Database data/OG_fasta/ not present. Use download_eggnog_database.py to fetch it', 'red')
                 raise ValueError('Database not found')
 
@@ -292,6 +292,14 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
         tool = 'blastx'
     else:
         tool = 'blastp'
+    dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
+    dmnd_opts = ''
+    if args.matrix is not None:
+        dmnd_opts += ' --matrix %s' % args.matrix
+    if args.gapopen is not None:
+        dmnd_opts += ' --gapopen %d' % args.gapopen
+    if args.gapextend is not None:
+        dmnd_opts += ' --gapextend %d' % args.gapextend
 
     if not DIAMOND:
         raise ValueError("diamond not found in path")
@@ -301,15 +309,16 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
     if excluded_taxa:
         cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
-          (DIAMOND, tool, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
     else:
         cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
-          (DIAMOND, tool, EGGNOG_DMND_DB, fasta_file, cpu, evalue_thr, raw_output_file)
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
+    #diamond blastp --threads "${GALAXY_SLOTS:-12}" --db ./database --query '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164640.dat' --query-gencode '1'  --outfmt '6' qseqid sseqid sallseqid qlen slen pident length nident mismatch positive gapopen gaps ppos qstart qend sstart send qseq sseq evalue bitscore score qframe stitle salltitles qcovhsp --out '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164759.dat'  --compress '0'   --gapopen '10' --gapextend '1' --matrix 'PAM30' --seg 'yes'  --max-target-seqs '25'  --evalue '0.001'  --id '0' --query-cover '0' --block-size '2.0'
 
     print colorify('  '+cmd, 'yellow')
-    status = subprocess.call(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    if status == 0:
+    
+    try:
+	subprocess.check_call(cmd, shell=True,stdout=subprocess.PIPE)
         OUT = open('%s' %seed_orthologs_file, 'w')
 
         if not args.no_file_comments:
@@ -338,10 +347,11 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
             visited.add(query)
             print >>OUT, '\t'.join(map(str, [query, hit, evalue, score]))
         OUT.close()
-    else:
-        print cmd
-        raise ValueError('Error running diamond')
-    shutil.rmtree(tempdir)
+
+    except subprocess.CalledProcessError as e:
+        raise e
+    finally:
+	shutil.rmtree(tempdir)
 
 
 def dump_hmm_matches(fasta_file, hits_file, dbpath, port, scantype, idmap, args):
@@ -499,7 +509,7 @@ def refine_matches(fasta_file, refine_file, hits_file, args):
     print colorify("Hit refinement starts now", 'green')
     start_time = time.time()
     og2level = dict([tuple(map(str.strip, line.split('\t')))
-                     for line in gopen(OGLEVELS_FILE)])
+                     for line in gopen(get_oglevels_file())])
     OUT = open(refine_file, "w")
 
     if not args.no_file_comments:
@@ -566,7 +576,7 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
 
         seq = sequences[seqname]
         visited_queries.add(seqname)
-        target_fasta = os.path.join(FASTA_PATH, level, "%s.fa" % hitname)
+        target_fasta = os.path.join(get_fasta_path(), level, "%s.fa" % hitname)
         cmds.append([seqname, seq, target_fasta, excluded_taxa, tempdir])
 
     if cmds:
@@ -861,13 +871,18 @@ def parse_args(parser):
         print get_version()
         sys.exit(0)
 
-    if not args.no_annot and not pexists(EGGNOGDB_FILE):
+    if args.data_dir:
+        set_data_path(args.data_dir)
+
+    if not args.no_annot and not pexists(get_eggnogdb_file()):
         print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
         raise emapperException()
 
-    if args.mode == 'diamond' and not pexists(EGGNOG_DMND_DB):
-        print colorify('DIAMOND database data/eggnog_proteins.dmnd not present. Use download_eggnog_database.py to fetch it', 'red')
-        raise emapperException()
+    if args.mode == 'diamond':
+        dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
+        if not pexists(dmnd_db):
+            print colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red')
+            raise emapperException()
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
@@ -947,6 +962,9 @@ if __name__ == "__main__":
     pg_db.add_argument('--dbtype', dest="dbtype",
                     choices=["hmmdb", "seqdb"], default="hmmdb")
 
+    pg_db.add_argument("--data_dir", metavar='', type=existing_dir,
+                    help='Directory to use for DATA_PATH.')
+
     pg_db.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
 
 
@@ -993,6 +1011,20 @@ if __name__ == "__main__":
                     help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
 
+    pg_diamond = parser.add_argument_group('diamond search_options')
+	
+    pg_diamond.add_argument('--dmnd_db',
+		    help="Path to DIAMOND-compatible database")
+
+    pg_diamond.add_argument('--matrix', dest='matrix', 
+                    choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
+                    default=None, help='Scoring matrix')
+
+    pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
+                    help='Gap open penalty')
+
+    pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
+                    help='Gap extend  penalty')
 
     pg_seed = parser.add_argument_group('Seed ortholog search option')
 
