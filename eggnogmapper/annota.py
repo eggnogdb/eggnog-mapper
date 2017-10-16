@@ -81,6 +81,15 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
 
     return all_pnames, all_gos, all_kegg, all_bigg
 
+def get_member_ogs(name):
+    cmd = 'SELECT groups FROM eggnog WHERE name == "%s";' % (name)
+    db.execute(cmd)
+    match = db.fetchone()
+    ogs = None
+    if match:
+        ogs = map(lambda x: str(x).strip(), match[0].split(','))
+    return ogs
+
 def get_member_orthologs(member, target_taxa=None, target_levels=None):
     query_taxa = member.split('.', 1)[0]
     target_members = set([member])
@@ -153,6 +162,9 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
 
     return all_orthologs
 
+
+
+
 # ############################
 # Currently not used
 # ############################
@@ -199,14 +211,6 @@ def get_by_member_gos(names, target_go_ev, excluded_go_ev):
         by_member[str(name)] = selected_gos
     return by_member
 
-def get_member_ogs(name):
-    cmd = 'SELECT groups FROM eggnog WHERE name == "%s";' % (name)
-    db.execute(cmd)
-    match = db.fetchone()
-    ogs = None
-    if match:
-        ogs = map(lambda x: str(x).strip(), match[0].split(','))
-    return ogs
 
 
 

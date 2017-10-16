@@ -576,7 +576,6 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
         pool.terminate()
 
     shutil.rmtree(tempdir)
-    
 
 def annotate_hit_line(arguments):
     annota.connect()
