@@ -4,6 +4,8 @@ from argparse import ArgumentParser
 from eggnogmapper.common import EGGNOG_DATABASES, DATA_PATH, HMMDB_PATH, pexists, pjoin, get_level_base_path
 from eggnogmapper.utils import ask, colorify
 
+DATABASE_VERSION="4.5.1"
+
 def run(cmd):
     print colorify(cmd, 'cyan')
     if not args.simulate:
@@ -11,7 +13,7 @@ def run(cmd):
 
 def download_hmm_database(level):
     level_base_path = get_level_base_path(level)
-    url = 'http://eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/hmmdb_levels/%s/' %level_base_path
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/hmmdb_levels/%s/' %(DATABASE_VERSION, level_base_path)
     if not args.force:
         flag = '-N'
     else:
@@ -20,17 +22,17 @@ def download_hmm_database(level):
     run(cmd)
 
 def download_annotations():
-    url = 'http://eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/eggnog.db.gz'
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz' %(DATA_PATH, url)
     run(cmd)
 
 def download_groups():
-    url = 'http://eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/OG_fasta.tar.gz'
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/OG_fasta.tar.gz' %(DATABASE_VERSION)
     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O OG_fasta.tar.gz  %s && echo Decompressing... && tar -zxf OG_fasta.tar.gz && rm OG_fasta.tar.gz' %(DATA_PATH,  url)
     run(cmd)
 
 def download_diamond_db():
-    url = 'http://eggnogdb.embl.de/download/eggnog_4.5/eggnog-mapper-data/eggnog_proteins.dmnd.gz'
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz  %s && echo Decompressing... && gunzip eggnog_proteins.dmnd.gz' %(DATA_PATH,  url)
     run(cmd)
 
