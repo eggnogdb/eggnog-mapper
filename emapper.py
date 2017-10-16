@@ -936,7 +936,7 @@ if __name__ == "__main__":
 
 
     g4.add_argument('-i', dest="input", metavar='', type=existing_file,
-                    help='Computes annotations for the provided FASTA file')
+                    help='Input FASTA file containing query sequences')
 
     g4.add_argument('--translate', action="store_true",
                     help='Assume sequences are genes instead of proteins')
