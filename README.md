@@ -2,7 +2,7 @@
 
 eggnog-mapper is a tool for fast functional annotation of novel sequences (genes or proteins) using precomputed eggNOG-based orthology assignments. Obvious examples include the annotation of novel genomes, transcriptomes or even metagenomic gene catalogs. The use of orthology predictions for functional annotation is considered more precise than traditional homology searches, as it avoids transferring annotations from paralogs (duplicate genes with a higher chance of being involved in functional divergence).
 
-EggNOG-mapper is also available as a public online resource: http://beta-eggnogdb.embl.de/#/app/emapper.
+EggNOG-mapper is also available as a public online resource: http://eggnog-mapper.embl.de
 
 # Documentation
 https://github.com/jhcepas/eggnog-mapper/wiki
