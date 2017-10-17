@@ -708,7 +708,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
                 og_cat, og_desc = seq2annotOG.get(hitname, ['', ''])
             else:
                 bestOG = 'NA|NA|NA'
-                og_cat, og_desc = '', ''
+                og_cat, og_desc = annota.get_best_og_description(match_nogs)
 
             if args.report_orthologs:
                 print >>ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
