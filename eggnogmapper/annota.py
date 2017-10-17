@@ -37,6 +37,22 @@ def get_ogs_annotations(ognames):
             og2desc[og] = [cat, desc]
     return og2desc
 
+
+def get_best_og_description(ognames):
+    query = ','.join(map(lambda x: '"%s"'%x.split('@')[0], ognames))
+    cmd = 'SELECT og.og, nm, description, COG_categories FROM og WHERE og.og IN (%s)' % query
+    best = [None, None, None]
+    if db.execute(cmd):
+        for og, nm, desc, cat in db.fetchall():
+            nm = int(nm)
+            desc = desc.strip()
+            if desc and desc != 'N/A' and desc != 'NA':
+                if not best[0] or nm <= best[0]:
+                    cat = re.sub(cog_cat_cleaner, '', cat)
+                    best = [nm, cat, desc]
+    return best[1], best[2]
+
+
 def parse_gos(gos, target_go_ev, excluded_go_ev):
     selected_gos = set()
     for g in gos.strip().split(','):
