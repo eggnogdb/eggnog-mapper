@@ -55,6 +55,7 @@ def setup_hmm_search(args):
     # If searching against a predefined database name
     if args.db in EGGNOG_DATABASES:
         dbpath, port = get_db_info(args.db)
+        print dbpath
         db_present = [pexists(dbpath + "." + ext)
                       for ext in 'h3f h3i h3m h3p idmap'.split()]
 
@@ -661,7 +662,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
                     "seed_ortholog_score",
                     "predicted_gene_name",
                     "GO_terms",
-                    "KEGG_modules",
+                    "KEGG_KOs",
                     "BiGG_reactions",
                     "Annotation_tax_scope",
                     "OGs",
