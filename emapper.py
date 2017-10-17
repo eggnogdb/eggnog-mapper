@@ -682,8 +682,9 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         ORTHOLOGS = open(annot_file+".orthologs", "w")
 
     if not args.no_file_comments:
-        print >>OUT, '# ' + time.ctime()
-        print >>OUT, '# ' + ' '.join(sys.argv)
+        print >>OUT, '# emapper version:', get_version(), 'emapper DB:', get_db_version()
+        print >>OUT, '# command: ./emapper.py ', ' '.join(sys.argv[1:])
+        print >>OUT, '# time: ' + time.ctime()
         print >>OUT, '\t'.join(annot_header)
 
     qn = 0
