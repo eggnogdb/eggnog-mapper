@@ -146,6 +146,13 @@ def get_version():
 
     return version
 
+def get_db_version():
+    from . import annota
+    annota.connect()
+    annota.db.execute('select * from version;')
+    return annota.db.fetchone()[0]
+
+
 def get_level_base_path(level):
     if level == 'euk':
         level = 'euk_500'
