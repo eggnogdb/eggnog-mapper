@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import os
 from argparse import ArgumentParser
-from eggnogmapper.common import EGGNOG_DATABASES, get_data_path, get_hmmdb_path, pexists, pjoin, get_level_base_path, set_data_path, existing_dir, get_db_present
+from eggnogmapper.common import EGGNOG_DATABASES, get_data_path, get_hmmdb_path, pexists, pjoin, get_level_base_path, set_data_path, existing_dir, get_db_present, get_db_info
 from eggnogmapper.utils import ask, colorify
 import shutil
 
@@ -14,12 +14,16 @@ def run(cmd):
 
 def download_hmm_database(level):
     level_base_path = get_level_base_path(level)
+    target_dir = os.path.split(get_db_info(level)[0])[0]
+    if not os.path.exists(target_dir):
+        os.mkdir(target_dir)
+
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/hmmdb_levels/%s/' %(DATABASE_VERSION, level_base_path)
     if not args.force:
         flag = '-N'
     else:
         flag = ''
-    cmd = 'mkdir -p %s; cd %s; wget %s -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(get_hmmdb_path(), get_hmmdb_path(), flag, url)
+    cmd = 'mkdir -p %s; cd %s; wget %s -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(target_dir, target_dir, flag, url)
     run(cmd)
 
 def download_annotations():
