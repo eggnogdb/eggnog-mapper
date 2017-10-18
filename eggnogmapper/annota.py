@@ -41,7 +41,7 @@ def get_ogs_annotations(ognames):
 def get_best_og_description(ognames):
     query = ','.join(map(lambda x: '"%s"'%x.split('@')[0], ognames))
     cmd = 'SELECT og.og, nm, description, COG_categories FROM og WHERE og.og IN (%s)' % query
-    best = [None, None, None]
+    best = [None, '', '']
     if db.execute(cmd):
         for og, nm, desc, cat in db.fetchall():
             nm = int(nm)
