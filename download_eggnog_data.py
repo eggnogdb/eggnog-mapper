@@ -16,7 +16,7 @@ def download_hmm_database(level):
     level_base_path = get_level_base_path(level)
     target_dir = os.path.split(get_db_info(level)[0])[0]
     if not os.path.exists(target_dir):
-        os.mkdir(target_dir)
+        os.makedirs(target_dir)
 
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/hmmdb_levels/%s/' %(DATABASE_VERSION, level_base_path)
     if not args.force:
