@@ -41,8 +41,8 @@ def download_diamond_db():
     run(cmd)
 
 def download_og2level():
-    url= 'https://github.com/jhcepas/eggnog-mapper/raw/master/data/og2level.tsv.gz'
-    cmd = 'cd %s && wget %s' %(get_data_path(),  url)
+    url= 'http://eggnogdb.embl.de/download/emapperdb-%s/og2level.tsv.gz' %(DATABASE_VERSION)
+    cmd = 'cd %s && wget -O og2level.tsv.gz %s' %(get_data_path(),  url)
     run(cmd)
 
 
