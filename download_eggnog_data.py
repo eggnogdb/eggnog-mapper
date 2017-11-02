@@ -3,7 +3,6 @@ import os
 from argparse import ArgumentParser
 from eggnogmapper.common import EGGNOG_DATABASES, get_data_path, get_hmmdb_path, pexists, pjoin, get_level_base_path, set_data_path, existing_dir, get_db_present, get_db_info
 from eggnogmapper.utils import ask, colorify
-import shutil
 
 DATABASE_VERSION="4.5.1"
 
@@ -41,6 +40,11 @@ def download_diamond_db():
     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz  %s && echo Decompressing... && gunzip eggnog_proteins.dmnd.gz' %(get_data_path(),  url)
     run(cmd)
 
+def download_og2level():
+    url= 'https://github.com/jhcepas/eggnog-mapper/raw/master/data/og2level.tsv.gz'
+    cmd = 'cd %s && wget %s' %(get_data_path(),  url)
+    run(cmd)
+
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -68,13 +72,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    installed_data_dir = get_data_path()
-
     if args.data_dir:
         set_data_path(args.data_dir)
 
     if args.force or not pexists(pjoin(get_data_path(), 'og2level.tsv.gz')):
-        shutil.copy2(pjoin(installed_data_dir, 'og2level.tsv.gz'), pjoin(get_data_path(), 'og2level.tsv.gz'))
+        print colorify('Downloading "og2level.tsv.gz" at %s' %get_data_path(), 'green')
+        download_og2level()
 
     if 'all' in args.dbs:
         args.dbs = EGGNOG_DATABASES
