@@ -3,7 +3,6 @@ import os
 from argparse import ArgumentParser
 from eggnogmapper.common import EGGNOG_DATABASES, get_data_path, get_hmmdb_path, pexists, pjoin, get_level_base_path, set_data_path, existing_dir, get_db_present, get_db_info
 from eggnogmapper.utils import ask, colorify
-import shutil
 
 DATABASE_VERSION="4.5.1"
 
@@ -11,6 +10,13 @@ def run(cmd):
     print colorify(cmd, 'cyan')
     if not args.simulate:
         os.system(cmd)
+
+def gunzip_flag():
+    if args.force:
+        return '-f'
+    else:
+        return ''
+
 
 def download_hmm_database(level):
     level_base_path = get_level_base_path(level)
@@ -28,7 +34,7 @@ def download_hmm_database(level):
 
 def download_annotations():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz' %(get_data_path(), url)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz %s' %(get_data_path(), url, gunzip_flag())
     run(cmd)
 
 def download_groups():
@@ -38,7 +44,12 @@ def download_groups():
 
 def download_diamond_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz  %s && echo Decompressing... && gunzip eggnog_proteins.dmnd.gz' %(get_data_path(),  url)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz  %s && echo Decompressing... && gunzip eggnog_proteins.dmnd.gz %s' %(get_data_path(),  url, gunzip_flag())
+    run(cmd)
+
+def download_og2level():
+    url= 'http://eggnogdb.embl.de/download/emapperdb-%s/og2level.tsv.gz' %(DATABASE_VERSION)
+    cmd = 'cd %s && wget -O og2level.tsv.gz %s' %(get_data_path(),  url)
     run(cmd)
 
 
@@ -68,13 +79,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    installed_data_dir = get_data_path()
-
     if args.data_dir:
         set_data_path(args.data_dir)
 
     if args.force or not pexists(pjoin(get_data_path(), 'og2level.tsv.gz')):
-        shutil.copy2(pjoin(installed_data_dir, 'og2level.tsv.gz'), pjoin(get_data_path(), 'og2level.tsv.gz'))
+        print colorify('Downloading "og2level.tsv.gz" at %s' %get_data_path(), 'green')
+        download_og2level()
 
     if 'all' in args.dbs:
         args.dbs = EGGNOG_DATABASES
