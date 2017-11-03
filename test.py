@@ -16,7 +16,7 @@ def run(cmd):
 class Test(unittest.TestCase):
 
     def test_annotations(self):
-        os.system('rm polb.emapper.*')
+        os.system('rm polb.emapper.* -f')
         st, out, err = run('-i test/polb.fa -d bact -o polb')
         ok = False
         for line in open("polb.emapper.annotations"):
@@ -32,11 +32,11 @@ class Test(unittest.TestCase):
         if not ok:
             ValueError('polB result not obtained')
         else:
-            os.system('rm polb.emmaper.*')
+            os.system('rm polb.emmaper.* -f')
 
     
     def test_execution_modes(self):
-        os.system('rm borrame.emapper.*')
+        os.system('rm borrame.emapper.* -f')
 
         # should run
         st, out, err = run('-i test/polb.fa -d bact:localhost:51500 -o borrame')
@@ -60,21 +60,21 @@ class Test(unittest.TestCase):
         assert st == 0
 
         # should run from disk
-        os.system('rm borrame.emapper.*')
+        os.system('rm borrame.emapper.* -f')
         st, out, err = run('-i test/polb.fa -d maNOG -o borrame')
         assert st == 0
 
         # should run from mem
-        os.system('rm borrame.emapper.*')
+        os.system('rm borrame.emapper.* -f')
         st, out, err = run('-i test/polb.fa -d homNOG -o borrame --usemem')
         assert st == 0
 
         # should run from mem
-        os.system('rm borrame.emapper.*')
+        os.system('rm borrame.emapper.* -f')
         st, out, err = run('-i test/polb.fa -o borrame -m diamond --cpu 10')
         assert st == 0
 
-        os.system('rm borrame.emapper.*')
+        os.system('rm borrame.emapper.* -f')
 
 if __name__ == '__main__':
     unittest.main()
