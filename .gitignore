@@ -6,3 +6,5 @@
 *.emapper.*
 *.swp
 emappertmp*
+data/*
+!.gitkeep
