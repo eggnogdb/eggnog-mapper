@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 import os
+import errno
 import time
 import cPickle
 import multiprocessing
@@ -185,6 +186,9 @@ def main(args):
     else:
         output_files = [hmm_hits_file, seed_orthologs_file, annot_file]
 
+    # convert to absolute path before changing directory
+    if args.annotate_hits_table:
+        args.annotate_hits_table = os.path.abspath(args.annotate_hits_table)
     # force user to decide what to do with existing files
     os.chdir(args.output_dir)
     files_present = set([pexists(fname) for fname in output_files])
@@ -233,6 +237,10 @@ def main(args):
     if not args.no_annot:
         annota.connect()
         if args.annotate_hits_table:
+            if not os.path.exists(args.annotate_hits_table):
+                raise IOError(errno.ENOENT,
+                              os.strerror(errno.ENOENT),
+                              args.annotate_hits_table)
             annotate_hits_file(args.annotate_hits_table, annot_file, hmm_hits_file, args)
         elif args.db == 'viruses':
             annotate_hmm_matches(hmm_hits_file, hmm_hits_file+'.annotations', args)
