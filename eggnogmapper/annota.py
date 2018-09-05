@@ -108,6 +108,9 @@ def get_member_ogs(name):
 
 def get_member_orthologs(member, target_taxa=None, target_levels=None):
     query_taxa = member.split('.', 1)[0]
+    if target_taxa:
+        target_taxa = map(str, target_taxa)
+
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM orthologs WHERE name = "%s"' % member.strip()
     db.execute(cmd)
@@ -118,22 +121,27 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
     db.execute(cmd2)
     orthology = {}
     for level, _side1, _side2 in db.fetchall():
+
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
-
+    
         by_sp1, by_sp2 = {}, {}
+
         for _sp, _side in [(by_sp1, side1),
                            (by_sp2, side2)]:
-            for t, s in _side:
+            for t, s in _side:            
                 if not target_taxa or t in target_taxa or t == query_taxa:
                     mid = "%s.%s" % (t, s)
                     _sp.setdefault(t, set()).add(mid)
 
+
         # merge by side1 coorthologs
         targets = target_taxa or by_sp2.keys()
+
         for sp1, co1 in by_sp1.iteritems():
             if target_members & co1:
                 key1 = (sp1, tuple(sorted((co1))))
+                
                 for sp2 in targets:
                     if sp2 not in by_sp2:
                         continue
@@ -152,6 +160,7 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
                     co2 = by_sp1[sp2]
                     key2 = (sp2, tuple(sorted(co2)))
                     orthology.setdefault(key1, set()).add(key2)
+
 
     all_orthologs = {
         "one2one": set(),
@@ -179,7 +188,148 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
     return all_orthologs
 
 
+def get_member_orthologs_2(member, target_taxa=None, target_levels= None):
+    member = str(member)
+    query_taxa = int(member.split('.', 1)[0])
+    if target_taxa:
+        target_taxa = map(str, target_taxa)
 
+    target_members = set([member])
+    cmd = 'SELECT orthoindex FROM orthologs WHERE name = "%s"' % member.strip()
+    db.execute(cmd)
+    event_indexes = str(db.fetchone()[0])
+    cmd2 = 'SELECT level, side1, side2 FROM event WHERE i IN (%s)' % event_indexes
+    if target_levels:
+        cmd2 += " AND level IN (%s)" % (','.join(map(lambda x: '"%s"' %x, target_levels)))
+    db.execute(cmd2)
+    orthologs = []
+    orthologs_pred = {}
+                    
+    for i, value in enumerate(sorted(db.fetchall(), key= lambda x: len(x[1]) + len(x[2]))):
+        i = int(i)
+        value = list(value)
+        level = value[0]
+        side1 = value[1].encode('utf-8').split(',')
+        side2 = value[2].encode('utf-8').split(',')
+
+        if i == 0:
+            for mem in side1:
+                sp_mem = int(mem.split('.')[0])
+                if sp_mem == query_taxa and mem != member:
+                    orthologs.append(mem)
+                for mem2 in side2:
+                    if mem2 in orthologs:
+                        continue
+                    else:
+                        orthologs.append(mem2)
+            for mem in side2:
+                sp_mem = int(mem.split('.')[0])
+                if sp_mem == query_taxa and mem != member:
+                    orthologs.append(mem)
+                for mem2 in side1:
+                    if mem2 in orthologs:
+                        continue
+                    else:
+                        orthologs.append(mem2)
+
+        else:
+            for mem in side1:
+                if mem == member:
+                    for mem2 in side2:
+                        if mem2 in orthologs:
+                            continue
+                        else:
+                            orthologs.append(mem2)
+            for mem in side2:
+                if mem == member:
+                    for mem2 in side1:
+                        if mem2 in orthologs:
+                            continue
+                        else:
+                            orthologs.append(mem2)
+
+    for element in orthologs:
+        sp = element.split('.')[0]
+        orthologs_pred.setdefault(sp, []).append(element)
+
+    return orthologs_pred
+'''
+        value_list = list(value)
+        
+        side1 = value_list[1].encode('utf-8').split(',')
+        side2 = value_list[2].encode('utf-8').split(',')
+
+        by_sp1, by_sp2 = {}, {}
+
+        for _sp, _side in [(by_sp1, side1),
+                           (by_sp2, side2)]:
+            for t, s in _side:
+                if not target_taxa or t in target_taxa or t == query_taxa:
+                    mid = "%s.%s" % (t, s)
+                    _sp.setdefault(t, set()).add(mid)
+
+        if i == 0:
+            #inparalogs should be considered orthologs 
+            if query_taxa in side1:
+                print side1
+                for mem1 in side1:
+                    sp_mem = int(mem1.split('.')[0])
+                    if sp_mem == query_taxa and member != mem1:
+                        key1 = (sp_mem, mem1)
+                        for mem2 in side2:
+                            sp2 =int(mem2.split('.')[0])
+                            key2 = (sp2, mem2)
+                            orthology.setdefault(key1, set()).add(key2)
+
+
+            if query_taxa in side2:
+                for mem2 in side2:
+                    sp_mem = int(mem2.split('.')[0])
+		    if sp_mem == query_taxa and member != mem2:
+                        key1 = (sp_mem, mem2)
+                        for mem1 in side1: 
+                            sp2 =int(mem2.split('.')[0])
+                            key2 = (sp2, mem2)
+                            orthology.setdefault(key1, set()).add(key2)
+
+        else:                    
+        # merge by side1 coorthologs
+            targets = target_taxa or by_sp2.keys()
+            for sp1, co1 in by_sp1.iteritems():
+                if target_members & co1:
+                    key1 = (sp1, tuple(sorted((co1))))
+                    for sp2 in targets:
+                        if sp2 not in by_sp2:
+                            continue
+                        co2 = by_sp2[sp2]
+                        key2 = (sp2, tuple(sorted(co2)))
+                        orthology.setdefault(key1, set()).add(key2)
+
+        #merge by side2 coorthologs
+            targets = target_taxa or by_sp1.keys()
+            for sp1, co1 in by_sp2.iteritems():
+                if target_members & co1:
+                    key1 = (sp1, tuple(sorted((co1))))
+                    for sp2 in targets:
+                        if sp2 not in by_sp1:
+                            continue
+                        co2 = by_sp1[sp2]
+                        key2 = (sp2, tuple(sorted(co2)))
+                        orthology.setdefault(key1, set()).add(key2)
+
+        
+
+    all_orthologs = {
+    "all": set()
+     }
+
+    for k, v in orthology.iteritems():
+        all_orthologs['all'].update(k[1])
+        for t2, co2 in v:
+            all_orthologs['all'].update(co2)
+    
+    return all_orthologs
+'''
 
 # ############################
 # Currently not used
