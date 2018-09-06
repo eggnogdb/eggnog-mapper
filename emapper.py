@@ -181,7 +181,7 @@ def main(args):
     hmm_hits_file = "%s.emapper.hmm_hits" % args.output
     seed_orthologs_file = "%s.emapper.seed_orthologs" % args.output
     annot_file = "%s.emapper.annotations" % args.output
-    orthologs_file = "%s.emaper.predict_orthologs" %args.output
+    orthologs_file = "%s.emapper.predict_orthologs" %args.output
 
     if args.no_search:
         output_files = [annot_file]
@@ -306,13 +306,17 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     score_thr = args.seed_ortholog_score
     evalue_thr = args.seed_ortholog_evalue
     excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+    
     if args.translate:
         tool = 'blastx'
     else:
         tool = 'blastp'
+    
     dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
     query_cov = args.query_cover
+    subject_cov = args.subject_cover
     dmnd_opts = ''
+    
     if args.matrix is not None:
         dmnd_opts += ' --matrix %s' % args.matrix
     if args.gapopen is not None:
@@ -323,16 +327,17 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     if not DIAMOND:
         raise ValueError("diamond not found in path")
 
-    
     tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=args.temp_dir)
 
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
+    
     if excluded_taxa:
-        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25 --query-cover %s' %\
-          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file, query_cov)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25 --query-cover %s --subject-cover %s' %\
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file, query_cov, subject_cov)
     else:
-        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3 --query-cover %s' %\
-          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file, query_cov)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3 --query-cover %s --subject-cover %s' %\
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file, query_cov, subject_cov)
+    
     #diamond blastp --threads "${GALAXY_SLOTS:-12}" --db ./database --query '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164640.dat' --query-gencode '1'  --outfmt '6' qseqid sseqid sallseqid qlen slen pident length nident mismatch positive gapopen gaps ppos qstart qend sstart send qseq sseq evalue bitscore score qframe stitle salltitles qcovhsp --out '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164759.dat'  --compress '0'   --gapopen '10' --gapextend '1' --matrix 'PAM30' --seg 'yes'  --max-target-seqs '25'  --evalue '0.001'  --id '0' --query-cover '0' --block-size '2.0'
 
     print colorify('  '+cmd, 'yellow')
@@ -1074,6 +1079,9 @@ if __name__ == "__main__":
 
     pg_diamond.add_argument('--query-cover', dest='query_cover', type=int, default=60, 
                     help='Report only alignments above the given percentage of query cover. Default=60')
+
+    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=int, default=60,
+                    help='Report only alignments above the given percentage of subject cover. Default=60')
 
     pg_seed = parser.add_argument_group('Seed ortholog search option')
 
