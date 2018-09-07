@@ -27,6 +27,7 @@ from eggnogmapper.utils import colorify
 from eggnogmapper.server import (server_functional, load_server,
                                  generate_idmap, shutdown_server)
 
+
 __description__ = ('A program for bulk functional annotation of novel '
                     'sequences using the EggNOG orthology assignments')
 __author__ = 'Jaime Huerta Cepas'
@@ -272,7 +273,7 @@ def main(args):
             annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args)
 
     if args.predict_ortho:
-        annota.connect()
+        orthology.connect()
         dump_orthologs(seed_orthologs_file, orthologs_file, args)
             
     # If running in scratch, move files to real output dir and clean up
@@ -808,7 +809,7 @@ def dump_orthologs(seed_orthologs_file, orthologs_file, args):
 def find_orthologs_per_hit(arguments):
 #Copy from predict_orthologs.py
 
-    annota.connect()
+    orthology.connect()
     line, args = arguments
 
     if not line.strip() or line.startswith('#'):
@@ -828,7 +829,7 @@ def find_orthologs_per_hit(arguments):
 
     target_taxa = args._expanded_target_taxa
     
-    orthologs_pred = annota.get_member_orthologs_2(best_hit_name, target_taxa=target_taxa, target_levels = None)
+    orthologs_pred = orthology.predict_orthologs_by_seed(best_hit_name, target_taxa=target_taxa, target_levels = None)
     return (query_name, best_hit_name, orthologs_pred)
 
 
@@ -839,11 +840,22 @@ def write_orthologs_in_file(result_line, ORTHOLOGS, args):
     Writes orthologs in file for all output formats except json
     """
     query_name, best_hit_name, orthologs_pred = result_line
-    target_taxa = list(args._expanded_target_taxa)
+    
+    if args._expanded_target_taxa:  
+        target_taxa = list(args._expanded_target_taxa)
+    else:
+        target_taxa = None
+    
     if args.predict_output_format == "per_query":
         orthologs = []
         for key in orthologs_pred:
-            if key in target_taxa:
+            if target_taxa is not None:
+                    if key in target_taxa:
+                        members = (','.join(orthologs_pred[key]))
+                        orthologs.append(members)
+                        print >> ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+
+            else:
                 members = (','.join(orthologs_pred[key]))
                 orthologs.append(members)
                 print >> ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
@@ -851,9 +863,14 @@ def write_orthologs_in_file(result_line, ORTHOLOGS, args):
     elif args.predict_output_format == "per_species":
         for key in orthologs_pred:
             sp_taxid = int(key)
-            if sp_taxid in target_taxa:
-                print >> ORTHOLOGS, '\t'.join(map(str, (query_name, key,
+            if target_taxa is not None: 
+                if sp_taxid in target_taxa:
+                    print >> ORTHOLOGS, '\t'.join(map(str, (query_name, key,
                                                     ','.join(orthologs_pred[key])))) 
+
+            else:
+                print >> ORTHOLOGS, '\t'.join(map(str, (query_name, key,
+                                                    ','.join(orthologs_pred[key]))))
         '''
         sorted_orthologs = orthology.sort_orthologs_by_species(predict_ortho, best_hit_name)
         for (sp, _, ortho_type), ortho_list in sorted_orthologs.items():
