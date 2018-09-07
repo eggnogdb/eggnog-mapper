@@ -26,7 +26,6 @@ from eggnogmapper import orthology
 from eggnogmapper.utils import colorify
 from eggnogmapper.server import (server_functional, load_server,
                                  generate_idmap, shutdown_server)
-from ete3 import NCBITaxa
 
 __description__ = ('A program for bulk functional annotation of novel '
                     'sequences using the EggNOG orthology assignments')
@@ -981,6 +980,7 @@ def parse_args(parser):
                 parser.error('-d and --guessdb options are mutually exclusive')
 
             if args.guessdb:
+                from ete3 import NCBITaxa
                 ncbi = NCBITaxa()
                 lineage = ncbi.get_lineage(args.guessdb)
                 for tid in reversed(lineage):
@@ -1077,10 +1077,10 @@ if __name__ == "__main__":
     pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
                     help='Gap extend  penalty')
 
-    pg_diamond.add_argument('--query-cover', dest='query_cover', type=int, default=60, 
+    pg_diamond.add_argument('--query-cover', dest='query_cover', type=float, default=60, 
                     help='Report only alignments above the given percentage of query cover. Default=60')
 
-    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=int, default=60,
+    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=60,
                     help='Report only alignments above the given percentage of subject cover. Default=60')
 
     pg_seed = parser.add_argument_group('Seed ortholog search option')
