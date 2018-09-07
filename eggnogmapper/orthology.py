@@ -26,6 +26,72 @@ def normalize_target_taxa(target_taxa):
 
     return expanded_taxa
 
+def predict_orthologs_by_seed(member, target_taxa=None, target_levels= None):
+    member = str(member)
+    query_taxa = int(member.split('.', 1)[0])
+    if target_taxa:
+        target_taxa = map(str, target_taxa)
+
+    target_members = set([member])
+    cmd = 'SELECT orthoindex FROM orthologs WHERE name = "%s"' % member.strip()
+    db.execute(cmd)
+    event_indexes = str(db.fetchone()[0])
+    cmd2 = 'SELECT level, side1, side2 FROM event WHERE i IN (%s)' % event_indexes
+    if target_levels:
+        cmd2 += " AND level IN (%s)" % (','.join(map(lambda x: '"%s"' %x, target_levels)))
+    db.execute(cmd2)
+    orthologs = []
+    orthologs_pred = {}
+
+    for i, value in enumerate(sorted(db.fetchall(), key= lambda x: len(x[1]) + len(x[2]))):
+        i = int(i)
+        value = list(value)
+        level = value[0]
+        side1 = value[1].encode('utf-8').split(',')
+        side2 = value[2].encode('utf-8').split(',')
+
+        if i == 0:
+            for mem in side1:
+                sp_mem = int(mem.split('.')[0])
+                if sp_mem == query_taxa and mem != member:
+                    orthologs.append(mem)
+                for mem2 in side2:
+                    if mem2 in orthologs:
+                        continue
+                    else:
+                        orthologs.append(mem2)
+            for mem in side2:
+                sp_mem = int(mem.split('.')[0])
+                if sp_mem == query_taxa and mem != member:
+                    orthologs.append(mem)
+                for mem2 in side1:
+                    if mem2 in orthologs:
+                        continue
+                    else:
+                        orthologs.append(mem2)
+
+
+        else:
+            for mem in side1:
+                if mem == member:
+                    for mem2 in side2:
+                        if mem2 in orthologs:
+                            continue
+                        else:
+                            orthologs.append(mem2)
+            for mem in side2:
+                if mem == member:
+                    for mem2 in side1:
+                        if mem2 in orthologs:
+                            continue
+                        else:
+                            orthologs.append(mem2)
+
+    for element in orthologs:
+        sp = element.split('.')[0]
+        orthologs_pred.setdefault(sp, []).append(element)
+
+    return orthologs_pred
 
 
 """
