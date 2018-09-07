@@ -1,6 +1,22 @@
-from collections import defaultdict
+from __future__ import absolute_import
+import sqlite3
+import re
+import time
+import multiprocessing
+from collections import defaultdict, Counter
 import json
 
+from .common import get_eggnogdb_file
+from .utils import timeit
+
+
+conn = None
+db = None
+
+def connect():
+    global conn, db
+    conn = sqlite3.connect(get_eggnogdb_file())
+    db = conn.cursor()
 
 def normalize_target_taxa(target_taxa):
 
@@ -94,7 +110,7 @@ def predict_orthologs_by_seed(member, target_taxa=None, target_levels= None):
     return orthologs_pred
 
 
-"""
+'''
 def dump_orthologs(seed_orthologs_file, args):
     orthologs_file = pjoin(args.output, ".orthologs")
     OUT = open(orthologs_file, "w")
@@ -104,8 +120,8 @@ def dump_orthologs(seed_orthologs_file, args):
         else:
             ortholog_header = ("#Query", "Ortho_Type","In-Paralogs","Target_Taxon", "Taxid", "Orthologs")
         print >> OUT, "\t".join(ortholog_header)
-
-
+'''
+'''
 def write_orthologs_in_file(result_line, OUT, args):
     #Writes orthologs in file for the output formats "per_query" and "per_orthology_type"
 
@@ -135,7 +151,7 @@ def write_orthologs_in_file(result_line, OUT, args):
                                               ','.join(all_orthologs[ortho_type]))))
 
     OUT.flush()
-"""
+'''
     
 def sort_orthologs_by_species(all_orthologs, best_hit_name):
     seed_ortholog_sp = best_hit_name.split('.', 1)[0]
