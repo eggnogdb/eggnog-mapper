@@ -108,6 +108,9 @@ def get_member_ogs(name):
 
 def get_member_orthologs(member, target_taxa=None, target_levels=None):
     query_taxa = member.split('.', 1)[0]
+    if target_taxa:
+        target_taxa = map(str, target_taxa)
+
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM orthologs WHERE name = "%s"' % member.strip()
     db.execute(cmd)
@@ -118,22 +121,27 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
     db.execute(cmd2)
     orthology = {}
     for level, _side1, _side2 in db.fetchall():
+
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
-
+    
         by_sp1, by_sp2 = {}, {}
+
         for _sp, _side in [(by_sp1, side1),
                            (by_sp2, side2)]:
-            for t, s in _side:
+            for t, s in _side:            
                 if not target_taxa or t in target_taxa or t == query_taxa:
                     mid = "%s.%s" % (t, s)
                     _sp.setdefault(t, set()).add(mid)
 
+
         # merge by side1 coorthologs
         targets = target_taxa or by_sp2.keys()
+
         for sp1, co1 in by_sp1.iteritems():
             if target_members & co1:
                 key1 = (sp1, tuple(sorted((co1))))
+                
                 for sp2 in targets:
                     if sp2 not in by_sp2:
                         continue
@@ -152,6 +160,7 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
                     co2 = by_sp1[sp2]
                     key2 = (sp2, tuple(sorted(co2)))
                     orthology.setdefault(key1, set()).add(key2)
+
 
     all_orthologs = {
         "one2one": set(),
@@ -177,8 +186,6 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
             all_orthologs['all'].update(co2)
 
     return all_orthologs
-
-
 
 
 # ############################
