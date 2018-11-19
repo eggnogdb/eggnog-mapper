@@ -1094,11 +1094,11 @@ if __name__ == "__main__":
     pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
                     help='Gap extend  penalty')
 
-    pg_diamond.add_argument('--query-cover', dest='query_cover', type=float, default=60, 
-                    help='Report only alignments above the given percentage of query cover. Default=60')
+    pg_diamond.add_argument('--query-cover', dest='query_cover', type=float, default=25,
+                    help='Report only alignments above the given percentage of query cover. Default=20')
 
-    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=60,
-                    help='Report only alignments above the given percentage of subject cover. Default=60')
+    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=25,
+                    help='Report only alignments above the given percentage of subject cover. Default=20')
 
     pg_seed = parser.add_argument_group('Seed ortholog search option')
 
