@@ -5,7 +5,7 @@ import re
 import time
 import multiprocessing
 
-from .common import get_eggnogdb_file
+from .common import get_eggnogdb_file, ANNOTATIONS_HEADER
 from .utils import timeit
 
 conn = None
@@ -67,7 +67,9 @@ def parse_gos(gos, target_go_ev, excluded_go_ev):
 
 def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
     in_clause = ','.join(['"%s"' % n for n in seq_names])
-    cmd = """SELECT eggnog.name, seq.pname, gene_ontology.gos, kegg.ko, bigg.reaction
+    cmd = """SELECT eggnog.name, seq.pname, gene_ontology.gos,
+    kegg.ec, kegg.ko, kegg.pathway, kegg.module, kegg.reaction, kegg.rclass, kegg.brite, kegg.tc, kegg.cazy, 
+    bigg.reaction
         FROM eggnog
         LEFT JOIN seq on seq.name = eggnog.name
         LEFT JOIN gene_ontology on gene_ontology.name = eggnog.name
@@ -75,27 +77,26 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
         LEFT JOIN bigg on bigg.name = eggnog.name
         WHERE eggnog.name in (%s)
         """ %in_clause
-    all_gos = set()
-    all_kegg = set()
-    all_bigg = set()
-    all_pnames = Counter()
+
+    annotations = defaultdict(Counter)
     db.execute(cmd)
-    for name, pname, gos, kegg, bigg in db.fetchall():
-        if gos:
-            all_gos.update(parse_gos(gos, target_go_ev, excluded_go_ev))
-        if kegg:
-            all_kegg.update(map(lambda x: str(x).strip(), kegg.split(',')))
-        if bigg:
-            all_bigg.update(map(lambda x: str(x).strip(), bigg.split(',')))
-        if pname:
-            all_pnames.update([pname.strip()])
+    for fields in db.fetchall():
+        for i, h in ANNOTATIONS_HEADER:
+            if not fields[i]:
+                continue
+            if h == 'GOs':
+                gos = fields[i]
+                annotations[h].update(parse_gos(gos, target_go_ev, excluded_go_ev))
+            elif h == 'Preferred_name':
+                annotations[h].udate([pname.strip()])
+            else:
+                values = map(lambda x: str(x).strip(), kegg.split(','))
+                annotations[h].udate(values)
 
-    all_gos.discard('')
-    all_kegg.discard('')
-    all_bigg.discard('')
-    del all_pnames['']
+    for h in header:
+        del annotations[h]['']
 
-    return all_pnames, all_gos, all_kegg, all_bigg
+    return annotations
 
 def get_member_ogs(name):
     cmd = 'SELECT groups FROM eggnog WHERE name == "%s";' % (name)
