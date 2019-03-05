@@ -690,20 +690,20 @@ def iter_hit_lines(filename, args):
         yield (line, args)
 
 def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
-    annot_header = ("#query_name",
-                    "seed_eggNOG_ortholog",
-                    "seed_ortholog_evalue",
-                    "seed_ortholog_score",
-                    "predicted_gene_name",
-                    "GO_terms",
-                    "KEGG_KOs",
-                    "BiGG_reactions",
-                    "Annotation_tax_scope",
-                    "OGs",
-                    "bestOG|evalue|score",
-                    "COG cat",
-                    "eggNOG annot",
-                    )
+    annot_header = ["#query_name",
+                     "seed_eggNOG_ortholog",
+                     "seed_ortholog_evalue",
+                     "seed_ortholog_score"]
+    #                 "predicted_gene_name",
+    #                 "GO_terms",
+    #                 "KEGG_KOs",
+    #                 "BiGG_reactions",
+    #                 "Annotation_tax_scope",
+    #                 "OGs",
+    #                 "bestOG|evalue|score",
+    #                 "COG cat",
+    #                 "eggNOG annot",
+    #                 )
     start_time = time.time()
     seq2bestOG = {}
     if pexists(hmm_hits_file):
@@ -722,7 +722,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         print >>OUT, '# emapper version:', get_version(), 'emapper DB:', get_db_version()
         print >>OUT, '# command: ./emapper.py ', ' '.join(sys.argv[1:])
         print >>OUT, '# time: ' + time.ctime()
-        print >>OUT, '\t'.join(annot_header)
+        print >>OUT, '\t'.join(annot_header + ANNOTATIONS_HEADER)
     qn = 0
     pool = multiprocessing.Pool(args.cpu)
     for data_ in  iter_hit_lines(seed_orthologs_file, args):
@@ -757,14 +757,14 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
                              str(best_hit_evalue),
                              str(best_hit_score),
                              best_name]
-
+            print annotations
             for h in ANNOTATIONS_HEADER:
                 if h in annotations:
                     annot_columns.append(','.join(sorted(annotations[h])))
                 else:
                     annot_columns.append('')
 
-            annot_columns.append([annot_level_max,
+            annot_columns.extend([annot_level_max,
                                     ','.join(match_nogs),
                                     bestOG,
                                     og_cat.replace('\n', ''),
