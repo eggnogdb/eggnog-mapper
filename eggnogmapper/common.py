@@ -17,7 +17,7 @@ except ImportError:
     __VERSION__ = 'unknown'
 
     
-ANNOTATIONS_HEADER = ['eggnog_prot, Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction']
+ANNOTATIONS_HEADER = map(str.strip, 'eggnog_prot, Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(','))
 
     
 TIMEOUT_LOAD_SERVER = 1800
@@ -200,10 +200,10 @@ If you use this software, please cite:
 
 [2] eggNOG 5.0: a hierarchical, functionally and phylogenetically annotated
       orthology resource based on 5090 organisms and 2502 viruses. Jaime
-      Huerta-Cepas, Damian Szklarczyk, Davide Heller, Ana Hernández-Plaza,
+      Huerta-Cepas, Damian Szklarczyk, Davide Heller, Ana Hernandez-Plaza,
       Sofia K Forslund, Helen Cook, Daniel R Mende, Ivica Letunic, Thomas
       Rattei, Lars J Jensen, Christian von Mering and Peer Bork. Nucleic Acids
-      Research, Volume 47, Issue D1, 8 January 2019, Pages D309–D314,
+      Research, Volume 47, Issue D1, 8 January 2019, Pages D309-D314,
       https://doi.org/10.1093/nar/gky1085 """
 
     if 'hmmer' in addons:

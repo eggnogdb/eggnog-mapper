@@ -81,19 +81,19 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
     annotations = defaultdict(Counter)
     db.execute(cmd)
     for fields in db.fetchall():
-        for i, h in ANNOTATIONS_HEADER:
+        for i, h in enumerate(ANNOTATIONS_HEADER):
             if not fields[i]:
                 continue
             if h == 'GOs':
                 gos = fields[i]
                 annotations[h].update(parse_gos(gos, target_go_ev, excluded_go_ev))
             elif h == 'Preferred_name':
-                annotations[h].udate([pname.strip()])
+                annotations[h].update([fields[i].strip()])
             else:
-                values = map(lambda x: str(x).strip(), kegg.split(','))
-                annotations[h].udate(values)
+                values = map(lambda x: str(x).strip(), fields[i].split(','))
+                annotations[h].update(values)
 
-    for h in header:
+    for h in annotations:
         del annotations[h]['']
 
     return annotations
