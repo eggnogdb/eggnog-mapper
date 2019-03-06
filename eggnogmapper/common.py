@@ -17,7 +17,7 @@ except ImportError:
     __VERSION__ = 'unknown'
 
     
-ANNOTATIONS_HEADER = map(str.strip, 'eggnog_prot, Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(','))
+ANNOTATIONS_HEADER = map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(','))
 
     
 TIMEOUT_LOAD_SERVER = 1800
