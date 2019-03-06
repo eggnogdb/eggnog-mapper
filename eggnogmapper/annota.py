@@ -64,10 +64,9 @@ def parse_gos(gos, target_go_ev, excluded_go_ev):
                 selected_gos.add(gid)
     return selected_gos
 
-
 def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
     in_clause = ','.join(['"%s"' % n for n in seq_names])
-    cmd = """SELECT eggnog.name, seq.pname, gene_ontology.gos,
+    cmd = """SELECT seq.pname, gene_ontology.gos,
     kegg.ec, kegg.ko, kegg.pathway, kegg.module, kegg.reaction, kegg.rclass, kegg.brite, kegg.tc, kegg.cazy, 
     bigg.reaction
         FROM eggnog
@@ -79,8 +78,9 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
         """ %in_clause
 
     annotations = defaultdict(Counter)
-    db.execute(cmd)
-    for fields in db.fetchall():
+    s = db.execute(cmd)
+    results = db.fetchall()
+    for fields in results:
         for i, h in enumerate(ANNOTATIONS_HEADER):
             if not fields[i]:
                 continue
@@ -96,7 +96,14 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
     for h in annotations:
         del annotations[h]['']
 
+    name_candidate, freq = annotations['Preferred_name'].most_common(1)[0]
+    if freq >= 2:
+        annotations['Preferred_name'] = [name_candidate]
+    else:
+        annotations['Preferred_name'] = ['']
+
     return annotations
+
 
 def get_member_ogs(name):
     cmd = 'SELECT groups FROM eggnog WHERE name == "%s";' % (name)

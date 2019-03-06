@@ -631,6 +631,7 @@ def annotate_hit_line(arguments):
     if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
         return None
 
+
     match_nogs = annota.get_member_ogs(best_hit_name)
     if not match_nogs:
         return None
@@ -663,24 +664,16 @@ def annotate_hit_line(arguments):
         if args.excluded_taxa:
             orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
         status = 'OK'
-
+        
     if orthologs:
         annotations = annota.summarize_annotations(orthologs,
                                                    target_go_ev=args.go_evidence,
                                                    excluded_go_ev=args.go_excluded)
-
-        best_name = ''
-        if annotations['Preferred_name']:
-            name_candidate, freq = annotations['Preferred_name'].most_common(1)[0]
-            if freq >= 2:
-                best_name = name_candidate
     else:
-        pname = []
-        best_name = '' if status == 'OK' else 'Missing_Tree_Error'
         annotations = {}
 
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            best_name, annotations, annot_level_max, match_nogs, orthologs)
+            annotations, annot_level_max, match_nogs, orthologs)
 
 
 def iter_hit_lines(filename, args):
@@ -725,9 +718,9 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         print >>OUT, '\t'.join(annot_header + ANNOTATIONS_HEADER)
     qn = 0
     pool = multiprocessing.Pool(args.cpu)
-    for data_ in  iter_hit_lines(seed_orthologs_file, args):
-        result = annotate_hit_line(data_)
-#    for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
+    #for data_ in  iter_hit_lines(seed_orthologs_file, args):
+    #   result = annotate_hit_line(data_)
+    for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
         qn += 1
         if qn and (qn % 500 == 0):
             total_time = time.time() - start_time
@@ -737,7 +730,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
 
         if result:
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-             best_name, annotations, annot_level_max, match_nogs, orthologs) = result
+             annotations, annot_level_max, match_nogs, orthologs) = result
 
             if query_name in seq2bestOG:
                 (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
@@ -755,9 +748,8 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
             annot_columns = [query_name,
                              best_hit_name,
                              str(best_hit_evalue),
-                             str(best_hit_score),
-                             best_name]
-            print annotations
+                             str(best_hit_score)]
+
             for h in ANNOTATIONS_HEADER:
                 if h in annotations:
                     annot_columns.append(','.join(sorted(annotations[h])))
