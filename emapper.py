@@ -719,7 +719,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
     qn = 0
     pool = multiprocessing.Pool(args.cpu)
     #for data_ in  iter_hit_lines(seed_orthologs_file, args):
-    #   result = annotate_hit_line(data_)
+    #    result = annotate_hit_line(data_)
     for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
         qn += 1
         if qn and (qn % 500 == 0):
