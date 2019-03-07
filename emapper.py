@@ -19,6 +19,8 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.common import *
+from eggnogmapper.vars import LEVEL_PARENTS, LEVEL_NAMES
+
 from eggnogmapper import search
 from eggnogmapper import annota
 from eggnogmapper import seqio
@@ -614,6 +616,14 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
     shutil.rmtree(tempdir)
 
 def annotate_hit_line(arguments):
+    try:
+        return _annotate_hit_line(arguments)
+    except:
+        import traceback
+        traceback.print_exc(file=sys.stdout)
+        raise
+
+def _annotate_hit_line(arguments):
     annota.connect()
     line, args = arguments
 
@@ -631,18 +641,20 @@ def annotate_hit_line(arguments):
     if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
         return None
 
-
     match_nogs = annota.get_member_ogs(best_hit_name)
     if not match_nogs:
         return None
 
-    match_levels = set([nog.split("@")[1] for nog in match_nogs])
+    match_levels = set()
+    for nog in match_nogs:
+        match_levels.update(LEVEL_PARENTS[nog.split("@")[1]])
+
     if args.tax_scope == "auto":
         for level in TAXONOMIC_RESOLUTION:
             if level in match_levels:
                 annot_levels = set(LEVEL_CONTENT.get(level, [level]))
                 annot_levels.add(level)
-                annot_level_max = "%s[%d]" %(level, len(annot_levels))
+                annot_level_max = "%s[%d]" %(LEVEL_NAMES[level], len(annot_levels))
                 break
     else:
         annot_levels = set(LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope]))
@@ -717,21 +729,22 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         print >>OUT, '# time: ' + time.ctime()
         print >>OUT, '\t'.join(annot_header + ANNOTATIONS_HEADER)
     qn = 0
+
     pool = multiprocessing.Pool(args.cpu)
+
     #for data_ in  iter_hit_lines(seed_orthologs_file, args):
     #    result = annotate_hit_line(data_)
     for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
         qn += 1
         if qn and (qn % 500 == 0):
             total_time = time.time() - start_time
-            print >>sys.stderr, qn, total_time, "%0.2f q/s (refinement)" % (
+            print >>sys.stderr, qn, total_time, "%0.2f q/s (func. annotation)" % (
                 (float(qn) / total_time))
             sys.stderr.flush()
 
         if result:
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
              annotations, annot_level_max, match_nogs, orthologs) = result
-
             if query_name in seq2bestOG:
                 (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
                  seqto, q_coverage) = seq2bestOG[query_name]
@@ -1039,7 +1052,7 @@ if __name__ == "__main__":
 
     pg_annot = parser.add_argument_group('Annotation Options')
 
-    pg_annot.add_argument("--tax_scope", type=str, choices=TAXID2LEVEL.values()+["auto"],
+    pg_annot.add_argument("--tax_scope", type=str, choices=LEVEL_NAMES.values()+["auto"],
                     default='auto', metavar='',
                     help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
                           "particular clade are used for functional transfer. "
