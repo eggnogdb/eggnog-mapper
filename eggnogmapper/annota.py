@@ -80,6 +80,7 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
     annotations = defaultdict(Counter)
     s = db.execute(cmd)
     results = db.fetchall()
+
     for fields in results:
         for i, h in enumerate(ANNOTATIONS_HEADER):
             if not fields[i]:
@@ -96,11 +97,20 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
     for h in annotations:
         del annotations[h]['']
 
-    name_candidate, freq = annotations['Preferred_name'].most_common(1)[0]
-    if freq >= 2:
-        annotations['Preferred_name'] = [name_candidate]
-    else:
-        annotations['Preferred_name'] = ['']
+    if annotations:
+        try:
+            pname = annotations['Preferred_name'].most_common(1)
+            if pname: 
+                name_candidate, freq = annotations['Preferred_name'].most_common(1)[0]
+            else:
+                freq =  0
+        except:
+            print annotations
+            raise 
+        if freq >= 2:
+            annotations['Preferred_name'] = [name_candidate]
+        else:
+            annotations['Preferred_name'] = ['']
 
     return annotations
 
