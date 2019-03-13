@@ -19,7 +19,7 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.common import *
-from eggnogmapper.vars import LEVEL_PARENTS, LEVEL_NAMES
+from eggnogmapper.vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
 from eggnogmapper import search
 from eggnogmapper import annota
@@ -649,6 +649,9 @@ def _annotate_hit_line(arguments):
     for nog in match_nogs:
         match_levels.update(LEVEL_PARENTS[nog.split("@")[1]])
 
+    swallowest_level = sorted(match_levels & set(LEVEL_DEPTH.keys()),
+                              key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+
     if args.tax_scope == "auto":
         for level in TAXONOMIC_RESOLUTION:
             if level in match_levels:
@@ -685,7 +688,7 @@ def _annotate_hit_line(arguments):
         annotations = {}
 
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            annotations, annot_level_max, match_nogs, orthologs)
+            annotations, annot_level_max, swallowest_level, match_nogs, orthologs)
 
 
 def iter_hit_lines(filename, args):
@@ -695,20 +698,12 @@ def iter_hit_lines(filename, args):
         yield (line, args)
 
 def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
-    annot_header = ["#query_name",
-                     "seed_eggNOG_ortholog",
-                     "seed_ortholog_evalue",
-                     "seed_ortholog_score"]
-    #                 "predicted_gene_name",
-    #                 "GO_terms",
-    #                 "KEGG_KOs",
-    #                 "BiGG_reactions",
-    #                 "Annotation_tax_scope",
-    #                 "OGs",
-    #                 "bestOG|evalue|score",
-    #                 "COG cat",
-    #                 "eggNOG annot",
-    #                 )
+    HIT_HEADER = ["#query_name",
+                          "seed_eggNOG_ortholog",
+                          "seed_ortholog_evalue",
+                          "seed_ortholog_score",
+                          "best_tax_level", ]
+    
     start_time = time.time()
     seq2bestOG = {}
     if pexists(hmm_hits_file):
@@ -719,21 +714,19 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
     print colorify("Functional annotation of refined hits starts now", 'green')
 
     OUT = open(annot_file, "w")
-    
+
     if args.report_orthologs:
         ORTHOLOGS = open(annot_file+".orthologs", "w")
-        
+
     if not args.no_file_comments:
         print >>OUT, '# emapper version:', get_version(), 'emapper DB:', get_db_version()
         print >>OUT, '# command: ./emapper.py ', ' '.join(sys.argv[1:])
         print >>OUT, '# time: ' + time.ctime()
-        print >>OUT, '\t'.join(annot_header + ANNOTATIONS_HEADER)
+        print >>OUT, '\t'.join(HIT_HEADER + ANNOTATIONS_HEADER)
     qn = 0
 
     pool = multiprocessing.Pool(args.cpu)
 
-    #for data_ in  iter_hit_lines(seed_orthologs_file, args):
-    #    result = annotate_hit_line(data_)
     for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
         qn += 1
         if qn and (qn % 500 == 0):
@@ -744,7 +737,7 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
 
         if result:
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-             annotations, annot_level_max, match_nogs, orthologs) = result
+             annotations, annot_level_max, swallowest_level, match_nogs, orthologs) = result
             if query_name in seq2bestOG:
                 (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
                  seqto, q_coverage) = seq2bestOG[query_name]
@@ -761,7 +754,8 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
             annot_columns = [query_name,
                              best_hit_name,
                              str(best_hit_evalue),
-                             str(best_hit_score)]
+                             str(best_hit_score),
+                             LEVEL_NAMES[swallowest_level]]
 
             for h in ANNOTATIONS_HEADER:
                 if h in annotations:
