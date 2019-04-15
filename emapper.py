@@ -13,20 +13,25 @@ from tempfile import mkdtemp
 import uuid
 import shutil
 import subprocess
+import json
 
 SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.common import *
+from eggnogmapper.vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
+
 from eggnogmapper import search
 from eggnogmapper import annota
 from eggnogmapper import seqio
+from eggnogmapper import orthology
 from eggnogmapper.utils import colorify
 from eggnogmapper.server import (server_functional, load_server,
                                  generate_idmap, shutdown_server)
 
+
 __description__ = ('A program for bulk functional annotation of novel '
-                    'sequences using the EggNOG orthology assignments')
+                    'sequences using EggNOG database orthology assignments')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
@@ -178,6 +183,7 @@ def main(args):
     hmm_hits_file = "%s.emapper.hmm_hits" % args.output
     seed_orthologs_file = "%s.emapper.seed_orthologs" % args.output
     annot_file = "%s.emapper.annotations" % args.output
+    orthologs_file = "%s.emapper.predict_orthologs" %args.output
 
     if args.no_search:
         output_files = [annot_file]
@@ -268,7 +274,12 @@ def main(args):
         else:
             annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args)
 
+    if args.predict_ortho:
+        orthology.connect()
+        dump_orthologs(seed_orthologs_file, orthologs_file, args)
+            
     # If running in scratch, move files to real output dir and clean up
+
     if args.scratch_dir:
         for fname in output_files:
             if pexists(fname):
@@ -297,12 +308,17 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     score_thr = args.seed_ortholog_score
     evalue_thr = args.seed_ortholog_evalue
     excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+    
     if args.translate:
         tool = 'blastx'
     else:
         tool = 'blastp'
+    
     dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
+    query_cov = args.query_cover
+    subject_cov = args.subject_cover
     dmnd_opts = ''
+    
     if args.matrix is not None:
         dmnd_opts += ' --matrix %s' % args.matrix
     if args.gapopen is not None:
@@ -316,18 +332,21 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=args.temp_dir)
 
     raw_output_file = pjoin(tempdir, uuid.uuid4().hex)
+    
     if excluded_taxa:
-        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25' %\
-          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --max-target-seqs 25 --query-cover %s --subject-cover %s' %\
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file, query_cov, subject_cov)
     else:
-        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3' %\
-          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file)
-    #diamond blastp --threads "${GALAXY_SLOTS:-12}" --db ./database --query '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164640.dat' --query-gencode '1'  --outfmt '6' qseqid sseqid sallseqid qlen slen pident length nident mismatch positive gapopen gaps ppos qstart qend sstart send qseq sseq evalue bitscore score qframe stitle salltitles qcovhsp --out '/panfs/roc/galaxy/GALAXYP/files/000/164/dataset_164759.dat'  --compress '0'   --gapopen '10' --gapextend '1' --matrix 'PAM30' --seg 'yes'  --max-target-seqs '25'  --evalue '0.001'  --id '0' --query-cover '0' --block-size '2.0'
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --top 3 --query-cover %s --subject-cover %s' %\
+          (DIAMOND, tool, dmnd_db, fasta_file, cpu, evalue_thr, raw_output_file, query_cov, subject_cov)
+
 
     print colorify('  '+cmd, 'yellow')
-    
+
     try:
-	subprocess.check_call(cmd, shell=True,stdout=subprocess.PIPE)
+        with open(raw_output_file+'.stdout', 'w') as STDOUT:
+            subprocess.check_call(cmd, shell=True, stdout=STDOUT)
+            
         OUT = open('%s' %seed_orthologs_file, 'w')
 
         if not args.no_file_comments:
@@ -360,7 +379,7 @@ def dump_diamond_matches(fasta_file, seed_orthologs_file, args):
     except subprocess.CalledProcessError as e:
         raise e
     finally:
-	shutil.rmtree(tempdir)
+        shutil.rmtree(tempdir)
 
 
 def dump_hmm_matches(fasta_file, hits_file, dbpath, port, scantype, idmap, args):
@@ -597,6 +616,14 @@ def process_nog_hits_file(hits_file, query_fasta, og2level, skip_queries=None,
     shutil.rmtree(tempdir)
 
 def annotate_hit_line(arguments):
+    try:
+        return _annotate_hit_line(arguments)
+    except:
+        import traceback
+        traceback.print_exc(file=sys.stdout)
+        raise
+
+def _annotate_hit_line(arguments):
     annota.connect()
     line, args = arguments
 
@@ -618,43 +645,50 @@ def annotate_hit_line(arguments):
     if not match_nogs:
         return None
 
-    match_levels = set([nog.split("@")[1] for nog in match_nogs])
+    match_levels = set()
+    for nog in match_nogs:
+        match_levels.update(LEVEL_PARENTS[nog.split("@")[1]])
+
+    swallowest_level = sorted(match_levels & set(LEVEL_DEPTH.keys()),
+                              key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+
     if args.tax_scope == "auto":
         for level in TAXONOMIC_RESOLUTION:
             if level in match_levels:
                 annot_levels = set(LEVEL_CONTENT.get(level, [level]))
                 annot_levels.add(level)
-                annot_level_max = "%s[%d]" %(level, len(annot_levels))
+                annot_level_max = "%s[%d]" %(LEVEL_NAMES[level], len(annot_levels))
                 break
     else:
         annot_levels = set(LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope]))
         annot_levels.add(args.tax_scope)
         annot_level_max = "%s[%d]" %(args.tax_scope, len(annot_levels))
 
-    all_orthologies = annota.get_member_orthologs(best_hit_name, target_levels=annot_levels)
-    orthologs = sorted(all_orthologies[args.target_orthologs])
-    if args.excluded_taxa:
-        orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
-
-    if orthologs:
-        pname, gos, kegg, bigg = annota.summarize_annotations(orthologs,
-                                                         target_go_ev=args.go_evidence,
-                                                         excluded_go_ev=args.go_excluded)
-
-        best_name = ''
-        if pname:
-            name_candidate, freq = pname.most_common(1)[0]
-            if freq >= 2:
-                best_name = name_candidate
+    if args.target_taxa != 'all':
+        target_taxa = orthology.normalize_target_taxa(args.target_taxa)
     else:
-        pname = []
-        best_name = ''
-        gos = set()
-        kegg = set()
-        bigg = set()
+        target_taxa = None
+
+    try:
+        all_orthologies = annota.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
+    except Exception:
+        orthologs = None
+        status = 'Error'
+    else:
+        orthologs = sorted(all_orthologies[args.target_orthologs])
+        if args.excluded_taxa:
+            orthologs = [o for o in orthologs if not o.startswith("%s." %args.excluded_taxa)]
+        status = 'OK'
+        
+    if orthologs:
+        annotations = annota.summarize_annotations(orthologs,
+                                                   target_go_ev=args.go_evidence,
+                                                   excluded_go_ev=args.go_excluded)
+    else:
+        annotations = {}
 
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            best_name, gos, kegg, bigg, annot_level_max, match_nogs, orthologs)
+            annotations, annot_level_max, swallowest_level, match_nogs, orthologs)
 
 
 def iter_hit_lines(filename, args):
@@ -664,20 +698,12 @@ def iter_hit_lines(filename, args):
         yield (line, args)
 
 def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
-    annot_header = ("#query_name",
-                    "seed_eggNOG_ortholog",
-                    "seed_ortholog_evalue",
-                    "seed_ortholog_score",
-                    "predicted_gene_name",
-                    "GO_terms",
-                    "KEGG_KOs",
-                    "BiGG_reactions",
-                    "Annotation_tax_scope",
-                    "OGs",
-                    "bestOG|evalue|score",
-                    "COG cat",
-                    "eggNOG annot",
-                    )
+    HIT_HEADER = ["#query_name",
+                          "seed_eggNOG_ortholog",
+                          "seed_ortholog_evalue",
+                          "seed_ortholog_score",
+                          "best_tax_level", ]
+    
     start_time = time.time()
     seq2bestOG = {}
     if pexists(hmm_hits_file):
@@ -686,7 +712,9 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
     seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.itervalues()]))
 
     print colorify("Functional annotation of refined hits starts now", 'green')
+
     OUT = open(annot_file, "w")
+
     if args.report_orthologs:
         ORTHOLOGS = open(annot_file+".orthologs", "w")
 
@@ -694,22 +722,22 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
         print >>OUT, '# emapper version:', get_version(), 'emapper DB:', get_db_version()
         print >>OUT, '# command: ./emapper.py ', ' '.join(sys.argv[1:])
         print >>OUT, '# time: ' + time.ctime()
-        print >>OUT, '\t'.join(annot_header)
-
+        print >>OUT, '\t'.join(HIT_HEADER + ANNOTATIONS_HEADER)
     qn = 0
+
     pool = multiprocessing.Pool(args.cpu)
+
     for result in pool.imap(annotate_hit_line, iter_hit_lines(seed_orthologs_file, args)):
         qn += 1
         if qn and (qn % 500 == 0):
             total_time = time.time() - start_time
-            print >>sys.stderr, qn, total_time, "%0.2f q/s (refinement)" % (
+            print >>sys.stderr, qn, total_time, "%0.2f q/s (func. annotation)" % (
                 (float(qn) / total_time))
             sys.stderr.flush()
 
         if result:
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-             best_name, gos, kegg, bigg, annot_level_max, match_nogs, orthologs) = result
-
+             annotations, annot_level_max, swallowest_level, match_nogs, orthologs) = result
             if query_name in seq2bestOG:
                 (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
                  seqto, q_coverage) = seq2bestOG[query_name]
@@ -722,23 +750,29 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
             if args.report_orthologs:
                 print >>ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
 
-            print >>OUT, '\t'.join(map(str, (query_name,
-                                             best_hit_name,
-                                             best_hit_evalue,
-                                             best_hit_score,
-                                             best_name,
-                                             ','.join(sorted(gos)),
-                                             ','.join(sorted(kegg)),
-                                             ','.join(sorted(bigg)),
-                                             annot_level_max,
-                                             ','.join(match_nogs),
-                                             bestOG,
-                                             og_cat.replace('\n', ''),
-                                             og_desc.replace('\n', ' '),
-                                             )))
+            # prepare annotations for printing
+            annot_columns = [query_name,
+                             best_hit_name,
+                             str(best_hit_evalue),
+                             str(best_hit_score),
+                             LEVEL_NAMES[swallowest_level]]
 
+            for h in ANNOTATIONS_HEADER:
+                if h in annotations:
+                    annot_columns.append(','.join(sorted(annotations[h])))
+                else:
+                    annot_columns.append('')
 
-        OUT.flush()
+            annot_columns.extend([annot_level_max,
+                                    ','.join(match_nogs),
+                                    bestOG,
+                                    og_cat.replace('\n', ''),
+                                    og_desc.replace('\n', ' ')])
+
+            print >>OUT, '\t'.join(annot_columns)
+
+        #OUT.flush()
+
     pool.terminate()
 
     elapsed_time = time.time() - start_time
@@ -753,6 +787,157 @@ def annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args):
 
     print colorify(" Processed queries:%s total_time:%s rate:%s" %\
                    (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
+
+
+def dump_orthologs(seed_orthologs_file, orthologs_file, args):
+#Copy from predict_orthologs.py
+    OUT = open(orthologs_file, "w")
+
+    if args.predict_output_format == "per_query":
+        ortholog_header = ("#Query", "Orthologs")
+    elif args.predict_output_format == "per_species":
+        ortholog_header = ("#Query", "Species", "Orthologs")
+
+    print >> OUT, "\t".join(ortholog_header)
+
+    if args.target_taxa != 'all':
+        args._expanded_target_taxa = orthology.normalize_target_taxa(args.target_taxa)
+    else:
+        # report orthologs from any species by default
+        args._expanded_target_taxa = None
+
+    pool = multiprocessing.Pool(args.cpu)
+    for result in pool.imap(find_orthologs_per_hit, iter_hit_lines(seed_orthologs_file, args)):
+        if result:
+            write_orthologs_in_file(result, OUT, args)
+
+    pool.terminate()
+
+
+def find_orthologs_per_hit(arguments):
+#Copy from predict_orthologs.py
+
+    orthology.connect()
+    line, args = arguments
+
+    if not line.strip() or line.startswith('#'):
+        return None
+    r = map(str.strip, line.split('\t'))
+
+    query_name = r[0]
+    best_hit_name = r[1]
+    if best_hit_name == '-' or best_hit_name == 'ERROR':
+        return None
+
+    best_hit_evalue = float(r[2])
+    best_hit_score = float(r[3])
+
+    if best_hit_score < args.seed_ortholog_score or best_hit_evalue > args.seed_ortholog_evalue:
+        return None
+
+    target_taxa = args._expanded_target_taxa
+    
+    orthologs_pred = orthology.predict_orthologs_by_seed(best_hit_name, target_taxa=target_taxa, target_levels = None)
+    return (query_name, best_hit_name, orthologs_pred)
+
+
+def write_orthologs_in_file(result_line, ORTHOLOGS, args):
+#Copy from predict_orthologs.py
+
+    """
+    Writes orthologs in file for all output formats except json
+    """
+    query_name, best_hit_name, orthologs_pred = result_line
+    
+    if args._expanded_target_taxa:  
+        target_taxa = list(args._expanded_target_taxa)
+    else:
+        target_taxa = None
+    
+    if args.predict_output_format == "per_query":
+        orthologs = []
+        for key in orthologs_pred:
+            if target_taxa is not None:
+                    if key in target_taxa:
+                        members = (','.join(orthologs_pred[key]))
+                        orthologs.append(members)
+                        print >> ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+
+            else:
+                members = (','.join(orthologs_pred[key]))
+                orthologs.append(members)
+                print >> ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+
+    elif args.predict_output_format == "per_species":
+        for key in orthologs_pred:
+            sp_taxid = int(key)
+            if target_taxa is not None: 
+                if sp_taxid in target_taxa:
+                    print >> ORTHOLOGS, '\t'.join(map(str, (query_name, key,
+                                                    ','.join(orthologs_pred[key])))) 
+
+            else:
+                print >> ORTHOLOGS, '\t'.join(map(str, (query_name, key,
+                                                    ','.join(orthologs_pred[key]))))
+        '''
+        sorted_orthologs = orthology.sort_orthologs_by_species(predict_ortho, best_hit_name)
+        for (sp, _, ortho_type), ortho_list in sorted_orthologs.items():
+            if ortho_type == 'all':
+                print >>ORTHOLOGS, '\t'.join(map(str, [query_name, sp, ','.join(sorted(ortho_list))]))
+'''
+    ORTHOLOGS.flush()
+    
+
+
+'''               
+    elif args.output_format == "per_species_and_type" :
+        sorted_orthologs = orthology.sort_orthologs_by_species(all_orthologs, best_hit_name)
+        seed_ortholog_sp = best_hit_name.split(".", 1)[0]
+        for (sp, inparalogs, ortho_type), ortho_list in sorted_orthologs.items():
+            if ortho_type == 'all':
+                continue
+            if sp == seed_ortholog_sp:
+                if len(inparalogs) > 1:
+                    ortho_type_temp = 'one2many'
+                else:
+                    ortho_type_temp = 'one2one'
+                print >>ORTHOLOGS, '\t'.join(map(str, (query_name, sp, ortho_type_temp,
+                                                       best_hit_name,
+                                                       ','.join(inparalogs))))
+            else:
+                inparalogs = tuple(sorted(inparalogs - set([best_hit_name])))
+                print >>ORTHOLOGS, '\t'.join(map(str, (query_name, sp, ortho_type,
+                                                       ",".join(inparalogs),
+                                                       ','.join(ortho_list))))
+
+
+def build_json_format(result_line, json_dict):
+    #Copy from predict_orthologs.py
+
+    query_name, all_orthologs, best_hit_name = result_line
+    json_dict[query_name] = {}
+
+    sorted_orthologs = orthology.sort_orthologs_by_species(all_orthologs, best_hit_name)
+    seed_ortholog_sp = best_hit_name.split(".", 1)[0]
+    for (sp, inparalogs, ortho_type), ortho_list in sorted_orthologs.items():
+        if sp not in json_dict[query_name].keys():
+            json_dict[query_name][sp]= {}
+        if ortho_type == 'all':
+            continue
+        if sp == seed_ortholog_sp:
+            if len(inparalogs) > 1:
+                ortho_type_temp = 'one2many'
+            else:
+                ortho_type_temp = 'one2one'
+
+            json_dict[query_name][sp][ortho_type_temp]= [best_hit_name, list(inparalogs)]
+
+        else:
+            inparalogs = tuple(sorted(inparalogs - set([best_hit_name])))
+            json_dict[query_name][sp][ortho_type]= [list(inparalogs), list(ortho_list)]
+
+    return json_dict
+'''
 
 
 def parse_args(parser):
@@ -861,7 +1046,7 @@ if __name__ == "__main__":
 
     pg_annot = parser.add_argument_group('Annotation Options')
 
-    pg_annot.add_argument("--tax_scope", type=str, choices=TAXID2LEVEL.values()+["auto"],
+    pg_annot.add_argument("--tax_scope", type=str, choices=LEVEL_NAMES.values()+["auto"],
                     default='auto', metavar='',
                     help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
                           "particular clade are used for functional transfer. "
@@ -917,6 +1102,12 @@ if __name__ == "__main__":
     pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
                     help='Gap extend  penalty')
 
+    pg_diamond.add_argument('--query-cover', dest='query_cover', type=float, default=25,
+                    help='Report only alignments above the given percentage of query cover. Default=25')
+
+    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=25,
+                    help='Report only alignments above the given percentage of subject cover. Default=25')
+
     pg_seed = parser.add_argument_group('Seed ortholog search option')
 
     pg_seed.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
@@ -950,6 +1141,8 @@ if __name__ == "__main__":
     pg_out.add_argument("--no_search", action="store_true",
                     help="Skip HMM search mapping. Use existing hits file")
 
+    pg_out.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
+    
     pg_out.add_argument("--report_orthologs", action="store_true",
                     help="The list of orthologs used for functional transferred are dumped into a separate file")
 
@@ -971,6 +1164,15 @@ if __name__ == "__main__":
                         help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
                         ' DIAMOND search outputs)')
 
+    pg_predict = parser.add_argument_group('Predict orthologs options')
+
+    pg_predict.add_argument('--target_taxa', type=str,
+                          default= "all", nargs="+",
+                            help='taxa that will be searched for orthologs')
+
+    pg_predict.add_argument('--predict_output_format', choices=["per_query", "per_species"],
+                            default= "per_species", help="Choose the output format among: per_query, per_species .Default = per_species")
+    
     # exec mode
     g4 = parser.add_argument_group('Execution options')
     g4.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmmer',

@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from eggnogmapper.common import EGGNOG_DATABASES, get_data_path, get_hmmdb_path, pexists, pjoin, get_level_base_path, set_data_path, existing_dir, get_db_present, get_db_info
 from eggnogmapper.utils import ask, colorify
 
-DATABASE_VERSION="4.5.1"
+DATABASE_VERSION="5.0.0"
 
 def run(cmd):
     print colorify(cmd, 'cyan')

@@ -5,7 +5,7 @@ import re
 import time
 import multiprocessing
 
-from .common import get_eggnogdb_file
+from .common import get_eggnogdb_file, ANNOTATIONS_HEADER
 from .utils import timeit
 
 conn = None
@@ -37,7 +37,6 @@ def get_ogs_annotations(ognames):
             og2desc[og] = [cat, desc]
     return og2desc
 
-
 def get_best_og_description(ognames):
     query = ','.join(map(lambda x: '"%s"'%x.split('@')[0], ognames))
     cmd = 'SELECT og.og, nm, description, COG_categories FROM og WHERE og.og IN (%s)' % query
@@ -64,10 +63,11 @@ def parse_gos(gos, target_go_ev, excluded_go_ev):
                 selected_gos.add(gid)
     return selected_gos
 
-
 def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
     in_clause = ','.join(['"%s"' % n for n in seq_names])
-    cmd = """SELECT eggnog.name, seq.pname, gene_ontology.gos, kegg.ko, bigg.reaction
+    cmd = """SELECT seq.pname, gene_ontology.gos,
+    kegg.ec, kegg.ko, kegg.pathway, kegg.module, kegg.reaction, kegg.rclass, kegg.brite, kegg.tc, kegg.cazy, 
+    bigg.reaction
         FROM eggnog
         LEFT JOIN seq on seq.name = eggnog.name
         LEFT JOIN gene_ontology on gene_ontology.name = eggnog.name
@@ -75,27 +75,44 @@ def summarize_annotations(seq_names, target_go_ev, excluded_go_ev):
         LEFT JOIN bigg on bigg.name = eggnog.name
         WHERE eggnog.name in (%s)
         """ %in_clause
-    all_gos = set()
-    all_kegg = set()
-    all_bigg = set()
-    all_pnames = Counter()
-    db.execute(cmd)
-    for name, pname, gos, kegg, bigg in db.fetchall():
-        if gos:
-            all_gos.update(parse_gos(gos, target_go_ev, excluded_go_ev))
-        if kegg:
-            all_kegg.update(map(lambda x: str(x).strip(), kegg.split(',')))
-        if bigg:
-            all_bigg.update(map(lambda x: str(x).strip(), bigg.split(',')))
-        if pname:
-            all_pnames.update([pname.strip()])
 
-    all_gos.discard('')
-    all_kegg.discard('')
-    all_bigg.discard('')
-    del all_pnames['']
+    annotations = defaultdict(Counter)
+    s = db.execute(cmd)
+    results = db.fetchall()
 
-    return all_pnames, all_gos, all_kegg, all_bigg
+    for fields in results:
+        for i, h in enumerate(ANNOTATIONS_HEADER):
+            if not fields[i]:
+                continue
+            if h == 'GOs':
+                gos = fields[i]
+                annotations[h].update(parse_gos(gos, target_go_ev, excluded_go_ev))
+            elif h == 'Preferred_name':
+                annotations[h].update([fields[i].strip()])
+            else:
+                values = map(lambda x: str(x).strip(), fields[i].split(','))
+                annotations[h].update(values)
+
+    for h in annotations:
+        del annotations[h]['']
+
+    if annotations:
+        try:
+            pname = annotations['Preferred_name'].most_common(1)
+            if pname: 
+                name_candidate, freq = annotations['Preferred_name'].most_common(1)[0]
+            else:
+                freq =  0
+        except:
+            print annotations
+            raise 
+        if freq >= 2:
+            annotations['Preferred_name'] = [name_candidate]
+        else:
+            annotations['Preferred_name'] = ['']
+
+    return annotations
+
 
 def get_member_ogs(name):
     cmd = 'SELECT groups FROM eggnog WHERE name == "%s";' % (name)
@@ -108,6 +125,9 @@ def get_member_ogs(name):
 
 def get_member_orthologs(member, target_taxa=None, target_levels=None):
     query_taxa = member.split('.', 1)[0]
+    if target_taxa:
+        target_taxa = map(str, target_taxa)
+
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM orthologs WHERE name = "%s"' % member.strip()
     db.execute(cmd)
@@ -118,22 +138,27 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
     db.execute(cmd2)
     orthology = {}
     for level, _side1, _side2 in db.fetchall():
+
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
-
+    
         by_sp1, by_sp2 = {}, {}
+
         for _sp, _side in [(by_sp1, side1),
                            (by_sp2, side2)]:
-            for t, s in _side:
+            for t, s in _side:            
                 if not target_taxa or t in target_taxa or t == query_taxa:
                     mid = "%s.%s" % (t, s)
                     _sp.setdefault(t, set()).add(mid)
 
+
         # merge by side1 coorthologs
         targets = target_taxa or by_sp2.keys()
+
         for sp1, co1 in by_sp1.iteritems():
             if target_members & co1:
                 key1 = (sp1, tuple(sorted((co1))))
+                
                 for sp2 in targets:
                     if sp2 not in by_sp2:
                         continue
@@ -152,6 +177,7 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
                     co2 = by_sp1[sp2]
                     key2 = (sp2, tuple(sorted(co2)))
                     orthology.setdefault(key1, set()).add(key2)
+
 
     all_orthologs = {
         "one2one": set(),
@@ -177,8 +203,6 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
             all_orthologs['all'].update(co2)
 
     return all_orthologs
-
-
 
 
 # ############################
