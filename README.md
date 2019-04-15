@@ -18,11 +18,10 @@ If you use this software, please cite:
      Mol Biol Evol (2017). [doi:
      10.1093/molbev/msx148](https://doi.org/10.1093/molbev/msx148)
 
-[2] eggNOG 4.5: a hierarchical orthology framework with improved functional
-      annotations for eukaryotic, prokaryotic and viral sequences. Jaime
-      Huerta-Cepas, Damian Szklarczyk, Kristoffer Forslund, Helen Cook, Davide
-      Heller, Mathias C. Walter, Thomas Rattei, Daniel R. Mende, Shinichi
-      Sunagawa, Michael Kuhn, Lars Juhl Jensen, Christian von Mering, and Peer
-      Bork. Nucl. Acids Res. (04 January 2016) 44 (D1): D286-D293. [doi:
-      10.1093/nar/gkv1248](http://doi.org/10.1093/nar/gkv1248)
+[2] eggNOG 5.0: a hierarchical, functionally and phylogenetically annotated
+      orthology resource based on 5090 organisms and 2502 viruses. Jaime
+      Huerta-Cepas, Damian Szklarczyk, Davide Heller, Ana Hernández-Plaza, Sofia
+      K Forslund, Helen Cook, Daniel R Mende, Ivica Letunic, Thomas Rattei, Lars
+      J Jensen, Christian von Mering, Peer Bork Nucleic Acids Res. 2019 Jan 8;
+      47(Database issue): D309–D314. doi: 10.1093/nar/gky1085 
 ```
