@@ -652,17 +652,16 @@ def _annotate_hit_line(arguments):
     swallowest_level = sorted(match_levels & set(LEVEL_DEPTH.keys()),
                               key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
 
+    annot_levels = set()
     if args.tax_scope == "auto":
         for level in TAXONOMIC_RESOLUTION:
             if level in match_levels:
-                annot_levels = set(LEVEL_CONTENT.get(level, [level]))
                 annot_levels.add(level)
-                annot_level_max = "%s[%d]" %(LEVEL_NAMES[level], len(annot_levels))
+                annot_level_max = LEVEL_NAMES.get(level, level)
                 break
     else:
-        annot_levels = set(LEVEL_CONTENT.get(args.tax_scope, [args.tax_scope]))
         annot_levels.add(args.tax_scope)
-        annot_level_max = "%s[%d]" %(args.tax_scope, len(annot_levels))
+        annot_level_max = LEVEL_NAMES = LEVEL_NAMES.get(args.tax_scope, args.tax_scope)
 
     if args.target_taxa != 'all':
         target_taxa = orthology.normalize_target_taxa(args.target_taxa)
@@ -1046,7 +1045,7 @@ if __name__ == "__main__":
 
     pg_annot = parser.add_argument_group('Annotation Options')
 
-    pg_annot.add_argument("--tax_scope", type=str, choices=LEVEL_NAMES.values()+["auto"],
+    pg_annot.add_argument("--tax_scope", type=str, choices=LEVEL_NAMES.keys()+["auto"],
                     default='auto', metavar='',
                     help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
                           "particular clade are used for functional transfer. "
