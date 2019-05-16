@@ -661,7 +661,7 @@ def _annotate_hit_line(arguments):
                 break
     else:
         annot_levels.add(args.tax_scope)
-        annot_level_max = LEVEL_NAMES = LEVEL_NAMES.get(args.tax_scope, args.tax_scope)
+        annot_level_max = LEVEL_NAMES.get(args.tax_scope, args.tax_scope)
 
     if args.target_taxa != 'all':
         target_taxa = orthology.normalize_target_taxa(args.target_taxa)
