@@ -40,6 +40,7 @@ try:
 
         },
         data_files = [],
+        scripts=['download_eggnog_data.py', 'emapper.py'],
 
         # metadata for upload to PyPI
         author = "Jaime Huerta-Cepas",
