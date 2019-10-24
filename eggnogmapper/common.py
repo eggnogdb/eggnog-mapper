@@ -18,7 +18,6 @@ except ImportError:
 
     
 ANNOTATIONS_HEADER = map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(','))
-
     
 TIMEOUT_LOAD_SERVER = 1800
 
@@ -231,10 +230,11 @@ If you use this software, please cite:
 
 LICENSE = """
 LICENSE:
-[1] eggNOG-mapper is free software distributed under the GPL v2 terms.
+[1] eggNOG-mapper is free software distributed under the GPL v2 terms. 
+Built-in databases (e.g. eggNOG data) might be subjected to different licensing.
 
-[2] eggNOG data are distributed under the terms of the Creative Commons Attribution
-License (http://creativecommons.org/licenses/by/4.0/), which permits
+[2] eggNOG v5.0 data are distributed under the terms of the Creative Commons Non-Commercial Attribution
+License (http://creativecommons.org/licenses/by-nc/4.0/), which permits
 unrestricted reuse, distribution, and reproduction in any medium, provided the
 original work is properly cited.
 """
