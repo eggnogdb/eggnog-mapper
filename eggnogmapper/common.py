@@ -16,9 +16,9 @@ try:
 except ImportError:
     __VERSION__ = 'unknown'
 
-    
+
 ANNOTATIONS_HEADER = map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(','))
-    
+
 TIMEOUT_LOAD_SERVER = 1800
 
 LEVEL_CONTENT = {
@@ -90,7 +90,7 @@ HMMSCAN = find_executable('hmmscan') or pjoin(BASE_PATH, 'bin', 'hmmscan')
 HMMSTAT = find_executable('hmmstat') or pjoin(BASE_PATH, 'bin', 'hmmstat')
 HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'bin', 'hmmpgmd')
 PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'bin', 'phmmer')
-DIAMOND = pjoin(BASE_PATH, 'bin', 'diamond')
+DIAMOND = find_executable('diamond') or pjoin(BASE_PATH, 'bin', 'diamond')
 
 print DIAMOND, BASE_PATH
 
@@ -230,7 +230,7 @@ If you use this software, please cite:
 
 LICENSE = """
 LICENSE:
-[1] eggNOG-mapper is free software distributed under the GPL v2 terms. 
+[1] eggNOG-mapper is free software distributed under the GPL v2 terms.
 Built-in databases (e.g. eggNOG data) might be subjected to different licensing.
 
 [2] eggNOG v5.0 data are distributed under the terms of the Creative Commons Non-Commercial Attribution
