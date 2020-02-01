@@ -1,0 +1,7 @@
+# Thu Jan 30 15:14:09 2020
+# emapper-2.0.1-1-ge37f489
+# emapper.py --dmnd_db /data/projects/eggnog-mapper_minidb/30012020_newDB/test_diamond.dmnd -i /data/projects/eggnog-mapper_minidb/30012020_newDB/qseqs.fa --output_dir /data/projects/eggnog-mapper_minidb/30012020_newDB/ -o test_output.tsv -m diamond
+#
+# /data/eggnog-mapper-v2.0/bin/diamond blastp -d /data/projects/eggnog-mapper_minidb/30012020_newDB/test_diamond.dmnd -q /data/projects/eggnog-mapper_minidb/30012020_newDB/qseqs.fa --more-sensitive --threads 2 -e 0.001000 -o /data/eggnog-mapper-v2.0/emappertmp_dmdn_C8hhKK/6c68d73d034f4882b2cb620e5e778c00 --top 3 --query-cover 0 --subject-cover 0
+1000565.METUNv1_03812	1000565.METUNv1_03812	1.9e-207	716.8
+362663.ECP_0061	362663.ECP_0061	0.0	1636.3
