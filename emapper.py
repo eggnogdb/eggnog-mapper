@@ -21,6 +21,8 @@ sys.path.insert(0, SCRIPT_PATH)
 from eggnogmapper.common import *
 from eggnogmapper.vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
+from eggnogmapper.emapperException import EmapperException
+
 from eggnogmapper import search
 from eggnogmapper import annota
 from eggnogmapper import seqio
@@ -34,11 +36,6 @@ __description__ = ('A program for bulk functional annotation of novel '
                     'sequences using EggNOG database orthology assignments')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
-
-class emapperException(Exception):
-    def __init__(self, *args, **kargs):
-        sys.excepthook = lambda exctype,exc,traceback: ""
-        super(emapperException, self).__init__(*args, **kargs)
 
 
 def cleanup_og_name(name):
