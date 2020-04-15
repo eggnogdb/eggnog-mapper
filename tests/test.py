@@ -6,7 +6,7 @@ import unittest
 import os, shutil, subprocess
 
 # Settings for this tests
-EMAPPER_CMD = '../emapper.py'
+EMAPPER_CMD = './emapper.py'
 EXPECTED_SEED_ORTHOLOGS_FN = 'test_output.emapper.seed_orthologs'
 EXPECTED_ANNOTATIONS_FN = 'test_output.emapper.annotations'
 
@@ -109,9 +109,9 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper command, including the expected output files
         '''
-        in_file = "fixtures/test_queries.fa"
-        data_dir = "fixtures"
-        outdir = "out"
+        in_file = "tests/fixtures/test_queries.fa"
+        data_dir = "tests/fixtures"
+        outdir = "tests/out"
         outprefix = "test"
         
         # Remove (just in case) and recreate the output dir
