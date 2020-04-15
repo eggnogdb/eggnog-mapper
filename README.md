@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/eggnogdb/eggnog-mapper.svg?branch=tests)](https://travis-ci.com/eggnogdb/eggnog-mapper)
+
 # Overview
 **eggNOG-mapper** is a tool for fast functional annotation of novel sequences. It uses precomputed orthologous groups and phylogenies from the eggNOG database to transfer functional information from fine-grained orthologs only.
 
