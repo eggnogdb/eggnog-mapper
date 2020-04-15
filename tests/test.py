@@ -3,8 +3,7 @@
 ## CPCantalapiedra 2020
 
 import unittest
-import subprocess
-import os, shutil
+import os, shutil, subprocess
 
 # Settings for this tests
 EMAPPER_CMD = '../emapper.py'
