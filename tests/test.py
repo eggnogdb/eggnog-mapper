@@ -19,7 +19,7 @@ def run(cmd):
     Runs eggnog-mapper with the arguments specified
     '''
     cmd = EMAPPER_CMD + " " + cmd
-    print cmd
+    print(cmd)
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     out, err = process.communicate()
     if not out:
@@ -121,18 +121,18 @@ class Test(unittest.TestCase):
         
         cmd = '-m diamond -i %s --data_dir %s --output_dir %s -o %s' % (in_file, data_dir, outdir, outprefix)
 
-        print "Running eggnog-mapper..."
+        print("Running eggnog-mapper...")
         st, out, err = run(cmd)
         assert st == 0 # check exit status is ok
 
         ##
         # Check alignment phase: detection of seed orthologs
-        print "Checking seed orthologs..."
+        print("Checking seed orthologs...")
         self._check_seed_orthologs(data_dir, outdir, outprefix)
 
         ##
         # Check annotation phase
-        print "Checking annotations..."
+        print("Checking annotations...")
         self._check_annotations(data_dir, outdir, outprefix)
 
         # Remove the output dir

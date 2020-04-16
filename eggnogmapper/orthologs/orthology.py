@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 import sqlite3
 import re
 import time
@@ -46,7 +46,7 @@ def predict_orthologs_by_seed(member, target_taxa=None, target_levels= None):
     member = str(member)
     query_taxa = int(member.split('.', 1)[0])
     if target_taxa:
-        target_taxa = map(str, target_taxa)
+        target_taxa = list(map(str, target_taxa))
 
     target_members = set([member])
     cmd = 'SELECT orthoindex FROM orthologs WHERE name = "%s"' % member.strip()
@@ -54,7 +54,7 @@ def predict_orthologs_by_seed(member, target_taxa=None, target_levels= None):
     event_indexes = str(db.fetchone()[0])
     cmd2 = 'SELECT level, side1, side2 FROM event WHERE i IN (%s)' % event_indexes
     if target_levels:
-        cmd2 += " AND level IN (%s)" % (','.join(map(lambda x: '"%s"' %x, target_levels)))
+        cmd2 += " AND level IN (%s)" % (','.join(['"%s"' %x for x in target_levels]))
     db.execute(cmd2)
     orthologs = []
     orthologs_pred = {}

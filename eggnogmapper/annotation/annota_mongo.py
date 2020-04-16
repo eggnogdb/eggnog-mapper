@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 from collections import Counter
 import sqlite3
 import os
@@ -79,8 +79,8 @@ def refine_orthologs_by_member(target_members, target_taxa=None, target_nogs=Non
                     _sp.setdefault(t, set()).add(mid)
 
         # merge by side1 coorthologs
-        targets = target_taxa or by_sp2.keys()
-        for sp1, co1 in by_sp1.iteritems():
+        targets = target_taxa or list(by_sp2.keys())
+        for sp1, co1 in by_sp1.items():
             if target_members & co1:
                 key1 = (sp1, tuple(sorted((co1))))
                 for sp2 in targets:
@@ -90,8 +90,8 @@ def refine_orthologs_by_member(target_members, target_taxa=None, target_nogs=Non
                     orthology.setdefault(key1, set()).add(key2)
                     
         # merge by side2 coorthologs
-        targets = target_taxa or by_sp1.keys()
-        for sp1, co1 in by_sp2.iteritems():
+        targets = target_taxa or list(by_sp1.keys())
+        for sp1, co1 in by_sp2.items():
             if target_members & co1:
                 key1 = (sp1, tuple(sorted((co1))))
                 for sp2 in targets:
@@ -111,7 +111,7 @@ def refine_orthologs_by_member(target_members, target_taxa=None, target_nogs=Non
         "all": set(),
     }
 
-    for k, v in orthology.iteritems():
+    for k, v in orthology.items():
         if len(k[1]) == 1:
             otype_prefix = "one2"
         else:

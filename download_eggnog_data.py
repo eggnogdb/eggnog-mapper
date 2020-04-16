@@ -7,7 +7,7 @@ from eggnogmapper.utils import ask, colorify
 DATABASE_VERSION="5.0.0"
 
 def run(cmd):
-    print colorify(cmd, 'cyan')
+    print(colorify(cmd, 'cyan'))
     if not args.simulate:
         os.system(cmd)
 
@@ -91,14 +91,14 @@ if __name__ == "__main__":
 
     if args.force or not pexists(pjoin(get_data_path(), 'eggnog.db')):
         if args.allyes or ask("Download main annotation database?") == 'y':
-            print colorify('Downloading "eggnog.db" at %s...' %get_data_path(), 'green')
+            print(colorify('Downloading "eggnog.db" at %s...' %get_data_path(), 'green'))
             download_annotations()
         else:
-            print 'Skipping'
+            print('Skipping')
 
     else:
         if not args.quiet:
-            print colorify('Skipping eggnog.db database (already present). Use -f to force download', 'lblue')
+            print(colorify('Skipping eggnog.db database (already present). Use -f to force download', 'lblue'))
 
     # if args.force or not pexists(pjoin(get_data_path(), 'OG_fasta')):
     #     if args.allyes or ask("Download OG fasta files for annotation refinement (~20GB after decompression)?") == 'y':
@@ -113,13 +113,13 @@ if __name__ == "__main__":
 
     if not args.skip_diamond and (args.force or not pexists(pjoin(get_data_path(), 'eggnog_proteins.dmnd'))):
         if args.allyes or ask("Download diamond database (~4GB after decompression)?") == 'y':
-            print colorify('Downloading fasta files " at %s/eggnog_proteins.dmnd...' %get_data_path(), 'green')
+            print(colorify('Downloading fasta files " at %s/eggnog_proteins.dmnd...' %get_data_path(), 'green'))
             download_diamond_db()
         else:
-            print 'Skipping'
+            print('Skipping')
     else:
         if not args.quiet:
-            print colorify('Skipping diamond database (or already present). Use -f to force download', 'lblue')
+            print(colorify('Skipping diamond database (or already present). Use -f to force download', 'lblue'))
 
     # if set(args.dbs) != set(['none']):
     #     if args.allyes or ask("Download %d HMM database(s): %s?"%(len(args.dbs), ','.join(args.dbs))) == 'y':

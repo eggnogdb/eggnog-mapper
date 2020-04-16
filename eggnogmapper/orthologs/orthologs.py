@@ -2,7 +2,7 @@
 ## JHCepas
 ## CPCantalapiedra 2020
 
-import .orthology as orthology
+from . import orthology
 
 def iter_hit_lines(filename, args):
     for line in open(filename):
@@ -20,7 +20,7 @@ def dump_orthologs(seed_orthologs_file, orthologs_file, args):
     elif args.predict_output_format == "per_species":
         ortholog_header = ("#Query", "Species", "Orthologs")
 
-    print >> OUT, "\t".join(ortholog_header)
+    print("\t".join(ortholog_header), file=OUT)
 
     if args.target_taxa != 'all':
         args._expanded_target_taxa = orthology.normalize_target_taxa(args.target_taxa)
@@ -43,7 +43,7 @@ def find_orthologs_per_hit(arguments):
 
     if not line.strip() or line.startswith('#'):
         return None
-    r = map(str.strip, line.split('\t'))
+    r = list(map(str.strip, line.split('\t')))
 
     query_name = r[0]
     best_hit_name = r[1]
@@ -82,22 +82,22 @@ def write_orthologs_in_file(result_line, ORTHOLOGS, args):
                     if key in target_taxa:
                         members = (','.join(orthologs_pred[key]))
                         orthologs.append(members)
-                        print >> ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+                        print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
 
             else:
                 members = (','.join(orthologs_pred[key]))
                 orthologs.append(members)
-                print >> ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+                print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
 
     elif args.predict_output_format == "per_species":
         for key in orthologs_pred:
             sp_taxid = int(key)
             if target_taxa is not None: 
                 if sp_taxid in target_taxa:
-                    print >> ORTHOLOGS, '\t'.join(map(str, (query_name, key,
-                                                    ','.join(orthologs_pred[key])))) 
+                    print('\t'.join(map(str, (query_name, key,
+                                                    ','.join(orthologs_pred[key])))), file=ORTHOLOGS) 
 
             else:
-                print >> ORTHOLOGS, '\t'.join(map(str, (query_name, key,
-                                                    ','.join(orthologs_pred[key]))))
+                print('\t'.join(map(str, (query_name, key,
+                                                    ','.join(orthologs_pred[key])))), file=ORTHOLOGS)
     ORTHOLOGS.flush()

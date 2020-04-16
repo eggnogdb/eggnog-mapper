@@ -1,4 +1,4 @@
-from __future__ import absolute_import
+
 
 import sys
 import os
@@ -17,7 +17,7 @@ except ImportError:
     __VERSION__ = 'unknown'
 
 
-ANNOTATIONS_HEADER = map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(','))
+ANNOTATIONS_HEADER = list(map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(',')))
 
 TIMEOUT_LOAD_SERVER = 1800
 
@@ -110,7 +110,7 @@ def set_data_path(data_path):
 def show_binaries():
     for e in (HMMSEARCH, HMMSCAN, HMMSTAT, HMMPGMD, PHMMER, DIAMOND, DATA_PATH,
               get_fasta_path(), get_hmmdb_path(), get_eggnogdb_file(), get_oglevels_file(), get_eggnog_dmnd_db()):
-        print "% 65s" %e, pexists(e)
+        print("% 65s" %e, pexists(e))
 
 def get_call_info():
     text = []

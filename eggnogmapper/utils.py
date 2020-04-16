@@ -20,8 +20,8 @@
 ## More info at http://etetoolkit.org. Contact: huerta@embl.de
 ##
 # #END_LICENSE#############################################################
-from __future__ import absolute_import
-from __future__ import print_function
+
+
 
 import sys
 import os
@@ -179,7 +179,7 @@ def print_table(items, header=None, wrap=True, max_col_width=20,
 def ask_filename(text):
     fname = ""
     while not os.path.exists(fname):
-        fname = input(text)
+        fname = eval(input(text))
     return fname
 
 def ask(string, valid_values=None, default=-1, case_sensitive=False, color='green'):    
@@ -192,7 +192,7 @@ def ask(string, valid_values=None, default=-1, case_sensitive=False, color='gree
     while v not in valid_values:
         if color:
             string = colorify(string, "yellow")
-        v = input("%s [%s] " % (string,','.join(valid_values) ))
+        v = eval(input("%s [%s] " % (string,','.join(valid_values) )))
         if v == '' and default >= 0:
             v = valid_values[default]
         if not case_sensitive:
