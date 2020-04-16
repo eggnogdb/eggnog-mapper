@@ -90,7 +90,7 @@ class DiamondSearcher:
             
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
-            print('#', cmd, file=OUT)
+            print('#'+cmd, file=OUT)
 
         return
 

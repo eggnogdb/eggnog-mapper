@@ -185,7 +185,7 @@ def annotate_hit_line(arguments):
 def _annotate_hit_line(arguments):
     
     annota.connect()
-    
+
     line, seed_ortholog_score, seed_ortholog_evalue, tax_scope, target_taxa, target_orthologs, excluded_taxa, go_evidence, go_excluded = arguments
 
     if not line.strip() or line.startswith('#'):
