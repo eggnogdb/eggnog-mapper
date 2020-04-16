@@ -6,8 +6,8 @@ import multiprocessing
 from collections import defaultdict, Counter
 import json
 
-from .common import get_eggnogdb_file
-from .utils import timeit
+from ..common import get_eggnogdb_file
+from ..utils import timeit
 
 
 conn = None

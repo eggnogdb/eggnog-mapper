@@ -92,8 +92,6 @@ HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'bin', 'hmmpgmd')
 PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'bin', 'phmmer')
 DIAMOND = find_executable('diamond') or pjoin(BASE_PATH, 'bin', 'diamond')
 
-print DIAMOND, BASE_PATH
-
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
 def get_fasta_path(): return pjoin(DATA_PATH, "OG_fasta")

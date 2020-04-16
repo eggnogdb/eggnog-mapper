@@ -1,3 +1,6 @@
+##
+## JHCepas
+
 from __future__ import absolute_import
 from collections import Counter, defaultdict
 import sqlite3
@@ -5,8 +8,8 @@ import re
 import time
 import multiprocessing
 
-from .common import get_eggnogdb_file, ANNOTATIONS_HEADER
-from .utils import timeit
+from ..common import get_eggnogdb_file, ANNOTATIONS_HEADER
+from ..utils import timeit
 
 conn = None
 db = None
