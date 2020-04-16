@@ -246,29 +246,7 @@ def main(args):
                               os.strerror(errno.ENOENT),
                               args.annotate_hits_table)
             annotate_hits_file(args.annotate_hits_table, annot_file, hmm_hits_file, args)
-        elif args.db == 'viruses':
-            annotate_hmm_matches(hmm_hits_file, hmm_hits_file+'.annotations', args)
-            OUT = open(annot_file, 'w')
-            for line in open(hmm_hits_file+'.annotations'):
-                if line.startswith('#') or not line.strip():
-                    continue
-                (query, hitname, level, evalue, sum_score, query_length,
-                 hmmfrom, hmmto, seqfrom, seqto, q_coverage, nm, desc, cats) = line.split("\t")
 
-                if hitname != '-' and hitname != 'ERROR':
-                    print >>OUT, '\t'.join(map(str, (query,
-                                                     hitname,
-                                                     evalue,
-                                                     sum_score,
-                                                     '',
-                                                     '',
-                                                     '',
-                                                     'viruses',
-                                                     hitname+"@viruses",
-                                                     "%s|%s|%s" %(hitname, evalue, sum_score),
-                                                     cats.replace('\n', ''),
-                                                     desc.replace('\n', ' '))))
-            OUT.close()
         else:
             annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file, args)
 
