@@ -946,25 +946,13 @@ def create_arg_parser():
     
     parser = argparse.ArgumentParser()
 
-    # server
-    pg_db = parser.add_argument_group('Target HMM Database Options')
-
-    pg_db.add_argument('--guessdb', type=int, metavar='',
-                       help='guess eggnog db based on the provided taxid')
-
-    pg_db.add_argument('--database', '-d', dest='db', metavar='',
-                       help=('specify the target database for sequence searches'
-                             '. Choose among: euk,bact,arch, host:port, or a local hmmpressed database'))
-
-    pg_db.add_argument('--dbtype', dest="dbtype",
-                    choices=["hmmdb", "seqdb"], default="hmmdb")
+    ##
+    pg_db = parser.add_argument_group('Target Database Options')
 
     pg_db.add_argument("--data_dir", metavar='', type=existing_dir,
-                    help='Directory to use for DATA_PATH.')
+                       help='Path to eggnog-mapper database.') # DATA_PATH in eggnogmapper.commons
 
-    pg_db.add_argument('--qtype',  choices=["hmm", "seq"], default="seq")
-
-
+    ##
     pg_annot = parser.add_argument_group('Annotation Options')
 
     pg_annot.add_argument("--tax_scope", type=str, choices=LEVEL_NAMES.keys()+["auto"],
@@ -987,28 +975,8 @@ def create_arg_parser():
                           'experimental = Use only terms inferred from experimental evidence'
                           'non-electronic = Use only non-electronically curated terms')
 
-    pg_hmm = parser.add_argument_group('HMM search_options')
-
-    pg_hmm.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='',
-                    help="Max number of hits to report. Default=1")
-
-    pg_hmm.add_argument('--hmm_evalue', dest='evalue', default=0.001, type=float, metavar='',
-                    help="E-value threshold. Default=0.001")
-
-    pg_hmm.add_argument('--hmm_score', dest='score', default=20, type=float, metavar='',
-                    help="Bit score threshold. Default=20")
-
-    pg_hmm.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='',
-                    help="Ignore query sequences larger than `maxseqlen`. Default=5000")
-
-    pg_hmm.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='',
-                    help="min query coverage (from 0 to 1). Default=(disabled)")
-
-    pg_hmm.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='',
-                    help='Fixed database size used in phmmer/hmmscan'
-                        ' (allows comparing e-values among databases). Default=40,000,000')
-
-    pg_diamond = parser.add_argument_group('diamond search_options')
+    ##
+    pg_diamond = parser.add_argument_group('Diamond Search Options')
 	
     pg_diamond.add_argument('--dmnd_db',
 		    help="Path to DIAMOND-compatible database")
@@ -1029,19 +997,20 @@ def create_arg_parser():
     pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=0,
                     help='Report only alignments above the given percentage of subject cover. Default=0')
 
+    ##
     pg_seed = parser.add_argument_group('Seed ortholog search option')
 
     pg_seed.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
                     help='Min E-value expected when searching for seed eggNOG ortholog.'
-                         ' Applies to phmmer/diamond searches. Queries not having a significant'
+                         ' Queries not having a significant'
                          ' seed orthologs will not be annotated. Default=0.001')
 
     pg_seed.add_argument('--seed_ortholog_score', default=60, type=float, metavar='',
                     help='Min bit score expected when searching for seed eggNOG ortholog.'
-                         ' Applies to phmmer/diamond searches. Queries not having a significant'
+                         ' Queries not having a significant'
                          ' seed orthologs will not be annotated. Default=60')
 
-
+    ##
     pg_out = parser.add_argument_group('Output options')
 
     pg_out.add_argument('--output', '-o', type=str, metavar='',
@@ -1059,8 +1028,9 @@ def create_arg_parser():
     pg_out.add_argument("--no_annot", action="store_true",
                     help="Skip functional annotation, reporting only hits")
 
+    # TODO CPC 2019 REFACTOR --no_search to a --mode="no_search
     pg_out.add_argument("--no_search", action="store_true",
-                    help="Skip HMM search mapping. Use existing hits file")
+                    help="Skip search mapping. Use existing hits file")
 
     pg_out.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
     
@@ -1068,7 +1038,7 @@ def create_arg_parser():
                     help="The list of orthologs used for functional transferred are dumped into a separate file")
 
     pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
-                    help='Write output files in a temporary scratch dir, move them to final the final'
+                    help='Write output files in a temporary scratch dir, move them to the final'
                         ' output dir when finished. Speed up large computations using network file'
                         ' systems.')
 
@@ -1096,8 +1066,8 @@ def create_arg_parser():
     
     # exec mode
     g4 = parser.add_argument_group('Execution options')
-    g4.add_argument('-m', dest='mode', choices = ['hmmer', 'diamond'], default='hmmer',
-                    help='Default:hmmer')
+    g4.add_argument('-m', dest='mode', choices = ['diamond'], default='diamond',
+                    help='Default:diamond')
 
 
     g4.add_argument('-i', dest="input", metavar='', type=existing_file,
@@ -1106,6 +1076,7 @@ def create_arg_parser():
     g4.add_argument('--translate', action="store_true",
                     help='Assume sequences are genes instead of proteins')
 
+    # CPC 2019 Check if --servermode is mutually exclusive with diamond mode
     g4.add_argument("--servermode", action="store_true",
                     help='Loads target database in memory and keeps running in server mode,'
                     ' so another instance of eggnog-mapper can connect to this sever.'
