@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import json
 
+# get the path of this script and add it to the "pythonpath"
 SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
@@ -171,7 +172,7 @@ def setup_hmm_search(args):
             print colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green')
             print colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue')
             time.sleep(10)
-        raise emapperException()
+        raise EmapperException()
     else:
         return host, port, dbpath, scantype, idmap
 
@@ -197,7 +198,7 @@ def main(args):
     files_present = set([pexists(fname) for fname in output_files])
     if True in files_present and not args.resume and not args.override:
         print "Output files detected in disk. Use --resume or --override to continue"
-        raise emapperException()
+        raise EmapperException()
 
     if args.override:
         for outf in output_files:
@@ -951,13 +952,13 @@ def parse_args(parser):
 
     if not args.no_annot and not pexists(get_eggnogdb_file()):
         print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
-        raise emapperException()
+        raise EmapperException()
 
     if args.mode == 'diamond':
         dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
         if not pexists(dmnd_db):
             print colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red')
-            raise emapperException()
+            raise EmapperException()
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
@@ -1208,7 +1209,7 @@ if __name__ == "__main__":
     _total_time = time.time()
     try:
         main(args)
-    except emapperException:
+    except EmapperException:
         sys.exit(1)
     except:
         raise
