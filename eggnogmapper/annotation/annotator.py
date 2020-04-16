@@ -76,9 +76,9 @@ class Annotator:
         seq2annotOG = {}
         if pexists(hmm_hits_file):
             seq2bestOG = get_seq_hmm_matches(hmm_hits_file)
-            seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.itervalues()]))
+            seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.values()]))
 
-        print colorify("Functional annotation of refined hits starts now", 'green')
+        print(colorify("Functional annotation of refined hits starts now", 'green'))
 
         OUT = open(annot_file, "w")
 
@@ -86,8 +86,8 @@ class Annotator:
             ORTHOLOGS = open(annot_file+".orthologs", "w")
 
         if not self.no_file_comments:
-            print >>OUT, get_call_info()
-            print >>OUT, '\t'.join(HIT_HEADER + ANNOTATIONS_HEADER + HIT_OG_HEADER)
+            print(get_call_info(), file=OUT)
+            print('\t'.join(HIT_HEADER + ANNOTATIONS_HEADER + HIT_OG_HEADER), file=OUT)
             
         qn = 0
         pool = multiprocessing.Pool(self.cpu)
@@ -96,8 +96,8 @@ class Annotator:
             qn += 1
             if qn and (qn % 500 == 0):
                 total_time = time.time() - start_time
-                print >>sys.stderr, qn, total_time, "%0.2f q/s (func. annotation)" % (
-                    (float(qn) / total_time))
+                print(qn, total_time, "%0.2f q/s (func. annotation)" % (
+                    (float(qn) / total_time)), file=sys.stderr)
                 sys.stderr.flush()
 
             if result:
@@ -113,7 +113,7 @@ class Annotator:
                     og_cat, og_desc = annota.get_best_og_description(match_nogs)
 
                 if self.report_orthologs:
-                    print >>ORTHOLOGS, '\t'.join(map(str, (query_name, ','.join(orthologs))))
+                    print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
 
                 # prepare annotations for printing
                 annot_columns = [query_name,
@@ -134,7 +134,7 @@ class Annotator:
                                         og_cat.replace('\n', ''),
                                         og_desc.replace('\n', ' ')])
 
-                print >>OUT, '\t'.join(annot_columns)
+                print('\t'.join(annot_columns), file=OUT)
 
             #OUT.flush()
 
@@ -142,16 +142,16 @@ class Annotator:
 
         elapsed_time = time.time() - start_time
         if not self.no_file_comments:
-            print >>OUT, '# %d queries scanned' % (qn)
-            print >>OUT, '# Total time (seconds):', elapsed_time
-            print >>OUT, '# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time))
+            print('# %d queries scanned' % (qn), file=OUT)
+            print('# Total time (seconds):', elapsed_time, file=OUT)
+            print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
         OUT.close()
 
         if self.report_orthologs:
             ORTHOLOGS.close()
 
-        print colorify(" Processed queries:%s total_time:%s rate:%s" %\
-                       (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue')
+        print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
+                       (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue'))
         
         return
 
@@ -190,7 +190,7 @@ def _annotate_hit_line(arguments):
 
     if not line.strip() or line.startswith('#'):
         return None
-    r = map(str.strip, line.split('\t'))
+    r = list(map(str.strip, line.split('\t')))
 
     query_name = r[0]
     best_hit_name = r[1]

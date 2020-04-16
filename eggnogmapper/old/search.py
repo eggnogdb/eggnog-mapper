@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import absolute_import
+
 
 import sys
 import os
@@ -9,7 +9,7 @@ import math
 import re
 import time
 import subprocess
-import cPickle
+import pickle
 import multiprocessing
 
 from tempfile import NamedTemporaryFile, mkdtemp
@@ -57,8 +57,8 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
     s = socket.socket()
     try:
         s.connect((address, port))
-    except Exception, e:
-        print(address, port, e)
+    except Exception as e:
+        print((address, port, e))
         raise
     s.sendall(data)
 
@@ -78,7 +78,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
         hits_end = hits_start + (152 * nreported)
         dom_start = hits_end
 
-        for hitblock in xrange(hits_start, hits_end, 152):
+        for hitblock in range(hits_start, hits_end, 152):
             name, evalue, score, ndom = unpack_hit(
                 binresult[hitblock: hitblock + 152], Z)
             if ndom:
@@ -89,7 +89,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 alg_start = dom_end
                 dom_start = dom_end
                 ndomkeys = 13
-                for d in xrange(ndom):
+                for d in range(ndom):
                     # Decode domain info
                     off = d * ndomkeys
                     # ienv = dom[off]
@@ -225,11 +225,11 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
     OUT = NamedTemporaryFile(dir=tempdir)
     if translate or maxseqlen:
         if translate:
-            print 'translating query input file'
+            print('translating query input file')
         Q = NamedTemporaryFile()
         for name, seq in seqio.iter_fasta_seqs(query_file, translate=translate):
             if maxseqlen is None or len(seq) <= maxseqlen:
-                print >>Q, ">%s\n%s" % (name, seq)
+                print(">%s\n%s" % (name, seq), file=Q)
         Q.flush()
         query_file = Q.name
 
@@ -269,7 +269,7 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
 
             (hitname, hacc, tlen, qname, qacc, qlen, evalue, score, bias, didx,
              dnum, c_evalue, i_evalue, d_score, d_bias, hmmfrom, hmmto, seqfrom,
-             seqto, env_from, env_to, acc) = map(safe_cast, fields[:22])
+             seqto, env_from, env_to, acc) = list(map(safe_cast, fields[:22]))
 
             if (last_query and qname != last_query):
                 yield last_query, 0, hit_list, last_query_len, None
@@ -321,8 +321,8 @@ def hmmsearch(query_hmm, target_db, cpus=1):
                 continue
             fields = line.split()  # output is not tab delimited! Should I trust this split?
             hit, _, query, _, evalue, score, bias, devalue, dscore, dbias = fields[0:10]
-            evalue, score, bias, devalue, dscore, dbias = map(
-                float, [evalue, score, bias, devalue, dscore, dbias])
+            evalue, score, bias, devalue, dscore, dbias = list(map(
+                float, [evalue, score, bias, devalue, dscore, dbias]))
             byquery[query].append([query, evalue, score])
 
     OUT.close()

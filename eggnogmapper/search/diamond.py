@@ -83,14 +83,14 @@ class DiamondSearcher:
         else:
             cmd += " --top 3 "
 
-        print colorify('  '+cmd, 'yellow')
+        print(colorify('  '+cmd, 'yellow'))
 
         with open(output_file+'.stdout', 'w') as STDOUT:
             subprocess.check_call(cmd, shell=True, stdout=STDOUT)
             
         if not self.no_file_comments:
-            print >>OUT, get_call_info()
-            print >>OUT, '#', cmd
+            print(get_call_info(), file=OUT)
+            print('#', cmd, file=OUT)
 
         return
 
@@ -103,7 +103,7 @@ class DiamondSearcher:
                 if not line.strip() or line.startswith('#'):
                     continue
 
-                fields = map(str.strip, line.split('\t'))
+                fields = list(map(str.strip, line.split('\t')))
                 query = fields[0]
                 hit = fields[1]
                 evalue = float(fields[10])
@@ -120,6 +120,6 @@ class DiamondSearcher:
 
                 visited.add(query)
 
-                print >>OUT, '\t'.join(map(str, [query, hit, evalue, score]))
+                print('\t'.join(map(str, [query, hit, evalue, score])), file=OUT)
             
         return

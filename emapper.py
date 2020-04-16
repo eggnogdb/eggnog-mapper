@@ -34,7 +34,7 @@ def create_arg_parser():
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
 
-    pg_annot.add_argument("--tax_scope", type=str, choices=LEVEL_NAMES.keys()+["auto"],
+    pg_annot.add_argument("--tax_scope", type=str, choices=list(LEVEL_NAMES.keys())+["auto"],
                     default='auto', metavar='',
                     help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
                           "particular clade are used for functional transfer. "
@@ -182,20 +182,20 @@ def parse_args(parser):
     args = parser.parse_args()
 
     if args.version:
-        print get_version()
+        print(get_version())
         sys.exit(0)
 
     if args.data_dir:
         set_data_path(args.data_dir)
 
     if not args.no_annot and not pexists(get_eggnogdb_file()):
-        print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
+        print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
         raise EmapperException()
 
     if args.mode == 'diamond':
         dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
         if not pexists(dmnd_db):
-            print colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red')
+            print(colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red'))
             raise EmapperException()
 
     if args.cpu == 0:
@@ -246,23 +246,23 @@ if __name__ == "__main__":
     _total_time = time.time()
     try:
         
-        print '# ', get_version()
-        print '# emapper.py ', ' '.join(sys.argv[1:])
+        print('# ', get_version())
+        print('# emapper.py ', ' '.join(sys.argv[1:]))
 
         emapper = Emapper(args.output_dir, args.scratch_dir, args.output, args.resume, args.override)
         emapper.run(args, args.mode, args.input, (not args.no_annot), args.annotate_hits_table, args.predict_ortho)
 
-        print get_citation([args.mode])
-        print 'Total time: %g secs' % (time.time()-_total_time)
+        print(get_citation([args.mode]))
+        print('Total time: %g secs' % (time.time()-_total_time))
         
     except EmapperException as ee:
-        print ee
+        print(ee)
         sys.exit(1)
     except Exception:
         traceback.print_exc()
         sys.exit(1)
     else:
-        print "FINISHED"
+        print("FINISHED")
         sys.exit(0)
 
 ## END
