@@ -940,89 +940,10 @@ def build_json_format(result_line, json_dict):
 '''
 
 
-def parse_args(parser):
-    args = parser.parse_args()
-
-    if args.version:
-        print get_version()
-        sys.exit(0)
-
-    if args.data_dir:
-        set_data_path(args.data_dir)
-
-    if not args.no_annot and not pexists(get_eggnogdb_file()):
-        print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
-        raise EmapperException()
-
-    if args.mode == 'diamond':
-        dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
-        if not pexists(dmnd_db):
-            print colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red')
-            raise EmapperException()
-
-    if args.cpu == 0:
-        args.cpu = multiprocessing.cpu_count()
-
-    # No --servermode available for diamond
-    if args.mode == 'diamond' and args.servermode:
-        parser.error('--mode [diamond] and --servermode are mutually exclusive')
-
-    # Output file required unless running in servermode
-    if not args.servermode and not args.output:
-        parser.error('An output project name is required (-o)')
-
-    # Servermode implies using mem-based databases
-    if args.servermode:
-        args.usemem = True
-
-    # Direct annotation implies no searches
-    if args.annotate_hits_table:
-        args.no_search = True
-        args.no_annot = False
 
 
-    # Sets GO evidence bases
-    if args.go_evidence == 'experimental':
-        args.go_evidence = set(["EXP","IDA","IPI","IMP","IGI","IEP"])
-        args.go_excluded = set(["ND", "IEA"])
-
-    elif args.go_evidence == 'non-electronic':
-        args.go_evidence = None
-        args.go_excluded = set(["ND", "IEA"])
-    else:
-        raise ValueError('Invalid --go_evidence value')
-
-    # Check inputs for running sequence searches
-    if not args.no_search and not args.servermode:
-        if not args.input:
-            parser.error('An input fasta file is required (-i)')
-
-        # HMM
-        if args.mode == 'hmmer':
-            if not args.db and not args.guessdb:
-                parser.error('HMMER mode requires specifying a target database (i.e. -d, --guessdb ))')
-            if args.db and args.guessdb:
-                parser.error('-d and --guessdb options are mutually exclusive')
-
-            if args.guessdb:
-                from ete3 import NCBITaxa
-                ncbi = NCBITaxa()
-                lineage = ncbi.get_lineage(args.guessdb)
-                for tid in reversed(lineage):
-                    if tid in TAXID2LEVEL:
-                        print tid, TAXID2LEVEL[tid]
-                        args.db = TAXID2LEVEL[tid]
-                        break
-        # DIAMOND
-        elif args.mode == 'diamond':
-            #if args.db or args.guessdb:
-            #    parser.error('diamond mode does not require -d or --guessdb options')
-            pass
-
-    return args
-
-
-if __name__ == "__main__":
+def create_arg_parser():
+    
     parser = argparse.ArgumentParser()
 
     # server
@@ -1203,6 +1124,94 @@ if __name__ == "__main__":
 
 
     parser.add_argument('--version', action='store_true')
+    
+    return parser
+
+def parse_args(parser):
+    
+    args = parser.parse_args()
+
+    if args.version:
+        print get_version()
+        sys.exit(0)
+
+    if args.data_dir:
+        set_data_path(args.data_dir)
+
+    if not args.no_annot and not pexists(get_eggnogdb_file()):
+        print colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red')
+        raise EmapperException()
+
+    if args.mode == 'diamond':
+        dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
+        if not pexists(dmnd_db):
+            print colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red')
+            raise EmapperException()
+
+    if args.cpu == 0:
+        args.cpu = multiprocessing.cpu_count()
+
+    # No --servermode available for diamond
+    if args.mode == 'diamond' and args.servermode:
+        parser.error('--mode [diamond] and --servermode are mutually exclusive')
+
+    # Output file required unless running in servermode
+    if not args.servermode and not args.output:
+        parser.error('An output project name is required (-o)')
+
+    # Servermode implies using mem-based databases
+    if args.servermode:
+        args.usemem = True
+
+    # Direct annotation implies no searches
+    if args.annotate_hits_table:
+        args.no_search = True
+        args.no_annot = False
+
+
+    # Sets GO evidence bases
+    if args.go_evidence == 'experimental':
+        args.go_evidence = set(["EXP","IDA","IPI","IMP","IGI","IEP"])
+        args.go_excluded = set(["ND", "IEA"])
+
+    elif args.go_evidence == 'non-electronic':
+        args.go_evidence = None
+        args.go_excluded = set(["ND", "IEA"])
+    else:
+        raise ValueError('Invalid --go_evidence value')
+
+    # Check inputs for running sequence searches
+    if not args.no_search and not args.servermode:
+        if not args.input:
+            parser.error('An input fasta file is required (-i)')
+
+        # HMM
+        if args.mode == 'hmmer':
+            if not args.db and not args.guessdb:
+                parser.error('HMMER mode requires specifying a target database (i.e. -d, --guessdb ))')
+            if args.db and args.guessdb:
+                parser.error('-d and --guessdb options are mutually exclusive')
+
+            if args.guessdb:
+                from ete3 import NCBITaxa
+                ncbi = NCBITaxa()
+                lineage = ncbi.get_lineage(args.guessdb)
+                for tid in reversed(lineage):
+                    if tid in TAXID2LEVEL:
+                        print tid, TAXID2LEVEL[tid]
+                        args.db = TAXID2LEVEL[tid]
+                        break
+        # DIAMOND
+        elif args.mode == 'diamond':
+            #if args.db or args.guessdb:
+            #    parser.error('diamond mode does not require -d or --guessdb options')
+            pass
+
+    return args
+
+if __name__ == "__main__":
+
+    parser = create_arg_parser()
 
     args = parse_args(parser)
 
