@@ -23,9 +23,9 @@ def run(cmd):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     out, err = process.communicate()
     if not out:
-        out = ''
+        out = b''
     if not err:
-        err = ''
+        err = b''
     return (process.returncode, out, err)
 
 
@@ -124,6 +124,8 @@ class Test(unittest.TestCase):
         print("Running eggnog-mapper...")
         st, out, err = run(cmd)
         if st != 0:
+            # print(out)
+            # print(err)
             print(out.decode("utf-8"))
             print(err.decode("utf-8"))
         assert st == 0 # check exit status is ok
