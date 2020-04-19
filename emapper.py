@@ -9,6 +9,7 @@ sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
+from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, get_eggnogdb_file, get_eggnog_dmnd_db, get_version, get_citation
 from eggnogmapper.vars import LEVEL_NAMES
@@ -26,14 +27,32 @@ def create_arg_parser():
     parser = argparse.ArgumentParser()
 
     ##
-    pg_db = parser.add_argument_group('Target Database Options')
+    pg_input = parser.add_argument_group('Input Data Options')
 
-    pg_db.add_argument("--data_dir", metavar='', type=existing_dir,
-                       help='Path to eggnog-mapper database.') # DATA_PATH in eggnogmapper.commons
+    pg_input.add_argument('-i', dest="input", metavar='', type=existing_file,
+                    help='Input FASTA file containing query sequences. Required unless -m {SEARCH_MODE_NO_SEARCH}')
 
+    pg_input.add_argument("--data_dir", metavar='', type=existing_dir,
+                       help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
+
+    ##
+    pg_search = parser.add_argument_group('Search Options')
+
+    pg_search.add_argument('-m', dest='mode',
+                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_NO_SEARCH],
+                           default=SEARCH_MODE_DIAMOND,
+                           help=(
+                               f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond. '
+                               f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required). '
+                               f'Default:{SEARCH_MODE_DIAMOND}'
+                           ))
+    
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
 
+    pg_annot.add_argument("--no_annot", action="store_true",
+                        help="Skip functional annotation, reporting only hits")
+    
     pg_annot.add_argument("--tax_scope", type=str, choices=list(LEVEL_NAMES.keys())+["auto"],
                     default='auto', metavar='',
                     help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
@@ -95,22 +114,9 @@ def create_arg_parser():
     pg_out.add_argument('--output', '-o', type=str, metavar='',
                     help="base name for output files")
 
-    pg_out.add_argument('--resume', action="store_true",
-                    help="Resumes a previous execution skipping reported hits in the output file.")
-
     pg_out.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
-
-    pg_out.add_argument("--no_refine", action="store_true",
-                    help="Skip hit refinement, reporting only HMM hits.")
-
-    pg_out.add_argument("--no_annot", action="store_true",
-                    help="Skip functional annotation, reporting only hits")
-
-    # TODO CPC 2019 REFACTOR --no_search to a --mode="no_search
-    pg_out.add_argument("--no_search", action="store_true",
-                    help="Skip search mapping. Use existing hits file")
-
+    
     pg_out.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
     
     pg_out.add_argument("--report_orthologs", action="store_true",
@@ -145,13 +151,10 @@ def create_arg_parser():
     
     # exec mode
     g4 = parser.add_argument_group('Execution options')
-    g4.add_argument('-m', dest='mode', choices = ['diamond'], default='diamond',
-                    help='Default:diamond')
 
-
-    g4.add_argument('-i', dest="input", metavar='', type=existing_file,
-                    help='Input FASTA file containing query sequences')
-
+    g4.add_argument('--cpu', type=int, default=2, metavar='',
+                    help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
+    
     g4.add_argument('--translate', action="store_true",
                     help='Assume sequences are genes instead of proteins')
 
@@ -165,12 +168,10 @@ def create_arg_parser():
                     help="""If a local hmmpressed database is provided as target using --db,
                     this flag will allocate the whole database in memory using hmmpgmd.
                     Database will be unloaded after execution.""")
-
-    g4.add_argument('--cpu', type=int, default=2, metavar='')
-
+    
     g4.add_argument('--annotate_hits_table', type=str, metavar='',
                     help='Annotatate TSV formatted table of query->hits. 4 fields required:'
-                    ' query, hit, evalue, score. Implies --no_search and --no_refine.')
+                    ' query, hit, evalue, score. Implies -m SEARCH_MODE_NO_SEARCH and --no_refine.')
 
 
     parser.add_argument('--version', action='store_true')
@@ -192,18 +193,30 @@ def parse_args(parser):
         print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
         raise EmapperException()
 
-    if args.mode == 'diamond':
+    # Search modes
+    if args.mode == SEARCH_MODE_DIAMOND:
         dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
         if not pexists(dmnd_db):
             print(colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red'))
             raise EmapperException()
 
+        if args.servermode:
+            parser.error('--mode [diamond] and --servermode are mutually exclusive')
+        else:
+            if not args.input:
+                parser.error('An input fasta file is required (-i)')
+            
+    elif args.mode == SEARCH_MODE_NO_SEARCH:
+        if not args.annotate_hits_table:
+            parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) requires a hits table to annotate (--annotate_hits_table FILE.seed_orthologs)')
+        if args.no_annot == True:
+            parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) is not compatible with --no_annot option)')
+            
+    else:
+        parser.error(f'unrecognized search mode (-m {args.mode})')
+
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-
-    # No --servermode available for diamond
-    if args.mode == 'diamond' and args.servermode:
-        parser.error('--mode [diamond] and --servermode are mutually exclusive')
 
     # Output file required unless running in servermode
     if not args.servermode and not args.output:
@@ -213,10 +226,7 @@ def parse_args(parser):
     if args.servermode:
         args.usemem = True
 
-    # Direct annotation implies no searches
-    if args.annotate_hits_table:
-        args.no_search = True
-        args.no_annot = False
+
 
 
     # Sets GO evidence bases
@@ -230,10 +240,7 @@ def parse_args(parser):
     else:
         raise ValueError('Invalid --go_evidence value')
 
-    # Check inputs for running sequence searches
-    if not args.no_search and not args.servermode:
-        if not args.input:
-            parser.error('An input fasta file is required (-i)')
+
 
     return args
 
@@ -249,7 +256,7 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
 
-        emapper = Emapper(args.output_dir, args.scratch_dir, args.output, args.resume, args.override)
+        emapper = Emapper(args.output_dir, args.scratch_dir, args.output, args.override)
         emapper.run(args, args.mode, args.input, (not args.no_annot), args.annotate_hits_table, args.predict_ortho)
 
         print(get_citation([args.mode]))

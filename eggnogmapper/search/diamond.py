@@ -22,6 +22,7 @@ class DiamondSearcher:
     def __init__(self, args):
 
         self.cpu = args.cpu
+        
         if args.translate:
             self.tool = 'blastx'
         else:
@@ -57,26 +58,28 @@ class DiamondSearcher:
             raise EmapperException("%s command not found in path" % (DIAMOND))
 
         tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=self.temp_dir)
-        OUT = None
         try:
             output_file = pjoin(tempdir, uuid.uuid4().hex)
-            OUT = open('%s' % seed_orthologs_file, 'w')
-            self.run_diamond(in_file, output_file, OUT)
-            self.parse_diamond(output_file, OUT)
+            cmd = self.run_diamond(in_file, output_file)
+            parsed = self.parse_diamond(output_file)
+            
+            self.output_diamond(cmd, parsed, seed_orthologs_file)
 
         except subprocess.CalledProcessError as e:
             raise e
         finally:
             shutil.rmtree(tempdir)
-            if OUT: OUT.close()
             
         return
 
     ##
-    def run_diamond(self, fasta_file, output_file, OUT):
-        
-        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --query-cover %s --subject-cover %s %s' %\
-              (DIAMOND, self.tool, self.dmnd_db, fasta_file, self.cpu, self.evalue_thr, output_file, self.query_cov, self.subject_cov, self.dmnd_opts)
+    def run_diamond(self, fasta_file, output_file):
+               
+        cmd = (
+            f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
+            f'--more-sensitive --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
+            f'--query-cover {self.query_cov} --subject-cover {self.subject_cov} {self.dmnd_opts}'
+        )
         
         if self.excluded_taxa:
             cmd += " --max-target-seqs 25 "
@@ -87,18 +90,15 @@ class DiamondSearcher:
 
         with open(output_file+'.stdout', 'w') as STDOUT:
             subprocess.check_call(cmd, shell=True, stdout=STDOUT)
-            
-        if not self.no_file_comments:
-            print(get_call_info(), file=OUT)
-            print('#'+cmd, file=OUT)
 
-        return
+        return cmd
 
     ##
-    def parse_diamond(self, raw_output_file, OUT):
+    def parse_diamond(self, raw_dmnd_file):
+        parsed = []
+
         visited = set()
-        
-        with open(raw_output_file, 'r') as raw_f:
+        with open(raw_dmnd_file, 'r') as raw_f:
             for line in raw_f:
                 if not line.strip() or line.startswith('#'):
                     continue
@@ -120,6 +120,21 @@ class DiamondSearcher:
 
                 visited.add(query)
 
-                print('\t'.join(map(str, [query, hit, evalue, score])), file=OUT)
+                parsed.append([query, hit, evalue, score])
             
+        return parsed
+
+    ##
+    def output_diamond(self, cmd, parsed, out_file):
+        with open(out_file, 'w') as OUT:
+        
+            if not self.no_file_comments:
+                print(get_call_info(), file=OUT)
+                print('#'+cmd, file=OUT)
+
+            for line in parsed:
+                print('\t'.join(map(str, line)), file=OUT)
+                
         return
+
+## END
