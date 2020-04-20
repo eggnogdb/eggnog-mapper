@@ -4,8 +4,10 @@
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_db_info
+from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER
 from ..utils import colorify
+
+from .hmmer_server import generate_idmap, server_functional, load_server, shutdown_server
 
 class HmmerSearcher:
 
@@ -46,6 +48,8 @@ class HmmerSearcher:
                 
             else:
                 print('refined hits not available for custom hmm databases.')
+
+        shutdown_server()
 
         return
 
@@ -146,6 +150,7 @@ class HmmerSearcher:
                 if ready:
                     dbpath = host
                     break
+                
         elif scantype == "mem":
             print(colorify("DB Server already running or not needed!", 'yellow'))
             dbpath = host
