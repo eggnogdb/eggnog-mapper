@@ -75,8 +75,8 @@ class DiamondSearcher:
     ##
     def run_diamond(self, fasta_file, output_file, OUT):
         
-        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --query-cover %s --subject-cover %s' %\
-              (DIAMOND, self.tool, self.dmnd_db, fasta_file, self.cpu, self.evalue_thr, output_file, self.query_cov, self.subject_cov)
+        cmd = '%s %s -d %s -q %s --more-sensitive --threads %s -e %f -o %s --query-cover %s --subject-cover %s %s' %\
+              (DIAMOND, self.tool, self.dmnd_db, fasta_file, self.cpu, self.evalue_thr, output_file, self.query_cov, self.subject_cov, self.dmnd_opts)
         
         if self.excluded_taxa:
             cmd += " --max-target-seqs 25 "
@@ -90,7 +90,7 @@ class DiamondSearcher:
             
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
-            print('#', cmd, file=OUT)
+            print('#'+cmd, file=OUT)
 
         return
 
