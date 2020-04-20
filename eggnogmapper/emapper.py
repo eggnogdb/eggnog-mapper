@@ -2,9 +2,11 @@
 ## CPCantalapiedra 2020
 
 import errno, os, shutil
+from os.path import exists as pexists
+from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm, pexists
+from .common import silent_rm
 from .emapperException import EmapperException
 
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH
@@ -44,13 +46,13 @@ class Emapper:
             self._output_files = [self.hmm_hits_file, self.seed_orthologs_file, self.annot_file]
 
         # force user to decide what to do with existing files
-        files_present = set([pexists(os.path.join(self.output_dir, fname)) for fname in self._output_files])
+        files_present = set([pexists(pjoin(self.output_dir, fname)) for fname in self._output_files])
         if True in files_present and not override:
             raise EmapperException("Output files detected in disk. Use --override to continue")
 
         if override:
             for outf in self._output_files:
-                silent_rm(os.path.join(self.output_dir, outf))
+                silent_rm(pjoin(self.output_dir, outf))
 
         # If using --scratch_dir, change working dir
         # (once finished move them again to output_dir)
@@ -67,26 +69,26 @@ class Emapper:
         s = get_searcher(args, self.mode)
         if s:
             s.search(infile,
-                     os.path.join(self._current_dir, self.seed_orthologs_file),
-                     os.path.join(self._current_dir, self.hmm_hits_file))
+                     pjoin(self._current_dir, self.seed_orthologs_file),
+                     pjoin(self._current_dir, self.hmm_hits_file))
         return
 
     ##
     def annotate(self, args, annotate_hits_table):
         hits_file = None
         if annotate_hits_table:
-            if not os.path.exists(annotate_hits_table):
+            if not pexists(annotate_hits_table):
                 raise EmapperException("Could not find hits table to annotate: %s" % (annotate_hits_table))
             
             hits_file = annotate_hits_table
         else:
-            hits_file = os.path.join(self._current_dir, self.seed_orthologs_file)
+            hits_file = pjoin(self._current_dir, self.seed_orthologs_file)
 
         if hits_file:
             a = get_annotator(args)
             a.annotate(hits_file,
-                       os.path.join(self._current_dir, self.annot_file),
-                       os.path.join(self._current_dir, self.hmm_hits_file))
+                       pjoin(self._current_dir, self.annot_file),
+                       pjoin(self._current_dir, self.hmm_hits_file))
                 
         return
     
@@ -108,14 +110,14 @@ class Emapper:
         # Optional step. Orthology prediction
         if predict_ortho:
             orthology.connect()
-            dump_orthologs(os.path.join(self._current_dir, self.seed_orthologs_file),
-                           os.path.join(self._current_dir, self.orthologs_file, args))
+            dump_orthologs(pjoin(self._current_dir, self.seed_orthologs_file),
+                           pjoin(self._current_dir, self.orthologs_file, args))
 
         ##
         # If running in scratch, move files to real output dir and clean up
         if self.scratch_dir:
             for fname in self._output_files:
-                pathname = os.path.join(self.scratch_dir, fname)
+                pathname = pjoin(self.scratch_dir, fname)
                 if pexists(pathname):
                     print(" Copying result file %s from scratch to %s" % (pathname, self.output_dir))
                     shutil.copy(pathname, self.output_dir)
@@ -125,7 +127,7 @@ class Emapper:
         # Finalize and exit
         print(colorify('Done', 'green'))
         for fname in self._output_files:
-            pathname = os.path.join(self.output_dir, fname)            
+            pathname = pjoin(self.output_dir, fname)            
             colorify('Result files:', 'yellow')
             if pexists(pathname):
                 print("   %s" % (pathname))
