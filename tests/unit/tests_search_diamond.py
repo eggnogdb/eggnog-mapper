@@ -19,7 +19,7 @@ class Test(unittest.TestCase):
     # Tests
     def test_run_diamond_blastp(self):
         args = Namespace(translate=False,
-                         dmnd_db=None,
+                         dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          query_cover=0,
                          subject_cover=0,
