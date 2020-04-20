@@ -32,9 +32,16 @@ def create_arg_parser():
     pg_input.add_argument('-i', dest="input", metavar='', type=existing_file,
                     help='Input FASTA file containing query sequences. Required unless -m {SEARCH_MODE_NO_SEARCH}')
 
-    pg_input.add_argument("--data_dir", metavar='', type=existing_dir,
-                       help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
+    pg_input.add_argument('--translate', action="store_true",
+                          help='Assume sequences are CDS instead of proteins')
 
+    pg_input.add_argument('--annotate_hits_table', type=str, metavar='',
+                          help='Annotate TSV formatted table with 4 fields:'
+                          ' query, hit, evalue, score. Required if -m {SEARCH_MODE_NO_SEARCH} and --no_refine.')
+        
+    pg_input.add_argument("--data_dir", metavar='', type=existing_dir,
+                          help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
+        
     ##
     pg_search = parser.add_argument_group('Search Options')
 
@@ -42,10 +49,42 @@ def create_arg_parser():
                            choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_NO_SEARCH],
                            default=SEARCH_MODE_DIAMOND,
                            help=(
-                               f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond. '
+                               f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond (-i is required). '
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required). '
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
+
+    pg_search.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
+                           help='Min E-value expected when searching for seed eggNOG ortholog.'
+                           ' Queries not having a significant'
+                           ' seed orthologs will not be annotated. Default=0.001')
+
+    pg_search.add_argument('--seed_ortholog_score', default=60, type=float, metavar='',
+                           help='Min bit score expected when searching for seed eggNOG ortholog.'
+                           ' Queries not having a significant'
+                           ' seed orthologs will not be annotated. Default=60')
+    
+    ##
+    pg_diamond = parser.add_argument_group('Diamond Search Options')
+	
+    pg_diamond.add_argument('--dmnd_db',
+		    help="Path to DIAMOND-compatible database")
+
+    pg_diamond.add_argument('--matrix', dest='matrix', 
+                    choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
+                    default=None, help='Scoring matrix')
+
+    pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
+                    help='Gap open penalty')
+
+    pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
+                    help='Gap extend  penalty')
+
+    pg_diamond.add_argument('--query-cover', dest='query_cover', type=float, default=0,
+                    help='Report only alignments above the given percentage of query cover. Default=0')
+
+    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=0,
+                    help='Report only alignments above the given percentage of subject cover. Default=0')
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
@@ -74,61 +113,21 @@ def create_arg_parser():
                           'non-electronic = Use only non-electronically curated terms')
 
     ##
-    pg_diamond = parser.add_argument_group('Diamond Search Options')
-	
-    pg_diamond.add_argument('--dmnd_db',
-		    help="Path to DIAMOND-compatible database")
-
-    pg_diamond.add_argument('--matrix', dest='matrix', 
-                    choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
-                    default=None, help='Scoring matrix')
-
-    pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
-                    help='Gap open penalty')
-
-    pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
-                    help='Gap extend  penalty')
-
-    pg_diamond.add_argument('--query-cover', dest='query_cover', type=float, default=0,
-                    help='Report only alignments above the given percentage of query cover. Default=0')
-
-    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=0,
-                    help='Report only alignments above the given percentage of subject cover. Default=0')
-
-    ##
-    pg_seed = parser.add_argument_group('Seed ortholog search option')
-
-    pg_seed.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
-                    help='Min E-value expected when searching for seed eggNOG ortholog.'
-                         ' Queries not having a significant'
-                         ' seed orthologs will not be annotated. Default=0.001')
-
-    pg_seed.add_argument('--seed_ortholog_score', default=60, type=float, metavar='',
-                    help='Min bit score expected when searching for seed eggNOG ortholog.'
-                         ' Queries not having a significant'
-                         ' seed orthologs will not be annotated. Default=60')
-
-    ##
     pg_out = parser.add_argument_group('Output options')
 
     pg_out.add_argument('--output', '-o', type=str, metavar='',
-                    help="base name for output files")
-
-    pg_out.add_argument('--override', action="store_true",
-                    help="Overwrites output files if they exist.")
-    
-    pg_out.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
-    
-    pg_out.add_argument("--report_orthologs", action="store_true",
-                    help="The list of orthologs used for functional transferred are dumped into a separate file")
-
-    pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
-                    help='Write output files in a temporary scratch dir, move them to the final'
-                        ' output dir when finished. Speed up large computations using network file'
-                        ' systems.')
+                        help="base name for output files")
 
     pg_out.add_argument("--output_dir", default=os.getcwd(), type=existing_dir, metavar='',
-                    help="Where output files should be written")
+                        help="Where output files should be written")
+
+    pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
+                        help='Write output files in a temporary scratch dir, move them to the final'
+                        ' output dir when finished. Speed up large computations using network file'
+                        ' systems.')
+        
+    pg_out.add_argument('--override', action="store_true",
+                    help="Overwrites output files if they exist.")
 
     pg_out.add_argument("--temp_dir", default=os.getcwd(), type=existing_dir, metavar='',
                     help="Where temporary files are created. Better if this is a local disk.")
@@ -136,12 +135,25 @@ def create_arg_parser():
     pg_out.add_argument('--no_file_comments', action="store_true",
                         help="No header lines nor stats are included in the output files")
 
+    pg_out.add_argument("--report_orthologs", action="store_true",
+                        help="The list of orthologs used for functional transferred are dumped into a separate file")
+    
+
+    
+
+
+
+
+
     pg_out.add_argument('--keep_mapping_files', action='store_true',
                         help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
                         ' DIAMOND search outputs)')
 
+    ##
     pg_predict = parser.add_argument_group('Predict orthologs options')
 
+    pg_predict.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
+        
     pg_predict.add_argument('--target_taxa', type=str,
                           default= "all", nargs="+",
                             help='taxa that will be searched for orthologs')
@@ -149,15 +161,12 @@ def create_arg_parser():
     pg_predict.add_argument('--predict_output_format', choices=["per_query", "per_species"],
                             default= "per_species", help="Choose the output format among: per_query, per_species .Default = per_species")
     
-    # exec mode
+    ##
     g4 = parser.add_argument_group('Execution options')
 
     g4.add_argument('--cpu', type=int, default=2, metavar='',
                     help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
     
-    g4.add_argument('--translate', action="store_true",
-                    help='Assume sequences are genes instead of proteins')
-
     # CPC 2019 Check if --servermode is mutually exclusive with diamond mode
     g4.add_argument("--servermode", action="store_true",
                     help='Loads target database in memory and keeps running in server mode,'
@@ -169,11 +178,6 @@ def create_arg_parser():
                     this flag will allocate the whole database in memory using hmmpgmd.
                     Database will be unloaded after execution.""")
     
-    g4.add_argument('--annotate_hits_table', type=str, metavar='',
-                    help='Annotatate TSV formatted table of query->hits. 4 fields required:'
-                    ' query, hit, evalue, score. Implies -m SEARCH_MODE_NO_SEARCH and --no_refine.')
-
-
     parser.add_argument('--version', action='store_true')
     
     return parser
@@ -229,10 +233,7 @@ def parse_args(parser):
     # Servermode implies using mem-based databases
     if args.servermode:
         args.usemem = True
-
-
-
-
+        
     # Sets GO evidence bases
     if args.go_evidence == 'experimental':
         args.go_evidence = set(["EXP","IDA","IPI","IMP","IGI","IEP"])
@@ -260,7 +261,7 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
 
-        emapper = Emapper(args.output_dir, args.scratch_dir, args.output, args.override)
+        emapper = Emapper(args.output, args.output_dir, args.scratch_dir, args.override)
         emapper.run(args, args.mode, args.input, (not args.no_annot), args.annotate_hits_table, args.predict_ortho)
 
         print(get_citation([args.mode]))

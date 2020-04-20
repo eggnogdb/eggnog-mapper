@@ -19,7 +19,7 @@ class Emapper:
     output_dir = scratch_dir = None
 
     ##
-    def __init__(self, output_dir, scratch_dir, prefix, override):
+    def __init__(self, prefix, output_dir, scratch_dir, override):
 
         #
         self.output_dir = output_dir
@@ -66,9 +66,7 @@ class Emapper:
         if annotate_hits_table:
             if not os.path.exists(annotate_hits_table):
                 raise EmapperException("Could not find hits table to annotate: %s" % (annotate_hits_table))
-                # raise IOError(errno.ENOENT,
-                #               os.strerror(errno.ENOENT),
-                #               annotate_hits_table)
+            
             hits_file = annotate_hits_table
         else:
             hits_file = self.seed_orthologs_file
@@ -104,8 +102,8 @@ class Emapper:
         if args.scratch_dir:
             for fname in self._output_files:
                 if pexists(fname):
-                    print(" Copying result file %s from scratch to %s" % (fname, args.output_dir))
-                    shutil.copy(annot_file, args.output_dir) # CPC 2020 should be fname instead of annot_file
+                    print(" Copying result file %s from scratch to %s" % (fname, self.output_dir))
+                    shutil.copy(annot_file, self.output_dir) # CPC 2020 should be fname instead of annot_file
                     print("  Cleaning result file %s from scratch dir" %(fname)) # CPC 2020 it says is going to clean but does nothing here
 
         ##
