@@ -30,14 +30,14 @@ def create_arg_parser():
     pg_input = parser.add_argument_group('Input Data Options')
 
     pg_input.add_argument('-i', dest="input", metavar='', type=existing_file,
-                    help='Input FASTA file containing query sequences. Required unless -m {SEARCH_MODE_NO_SEARCH}')
+                          help=f'Input FASTA file containing query sequences (proteins by default; see --translate). Required unless -m {SEARCH_MODE_NO_SEARCH}')
 
     pg_input.add_argument('--translate', action="store_true",
-                          help='Assume sequences are CDS instead of proteins')
+                          help='Assume input sequences are CDS instead of proteins')
 
     pg_input.add_argument('--annotate_hits_table', type=str, metavar='',
-                          help='Annotate TSV formatted table with 4 fields:'
-                          ' query, hit, evalue, score. Required if -m {SEARCH_MODE_NO_SEARCH} and --no_refine.')
+                          help=f'Annotate TSV formatted table with 4 fields:'
+                          f' query, hit, evalue, score. Required if -m {SEARCH_MODE_NO_SEARCH}.')
         
     pg_input.add_argument("--data_dir", metavar='', type=existing_dir,
                           help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
@@ -108,8 +108,8 @@ def create_arg_parser():
 
     pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
                           default='non-electronic',
-                          help='Defines what type of GO terms should be used for annotation:'
-                          'experimental = Use only terms inferred from experimental evidence'
+                          help='Defines what type of GO terms should be used for annotation. '
+                          'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
 
     ##
@@ -156,7 +156,8 @@ def create_arg_parser():
     g4.add_argument('--cpu', type=int, default=2, metavar='',
                     help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
     
-    parser.add_argument('--version', action='store_true')
+    parser.add_argument('--version', action='store_true',
+                        help="show version and exit.")
     
     return parser
 
@@ -230,8 +231,8 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
 
-        emapper = Emapper(args.output, args.output_dir, args.scratch_dir, args.override)
-        emapper.run(args, args.mode, args.input, (not args.no_annot), args.annotate_hits_table, args.predict_ortho)
+        emapper = Emapper(args.mode, (not args.no_annot), args.output, args.output_dir, args.scratch_dir, args.override)
+        emapper.run(args, args.input, args.annotate_hits_table, args.predict_ortho)
 
         print(get_citation([args.mode]))
         print('Total time: %g secs' % (time.time()-_total_time))
