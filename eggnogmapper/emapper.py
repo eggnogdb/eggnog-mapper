@@ -29,11 +29,6 @@ class Emapper:
         self.scratch_dir = scratch_dir
         
         # Output and intermediate files
-        
-        # self.hmm_hits_file = "%s/%s.emapper.hmm_hits" % (output_dir, prefix)
-        # self.seed_orthologs_file = "%s/%s.emapper.seed_orthologs" % (output_dir, prefix)
-        # self.annot_file = "%s/%s.emapper.annotations" % (output_dir, prefix)
-        # self.orthologs_file = "%s/%s.emapper.predict_orthologs" % (output_dir, prefix)
         self.hmm_hits_file = f"{prefix}.emapper.hmm_hits"
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
@@ -47,8 +42,6 @@ class Emapper:
             self._output_files = [self.hmm_hits_file, self.seed_orthologs_file]
         else:
             self._output_files = [self.hmm_hits_file, self.seed_orthologs_file, self.annot_file]
-            
-        # self._output_files = [self.hmm_hits_file, self.seed_orthologs_file, self.annot_file]
 
         # force user to decide what to do with existing files
         files_present = set([pexists(os.path.join(self.output_dir, fname)) for fname in self._output_files])
@@ -63,21 +56,19 @@ class Emapper:
         # (once finished move them again to output_dir)
         if scratch_dir:
             self._current_dir = scratch_dir
-            # self.hmm_hits_file = "%s/%s.emapper.hmm_hits" % (scratch_dir, prefix)
-            # self.seed_orthologs_file = "%s/%s.emapper.seed_orthologs" % (scratch_dir, prefix)
-            # self.annot_file = "%s/%s.emapper.annotations" % (scratch_dir, prefix)
-            # self.orthologs_file = "%s/%s.emapper.predict_orthologs" % (scratch_dir, prefix)            
+            
         else:
             self._current_dir = output_dir
             
         return
 
-
     ##
     def search(self, args, infile):
         s = get_searcher(args, self.mode)
         if s:
-            s.search(infile, os.path.join(self._current_dir, self.seed_orthologs_file))
+            s.search(infile,
+                     os.path.join(self._current_dir, self.seed_orthologs_file),
+                     os.path.join(self._current_dir, self.hmm_hits_file))
         return
 
     ##
@@ -127,7 +118,7 @@ class Emapper:
                 pathname = os.path.join(self.scratch_dir, fname)
                 if pexists(pathname):
                     print(" Copying result file %s from scratch to %s" % (pathname, self.output_dir))
-                    shutil.copy(pathname, self.output_dir) # CPC 2020 should be fname instead of annot_file
+                    shutil.copy(pathname, self.output_dir)
                     print("  Cleaning result file %s from scratch dir" %(fname)) # CPC 2020 it says is going to clean but does nothing here
 
         ##
