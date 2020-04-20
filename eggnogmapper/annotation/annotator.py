@@ -10,6 +10,7 @@ from ..emapperException import EmapperException
 from ..utils import colorify
 from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
+from ..orthologs.orthology import normalize_target_taxa
 from . import annota
 
 HIT_HEADER = ["#query_name",
@@ -225,7 +226,7 @@ def _annotate_hit_line(arguments):
         annot_level_max = LEVEL_NAMES.get(tax_scope, tax_scope)
 
     if target_taxa != 'all':
-        target_taxa = orthology.normalize_target_taxa(target_taxa)
+        target_taxa = normalize_target_taxa(target_taxa)
     else:
         target_taxa = None
 
