@@ -137,17 +137,6 @@ def create_arg_parser():
 
     pg_out.add_argument("--report_orthologs", action="store_true",
                         help="The list of orthologs used for functional transferred are dumped into a separate file")
-    
-
-    
-
-
-
-
-
-    pg_out.add_argument('--keep_mapping_files', action='store_true',
-                        help='Do not delete temporary mapping files used for annotation (i.e. HMMER and'
-                        ' DIAMOND search outputs)')
 
     ##
     pg_predict = parser.add_argument_group('Predict orthologs options')
