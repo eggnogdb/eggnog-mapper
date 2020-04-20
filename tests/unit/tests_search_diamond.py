@@ -69,6 +69,31 @@ class Test(unittest.TestCase):
         self.assertTrue(cmd.startswith(DIAMOND))
         
         return
+
+    def test_parse_diamond(self):
+        args = Namespace(translate=False,
+                         dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
+                         cpu=2,
+                         query_cover=0,
+                         subject_cover=0,
+                         matrix=None,
+                         gapopen=None,
+                         gapextend=None,
+                         seed_ortholog_evalue=0.001,
+                         seed_ortholog_score=60,
+                         excluded_taxa=None,
+                         temp_dir=os.getcwd(),
+                         no_file_comments=None)
+        
+        searcher = DiamondSearcher(args)
+        
+        seed_orthologs_file = "tests/fixtures/test_diamond_blastp.out"
+        parsed = searcher.parse_diamond(seed_orthologs_file)
+        
+        expected = [['1000565.METUNv1_03812', '1000565.METUNv1_03812', 1.9e-207, 716.8], ['362663.ECP_0061', '362663.ECP_0061', 0.0, 1636.3]]
+        self.assertEqual(parsed, expected)
+        
+        return
     
 if __name__ == '__main__':
     
