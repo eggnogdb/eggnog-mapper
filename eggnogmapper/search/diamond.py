@@ -48,7 +48,12 @@ class DiamondSearcher:
         return
 
     ##
-    def search(self, in_file, seed_orthologs_file):
+    def search(self, in_file, seed_orthologs_file, hits_file = None):
+        # DiamondSearcher does not use the "hits_file"
+        # but we need this wrapper to define the search interface for Emapper
+        self._search(in_file, seed_orthologs_file)
+
+    def _search(self, in_file, seed_orthologs_file):
         if not DIAMOND:
             raise EmapperException("%s command not found in path" % (DIAMOND))
 
