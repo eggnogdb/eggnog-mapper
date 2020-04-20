@@ -186,6 +186,10 @@ def parse_args(parser):
         print(get_version())
         sys.exit(0)
 
+    # We need to handle this
+    # if args.maxhits == 0: 
+    #     args.maxhits = None
+
     if args.data_dir:
         set_data_path(args.data_dir)
 

@@ -3,6 +3,7 @@
 ## CPCantalapiedra 2020
 
 from . import orthology
+import multiprocessing
 
 def iter_hit_lines(filename, args):
     for line in open(filename):
