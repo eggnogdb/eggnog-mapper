@@ -156,17 +156,6 @@ def create_arg_parser():
     g4.add_argument('--cpu', type=int, default=2, metavar='',
                     help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
     
-    # CPC 2019 Check if --servermode is mutually exclusive with diamond mode
-    g4.add_argument("--servermode", action="store_true",
-                    help='Loads target database in memory and keeps running in server mode,'
-                    ' so another instance of eggnog-mapper can connect to this sever.'
-                    ' Auto turns on the --usemem flag')
-
-    g4.add_argument('--usemem', action="store_true",
-                    help="""If a local hmmpressed database is provided as target using --db,
-                    this flag will allocate the whole database in memory using hmmpgmd.
-                    Database will be unloaded after execution.""")
-    
     parser.add_argument('--version', action='store_true')
     
     return parser
@@ -197,11 +186,8 @@ def parse_args(parser):
             print(colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red'))
             raise EmapperException()
 
-        if args.servermode:
-            parser.error('--mode [diamond] and --servermode are mutually exclusive')
-        else:
-            if not args.input:
-                parser.error('An input fasta file is required (-i)')
+        if not args.input:
+            parser.error('An input fasta file is required (-i)')
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
@@ -215,13 +201,9 @@ def parse_args(parser):
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
 
-    # Output file required unless running in servermode
-    if not args.servermode and not args.output:
+    # Output file required
+    if not args.output:
         parser.error('An output project name is required (-o)')
-
-    # Servermode implies using mem-based databases
-    if args.servermode:
-        args.usemem = True
         
     # Sets GO evidence bases
     if args.go_evidence == 'experimental':
@@ -233,9 +215,7 @@ def parse_args(parser):
         args.go_excluded = set(["ND", "IEA"])
     else:
         raise ValueError('Invalid --go_evidence value')
-
-
-
+    
     return args
 
 
