@@ -67,7 +67,7 @@ class DiamondSearcher:
         return
 
     ##
-    def run_diamond(self, fasta_file, output_file):
+    def run_diamond(self, fasta_file, output_file, silent = False):
                
         cmd = (
             f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
@@ -82,10 +82,16 @@ class DiamondSearcher:
         if self.excluded_taxa: cmd += " --max-target-seqs 25 "
         else: cmd += " --top 3 "
 
-        print(colorify('  '+cmd, 'yellow'))
-
-        with open(output_file+'.stdout', 'w') as STDOUT:
-            subprocess.check_call(cmd, shell=True, stdout=STDOUT)
+        if silent == True:
+            with open(output_file+'.stdout', 'w') as STDOUT, \
+                 open(output_file+'.stderr', 'w') as STDERR:
+                subprocess.check_call(cmd, shell=True, stdout=STDOUT, stderr=STDERR)
+                
+        else:
+            print(colorify('  '+cmd, 'yellow'))
+            
+            with open(output_file+'.stdout', 'w') as STDOUT:
+                subprocess.check_call(cmd, shell=True, stdout=STDOUT)
 
         return cmd
 
