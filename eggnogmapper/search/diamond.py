@@ -13,42 +13,37 @@ from ..utils import colorify
 class DiamondSearcher:
 
     # Command
-    cpu = tool = dmnd_db = dmnd_opts = temp_dir = no_file_comments = None
+    cpu = tool = dmnd_db = temp_dir = no_file_comments = None
+    matrix = gapopen = gapextend = None
 
     # Filters
     score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
 
     ##
     def __init__(self, args):
-
-        self.cpu = args.cpu
         
         if args.translate:
             self.tool = 'blastx'
         else:
             self.tool = 'blastp'
 
-        if args.dmnd_db:
-            self.dmnd_db = args.dmnd_db
-        else:
-            self.dmnd_db = get_eggnog_dmnd_db()
-        
-        self.dmnd_opts = ''
-        if args.matrix is not None:
-            self.dmnd_opts += ' --matrix %s' % args.matrix
-        if args.gapopen is not None:
-            self.dmnd_opts += ' --gapopen %d' % args.gapopen
-        if args.gapextend is not None:
-            self.dmnd_opts += ' --gapextend %d' % args.gapextend
+        self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
 
-        self.temp_dir = args.temp_dir
-        self.no_file_comments = args.no_file_comments
+        self.cpu = args.cpu
         
-        self.score_thr = args.seed_ortholog_score
-        self.evalue_thr = args.seed_ortholog_evalue
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
+
+        self.matrix = args.matrix
+        self.gapopen = args.gapopen
+        self.gapextend = args.gapextend
+
+        self.evalue_thr = args.seed_ortholog_evalue
+        self.score_thr = args.seed_ortholog_score
         self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+        
+        self.temp_dir = args.temp_dir
+        self.no_file_comments = args.no_file_comments
         
         return
 
@@ -61,8 +56,7 @@ class DiamondSearcher:
         try:
             output_file = pjoin(tempdir, uuid.uuid4().hex)
             cmd = self.run_diamond(in_file, output_file)
-            parsed = self.parse_diamond(output_file)
-            
+            parsed = self.parse_diamond(output_file)            
             self.output_diamond(cmd, parsed, seed_orthologs_file)
 
         except subprocess.CalledProcessError as e:
@@ -78,13 +72,15 @@ class DiamondSearcher:
         cmd = (
             f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
             f'--more-sensitive --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
-            f'--query-cover {self.query_cov} --subject-cover {self.subject_cov} {self.dmnd_opts}'
+            f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
         )
+
+        if self.matrix: cmd += ' --matrix {self.matrix}'
+        if self.gapopen: cmd += ' --gapopen {self.gapopen}'
+        if self.gapextend: cmd += ' --gapextend {self.gapextend}'
         
-        if self.excluded_taxa:
-            cmd += " --max-target-seqs 25 "
-        else:
-            cmd += " --top 3 "
+        if self.excluded_taxa: cmd += " --max-target-seqs 25 "
+        else: cmd += " --top 3 "
 
         print(colorify('  '+cmd, 'yellow'))
 
