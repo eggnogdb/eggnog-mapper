@@ -1,6 +1,5 @@
 #!/usr/bin/env python2
 
-
 import sys
 import os
 import socket
@@ -52,19 +51,19 @@ def unpack_stats(bindata):
 
 def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
               score_thr=None, max_hits=None, fixed_Z=None):
-    hits = []
-    hit_models = set()
+
     s = socket.socket()
     try:
         s.connect((address, port))
-    except Exception as e:
-        print((address, port, e))
+    except Exception, e:
+        print(address, port, e)
         raise
     s.sendall(data)
 
     status = s.recv(16)
     st, msg_len = struct.unpack("I 4x Q", status)
     elapsed, nreported = 0, 0
+    hits = defaultdict(list)
     if st == 0:
         binresult = ''
         while len(binresult) < msg_len:
@@ -74,61 +73,58 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
         if fixed_Z:
             Z = fixed_Z
 
-        hits_start = 120
-        hits_end = hits_start + (152 * nreported)
-        dom_start = hits_end
+        hitdata = defaultdict(dict)
 
-        for hitblock in range(hits_start, hits_end, 152):
-            name, evalue, score, ndom = unpack_hit(
-                binresult[hitblock: hitblock + 152], Z)
-            if ndom:
-                dom_end = dom_start + (72 * ndom)
-                dombit = binresult[dom_start:dom_end]
-                dom = struct.unpack("4i 5f 4x d 2i Q 8x" * ndom, dombit)
+        hits_start = 120 # First 120 bits are the stats
+        hits_end = hits_start
 
-                alg_start = dom_end
-                dom_start = dom_end
-                ndomkeys = 13
-                for d in range(ndom):
-                    # Decode domain info
-                    off = d * ndomkeys
-                    # ienv = dom[off]
-                    # jenv = dom[ off + 1 ]
-                    iali = dom[off + 2]
-                    # jali = dom[ off + 3 ]
-                    #ievalue = math.exp(dom[ off + 9 ]) * Z
-                    #cevalue = math.exp(dom[ off + 9 ]) * domZ
-                    bitscore = dom[off + 8]
-                    is_reported = dom[off + 10]
-                    is_included = dom[off + 11]
+        for hitid in xrange(nreported):
+            hits_end = hits_start + 152
+            name, evalue, score, ndom = unpack_hit(binresult[hits_start:hits_end], Z)
+            hitdata[hitid] = {"name": name, "evalue": evalue, "score":score, "ndom": ndom, "doms": []}
+            hits_start += 152
 
-                    # decode the alignment
-                    alibit = binresult[alg_start: alg_start + 168]
+        next_start = hits_end
+        reported_hits = []
+        for hitid in xrange(nreported):
+            hit = hitdata[hitid]
+            for domid in range(hit["ndom"]):
+                dombit = binresult[next_start:next_start + 72]
+                dom = struct.unpack("4i 5f 4x d 2i Q 8x", dombit)
+                is_reported = dom[10]
+                is_included = dom[11]
+                hit["doms"].append(dom)
+                next_start += 72
 
-                    (rfline, mmline, csline, model, mline, aseq, ppline, N,
-                     hmmname, hmmacc, hmmdesc, hmmfrom, hmmto, M, sqname, sqacc,
-                     sqdesc,sqfrom, sqto, L, memsize, mem) = \
-                     struct.unpack("7Q I 4x 3Q 3I 4x 6Q I 4x Q", alibit)
+            for domid in range(hit["ndom"]):
+                alibit = struct.unpack("7Q I 4x 3Q 3I 4x 6Q I 4x Q", binresult[next_start:next_start+168])
 
-                    # next domain start pos
-                    alg_start += 168 + memsize
-                    dom_start = alg_start
+                (rfline, mmline, csline, model, mline, aseq, ppline, N,
+                hmmname, hmmacc, hmmdesc, hmmfrom, hmmto, M, sqname, sqacc,
+                sqdesc,sqfrom, sqto, L, memsize, mem) = alibit
+                next_start += 168
+                # Skip alignment
+                # ....
+                next_start += (memsize)
+                d = hit["doms"][domid]
+                bitscore = d[8]
+                ievalue = math.exp(d[9] * Z)
+                cevalue = math.exp(d[9] * domZ)
+                evalue = hit["evalue"]
+                score = hit["score"]
+                if (evalue_thr is None or evalue <= evalue_thr) and \
+                    (score_thr is not None and score >= score_thr):
+                    reported_hits.append((hit["name"], hit["evalue"], hit["score"], hmmfrom,
+                             hmmto, sqfrom, sqto, bitscore))
 
-                    if (evalue_thr is None or evalue <= evalue_thr) and \
-                       (score_thr is not None and score >= score_thr):
-                        hit_models.add(name)
-                        hits.append((name, evalue, score, hmmfrom,
-                                     hmmto, sqfrom, sqto, bitscore))
-
-            if max_hits and len(hit_models) == max_hits:
+            if max_hits and (hitid+1) == max_hits:
                 break
     else:
         s.close()
         raise ValueError('hmmpgmd error: %s' % data[:50])
 
     s.close()
-    return elapsed, hits
-
+    return elapsed, reported_hits
 
 def iter_hmm_hits(hmmfile, host, port, dbtype="hmmdb", evalue_thr=None,
                   max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
