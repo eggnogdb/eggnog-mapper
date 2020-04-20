@@ -123,6 +123,9 @@ class Test(unittest.TestCase):
 
         print("Running eggnog-mapper...")
         st, out, err = run(cmd)
+        if st != 0:
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
         assert st == 0 # check exit status is ok
 
         ##
