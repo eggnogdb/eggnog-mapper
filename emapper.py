@@ -120,6 +120,25 @@ def create_arg_parser():
                           help='Loads target database in memory and keeps running in server mode,'
                           ' so another instance of eggnog-mapper can connect to this sever.'
                           ' Auto turns on the --usemem flag')
+
+    pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='',
+                        help="Max number of hits to report. Default=1")
+
+    pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='',
+                        help="Ignore query sequences larger than `maxseqlen`. Default=5000")
+        
+    pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=0.001, type=float, metavar='',
+                        help="E-value threshold. Default=0.001")
+
+    pg_hmmer.add_argument('--hmm_score', dest='score', default=20, type=float, metavar='',
+                        help="Bit score threshold. Default=20")
+
+    pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='',
+                        help="min query coverage (from 0 to 1). Default=(disabled)")
+
+    pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='',
+                        help='Fixed database size used in phmmer/hmmscan'
+                        ' (allows comparing e-values among databases). Default=40,000,000')
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
