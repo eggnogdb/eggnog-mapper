@@ -8,7 +8,7 @@ from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER
 from ..utils import colorify
 
 from .hmmer_server import generate_idmap, server_functional, load_server, shutdown_server
-from .hmmer_search import iter_hits
+from .hmmer_search import iter_hits, refine_hit
 
 from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
@@ -27,6 +27,9 @@ class HmmerSearcher:
 
     resume = None
     no_file_comments = None
+
+    evalue = score = qcov = Z = maxhits = maxseqlen = tempdir = None
+    excluded_taxa = None
     
     ##
     def __init__(self, args):
@@ -48,6 +51,19 @@ class HmmerSearcher:
 
         self.resume = args.resume
         self.no_file_comments = args.no_file_comments
+
+        self.maxhits = args.maxhits
+        self.maxseqlen = args.maxseqlen
+        
+        self.evalue = args.evalue
+        self.score = args.score
+        self.qcov = args.qcov
+        
+        self.Z = args.Z
+        
+        self.tempdir = args.temp_dir
+
+        self.excluded_taxa = args.excluded_taxa
         
         return
 
@@ -58,14 +74,14 @@ class HmmerSearcher:
 
         # Start HMM SCANNING sequences (if requested)                                                                                                                              
         if not pexists(hmm_hits_file):
-            self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap, args)
+            self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap)
 
         if not self.no_refine and not pexists(seed_orthologs_file):
             if self.db == 'viruses':
                 print('Skipping seed ortholog detection in "viruses" database')
                 
             elif self.db in EGGNOG_DATABASES:
-                refine_matches(in_file, seed_orthologs_file, hmm_hits_file, args)
+                self.refine_matches(in_file, seed_orthologs_file, hmm_hits_file)
                 
             else:
                 print('refined hits not available for custom hmm databases.')
@@ -204,7 +220,7 @@ class HmmerSearcher:
     
 
     ##
-    def dump_hmm_matches(self, fasta_file, hits_file, dbpath, port, idmap, args):
+    def dump_hmm_matches(self, fasta_file, hits_file, dbpath, port, idmap):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
 
@@ -236,15 +252,15 @@ class HmmerSearcher:
                                                             self.scantype,
                                                             dbpath,
                                                             port,
-                                                            evalue_thr=args.evalue,
-                                                            score_thr=args.score,
-                                                            qcov_thr=args.qcov,
-                                                            fixed_Z=args.Z,
-                                                            max_hits=args.maxhits,
+                                                            evalue_thr=self.evalue,
+                                                            score_thr=self.score,
+                                                            qcov_thr=self.qcov,
+                                                            fixed_Z=self.Z,
+                                                            max_hits=self.maxhits,
                                                             skip=VISITED,
-                                                            maxseqlen=args.maxseqlen,
-                                                            cpus=args.cpu,
-                                                            base_tempdir=args.temp_dir)):
+                                                            maxseqlen=self.maxseqlen,
+                                                            cpus=self.cpu,
+                                                            base_tempdir=self.temp_dir)):
 
             if elapsed == -1:
                 # error occurred
@@ -284,5 +300,93 @@ class HmmerSearcher:
                        (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue'))
 
         return
-    
+
+
+    ##
+    def refine_matches(self, fasta_file, refine_file, hits_file):
+        refine_header = map(str.strip, '''#query_name, best_hit_eggNOG_ortholog,
+                            best_hit_evalue, best_hit_score'''.split(','))
+
+        print(colorify("Hit refinement starts now", 'green'))
+        start_time = time.time()
+        og2level = dict([tuple(map(str.strip, line.split('\t')))
+                         for line in gopen(get_oglevels_file())])
+        OUT = open(refine_file, "w")
+
+        if not self.no_file_comments:
+            print(get_call_info(), file=OUT)
+            print('\t'.join(refine_header), file=OUT)
+
+        qn = 0 # in case no hits in loop bellow
+        for qn, r in enumerate(self.process_nog_hits_file(hits_file, fasta_file, og2level,
+                                                     translate=self.translate,
+                                                     cpu=self.cpu,
+                                                     excluded_taxa=self.excluded_taxa,
+                                                     base_tempdir=self.temp_dir)):
+            if qn and (qn % 25 == 0):
+                total_time = time.time() - start_time
+                print(str(qn + 1)+" "+str(total_time)+" %0.2f q/s (refinement)" % ((float(qn + 1) / total_time)), file=sys.stderr)
+                sys.stderr.flush()
+            query_name = r[0]
+            best_hit_name = r[1]
+            if best_hit_name == '-' or best_hit_name == 'ERROR':
+                continue
+            best_hit_evalue = float(r[2])
+            best_hit_score = float(r[3])
+            print('\t'.join(map(str, (query_name, best_hit_name,
+                                             best_hit_evalue, best_hit_score))), file=OUT)
+            #OUT.flush()
+
+        elapsed_time = time.time() - start_time
+        if not self.no_file_comments:
+            print('# %d queries scanned' % (qn + 1), file=OUT)
+            print('# Total time (seconds): '+str(elapsed_time), file=OUT)
+            print('# Rate: '+"%0.2f q/s" % ((float(qn + 1) / elapsed_time)), file=OUT)
+        OUT.close()
+        print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
+                       (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue'))
+
+
+    ##
+    def process_nog_hits_file(self, hits_file, query_fasta, og2level, skip_queries=None,
+                              translate=False, cpu=1, excluded_taxa=None, base_tempdir=None):
+
+        sequences = {name: seq for name, seq in seqio.iter_fasta_seqs(
+            query_fasta, translate=translate)}
+        cmds = []
+        visited_queries = set()
+
+        if skip_queries:
+            visited_queries.update(skip_queries)
+
+        tempdir = mkdtemp(prefix='emappertmp_phmmer_', dir=base_tempdir)
+
+        for line in gopen(hits_file):
+            if line.startswith('#'):
+                continue
+
+            fields = map(str.strip, line.split('\t'))
+            seqname = fields[0]
+
+            if fields[1] == '-' or fields[1] == 'ERROR':
+                continue
+
+            if seqname in visited_queries:
+                continue
+
+            hitname = cleanup_og_name(fields[1])
+            level = og2level[hitname]
+
+            seq = sequences[seqname]
+            visited_queries.add(seqname)
+            target_fasta = os.path.join(get_fasta_path(), level, "%s.fa" % hitname)
+            cmds.append([seqname, seq, target_fasta, excluded_taxa, tempdir])
+
+        if cmds:
+            pool = multiprocessing.Pool(cpu)
+            for r in pool.imap(refine_hit, cmds):
+                yield r
+            pool.terminate()
+
+        shutil.rmtree(tempdir)
 ## END
