@@ -10,6 +10,7 @@ sys.path.insert(0, SCRIPT_PATH)
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
 from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND
+from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, get_eggnogdb_file, get_eggnog_dmnd_db, get_version, get_citation
 from eggnogmapper.vars import LEVEL_NAMES
@@ -85,6 +86,18 @@ def create_arg_parser():
 
     pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=0,
                     help='Report only alignments above the given percentage of subject cover. Default=0')
+
+    ##
+    pg_hmmer = parser.add_argument_group('HMMER Search Options')
+
+    pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
+                       help="Type of input data (-i). "
+                          f"Default: {QUERY_TYPE_SEQ}")
+
+    pg_hmmer.add_argument('--dbtype', dest="dbtype",
+                       choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
+                       help="Type of data in DB (-db). "
+                          f"Default: {DB_TYPE_HMM}")
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')

@@ -19,7 +19,16 @@ from . import hmmer_seqio
 from ..annotation import annota
 from ..common import *
 
-from .hmmer import SCANTYPE_MEM, SCANTYPE_DISK
+
+
+SCANTYPE_MEM = "mem"
+SCANTYPE_DISK = "disk"
+
+QUERY_TYPE_SEQ = "seq"
+QUERY_TYPE_HMM = "hmm"
+
+DB_TYPE_SEQ = "seqdb"
+DB_TYPE_HMM = "hmmdb"
 
 B62_IDENTITIES = {'A': 4, 'B': 4, 'C': 9, 'D': 6, 'E': 5, 'F': 6, 'G': 6, 'H': 8,
                   'I': 4, 'K': 5, 'L': 4, 'M': 5, 'N': 6, 'P': 7, 'Q': 5, 'R': 5,
@@ -128,7 +137,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
     s.close()
     return elapsed, reported_hits
 
-def iter_hmm_hits(hmmfile, host, port, dbtype="hmmdb", evalue_thr=None,
+def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM, evalue_thr=None,
                   max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
 
     HMMFILE = open(hmmfile)
@@ -192,17 +201,20 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     except Exception:
         max_hits = None
 
-    if scantype == SCANTYPE_MEM and query_type == "seq":
+    if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
         return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
-    elif scantype == SCANTYPE_MEM and query_type == "hmm" and dbtype == "seqdb":
+    
+    elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
         return iter_hmm_hits(source, host, port, maxseqlen=maxseqlen)
-    elif scantype == SCANTYPE_DISK and query_type == "seq":
+    
+    elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ:
         return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
+    
     else:
         raise ValueError('not supported')
 
 
-def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype='hmmdb',
+def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM,
              evalue_thr=None, max_hits=None):
 
     seq = re.sub("-.", "", seq)
