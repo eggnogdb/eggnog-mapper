@@ -19,6 +19,8 @@ from . import hmmer_seqio
 from ..annotation import annota
 from ..common import *
 
+from .hmmer import SCANTYPE_MEM, SCANTYPE_DISK
+
 B62_IDENTITIES = {'A': 4, 'B': 4, 'C': 9, 'D': 6, 'E': 5, 'F': 6, 'G': 6, 'H': 8,
                   'I': 4, 'K': 5, 'L': 4, 'M': 5, 'N': 6, 'P': 7, 'Q': 5, 'R': 5,
                   'S': 4, 'T': 5, 'V': 4, 'W': 11, 'X': -1, 'Y': 7, 'Z': 4}
@@ -190,11 +192,11 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     except Exception:
         max_hits = None
 
-    if scantype == 'mem' and query_type == "seq":
+    if scantype == SCANTYPE_MEM and query_type == "seq":
         return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
-    elif scantype == 'mem' and query_type == "hmm" and dbtype == "seqdb":
+    elif scantype == SCANTYPE_MEM and query_type == "hmm" and dbtype == "seqdb":
         return iter_hmm_hits(source, host, port, maxseqlen=maxseqlen)
-    elif scantype == 'disk' and query_type == "seq":
+    elif scantype == SCANTYPE_DISK and query_type == "seq":
         return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
     else:
         raise ValueError('not supported')
