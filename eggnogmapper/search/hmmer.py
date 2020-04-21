@@ -10,8 +10,7 @@ from ..utils import colorify
 from .hmmer_server import generate_idmap, server_functional, load_server, shutdown_server
 from .hmmer_search import iter_hits
 
-SCANTYPE_MEM = "mem"
-SCANTYPE_DISK = "disk"
+from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
 class HmmerSearcher:
 
@@ -23,6 +22,8 @@ class HmmerSearcher:
 
     db = None
     dbtype = None
+    querytype = None
+    translate = None
 
     resume = None
     no_file_comments = None
@@ -42,6 +43,8 @@ class HmmerSearcher:
         
         self.db = args.db
         self.dbtype = args.dbtype
+        self.querytype = args.qtype
+        self.translate = args.translate
 
         self.resume = args.resume
         self.no_file_comments = args.no_file_comments
@@ -227,9 +230,9 @@ class HmmerSearcher:
         qn = 0 # in case nothing to loop bellow
         for qn, (name, elapsed, hits, querylen, seq) in enumerate(iter_hits(
                                                             fasta_file,
-                                                            args.translate,
-                                                            args.qtype,
-                                                            args.dbtype,
+                                                            self.translate,
+                                                            self.querytype,
+                                                            self.dbtype,
                                                             self.scantype,
                                                             dbpath,
                                                             port,
