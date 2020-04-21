@@ -22,9 +22,10 @@ class Emapper:
     _current_dir = None
 
     mode = annot = None
+    override = resume = None
 
     ##
-    def __init__(self, mode, annot, prefix, output_dir, scratch_dir, override):
+    def __init__(self, mode, annot, prefix, output_dir, scratch_dir, resume, override):
 
         #
         self.output_dir = output_dir
@@ -38,6 +39,9 @@ class Emapper:
 
         self.mode = mode
         self.annot = annot
+        self.resume = resume
+        self.override = override
+        
         if mode == SEARCH_MODE_NO_SEARCH:
             self._output_files = [self.annot_file]
         elif not annot:
@@ -47,8 +51,8 @@ class Emapper:
 
         # force user to decide what to do with existing files
         files_present = set([pexists(pjoin(self.output_dir, fname)) for fname in self._output_files])
-        if True in files_present and not override:
-            raise EmapperException("Output files detected in disk. Use --override to continue")
+        if True in files_present and not resume and not override:
+            raise EmapperException("Output files detected in disk. Use --resume or --override to continue")
 
         if override:
             for outf in self._output_files:
@@ -58,6 +62,12 @@ class Emapper:
         # (once finished move them again to output_dir)
         if scratch_dir:
             self._current_dir = scratch_dir
+            
+            if resume:
+                for fname in self._output_files:
+                    if pexists(fname):
+                        print("   Copying input file %s to scratch dir %s" % (fname, scratch_dir))
+                        shutil.copy(fname, scratch_dir)
             
         else:
             self._current_dir = output_dir
