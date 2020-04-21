@@ -8,36 +8,54 @@ from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER
 from ..utils import colorify
 
 from .hmmer_server import generate_idmap, server_functional, load_server, shutdown_server
+from .hmmer_search import iter_hits
+
+SCANTYPE_MEM = "mem"
+SCANTYPE_DISK = "disk"
 
 class HmmerSearcher:
 
     cpu = None
     usemem = None
+    scantype = None
     servermode = None
     no_refine = None
 
     db = None
     dbtype = None
+
+    resume = None
+    no_file_comments = None
     
     ##
     def __init__(self, args):
         self.cpu = args.cpu
+        
         self.usemem = args.usemem
+        if self.usemem:
+            self.scantype = SCANTYPE_MEM
+        else:
+            self.scantype = SCANTYPE_DISK
+            
         self.servermode = args.servermode
         self.no_refine = args.no_refine
         
         self.db = args.db
         self.dbtype = args.dbtype
+
+        self.resume = args.resume
+        self.no_file_comments = args.no_file_comments
         
         return
 
     ##
     def search(self, in_file, seed_orthologs_file, hmm_hits_file):
-        host, port, dbpath, scantype, idmap = self.setup_hmm_search()
+        
+        host, port, dbpath, idmap = self.setup_hmm_search()
 
         # Start HMM SCANNING sequences (if requested)                                                                                                                              
         if not pexists(hmm_hits_file):
-            self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, scantype, idmap, args)
+            self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap, args)
 
         if not self.no_refine and not pexists(seed_orthologs_file):
             if self.db == 'viruses':
@@ -57,10 +75,7 @@ class HmmerSearcher:
     def setup_hmm_search(self):
         host = 'localhost'
         idmap = None
-        if self.usemem:
-            scantype = 'mem'
-        else:
-            scantype = 'disk'
+
 
         connecting_to_server = False
         # If searching against a predefined database name
@@ -80,14 +95,14 @@ class HmmerSearcher:
                     print(colorify('Database data/OG_fasta/ not present. Use download_eggnog_database.py to fetch it', 'red'))
                     raise ValueError('Database not found')
 
-            if scantype == 'mem':
+            if self.scantype == SCANTYPE_MEM:
                 idmap_file = dbpath + '.idmap'
                 end_port = 53200
 
         # If searching against a custom hmm database
         elif os.path.isfile(self.db + '.h3f'):
             dbpath = self.db
-            if scantype == 'mem':
+            if self.scantype == SCANTYPE_MEM:
                 idmap_file = dbpath + ".idmap"
                 if not pexists(idmap_file):
                     if generate_idmap(self.db):
@@ -104,7 +119,7 @@ class HmmerSearcher:
         # If searching against a emapper hmm server
         elif ":" in self.db:
             dbname, host, port = map(str.strip, self.db.split(":"))
-            scantype = 'mem'
+            self.scantype = SCANTYPE_MEM
             port = int(port)
             if dbname in EGGNOG_DATABASES:
                 dbfile, port = get_db_info(dbname)
@@ -126,7 +141,7 @@ class HmmerSearcher:
 
 
         # If memory based searches requested, start server
-        if scantype == "mem" and not connecting_to_server:
+        if self.scantype == SCANTYPE_MEM and not connecting_to_server:
             master_db, worker_db = None, None
             for try_port in range(port, end_port, 2):
                 print(colorify("Loading server at localhost, port %s-%s" %
@@ -151,12 +166,12 @@ class HmmerSearcher:
                     dbpath = host
                     break
                 
-        elif scantype == "mem":
+        elif self.scantype == SCANTYPE_MEM:
             print(colorify("DB Server already running or not needed!", 'yellow'))
             dbpath = host
 
         # Preload seqid map to translate hits from hmmpgmd
-        if scantype == "mem":
+        if self.scantype == SCANTYPE_MEM:
             print(colorify("Reading idmap %s" % idmap_file, color='lblue'))
             idmap = {}
             for _lnum, _line in enumerate(open(idmap_file)):
@@ -182,17 +197,17 @@ class HmmerSearcher:
                 time.sleep(10)
             raise emapperException()
         else:
-            return host, port, dbpath, scantype, idmap
+            return host, port, dbpath, idmap
     
 
     ##
-    def dump_hmm_matches(self, fasta_file, hits_file, dbpath, port, scantype, idmap, args):
+    def dump_hmm_matches(self, fasta_file, hits_file, dbpath, port, idmap, args):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
 
         # Cache previous results if resuming is enabled
         VISITED = set()
-        if args.resume and pexists(hits_file):
+        if self.resume and pexists(hits_file):
             print(colorify("Resuming previous run. Reading computed output from %s" % hits_file, 'yellow'))
             VISITED = set([line.split('\t')[0].strip()
                            for line in open(hits_file) if not line.startswith('#')])
@@ -202,19 +217,20 @@ class HmmerSearcher:
             OUT = open(hits_file, 'w')
 
         print(colorify("Sequence mapping starts now!", 'green'))
-        if not args.no_file_comments:
+        if not self.no_file_comments:
             print(get_call_info(), file=OUT)
             print('# ' + '\t'.join(hits_header), file=OUT)
+            
         total_time = 0
         last_time = time.time()
         start_time = time.time()
         qn = 0 # in case nothing to loop bellow
-        for qn, (name, elapsed, hits, querylen, seq) in enumerate(search.iter_hits(
+        for qn, (name, elapsed, hits, querylen, seq) in enumerate(iter_hits(
                                                             fasta_file,
                                                             args.translate,
                                                             args.qtype,
                                                             args.dbtype,
-                                                            scantype,
+                                                            self.scantype,
                                                             dbpath,
                                                             port,
                                                             evalue_thr=args.evalue,
@@ -256,7 +272,7 @@ class HmmerSearcher:
 
         # Writes final stats
         elapsed_time = time.time() - start_time
-        if not args.no_file_comments:
+        if not self.no_file_comments:
             print('# %d queries scanned' % (qn + 1), file=OUT)
             print('# Total time (seconds): '+str(elapsed_time), file=OUT)
             print('# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time)), file=OUT)
