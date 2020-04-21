@@ -9,7 +9,7 @@ sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
-from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND
+from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER
 from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, get_eggnogdb_file, get_eggnog_dmnd_db, get_version, get_citation
@@ -26,6 +26,17 @@ __license__ = "GPL v2"
 def create_arg_parser():
     
     parser = argparse.ArgumentParser()
+
+    parser.add_argument('--version', action='store_true',
+                        help="show version and exit.")
+
+    ##
+    pg_exec = parser.add_argument_group('Execution Options')
+    
+    pg_exec.add_argument('--cpu', type=int, default=2, metavar='',
+                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
+    
+
 
     ##
     pg_input = parser.add_argument_group('Input Data Options')
@@ -47,10 +58,11 @@ def create_arg_parser():
     pg_search = parser.add_argument_group('Search Options')
 
     pg_search.add_argument('-m', dest='mode',
-                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_NO_SEARCH],
+                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH],
                            default=SEARCH_MODE_DIAMOND,
                            help=(
                                f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond (-i is required). '
+                               f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required unless running in --servermode). '
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required). '
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
@@ -98,6 +110,16 @@ def create_arg_parser():
                        choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
                        help="Type of data in DB (-db). "
                           f"Default: {DB_TYPE_HMM}")
+
+    pg_hmmer.add_argument('--usemem', action="store_true",
+                    help="""If a local hmmpressed database is provided as target using --db,
+                    --usemem will allocate the whole database in memory using hmmpgmd.
+                    Database will be unloaded after execution.""")
+
+    pg_hmmer.add_argument("--servermode", action="store_true",
+                          help='Loads target database in memory and keeps running in server mode,'
+                          ' so another instance of eggnog-mapper can connect to this sever.'
+                          ' Auto turns on the --usemem flag')
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
@@ -166,16 +188,7 @@ def create_arg_parser():
 
     pg_predict.add_argument('--predict_output_format', choices=["per_query", "per_species"],
                             default= "per_species", help="Choose the output format among: per_query, per_species .Default = per_species")
-    
-    ##
-    g4 = parser.add_argument_group('Execution options')
-
-    g4.add_argument('--cpu', type=int, default=2, metavar='',
-                    help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
-    
-    parser.add_argument('--version', action='store_true',
-                        help="show version and exit.")
-    
+        
     return parser
 
 def parse_args(parser):
@@ -186,16 +199,11 @@ def parse_args(parser):
         print(get_version())
         sys.exit(0)
 
-    # We need to handle this
-    # if args.maxhits == 0: 
-    #     args.maxhits = None
+    if args.cpu == 0:
+        args.cpu = multiprocessing.cpu_count()
 
     if args.data_dir:
         set_data_path(args.data_dir)
-
-    if not args.no_annot and not pexists(get_eggnogdb_file()):
-        print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
-        raise EmapperException()
 
     # Search modes
     if args.mode == SEARCH_MODE_DIAMOND:
@@ -207,9 +215,29 @@ def parse_args(parser):
         if not args.input:
             parser.error('An input fasta file is required (-i)')
 
+        # Output file required
+        if not args.output:
+            parser.error('An output project name is required (-o)')
+
         if args.resume == True:
             print(colorify("Diamond jobs cannot be resumed. --resume will be ignored.", 'blue'))
             args.resume = False
+
+        if args.servermode:
+            parser.error(f'-m {SEARCH_MODE_DIAMOND} does not support --servermode')
+
+    elif args.mode == SEARCH_MODE_HMMER:
+
+        # Servermode implies using mem-based databases
+        if args.servermode:
+            args.usemem = True
+        else:
+            if not args.input:
+                parser.error('An input file is required (-i)')
+                
+            # Output file required
+            if not args.output:
+                parser.error('An output project name is required (-o)')
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
@@ -220,12 +248,14 @@ def parse_args(parser):
     else:
         parser.error(f'unrecognized search mode (-m {args.mode})')
 
-    if args.cpu == 0:
-        args.cpu = multiprocessing.cpu_count()
-
-    # Output file required
-    if not args.output:
-        parser.error('An output project name is required (-o)')
+    # TODO We need to handle this
+    # if args.maxhits == 0: 
+    #     args.maxhits = None
+    
+    # Annotation options
+    if not args.no_annot and not pexists(get_eggnogdb_file()):
+        print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
+        raise EmapperException()
         
     # Sets GO evidence bases
     if args.go_evidence == 'experimental':
