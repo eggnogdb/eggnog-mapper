@@ -125,6 +125,10 @@ def create_arg_parser():
                         help='Write output files in a temporary scratch dir, move them to the final'
                         ' output dir when finished. Speed up large computations using network file'
                         ' systems.')
+
+    pg_out.add_argument('--resume', action="store_true",
+                        help="Resumes a previous execution skipping reported hits in the output file. "
+                        f"Note that diamond runs (-m {SEARCH_MODE_DIAMOND}) cannot be resumed.")
         
     pg_out.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
@@ -189,6 +193,10 @@ def parse_args(parser):
 
         if not args.input:
             parser.error('An input fasta file is required (-i)')
+
+        if args.resume == True:
+            print(colorify("Diamond jobs cannot be resumed. --resume will be ignored.", 'blue'))
+            args.resume = False
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
@@ -231,7 +239,7 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
 
-        emapper = Emapper(args.mode, (not args.no_annot), args.output, args.output_dir, args.scratch_dir, args.override)
+        emapper = Emapper(args.mode, (not args.no_annot), args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table, args.predict_ortho)
 
         print(get_citation([args.mode]))
