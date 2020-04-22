@@ -4,7 +4,7 @@
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER
+from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER, get_oglevels_file
 from ..utils import colorify
 
 from .hmmer_server import generate_idmap, server_functional, load_server, shutdown_server
@@ -121,6 +121,7 @@ class HmmerSearcher:
         # If searching against a custom hmm database
         elif os.path.isfile(self.db + '.h3f'):
             dbpath = self.db
+            
             if self.scantype == SCANTYPE_MEM:
                 idmap_file = dbpath + ".idmap"
                 if not pexists(idmap_file):
@@ -374,7 +375,7 @@ class HmmerSearcher:
             if seqname in visited_queries:
                 continue
 
-            hitname = cleanup_og_name(fields[1])
+            hitname = self.cleanup_og_name(fields[1])
             level = og2level[hitname]
 
             seq = sequences[seqname]
@@ -389,4 +390,15 @@ class HmmerSearcher:
             pool.terminate()
 
         shutil.rmtree(tempdir)
+
+
+    ##
+    def cleanup_og_name(self, name):
+        # names in the hmm databases are sometiemes not clean eggnog OG names
+        m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
+        if m:
+            name = m.groups()[0]
+        name = re.sub("^ENOG41", "", name)
+        return name
+    
 ## END

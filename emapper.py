@@ -13,7 +13,6 @@ from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_
 from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, get_eggnogdb_file, get_eggnog_dmnd_db, get_version, get_citation
-from eggnogmapper.vars import LEVEL_NAMES
 
 from eggnogmapper.utils import colorify
 
@@ -33,31 +32,29 @@ def create_arg_parser():
     ##
     pg_exec = parser.add_argument_group('Execution Options')
     
-    pg_exec.add_argument('--cpu', type=int, default=2, metavar='',
+    pg_exec.add_argument('--cpu', type=int, default=2, metavar='NUM_CPU',
                         help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
     
-
-
     ##
     pg_input = parser.add_argument_group('Input Data Options')
 
-    pg_input.add_argument('-i', dest="input", metavar='', type=existing_file,
+    pg_input.add_argument('-i', dest="input", metavar='FASTA_FILE', type=existing_file,
                           help=f'Input FASTA file containing query sequences (proteins by default; see --translate). Required unless -m {SEARCH_MODE_NO_SEARCH}')
 
     pg_input.add_argument('--translate', action="store_true",
                           help='Assume input sequences are CDS instead of proteins')
 
-    pg_input.add_argument('--annotate_hits_table', type=str, metavar='',
+    pg_input.add_argument('--annotate_hits_table', type=str, metavar='SEED_ORTHOLOGS_FILE',
                           help=f'Annotate TSV formatted table with 4 fields:'
                           f' query, hit, evalue, score. Required if -m {SEARCH_MODE_NO_SEARCH}.')
         
-    pg_input.add_argument("--data_dir", metavar='', type=existing_dir,
+    pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
                           help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
         
     ##
     pg_search = parser.add_argument_group('Search Options')
 
-    pg_search.add_argument('-m', dest='mode',
+    pg_search.add_argument('-m', dest='mode', 
                            choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH],
                            default=SEARCH_MODE_DIAMOND,
                            help=(
@@ -67,12 +64,12 @@ def create_arg_parser():
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
 
-    pg_search.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='',
+    pg_search.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated. Default=0.001')
 
-    pg_search.add_argument('--seed_ortholog_score', default=60, type=float, metavar='',
+    pg_search.add_argument('--seed_ortholog_score', default=60, type=float, metavar='MIN_SCORE',
                            help='Min bit score expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated. Default=60')
@@ -80,7 +77,7 @@ def create_arg_parser():
     ##
     pg_diamond = parser.add_argument_group('Diamond Search Options')
 	
-    pg_diamond.add_argument('--dmnd_db',
+    pg_diamond.add_argument('--dmnd_db', dest="dmnd_db", metavar='DMND_DB_FILE',
 		    help="Path to DIAMOND-compatible database")
 
     pg_diamond.add_argument('--matrix', dest='matrix', 
@@ -102,6 +99,10 @@ def create_arg_parser():
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
 
+    pg_hmmer.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
+                       help=('specify the target database for sequence searches. '
+                            'Choose among: euk,bact,arch, host:port, or a local "hmmpress-ed" database'))
+        
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
                        help="Type of input data (-i). "
                           f"Default: {QUERY_TYPE_SEQ}")
@@ -112,33 +113,36 @@ def create_arg_parser():
                           f"Default: {DB_TYPE_HMM}")
 
     pg_hmmer.add_argument('--usemem', action="store_true",
-                    help="""If a local hmmpressed database is provided as target using --db,
+                    help='''If a local "hmmpress-ed" database is provided as target using --database,
                     --usemem will allocate the whole database in memory using hmmpgmd.
-                    Database will be unloaded after execution.""")
+                    Database will be unloaded after execution.''')
 
     pg_hmmer.add_argument("--servermode", action="store_true",
                           help='Loads target database in memory and keeps running in server mode,'
                           ' so another instance of eggnog-mapper can connect to this sever.'
                           ' Auto turns on the --usemem flag')
 
-    pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='',
+    pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                         help="Max number of hits to report. Default=1")
 
-    pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='',
+    pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
                         help="Ignore query sequences larger than `maxseqlen`. Default=5000")
         
-    pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=0.001, type=float, metavar='',
+    pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                         help="E-value threshold. Default=0.001")
 
-    pg_hmmer.add_argument('--hmm_score', dest='score', default=20, type=float, metavar='',
+    pg_hmmer.add_argument('--hmm_score', dest='score', default=20, type=float, metavar='MIN_SCORE',
                         help="Bit score threshold. Default=20")
 
-    pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='',
+    pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='MIN_QCOV',
                         help="min query coverage (from 0 to 1). Default=(disabled)")
 
-    pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='',
+    pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
                         help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
+
+    pg_hmmer.add_argument("--no_refine", action="store_true",
+                          help="Skip hit refinement, reporting only HMM hits.")
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
@@ -146,18 +150,18 @@ def create_arg_parser():
     pg_annot.add_argument("--no_annot", action="store_true",
                         help="Skip functional annotation, reporting only hits")
     
-    pg_annot.add_argument("--tax_scope", type=str, choices=list(LEVEL_NAMES.keys())+["auto"],
-                    default='auto', metavar='',
-                    help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
-                          "particular clade are used for functional transfer. "
-                          "By default, this is automatically adjusted for every query sequence."))
+    pg_annot.add_argument("--tax_scope", type=str, choices=["TAXID", "auto"], #choices=list(LEVEL_NAMES.keys())+["auto"],
+                          default='auto', 
+                          help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
+                                "particular clade are used for functional transfer. "
+                                "By default, this is automatically adjusted for every query sequence."))
 
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
                                                          "one2many","many2many", "all"],
                           default="all",
                           help='defines what type of orthologs should be used for functional transfer')
 
-    pg_annot.add_argument('--excluded_taxa', type=int, metavar='',
+    pg_annot.add_argument('--excluded_taxa', type=int, metavar='TAXID',
                           help='(for debugging and benchmark purposes)')
 
     pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
@@ -169,13 +173,13 @@ def create_arg_parser():
     ##
     pg_out = parser.add_argument_group('Output options')
 
-    pg_out.add_argument('--output', '-o', type=str, metavar='',
+    pg_out.add_argument('--output', '-o', type=str, metavar='FILE_PREFIX',
                         help="base name for output files")
 
-    pg_out.add_argument("--output_dir", default=os.getcwd(), type=existing_dir, metavar='',
+    pg_out.add_argument("--output_dir", default=os.getcwd(), type=existing_dir, metavar='DIR',
                         help="Where output files should be written")
 
-    pg_out.add_argument("--scratch_dir", metavar='', type=existing_dir,
+    pg_out.add_argument("--scratch_dir", metavar='DIR', type=existing_dir,
                         help='Write output files in a temporary scratch dir, move them to the final'
                         ' output dir when finished. Speed up large computations using network file'
                         ' systems.')
@@ -187,7 +191,7 @@ def create_arg_parser():
     pg_out.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
 
-    pg_out.add_argument("--temp_dir", default=os.getcwd(), type=existing_dir, metavar='',
+    pg_out.add_argument("--temp_dir", default=os.getcwd(), type=existing_dir, metavar='DIR',
                     help="Where temporary files are created. Better if this is a local disk.")
 
     pg_out.add_argument('--no_file_comments', action="store_true",
@@ -202,7 +206,7 @@ def create_arg_parser():
     pg_predict.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
         
     pg_predict.add_argument('--target_taxa', type=str,
-                          default= "all", nargs="+",
+                            default="all", metavar='TAXID', nargs="+",
                             help='taxa that will be searched for orthologs')
 
     pg_predict.add_argument('--predict_output_format', choices=["per_query", "per_species"],
@@ -257,6 +261,11 @@ def parse_args(parser):
             # Output file required
             if not args.output:
                 parser.error('An output project name is required (-o)')
+
+            # Hmmer database
+            # NOTE: hmmer database format, name and checking if exists is done within hmmer module
+            if not args.db:
+                parser.error('HMMER mode requires a target database (-d, --database).')                
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
