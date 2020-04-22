@@ -123,7 +123,7 @@ def create_arg_parser():
                           ' Auto turns on the --usemem flag')
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
-                        help="Max number of hits to report. Default=1")
+                        help="Max number of hits to report (0 to report all). Default=1.")
 
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
                         help="Ignore query sequences larger than `maxseqlen`. Default=5000")
@@ -265,7 +265,7 @@ def parse_args(parser):
             # Hmmer database
             # NOTE: hmmer database format, name and checking if exists is done within hmmer module
             if not args.db:
-                parser.error('HMMER mode requires a target database (-d, --database).')                
+                parser.error('HMMER mode requires a target database (-d, --database).')
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
@@ -275,10 +275,6 @@ def parse_args(parser):
             
     else:
         parser.error(f'unrecognized search mode (-m {args.mode})')
-
-    # TODO We need to handle this
-    # if args.maxhits == 0: 
-    #     args.maxhits = None
     
     # Annotation options
     if not args.no_annot and not pexists(get_eggnogdb_file()):

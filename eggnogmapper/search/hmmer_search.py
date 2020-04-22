@@ -128,7 +128,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                     reported_hits.append((hit["name"], hit["evalue"], hit["score"], hmmfrom,
                              hmmto, sqfrom, sqto, bitscore))
 
-            if max_hits and (hitid+1) == max_hits:
+            if max_hits is not None and (hitid+1) == max_hits:
                 break
     else:
         s.close()
@@ -198,6 +198,8 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
 
     try:
         max_hits = int(max_hits)
+        if max_hits == 0: # unlimited hits
+            max_hits = None
     except Exception:
         max_hits = None
 
