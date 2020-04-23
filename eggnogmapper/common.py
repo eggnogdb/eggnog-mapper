@@ -105,7 +105,16 @@ def set_data_path(data_path):
     DATA_PATH = existing_dir(data_path)
     # show_binaries()
 
-
+##
+def cleanup_og_name(name):
+    import re
+    # names in the hmm databases are sometiemes not clean eggnog OG names
+    # m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
+    m = re.search('.*((ENOG41|COG|KOG|arCOG)\w+)\.', name)
+    if m:
+        name = m.groups()[0]
+    name = re.sub("^ENOG41", "", name)
+    return name
 
 def show_binaries():
     for e in (HMMSEARCH, HMMSCAN, HMMSTAT, HMMPGMD, PHMMER, DIAMOND, DATA_PATH,
@@ -239,7 +248,7 @@ original work is properly cited.
 
 def gopen(fname):
     if fname.endswith('.gz'):
-        return gzip.open(fname, 'r:gz')
+        return gzip.open(fname, 'rt')
     else:
         return open(fname)
 

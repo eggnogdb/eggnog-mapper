@@ -1,14 +1,21 @@
 ##
 ## CPCantalapiedra 2020
 
+import os, sys
+import time
+from tempfile import mkdtemp
+import multiprocessing
+import shutil
+
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER, get_oglevels_file
+from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER, get_oglevels_file, get_fasta_path, get_call_info, cleanup_og_name, get_data_path, gopen
 from ..utils import colorify
 
 from .hmmer_server import generate_idmap, server_functional, load_server, shutdown_server
 from .hmmer_search import iter_hits, refine_hit
+from .hmmer_seqio import iter_fasta_seqs
 
 from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
@@ -30,6 +37,8 @@ class HmmerSearcher:
 
     evalue = score = qcov = Z = maxhits = maxseqlen = tempdir = None
     excluded_taxa = None
+
+    temp_dir = None
     
     ##
     def __init__(self, args):
@@ -61,7 +70,7 @@ class HmmerSearcher:
         
         self.Z = args.Z
         
-        self.tempdir = args.temp_dir
+        self.temp_dir = args.temp_dir
 
         self.excluded_taxa = args.excluded_taxa
         
@@ -112,7 +121,7 @@ class HmmerSearcher:
             if not self.no_refine:
                 if not pexists(pjoin(get_data_path(), 'OG_fasta')):
                     print(colorify('Database data/OG_fasta/ not present. Use download_eggnog_database.py to fetch it', 'red'))
-                    raise ValueError('Database not found')
+                    raise ValueError('Database fasta sequences not found')
 
             if self.scantype == SCANTYPE_MEM:
                 idmap_file = dbpath + '.idmap'
@@ -120,6 +129,8 @@ class HmmerSearcher:
 
         # If searching against a custom hmm database
         elif os.path.isfile(self.db + '.h3f'):
+
+            print(colorify(f"Preparing to query custom database {self.db}", 'green'))
             dbpath = self.db
             
             if self.scantype == SCANTYPE_MEM:
@@ -170,7 +181,7 @@ class HmmerSearcher:
                     dbpath, try_port, try_port + 1, self.cpu)
                 port = try_port
                 ready = False
-                for _ in xrange(TIMEOUT_LOAD_SERVER):
+                for _ in range(TIMEOUT_LOAD_SERVER):
                     print("Waiting for server to become ready..."+str(host)+str(try_port))
                     time.sleep(1)
                     if not master_db.is_alive() or not worker_db.is_alive():
@@ -310,6 +321,7 @@ class HmmerSearcher:
 
         print(colorify("Hit refinement starts now", 'green'))
         start_time = time.time()
+        print(get_oglevels_file())
         og2level = dict([tuple(map(str.strip, line.split('\t')))
                          for line in gopen(get_oglevels_file())])
         OUT = open(refine_file, "w")
@@ -352,7 +364,7 @@ class HmmerSearcher:
     def process_nog_hits_file(self, hits_file, query_fasta, og2level, skip_queries=None,
                               translate=False, cpu=1, excluded_taxa=None, base_tempdir=None):
 
-        sequences = {name: seq for name, seq in seqio.iter_fasta_seqs(
+        sequences = {name: seq for name, seq in iter_fasta_seqs(
             query_fasta, translate=translate)}
         cmds = []
         visited_queries = set()
@@ -366,7 +378,7 @@ class HmmerSearcher:
             if line.startswith('#'):
                 continue
 
-            fields = map(str.strip, line.split('\t'))
+            fields = list(map(str.strip, line.split('\t')))
             seqname = fields[0]
 
             if fields[1] == '-' or fields[1] == 'ERROR':
@@ -375,12 +387,13 @@ class HmmerSearcher:
             if seqname in visited_queries:
                 continue
 
-            hitname = self.cleanup_og_name(fields[1])
+            hitname = cleanup_og_name(fields[1])
             level = og2level[hitname]
 
             seq = sequences[seqname]
             visited_queries.add(seqname)
             target_fasta = os.path.join(get_fasta_path(), level, "%s.fa" % hitname)
+            
             cmds.append([seqname, seq, target_fasta, excluded_taxa, tempdir])
 
         if cmds:
@@ -390,15 +403,5 @@ class HmmerSearcher:
             pool.terminate()
 
         shutil.rmtree(tempdir)
-
-
-    ##
-    def cleanup_og_name(self, name):
-        # names in the hmm databases are sometiemes not clean eggnog OG names
-        m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
-        if m:
-            name = m.groups()[0]
-        name = re.sub("^ENOG41", "", name)
-        return name
     
 ## END
