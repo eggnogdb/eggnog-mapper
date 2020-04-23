@@ -46,7 +46,8 @@ class HmmerSearcher:
         self.cpu = args.cpu
         
         self.usemem = args.usemem
-        if self.usemem:
+        
+        if self.usemem or ":" in args.db:
             self.scantype = SCANTYPE_MEM
         else:
             self.scantype = SCANTYPE_DISK
