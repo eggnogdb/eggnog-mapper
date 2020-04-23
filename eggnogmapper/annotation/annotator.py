@@ -5,7 +5,7 @@ import sys
 import time
 import multiprocessing
 
-from ..common import get_version, get_db_version, get_call_info, pexists, TAXONOMIC_RESOLUTION
+from ..common import get_version, get_db_version, get_call_info, pexists, TAXONOMIC_RESOLUTION, cleanup_og_name
 from ..emapperException import EmapperException
 from ..utils import colorify
 from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
@@ -76,7 +76,7 @@ class Annotator:
         seq2bestOG = {}
         seq2annotOG = {}
         if pexists(hmm_hits_file):
-            seq2bestOG = get_seq_hmm_matches(hmm_hits_file)
+            seq2bestOG = self.get_seq_hmm_matches(hmm_hits_file)
             seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.values()]))
 
         print(colorify("Functional annotation of refined hits starts now", 'green'))
@@ -156,6 +156,28 @@ class Annotator:
         
         return
 
+    ##
+    def get_seq_hmm_matches(self, hits_file):
+        annota.connect()
+        print(colorify("Reading HMM matches", 'green'))
+        seq2oginfo = {}
+        start_time = time.time()
+        hitnames = set()
+        if pexists(hits_file):
+            for line in open(hits_file):
+                if not line.strip() or line.startswith('#'):
+                    continue
+
+                (query, hit, evalue, sum_score, query_length, hmmfrom, hmmto,
+                 seqfrom, seqto, q_coverage) = map(str.strip, line.split('\t'))
+
+                if query not in seq2oginfo and hit not in ['ERROR', '-']:
+                    hitname = cleanup_og_name(hit)
+                    seq2oginfo[query] = [hitname, evalue, sum_score, query_length,
+                                         hmmfrom, hmmto, seqfrom, seqto,
+                                         q_coverage]
+        return seq2oginfo
+    
     ##
     def iter_hit_lines(self, filename):
         

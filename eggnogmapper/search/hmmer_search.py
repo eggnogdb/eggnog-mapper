@@ -15,7 +15,7 @@ from tempfile import NamedTemporaryFile, mkdtemp
 import uuid
 from collections import defaultdict, Counter
 
-from . import hmmer_seqio
+from .hmmer_seqio import iter_fasta_seqs
 from ..annotation import annota
 from ..common import *
 
@@ -168,7 +168,7 @@ def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
                   skip=None):
 
-    for seqnum, (name, seq) in enumerate(seqio.iter_fasta_seqs(src, translate=translate)):
+    for seqnum, (name, seq) in enumerate(iter_fasta_seqs(src, translate=translate)):
         if skip and name in skip:
             continue
 
@@ -234,14 +234,15 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
 
     tempdir = mkdtemp(prefix='emappertmp_hmmscan_', dir=base_tempdir)
 
-    OUT = NamedTemporaryFile(dir=tempdir)
+    OUT = NamedTemporaryFile(dir=tempdir, mode='w+')
     if translate or maxseqlen:
         if translate:
             print('translating query input file')
-        Q = NamedTemporaryFile()
-        for name, seq in seqio.iter_fasta_seqs(query_file, translate=translate):
+        Q = NamedTemporaryFile(mode='w')
+        for name, seq in iter_fasta_seqs(query_file, translate=translate):
             if maxseqlen is None or len(seq) <= maxseqlen:
-                print(">%s\n%s" % (name, seq), file=Q)
+                print(f">{name}\n{seq}", file=Q)
+                # Q.write(f">{name}\n{seq}".encode())
         Q.flush()
         query_file = Q.name
 
@@ -345,8 +346,8 @@ def hmmsearch(query_hmm, target_db, cpus=1):
 
 def refine_hit(args):
     seqname, seq, group_fasta, excluded_taxa, tempdir = args
-    F = NamedTemporaryFile(delete=True, dir=tempdir)
-    F.write('>%s\n%s' % (seqname, seq))
+    F = NamedTemporaryFile(delete=True, dir=tempdir, mode='w+')
+    F.write(f'>{seqname}\n{seq}')
     F.flush()
 
     best_hit = get_best_hit(F.name, group_fasta, excluded_taxa, tempdir)
