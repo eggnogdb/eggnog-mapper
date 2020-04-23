@@ -19,7 +19,7 @@ def setup_hmm_search(db, scantype, dbtype, no_refine, cpu, servermode):
     idmap = None
 
     if ":" in db:
-        dbpath, host, port, idmap_file = setup_remote_db(db, scantype, dbtype)
+        dbpath, host, port, idmap_file = setup_remote_db(db, dbtype)
 
     else: # setup_local_db --> dbpath, host, port, idmap_file
         if db in EGGNOG_DATABASES:
@@ -101,9 +101,8 @@ def setup_custom_db(db, scantype):
     return dbpath, host, port, end_port, idmap_file
 
 ##
-def setup_remote_db(db, scantype, dbtype):
+def setup_remote_db(db, dbtype):
     dbname, host, port = map(str.strip, db.split(":"))
-    scantype = SCANTYPE_MEM
     port = int(port)
     if dbname in EGGNOG_DATABASES:
         dbfile, port = get_db_info(dbname)
