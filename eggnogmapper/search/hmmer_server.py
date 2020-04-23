@@ -88,13 +88,4 @@ def shutdown_server():
 def alive(p):
     """ Check For the existence of a unix pid. """
     return p.is_alive()
-
-
-def generate_idmap(dbpath):
-    if dbpath.endswith(".h3f"):
-        dbpath = dbpath.replace(".h3f", "")
-    cmd = """%s %s |grep -v '#'|awk '{print $1" "$2}' > %s""" %(HMMSTAT, dbpath, dbpath+'.idmap')
-    print(colorify(cmd, "cyan"))
-    print(('Generating idmap in '+dbpath+'.idmap'))
-    return os.system(cmd) == 0
     

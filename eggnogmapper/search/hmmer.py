@@ -80,14 +80,16 @@ class HmmerSearcher:
 
     ##
     def search(self, in_file, seed_orthologs_file, hmm_hits_file):
-        
+
+        # Prepare HMM database and/or server
         dbpath, host, port, idmap_file = setup_hmm_search(self.db, self.scantype, self.dbtype,
                                                           self.no_refine, self.cpu, self.servermode)
 
-        # Start HMM SCANNING sequences (if requested)                                                                                                                              
+        # Search for HMM hits (OG)
         if not pexists(hmm_hits_file):
             self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
 
+        # Search for seed orthologs within the HMM hits
         if not self.no_refine and not pexists(seed_orthologs_file):
             if self.db == 'viruses':
                 print('Skipping seed ortholog detection in "viruses" database')
@@ -98,7 +100,9 @@ class HmmerSearcher:
             else:
                 print('refined hits not available for custom hmm databases.')
 
-        shutdown_server()
+        # Shutdown server, If a temp local server was set up
+        if ":" not in self.db and self.scantype == SCANTYPE_MEM:
+            shutdown_server()
 
         return
 
