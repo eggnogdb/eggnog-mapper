@@ -20,7 +20,6 @@ from ..annotation import annota
 from ..common import *
 
 
-
 SCANTYPE_MEM = "mem"
 SCANTYPE_DISK = "disk"
 
@@ -35,6 +34,31 @@ B62_IDENTITIES = {'A': 4, 'B': 4, 'C': 9, 'D': 6, 'E': 5, 'F': 6, 'G': 6, 'H': 8
                   'S': 4, 'T': 5, 'V': 4, 'W': 11, 'X': -1, 'Y': 7, 'Z': 4}
 
 
+def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
+              evalue_thr=None, score_thr=None, max_hits=None, return_seq=False,
+              skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cpus=1,
+              base_tempdir=None):
+
+    try:
+        max_hits = int(max_hits)
+        if max_hits == 0: # unlimited hits
+            max_hits = None
+    except Exception:
+        max_hits = None
+
+    if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
+        return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
+    
+    elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
+        return iter_hmm_hits(source, host, port, maxseqlen=maxseqlen)
+    
+    elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ:
+        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
+    
+    else:
+        raise ValueError('not supported')
+
+    
 def safe_cast(v):
     try:
         return float(v)
@@ -191,29 +215,7 @@ def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
 
 
 
-def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
-              evalue_thr=None, score_thr=None, max_hits=None, return_seq=False,
-              skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cpus=1,
-              base_tempdir=None):
 
-    try:
-        max_hits = int(max_hits)
-        if max_hits == 0: # unlimited hits
-            max_hits = None
-    except Exception:
-        max_hits = None
-
-    if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
-        return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
-    
-    elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
-        return iter_hmm_hits(source, host, port, maxseqlen=maxseqlen)
-    
-    elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ:
-        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
-    
-    else:
-        raise ValueError('not supported')
 
 
 def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM,

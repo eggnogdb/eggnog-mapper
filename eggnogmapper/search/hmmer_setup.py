@@ -13,17 +13,26 @@ from ..utils import colorify
 from .hmmer_server import server_functional, load_server
 from .hmmer_search import SCANTYPE_MEM
 
+SETUP_TYPE_REMOTE = "remote"
+SETUP_TYPE_EGGNOG = "eggnog"
+SETUP_TYPE_CUSTOM = "custom"
+
 ##
 def setup_hmm_search(db, scantype, dbtype, no_refine, cpu, servermode):
 
+    setup_type = None
+    
     if ":" in db:
-        dbpath, host, port, idmap_file = setup_remote_db(db, dbtype)
+        dbname, dbpath, host, port, idmap_file = setup_remote_db(db, dbtype)
+        setup_type = SETUP_TYPE_REMOTE
 
     else: # setup_local_db --> dbpath, host, port, idmap_file
         if db in EGGNOG_DATABASES:
-            dbpath, host, port, end_port, idmap_file = setup_eggnog_db(db, no_refine, scantype)
+            dbname, dbpath, host, port, end_port, idmap_file = setup_eggnog_db(db, no_refine, scantype)
+            setup_type = SETUP_TYPE_EGGNOG
         else:
-            dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype)
+            dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype)
+            setup_type = SETUP_TYPE_CUSTOM
 
         if scantype == SCANTYPE_MEM:
             dbpath, host, port = start_server(dbpath, host, port, end_port, cpu, dbtype)
@@ -34,9 +43,9 @@ def setup_hmm_search(db, scantype, dbtype, no_refine, cpu, servermode):
             print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, cpu), 'green'))
             print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (db, host, port), 'lblue'))
             time.sleep(10)
-        raise emapperException()
+        raise emapperException("Server {db}:{host}:{port} stopped.")
     else:
-        return dbpath, host, port, idmap_file
+        return dbname, dbpath, host, port, idmap_file, setup_type
     
 ##
 def setup_eggnog_db(db, no_refine, scantype):
@@ -66,7 +75,7 @@ def setup_eggnog_db(db, no_refine, scantype):
         end_port = None
         idmap_file = None
 
-    return dbpath, host, port, end_port, idmap_file
+    return db, dbpath, host, port, end_port, idmap_file
 
 ##
 def setup_custom_db(db, scantype):
@@ -96,7 +105,7 @@ def setup_custom_db(db, scantype):
         end_port = None
         idmap_file = None
 
-    return dbpath, host, port, end_port, idmap_file
+    return db, dbpath, host, port, end_port, idmap_file
 
 ##
 def setup_remote_db(db, dbtype):
@@ -117,7 +126,7 @@ def setup_remote_db(db, dbtype):
         print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
         exit(1)
 
-    return dbpath, host, port, idmap_file
+    return dbname, dbpath, host, port, idmap_file
 
 ##
 def start_server(dbpath, host, port, end_port, cpu, dbtype):
