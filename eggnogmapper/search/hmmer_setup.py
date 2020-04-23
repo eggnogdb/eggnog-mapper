@@ -10,13 +10,11 @@ from os.path import join as pjoin
 from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER, get_data_path
 from ..utils import colorify
 
-from .hmmer_server import generate_idmap, server_functional, load_server
+from .hmmer_server import server_functional, load_server
 from .hmmer_search import SCANTYPE_MEM
 
 ##
 def setup_hmm_search(db, scantype, dbtype, no_refine, cpu, servermode):
-    host = 'localhost'
-    idmap = None
 
     if ":" in db:
         dbpath, host, port, idmap_file = setup_remote_db(db, dbtype)
@@ -148,5 +146,14 @@ def start_server(dbpath, host, port, end_port, cpu, dbtype):
             break
 
     return dbpath, host, port
+
+##
+def generate_idmap(dbpath):
+    if dbpath.endswith(".h3f"):
+        dbpath = dbpath.replace(".h3f", "")
+    cmd = """%s %s |grep -v '#'|awk '{print $1" "$2}' > %s""" %(HMMSTAT, dbpath, dbpath+'.idmap')
+    print(colorify(cmd, "cyan"))
+    print(('Generating idmap in '+dbpath+'.idmap'))
+    return os.system(cmd) == 0
 
 ## END
