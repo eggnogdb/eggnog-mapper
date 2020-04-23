@@ -76,12 +76,14 @@ class Emapper:
 
     ##
     def search(self, args, infile):
+        annot = None
+        
         s = get_searcher(args, self.mode)
         if s:
-            s.search(infile,
-                     pjoin(self._current_dir, self.seed_orthologs_file),
-                     pjoin(self._current_dir, self.hmm_hits_file))
-        return
+            annot = s.search(infile,
+                             pjoin(self._current_dir, self.seed_orthologs_file),
+                             pjoin(self._current_dir, self.hmm_hits_file))
+        return annot
 
     ##
     def annotate(self, args, annotate_hits_table):
@@ -109,7 +111,9 @@ class Emapper:
         ##
         # Step 1. Sequence search
         if self.mode != SEARCH_MODE_NO_SEARCH:
-            self.search(args, infile)
+            annot = self.search(args, infile)
+            if annot is not None:
+                self.annot = annot
 
         ##
         # Step 2. Annotation

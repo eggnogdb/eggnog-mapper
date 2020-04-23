@@ -18,7 +18,7 @@ from .hmmer_search import iter_hits, refine_hit
 from .hmmer_seqio import iter_fasta_seqs
 
 from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK
-from .hmmer_setup import setup_hmm_search
+from .hmmer_setup import setup_hmm_search, SETUP_TYPE_EGGNOG, SETUP_TYPE_CUSTOM
 
 class HmmerSearcher:
 
@@ -81,30 +81,37 @@ class HmmerSearcher:
     ##
     def search(self, in_file, seed_orthologs_file, hmm_hits_file):
 
+        annot = None
+        
         # Prepare HMM database and/or server
-        dbpath, host, port, idmap_file = setup_hmm_search(self.db, self.scantype, self.dbtype,
-                                                          self.no_refine, self.cpu, self.servermode)
+        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype,
+                                                                      self.no_refine, self.cpu, self.servermode)
 
+        # If a database custom, seed ortholog detection and annotation are not available
+        if setup_type == SETUP_TYPE_CUSTOM:
+            self.no_refine = True
+            annot = False
+            
         # Search for HMM hits (OG)
-        if not pexists(hmm_hits_file):
-            self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
+        # if not pexists(hmm_hits_file): This avoids resuming the previous run
+        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
 
         # Search for seed orthologs within the HMM hits
         if not self.no_refine and not pexists(seed_orthologs_file):
-            if self.db == 'viruses':
+            if dbname == 'viruses':
                 print('Skipping seed ortholog detection in "viruses" database')
                 
-            elif self.db in EGGNOG_DATABASES:
+            elif dbname in EGGNOG_DATABASES:
                 self.refine_matches(in_file, seed_orthologs_file, hmm_hits_file)
                 
             else:
                 print('refined hits not available for custom hmm databases.')
 
         # Shutdown server, If a temp local server was set up
-        if ":" not in self.db and self.scantype == SCANTYPE_MEM:
+        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             shutdown_server()
-
-        return
+        
+        return annot
 
     ##
     def load_idmap_idx(self, idmap_file):
@@ -127,7 +134,7 @@ class HmmerSearcher:
         print(str(len(idmap)) + " names loaded")
 
         return idmap_idx
-
+    
     ##
     def dump_hmm_matches(self, fasta_file, hits_file, dbpath, port, idmap_file):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
