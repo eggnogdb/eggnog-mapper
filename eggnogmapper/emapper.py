@@ -135,7 +135,8 @@ class Emapper:
                 if pexists(pathname):
                     print(" Copying result file %s from scratch to %s" % (pathname, self.output_dir))
                     shutil.copy(pathname, self.output_dir)
-                    print("  Cleaning result file %s from scratch dir" %(fname)) # CPC 2020 it says is going to clean but does nothing here
+
+            print(colorify(f"Data in {self.scratch_dir} will be not removed. Please, clear it manually.", 'red'))
 
         ##
         # Finalize and exit
