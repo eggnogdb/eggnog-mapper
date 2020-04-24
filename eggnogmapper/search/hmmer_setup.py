@@ -12,6 +12,7 @@ from ..utils import colorify
 
 from .hmmer_server import server_functional, load_server
 from .hmmer_search import SCANTYPE_MEM
+from .hmmer_idmap import generate_idmap
 
 SETUP_TYPE_REMOTE = "remote"
 SETUP_TYPE_EGGNOG = "eggnog"
@@ -155,14 +156,5 @@ def start_server(dbpath, host, port, end_port, cpu, dbtype):
             break
 
     return dbpath, host, port
-
-##
-def generate_idmap(dbpath):
-    if dbpath.endswith(".h3f"):
-        dbpath = dbpath.replace(".h3f", "")
-    cmd = """%s %s |grep -v '#'|awk '{print $1" "$2}' > %s""" %(HMMSTAT, dbpath, dbpath+'.idmap')
-    print(colorify(cmd, "cyan"))
-    print(('Generating idmap in '+dbpath+'.idmap'))
-    return os.system(cmd) == 0
 
 ## END
