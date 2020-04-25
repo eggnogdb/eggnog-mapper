@@ -33,7 +33,7 @@ def load_idmap_idx(idmap_file):
                 raise
         _seqid = int(_seqid)
         idmap_idx[_seqid] = [_seqname]
-    print(str(len(idmap)) + " names loaded")
+    print(str(len(idmap_idx)) + " names loaded")
 
     return idmap_idx
 
