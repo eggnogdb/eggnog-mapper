@@ -85,10 +85,10 @@ if __name__ == "__main__":
         print(f"DB setup: {dbpath} --> {host}:{port}-{end_port}")
         
         dbpath, host, port = start_server(dbpath, host, port, end_port, args.cpu, args.dbtype)
-        
+
+        print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green'))
+        print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue'))
         while True:
-            print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green'))
-            print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue'))
             time.sleep(10)
         raise emapperException("Server {db}:{host}:{port} stopped.")
     
