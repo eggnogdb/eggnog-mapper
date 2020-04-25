@@ -158,24 +158,4 @@ def start_server(dbpath, host, port, end_port, cpu, dbtype):
 
     return dbpath, host, port
 
-##
-def start_worker(host, port, cpu):
-    worker_db = None
-    
-    print(colorify(f"Loading worker at localhost, port {port}, connecting to {host}", 'lblue'))
-    worker_db = load_worker(host, port, cpu)
-    
-    ready = False
-    for _ in range(TIMEOUT_LOAD_SERVER):
-        print(f"Waiting for worker to become ready at localhost:{port} ...")
-        time.sleep(1)
-        if worker_db.is_alive():
-            break
-        else:
-            worker_db.terminate()
-            worker_db.join()
-            break
-
-    return host, port
-
 ## END

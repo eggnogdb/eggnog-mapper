@@ -8,10 +8,11 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
-from eggnogmapper.common import existing_dir
+from eggnogmapper.common import existing_dir, TIMEOUT_LOAD_SERVER
 from eggnogmapper.utils import colorify
 from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
 from eggnogmapper.search.hmmer_setup import setup_custom_db, start_server
+from eggnogmapper.search.hmmer_server import load_server, server_functional
 
 
 __description__ = ('A program serving HMM in-memory searches')
@@ -32,16 +33,25 @@ def create_arg_parser():
                         help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
 
     ##
-    pg_hmmer = parser.add_argument_group('HMMER Search Options')
+    pg_server = parser.add_argument_group('HMM Server Options')
 
-    pg_hmmer.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
+    pg_server.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
                        help=('specify the target database for sequence searches. '
                             'Choose among: euk,bact,arch, host:port, or a local "hmmpress-ed" database'))
 
-    pg_hmmer.add_argument('--dbtype', dest="dbtype",
+    pg_server.add_argument('--dbtype', dest="dbtype",
                        choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
                        help="Type of data in DB (-db). "
                           f"Default: {DB_TYPE_HMM}")
+
+    pg_server.add_argument('-p', '--port', dest='port', type=int, default=53000, metavar='PORT',
+                          help=('Port used by clients to connect to this HMM master server'))
+
+    pg_server.add_argument('-w', '--wport', dest='wport', type=int, default=53001, metavar='PORT',
+                          help=('Port used by workers to connect to this HMM master server'))
+
+    pg_server.add_argument('--is_worker', action="store_true",
+                           help='In addition to the master, create a worker also in this host.')
         
     return parser
 
@@ -78,14 +88,43 @@ if __name__ == "__main__":
     try:
         
         print('# ', get_version())
-        print('# hmm_mapper.py ', ' '.join(sys.argv[1:]))
+        print('# hmm_server.py ', ' '.join(sys.argv[1:]))
 
         dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(args.db, scantype = SCANTYPE_MEM)
 
-        print(f"DB setup: {dbpath} --> {host}:{port}-{end_port}")
-        
-        dbpath, host, port = start_server(dbpath, host, port, end_port, args.cpu, args.dbtype)
+        host = 'localhost'
+        port = args.port
+        wport = args.wport
+            
+        print(f"DB setup: {dbpath} --> {host}:{port}, workers port:{wport}")
 
+        print(colorify("Loading server at localhost, port %s" % (port), 'lblue'))
+        
+        dbpath, master_db, worker_db = load_server(dbpath, port, wport, args.cpu, dbtype = args.dbtype, is_worker = args.is_worker)
+        ready = False
+        for _ in range(TIMEOUT_LOAD_SERVER):
+            print(f"Waiting for server to become ready at {host}:{port} ...")
+            time.sleep(1)
+            if master_db.is_alive() and (not args.is_worker or worker_db.is_alive()):
+                if not args.is_worker:
+                    break
+                else: # worker_db.is_alive
+                    if server_functional(host, port, args.dbtype):
+                        break
+                
+            elif not master_db.is_alive():
+                master_db.terminate()
+                master_db.join()
+                print(colorify("master not alive"), 'red')
+                break
+            
+            elif args.is_worker and not worker_db.is_alive():
+                worker_db.terminate()
+                worker_db.join()
+                print(colorify("worker not alive"), 'red')
+                break
+
+        
         print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green'))
         print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue'))
         while True:
