@@ -96,7 +96,7 @@ class HmmerSearcher:
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
         self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
-
+        
         # Search for seed orthologs within the HMM hits
         if not self.no_refine and not pexists(seed_orthologs_file):
             if dbname == 'viruses':
@@ -111,7 +111,7 @@ class HmmerSearcher:
         # Shutdown server, If a temp local server was set up
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             shutdown_server()
-        
+            
         return annot
     
     ##
