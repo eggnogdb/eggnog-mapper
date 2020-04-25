@@ -45,7 +45,29 @@ def safe_exit(a, b):
     if CHILD_PROC:
         CHILD_PROC.kill()
     sys.exit(0)
+
+def load_worker(master_host, worker_port, cpu, output=None):
+    global CHILD_PID, WORKER
+    if not output:
+        OUT = open(os.devnull, 'w')
+    else:
+        OUT = output
         
+    signal.signal(signal.SIGINT, safe_exit)
+    signal.signal(signal.SIGTERM, safe_exit)
+              
+    def start_worker():
+        cmd = HMMPGMD + f' --worker {master_host} --wport {worker_port} --cpu {cpu}'
+        print(colorify(f"Loading worker: {cmd}", 'orange'))
+        CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
+        while 1:
+            time.sleep(60)
+
+    WORKER = Process(target=start_worker)
+    WORKER.start()
+    
+    return WORKER
+
 def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TYPE_HMM):
     global CHILD_PID, MASTER, WORKER
     if not output:
@@ -55,21 +77,21 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TY
         
     signal.signal(signal.SIGINT, safe_exit)
     signal.signal(signal.SIGTERM, safe_exit)
-    
+
     def start_master():
         cmd = HMMPGMD + f' --master --cport {client_port} --wport {worker_port} --{dbtype} {dbpath}'
         print(colorify(f"Loading master: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
-              
+
     def start_worker():
-        cmd = HMMPGMD +' --worker localhost --wport %s --cpu %d' %(worker_port, cpu)
+        cmd = HMMPGMD + f' --worker localhost --wport {worker_port} --cpu {cpu}'
         print(colorify(f"Loading worker: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
-        
+    
     MASTER = Process(target=start_master)
     MASTER.start()
 
