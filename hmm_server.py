@@ -8,16 +8,17 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
-from eggnogmapper.common import existing_dir, TIMEOUT_LOAD_SERVER
+from eggnogmapper.common import TIMEOUT_LOAD_SERVER
 from eggnogmapper.utils import colorify
-from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
-from eggnogmapper.search.hmmer_setup import setup_custom_db, start_server
+
+from eggnogmapper.search.hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
+from eggnogmapper.search.hmmer_setup import setup_custom_db
 from eggnogmapper.search.hmmer_server import load_server, server_functional
 
-
-__description__ = ('A program serving HMM in-memory searches')
+__description__ = ('A server for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
+
 
 def create_arg_parser():
     
@@ -55,6 +56,7 @@ def create_arg_parser():
         
     return parser
 
+
 def parse_args(parser):
     
     args = parser.parse_args()
@@ -69,7 +71,7 @@ def parse_args(parser):
     # Hmmer database
     # NOTE: hmmer database format, name and checking if exists is done within hmmer module
     if not args.db:
-        parser.error('HMMER mode requires a target database (-d, --database).')
+        parser.error('The HMMER server requires a target database (-d, --database).')
     
     return args
 
@@ -96,20 +98,21 @@ if __name__ == "__main__":
         port = args.port
         wport = args.wport
             
-        print(f"DB setup: {dbpath} --> {host}:{port}, workers port:{wport}")
-
-        print(colorify("Loading server at localhost, port %s" % (port), 'lblue'))
+        print(colorify(f"Loading server at {host}:{port}; workers port:{wport}", 'green'))
         
         dbpath, master_db, worker_db = load_server(dbpath, port, wport, args.cpu, dbtype = args.dbtype, is_worker = args.is_worker)
+        
         ready = False
         for _ in range(TIMEOUT_LOAD_SERVER):
             print(f"Waiting for server to become ready at {host}:{port} ...")
             time.sleep(1)
             if master_db.is_alive() and (not args.is_worker or worker_db.is_alive()):
                 if not args.is_worker:
+                    print(colorify("master is UP", 'green'))
                     break
                 else: # worker_db.is_alive
                     if server_functional(host, port, args.dbtype):
+                        print(colorify("master and worker are UP", 'green'))
                         break
                 
             elif not master_db.is_alive():
@@ -124,15 +127,12 @@ if __name__ == "__main__":
                 print(colorify("worker not alive"), 'red')
                 break
 
-        
         print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green'))
         print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue'))
+        
         while True:
             time.sleep(10)
         raise emapperException("Server {db}:{host}:{port} stopped.")
-    
-        print(get_citation())
-        print('Total time: %g secs' % (time.time()-_total_time))
         
     except EmapperException as ee:
         print(ee)
@@ -144,6 +144,7 @@ if __name__ == "__main__":
         print("FINISHED")
         sys.exit(0)
     finally:
+        print()
         print(get_citation())
         print('Total time: %g secs' % (time.time()-_total_time))        
 
