@@ -104,13 +104,24 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TY
 def shutdown_server():
     global MASTER, WORKER
     try:
-        os.killpg(os.getpgid(MASTER.pid), signal.SIGTERM)
+        # This is killing THIS python script also, and is UNIX dependent
+        # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
+        WORKER.terminate()
     except (OSError, AttributeError):
+        print("warning: could not kill hmmpgmd worker")
         pass
+    
     try:
-        os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
+        # This is killing THIS python script also, and is UNIX dependent
+        # os.killpg(os.getpgid(MASTER.pid), signal.SIGTERM)
+        MASTER.terminate()
+    except Exception as e:
+        print(e)
     except (OSError, AttributeError):
+        print("warning: could not kill hmmpgmd master")
         pass
+    
+    return
  
     
     
