@@ -13,8 +13,7 @@ from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer_server import load_worker
 
-
-__description__ = ('A program working to serve HMM in-memory searches')
+__description__ = ('A worker for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
@@ -74,7 +73,7 @@ if __name__ == "__main__":
 
         worker_db = None
     
-        print(colorify(f"Loading worker at localhost, port {args.port}, connecting to {args.host}", 'lblue'))
+        print(colorify(f"Loading worker at localhost, port {args.port}, connecting to {args.host}", 'green'))
         worker_db = load_worker(args.host, args.port, args.cpu)
     
         ready = False
@@ -86,15 +85,13 @@ if __name__ == "__main__":
             else:
                 worker_db.terminate()
                 worker_db.join()
+                print(colorify("worker not alive"), 'red')
                 break
         
-        print(colorify("Worker of master %s ready listening at localhost:%s and using %d CPU cores" % (args.host, args.port, args.cpu), 'green'))
+        print(colorify("Worker of master %s ready listening at localhost:%s and using %d CPU cores" % (args.host, args.port, args.cpu), 'lblue'))
         while True:
             time.sleep(10)
         raise emapperException("Worker localhost:{port} connected to {host} stopped.")
-    
-        print(get_citation())
-        print('Total time: %g secs' % (time.time()-_total_time))
         
     except EmapperException as ee:
         print(ee)
@@ -106,6 +103,7 @@ if __name__ == "__main__":
         print("FINISHED")
         sys.exit(0)
     finally:
+        print()
         print(get_citation())
         print('Total time: %g secs' % (time.time()-_total_time))        
 
