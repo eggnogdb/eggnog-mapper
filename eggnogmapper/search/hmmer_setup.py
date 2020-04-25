@@ -136,7 +136,7 @@ def start_server(dbpath, host, port, end_port, cpu, dbtype):
         print(colorify("Loading server at localhost, port %s-%s" %
                        (try_port, try_port + 1), 'lblue'))
         dbpath, master_db, worker_db = load_server(
-            dbpath, try_port, try_port + 1, cpu)
+            dbpath, try_port, try_port + 1, cpu, dbtype = dbtype)
         port = try_port
         ready = False
         for _ in range(TIMEOUT_LOAD_SERVER):
