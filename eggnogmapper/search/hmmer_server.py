@@ -11,7 +11,7 @@ import traceback
 
 from ..common import *
 from ..utils import colorify
-from .hmmer_search import get_hits
+from .hmmer_search import get_hits, DB_TYPE_SEQ, DB_TYPE_HMM
 
 CHILD_PROC = None
 MASTER = None
@@ -27,7 +27,7 @@ def server_up(host, port):
     else:
         return False
 
-def server_functional(host, port, dbtype):
+def server_functional(host, port, dbtype = DB_TYPE_HMM):
     if server_up(host, port):
         try:
             get_hits("test", "TESTSEQ", host, port, dbtype)
@@ -46,7 +46,7 @@ def safe_exit(a, b):
         CHILD_PROC.kill()
     sys.exit(0)
         
-def load_server(dbpath, client_port, worker_port, cpu, output=None):
+def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TYPE_HMM):
     global CHILD_PID, MASTER, WORKER
     if not output:
         OUT = open(os.devnull, 'w')
@@ -57,7 +57,7 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None):
     signal.signal(signal.SIGTERM, safe_exit)
     
     def start_master():
-        cmd = HMMPGMD +' --master --cport %d --wport %s --hmmdb %s' %(client_port, worker_port, dbpath)
+        cmd = HMMPGMD + f' --master --cport {client_port} --wport {worker_port} --{dbtype} {dbpath}'
         print(colorify(f"Loading master: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
