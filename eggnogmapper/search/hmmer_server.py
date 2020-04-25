@@ -7,10 +7,11 @@ import time
 import subprocess
 from multiprocessing import Process
 import signal
+import traceback
 
 from ..common import *
 from ..utils import colorify
-from . import hmmer_search
+from .hmmer_search import get_hits
 
 CHILD_PROC = None
 MASTER = None
@@ -29,12 +30,15 @@ def server_up(host, port):
 def server_functional(host, port, dbtype):
     if server_up(host, port):
         try:
-            search.get_hits("test", "TESTSEQ", host, port, dbtype)
+            get_hits("test", "TESTSEQ", host, port, dbtype)
         except Exception as e:
-            #print 'Server not ready', e
+            # traceback.print_exc()
+            # print(e)
             return False
         else:
             return True
+    else:
+        print(colorify("Server is still down", 'red'))
     return False
 
 def safe_exit(a, b):
@@ -54,12 +58,14 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None):
     
     def start_master():
         cmd = HMMPGMD +' --master --cport %d --wport %s --hmmdb %s' %(client_port, worker_port, dbpath)
+        print(colorify(f"Loading master: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
               
     def start_worker():
         cmd = HMMPGMD +' --worker localhost --wport %s --cpu %d' %(worker_port, cpu)
+        print(colorify(f"Loading worker: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)

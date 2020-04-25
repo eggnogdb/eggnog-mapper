@@ -93,14 +93,14 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
     except Exception as e:
         print(address, port, e)
         raise
-    s.sendall(data)
+    s.sendall(data.encode())
 
     status = s.recv(16)
     st, msg_len = struct.unpack("I 4x Q", status)
     elapsed, nreported = 0, 0
     hits = defaultdict(list)
     if st == 0:
-        binresult = ''
+        binresult = b''
         while len(binresult) < msg_len:
             binresult += s.recv(4096)
 
@@ -113,7 +113,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
         hits_start = 120 # First 120 bits are the stats
         hits_end = hits_start
 
-        for hitid in xrange(nreported):
+        for hitid in range(nreported):
             hits_end = hits_start + 152
             name, evalue, score, ndom = unpack_hit(binresult[hits_start:hits_end], Z)
             hitdata[hitid] = {"name": name, "evalue": evalue, "score":score, "ndom": ndom, "doms": []}
@@ -121,7 +121,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
 
         next_start = hits_end
         reported_hits = []
-        for hitid in xrange(nreported):
+        for hitid in range(nreported):
             hit = hitdata[hitid]
             for domid in range(hit["ndom"]):
                 dombit = binresult[next_start:next_start + 72]
@@ -155,8 +155,9 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
             if max_hits is not None and (hitid+1) == max_hits:
                 break
     else:
-        s.close()
-        raise ValueError('hmmpgmd error: %s' % data[:50])
+        ret = s.recv(4096).decode().strip()
+        s.close()        
+        raise ValueError('hmmpgmd error: %s' % ret)
 
     s.close()
     return elapsed, reported_hits
@@ -222,7 +223,7 @@ def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM,
              evalue_thr=None, max_hits=None):
 
     seq = re.sub("-.", "", seq)
-    data = '@--%s 1\n>%s\n%s\n//' % (dbtype, name, seq)
+    data = f'@--{dbtype} 1\n>{name}\n{seq}\n//'
     etime, hits = scan_hits(data, address=address, port=port,
                             evalue_thr=evalue_thr, max_hits=max_hits)
     return name, etime, hits

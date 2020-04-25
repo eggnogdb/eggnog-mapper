@@ -151,6 +151,7 @@ def start_server(dbpath, host, port, end_port, cpu, dbtype):
             elif server_functional(host, port, dbtype):
                 ready = True
                 break
+            
         if ready:
             dbpath = host
             break
