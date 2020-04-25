@@ -8,10 +8,10 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
-from eggnogmapper.common import existing_dir
+from eggnogmapper.common import TIMEOUT_LOAD_SERVER
 from eggnogmapper.utils import colorify
-from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
-from eggnogmapper.search.hmmer_setup import setup_custom_db, start_worker
+
+from eggnogmapper.search.hmmer_server import load_worker
 
 
 __description__ = ('A program working to serve HMM in-memory searches')
@@ -37,7 +37,7 @@ def create_arg_parser():
     pg_master.add_argument('-@', '--host', dest='host', metavar='HOST',
                        help=('IP address or hostname of HMM master server'))
 
-    pg_master.add_argument('-p', '--port', dest='port', metavar='PORT',
+    pg_master.add_argument('-p', '--port', type=int, dest='port', default=53001, metavar='PORT',
                           help=('Port used to connect to the HMM master server'))
         
     return parser
@@ -70,10 +70,24 @@ if __name__ == "__main__":
     try:
         
         print('# ', get_version())
-        print('# hmm_mapper.py ', ' '.join(sys.argv[1:]))
-        
-        host, port = start_worker(args.host, args.port, args.cpu)
+        print('# hmm_worker.py ', ' '.join(sys.argv[1:]))
 
+        worker_db = None
+    
+        print(colorify(f"Loading worker at localhost, port {args.port}, connecting to {args.host}", 'lblue'))
+        worker_db = load_worker(args.host, args.port, args.cpu)
+    
+        ready = False
+        for _ in range(TIMEOUT_LOAD_SERVER):
+            print(f"Waiting for worker to become ready at localhost:{args.port} ...")
+            time.sleep(1)
+            if worker_db.is_alive():
+                break
+            else:
+                worker_db.terminate()
+                worker_db.join()
+                break
+        
         print(colorify("Worker of master %s ready listening at localhost:%s and using %d CPU cores" % (args.host, args.port, args.cpu), 'green'))
         while True:
             time.sleep(10)
