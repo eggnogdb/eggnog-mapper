@@ -32,8 +32,8 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM):
         try:
             get_hits("test", "TESTSEQ", host, port, dbtype)
         except Exception as e:
-            # traceback.print_exc()
-            # print(e)
+            traceback.print_exc()
+            print(e)
             return False
         else:
             return True

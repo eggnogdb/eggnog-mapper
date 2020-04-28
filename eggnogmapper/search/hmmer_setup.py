@@ -149,8 +149,11 @@ def start_server(dbpath, host, port, end_port, cpu, dbtype):
                 worker_db.join()
                 break
             elif server_functional(host, port, dbtype):
+                print(f"Server ready at {host}:{port}")
                 ready = True
                 break
+            else:
+                print(f"Waiting for server to become ready at {host}:{port} ...")
             
         if ready:
             dbpath = host
