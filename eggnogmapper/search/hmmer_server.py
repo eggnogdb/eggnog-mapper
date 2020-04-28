@@ -106,7 +106,19 @@ def shutdown_server():
     try:
         # This is killing THIS python script also, and is UNIX dependent
         # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
-        WORKER.terminate()
+        
+        import psutil
+        parent = psutil.Process(WORKER.pid)
+        for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+            child.kill()
+            parent.kill()
+            
+        # WORKER.terminate()
+        # if WORKER.is_alive():
+        #     WORKER.kill()
+        #     if WORKER.is_alive:
+        #         os.kill(WORKER.pid, signal.SIGKILL)
+
     except (OSError, AttributeError):
         print("warning: could not kill hmmpgmd worker")
         pass
@@ -114,7 +126,19 @@ def shutdown_server():
     try:
         # This is killing THIS python script also, and is UNIX dependent
         # os.killpg(os.getpgid(MASTER.pid), signal.SIGTERM)
-        MASTER.terminate()
+
+        import psutil
+        parent = psutil.Process(MASTER.pid)
+        for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+            child.kill()
+            parent.kill()
+            
+        # MASTER.terminate()
+        # if MASTER.is_alive():
+        #     MASTER.kill()
+        #     if MASTER.is_alive():
+        #         os.kill(MASTER.pid, signal.SIGKILL)
+                
     except Exception as e:
         print(e)
     except (OSError, AttributeError):
