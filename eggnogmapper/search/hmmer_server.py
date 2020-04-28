@@ -103,15 +103,17 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TY
 
 def shutdown_server():
     global MASTER, WORKER
+
+    import psutil
+    
     try:
         # This is killing THIS python script also, and is UNIX dependent
         # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
         
-        import psutil
         parent = psutil.Process(WORKER.pid)
         for child in parent.children(recursive=True):  # or parent.children() for recursive=False
             child.kill()
-            parent.kill()
+        parent.kill()
             
         # WORKER.terminate()
         # if WORKER.is_alive():
@@ -127,11 +129,10 @@ def shutdown_server():
         # This is killing THIS python script also, and is UNIX dependent
         # os.killpg(os.getpgid(MASTER.pid), signal.SIGTERM)
 
-        import psutil
         parent = psutil.Process(MASTER.pid)
         for child in parent.children(recursive=True):  # or parent.children() for recursive=False
             child.kill()
-            parent.kill()
+        parent.kill()
             
         # MASTER.terminate()
         # if MASTER.is_alive():
