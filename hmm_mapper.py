@@ -167,6 +167,6 @@ if __name__ == "__main__":
         sys.exit(0)
     finally:
         print(get_citation())
-        print('Total time: %g secs' % (time.time()-_total_time))        
-
+        print('Total time: %g secs' % (time.time()-_total_time))
+        
 ## END
