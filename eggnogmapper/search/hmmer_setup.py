@@ -96,7 +96,7 @@ def setup_custom_db(db, scantype):
         idmap_file = dbpath + ".idmap"
         if not pexists(idmap_file):
             if generate_idmap(db):
-                idmap_file = db + ".idmap"
+                # idmap_file = db + ".idmap"
                 print("idmap succesfully created!", file=sys.stderr)
             else:
                 raise ValueError("idmap could not be created!")
