@@ -66,10 +66,6 @@ class Annotator:
 
     ##
     def annotate(self, seed_orthologs_file, annot_file, hmm_hits_file):
-    #     return self.annotate_hits_file(seed_orthologs_file, annot_file, hmm_hits_file)
-
-    # ##
-    # def annotate_hits_file(self, seed_orthologs_file, annot_file, hmm_hits_file):
 
         start_time = time.time()
         
@@ -104,14 +100,6 @@ class Annotator:
             if result:
                 (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                  annotations, annot_level_max, swallowest_level, match_nogs, orthologs) = result
-                if query_name in seq2bestOG:
-                    (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
-                     seqto, q_coverage) = seq2bestOG[query_name]
-                    bestOG = '%s|%s|%s' %(hitname, evalue, score)
-                    og_cat, og_desc = seq2annotOG.get(hitname, ['', ''])
-                else:
-                    bestOG = 'NA|NA|NA'
-                    og_cat, og_desc = annota.get_best_og_description(match_nogs)
 
                 if self.report_orthologs:
                     print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
@@ -121,7 +109,7 @@ class Annotator:
                                  best_hit_name,
                                  str(best_hit_evalue),
                                  str(best_hit_score),
-                                 LEVEL_NAMES[swallowest_level]]
+                                 swallowest_level]
 
                 for h in ANNOTATIONS_HEADER:
                     if h in annotations:
@@ -129,11 +117,23 @@ class Annotator:
                     else:
                         annot_columns.append('')
 
-                annot_columns.extend([annot_level_max,
-                                        ','.join(match_nogs),
-                                        bestOG,
-                                        og_cat.replace('\n', ''),
-                                        og_desc.replace('\n', ' ')])
+                annot_columns.append(annot_level_max)
+                annot_columns.append(",".join(match_nogs))
+                
+                if query_name in seq2bestOG:
+                    (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
+                     seqto, q_coverage) = seq2bestOG[query_name]
+                    
+                    bestOG = '%s|%s|%s' %(hitname, evalue, score)
+                    og_cat, og_desc = seq2annotOG.get(hitname, ['', ''])
+                    # og_cat, og_desc = annota.get_best_og_description(match_nogs)                    
+                else:
+                    bestOG = 'NA|NA|NA'
+                    og_cat, og_desc = annota.get_best_og_description(match_nogs)
+                    
+                annot_columns.extend([bestOG,
+                                      og_cat.replace('\n', ''),
+                                      og_desc.replace('\n', ' ')])
 
                 print('\t'.join(annot_columns), file=OUT)
 
@@ -158,16 +158,17 @@ class Annotator:
 
     ##
     def get_seq_hmm_matches(self, hits_file):
-        annota.connect()
+        # annota.connect()
         print(colorify("Reading HMM matches", 'green'))
         seq2oginfo = {}
         start_time = time.time()
         hitnames = set()
         if pexists(hits_file):
             for line in open(hits_file):
+                
                 if not line.strip() or line.startswith('#'):
                     continue
-
+                
                 (query, hit, evalue, sum_score, query_length, hmmfrom, hmmto,
                  seqfrom, seqto, q_coverage) = map(str.strip, line.split('\t'))
 
@@ -176,6 +177,7 @@ class Annotator:
                     seq2oginfo[query] = [hitname, evalue, sum_score, query_length,
                                          hmmfrom, hmmto, seqfrom, seqto,
                                          q_coverage]
+        
         return seq2oginfo
     
     ##
@@ -213,6 +215,7 @@ def _annotate_hit_line(arguments):
 
     if not line.strip() or line.startswith('#'):
         return None
+    
     r = list(map(str.strip, line.split('\t')))
 
     query_name = r[0]
@@ -232,9 +235,11 @@ def _annotate_hit_line(arguments):
     match_levels = set()
     for nog in match_nogs:
         match_levels.update(LEVEL_PARENTS[nog.split("@")[1]])
-
+    
     swallowest_level = sorted(match_levels & set(LEVEL_DEPTH.keys()),
                               key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+
+    swallowest_level = LEVEL_NAMES.get(swallowest_level, swallowest_level)
 
     annot_levels = set()
     if tax_scope == "auto":
@@ -246,7 +251,7 @@ def _annotate_hit_line(arguments):
     else:
         annot_levels.add(tax_scope)
         annot_level_max = LEVEL_NAMES.get(tax_scope, tax_scope)
-
+    
     if target_taxa != 'all':
         target_taxa = normalize_target_taxa(target_taxa)
     else:
@@ -254,11 +259,17 @@ def _annotate_hit_line(arguments):
 
     try:
         all_orthologies = annota.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
+        
+        # print("annotator: all_orthologies")
+        # print(all_orthologies)
     except Exception:
         orthologs = None
         status = 'Error'
     else:
         orthologs = sorted(all_orthologies[target_orthologs])
+        
+        # print("annotator: orthologs")
+        # print(orthologs)
         if excluded_taxa:
             orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
         status = 'OK'

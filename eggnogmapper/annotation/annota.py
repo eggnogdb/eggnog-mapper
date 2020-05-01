@@ -38,6 +38,7 @@ def get_ogs_annotations(ognames):
         for og, desc, cat in db.fetchall():
             cat = re.sub(cog_cat_cleaner, '', cat)
             og2desc[og] = [cat, desc]
+    
     return og2desc
 
 def get_best_og_description(ognames):
@@ -46,12 +47,13 @@ def get_best_og_description(ognames):
     best = [None, '', '']
     if db.execute(cmd):
         for og, nm, desc, cat in db.fetchall():
-            nm = int(nm)
+            nm = int(nm) # number of members (proteins) in this OG
             desc = desc.strip()
             if desc and desc != 'N/A' and desc != 'NA':
                 if not best[0] or nm <= best[0]:
                     cat = re.sub(cog_cat_cleaner, '', cat)
                     best = [nm, cat, desc]
+    
     return best[1], best[2]
 
 
@@ -126,27 +128,55 @@ def get_member_ogs(name):
         ogs = [str(x).strip() for x in match[0].split(',')]
     return ogs
 
-def get_member_orthologs(member, target_taxa=None, target_levels=None):
+
+def set_coorthologs(by_sp1, by_sp2, target_members, target_taxa, orthology):
+    targets = target_taxa or list(by_sp2.keys())
+
+    for sp1, co1 in by_sp1.items():
+        if target_members & co1:
+            print("target member in sp1")
+            key1 = (sp1, tuple(sorted((co1))))
+
+            for sp2 in targets:
+                if sp2 not in by_sp2:
+                    continue
+                co2 = by_sp2[sp2]
+                key2 = (sp2, tuple(sorted(co2)))
+                orthology.setdefault(key1, set()).add(key2)
+
+    return
+
+
+def setup_orthology(member, target_taxa, target_levels):
+    orthology = {}
+    
     query_taxa = member.split('.', 1)[0]
     if target_taxa:
         target_taxa = list(map(str, target_taxa))
-
     target_members = set([member])
+    
     cmd = 'SELECT orthoindex FROM orthologs WHERE name = "%s"' % member.strip()
     db.execute(cmd)
     event_indexes = str(db.fetchone()[0])
+    
     cmd2 = 'SELECT level, side1, side2 FROM event WHERE i IN (%s)' % event_indexes
     if target_levels:
         cmd2 += " AND level IN (%s)" % (','.join(['"%s"' %x for x in target_levels]))
     db.execute(cmd2)
-    orthology = {}
+
     for level, _side1, _side2 in db.fetchall():
+
+        print()
+        print("annota: event result")
+        print(" - ".join([str(x) for x in [level, _side1, _side2]]))
+        # orthology = {} # REMOVE THIS
 
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
     
         by_sp1, by_sp2 = {}, {}
 
+        # filter by taxa (by species)
         for _sp, _side in [(by_sp1, side1),
                            (by_sp2, side2)]:
             for t, s in _side:            
@@ -155,32 +185,45 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
                     _sp.setdefault(t, set()).add(mid)
 
 
-        # merge by side1 coorthologs
-        targets = target_taxa or list(by_sp2.keys())
+        # merge by coorthologs
+        set_coorthologs(by_sp1, by_sp2, target_members, target_taxa, orthology)
+        set_coorthologs(by_sp2, by_sp1, target_members, target_taxa, orthology)        
 
-        for sp1, co1 in by_sp1.items():
-            if target_members & co1:
-                key1 = (sp1, tuple(sorted((co1))))
+        # # merge by side1 coorthologs
+        # targets = target_taxa or list(by_sp2.keys())
+
+        # for sp1, co1 in by_sp1.items():
+        #     if target_members & co1:
+        #         print("target member in sp1")
+        #         key1 = (sp1, tuple(sorted((co1))))
                 
-                for sp2 in targets:
-                    if sp2 not in by_sp2:
-                        continue
-                    co2 = by_sp2[sp2]
-                    key2 = (sp2, tuple(sorted(co2)))
-                    orthology.setdefault(key1, set()).add(key2)
+        #         for sp2 in targets:
+        #             if sp2 not in by_sp2:
+        #                 continue
+        #             co2 = by_sp2[sp2]
+        #             key2 = (sp2, tuple(sorted(co2)))
+        #             orthology.setdefault(key1, set()).add(key2)
 
-        # merge by side2 coorthologs
-        targets = target_taxa or list(by_sp1.keys())
-        for sp1, co1 in by_sp2.items():
-            if target_members & co1:
-                key1 = (sp1, tuple(sorted((co1))))
-                for sp2 in targets:
-                    if sp2 not in by_sp1:
-                        continue
-                    co2 = by_sp1[sp2]
-                    key2 = (sp2, tuple(sorted(co2)))
-                    orthology.setdefault(key1, set()).add(key2)
+        # # merge by side2 coorthologs
+        # targets = target_taxa or list(by_sp1.keys())
+        
+        # for sp1, co1 in by_sp2.items():
+        #     if target_members & co1:
+        #         print("target member in sp2")
+        #         key1 = (sp1, tuple(sorted((co1))))
+                
+        #         for sp2 in targets:
+        #             if sp2 not in by_sp1:
+        #                 continue
+        #             co2 = by_sp1[sp2]
+        #             key2 = (sp2, tuple(sorted(co2)))
+        #             orthology.setdefault(key1, set()).add(key2)
+        
+        print(orthology)
+    
+    return orthology
 
+def get_member_orthologs(member, target_taxa=None, target_levels=None):
 
     all_orthologs = {
         "one2one": set(),
@@ -190,20 +233,29 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
         "all": set(),
     }
 
+    orthology = setup_orthology(member, target_taxa, target_levels)
+
     for k, v in orthology.items():
+
+        all_orthologs['all'].update(k[1])
+        
         if len(k[1]) == 1:
             otype_prefix = "one2"
         else:
             otype_prefix = "many2"
-        all_orthologs['all'].update(k[1])
+        
         for t2, co2 in v:
+
+            all_orthologs['all'].update(co2)
+            
             if len(co2) == 1:
                 otype = otype_prefix + "one"
             else:
                 otype = otype_prefix + "many"
+                
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
-            all_orthologs['all'].update(co2)
+
 
     return all_orthologs
 
