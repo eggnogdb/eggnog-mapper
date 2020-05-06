@@ -110,7 +110,8 @@ class HmmerSearcher:
             annot = False
 
         elif dbname in EGGNOG_DATABASES:
-            self.refine_matches(in_file, seed_orthologs_file, hmm_hits_file)
+            if not pexists(seed_orthologs_file):
+                self.refine_matches(in_file, seed_orthologs_file, hmm_hits_file)
 
         else:
             print(f'Could not find {dbname} among eggnog databases.')
