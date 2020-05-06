@@ -62,7 +62,6 @@ class HmmMapper:
         annot = None
 
         args.no_refine = True
-        args.servermode = False
         args.excluded_taxa = None
         
         s = HmmerSearcher(args)

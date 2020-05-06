@@ -59,7 +59,7 @@ def create_arg_parser():
                            default=SEARCH_MODE_DIAMOND,
                            help=(
                                f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond (-i is required). '
-                               f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required unless running in --servermode). '
+                               f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required). '
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required). '
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
@@ -116,11 +116,6 @@ def create_arg_parser():
                     help='''If a local "hmmpress-ed" database is provided as target using --database,
                     --usemem will allocate the whole database in memory using hmmpgmd.
                     Database will be unloaded after execution.''')
-
-    pg_hmmer.add_argument("--servermode", action="store_true",
-                          help='Loads target database in memory and keeps running in server mode,'
-                          ' so another instance of eggnog-mapper can connect to this sever.'
-                          ' Auto turns on the --usemem flag')
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                         help="Max number of hits to report (0 to report all). Default=1.")
@@ -246,31 +241,24 @@ def parse_args(parser):
             print(colorify("Diamond jobs cannot be resumed. --resume will be ignored.", 'blue'))
             args.resume = False
 
-        if args.servermode:
-            parser.error(f'-m {SEARCH_MODE_DIAMOND} does not support --servermode')
-
     elif args.mode == SEARCH_MODE_HMMER:
 
-        # Servermode implies using mem-based databases
-        if args.servermode:
-            args.usemem = True
-        else:
-            if not args.input:
-                parser.error('An input file is required (-i)')
-                
-            # Output file required
-            if not args.output:
-                parser.error('An output project name is required (-o)')
+        if not args.input:
+            parser.error('An input file is required (-i)')
 
-            # Hmmer database
-            # NOTE: hmmer database format, name and checking if exists is done within hmmer module
-            if not args.db:
-                parser.error('HMMER mode requires a target database (-d, --database).')
+        # Output file required
+        if not args.output:
+            parser.error('An output project name is required (-o)')
 
-            # --no_refine identifies HMM hits (OGs), but no seed orthologs
-            # Therefore, annotation makes no sense, and --no_refine implies --no_annot
-            if args.no_refine:
-                args.no_annot = True
+        # Hmmer database
+        # NOTE: hmmer database format, name and checking if exists is done within hmmer module
+        if not args.db:
+            parser.error('HMMER mode requires a target database (-d, --database).')
+
+        # --no_refine identifies HMM hits (OGs), but no seed orthologs
+        # Therefore, annotation makes no sense, and --no_refine implies --no_annot
+        if args.no_refine:
+            args.no_annot = True
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
