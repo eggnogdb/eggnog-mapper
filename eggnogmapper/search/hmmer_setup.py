@@ -19,7 +19,7 @@ SETUP_TYPE_EGGNOG = "eggnog"
 SETUP_TYPE_CUSTOM = "custom"
 
 ##
-def setup_hmm_search(db, scantype, dbtype, no_refine, cpu):
+def setup_hmm_search(db, scantype, dbtype, cpu):
 
     setup_type = None
     
@@ -29,7 +29,7 @@ def setup_hmm_search(db, scantype, dbtype, no_refine, cpu):
 
     else: # setup_local_db --> dbpath, host, port, idmap_file
         if db in EGGNOG_DATABASES:
-            dbname, dbpath, host, port, end_port, idmap_file = setup_eggnog_db(db, no_refine, scantype)
+            dbname, dbpath, host, port, end_port, idmap_file = setup_eggnog_db(db, scantype)
             setup_type = SETUP_TYPE_EGGNOG
         else:
             dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype)
@@ -41,7 +41,7 @@ def setup_hmm_search(db, scantype, dbtype, no_refine, cpu):
     return dbname, dbpath, host, port, idmap_file, setup_type
     
 ##
-def setup_eggnog_db(db, no_refine, scantype):
+def setup_eggnog_db(db, scantype):
 
     dbpath, port = get_db_info(db)
 
@@ -53,10 +53,9 @@ def setup_eggnog_db(db, no_refine, scantype):
         print(colorify('Database %s not present. Use download_eggnog_database.py to fetch it' % (db), 'red'))
         raise ValueError('Database not found')
 
-    if not no_refine:
-        if not pexists(pjoin(get_data_path(), 'OG_fasta')):
-            print(colorify('Database data/OG_fasta/ not present. Use download_eggnog_database.py to fetch it', 'red'))
-            raise ValueError('Database fasta sequences not found')
+    if not pexists(pjoin(get_data_path(), 'OG_fasta')):
+        print(colorify('Database data/OG_fasta/ not present. Use download_eggnog_database.py to fetch it', 'red'))
+        raise ValueError('Database fasta sequences not found')
 
     if scantype == SCANTYPE_MEM:
         host = 'localhost'
