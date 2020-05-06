@@ -15,9 +15,9 @@ ANNOTATIONS_SUFFIX = '.emapper.annotations'
 class Test(unittest.TestCase):
 
     # Tests
-    def test_diamond(self):
+    def test_emapper_diamond(self):
         '''
-        Tests the whole emapper command, run with -m diamond
+        Tests the whole emapper (-m diamond) command
         '''
 
         ##
@@ -74,9 +74,9 @@ class Test(unittest.TestCase):
         return
 
     
-    def test_hmmer_eggnogdb(self):
+    def test_emapper_hmmer_eggnogdb(self):
         '''
-        Tests the whole emapper command, run with -m hmmer
+        Tests the whole emapper (-m hmmer) command
         '''
         # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact -o bact --output_dir tmp_borrar
         
@@ -143,7 +143,7 @@ class Test(unittest.TestCase):
     
     def test_scratch_dir(self):
         '''
-        Tests the whole emapper command, run with -m hmmer
+        Tests the use of scratch_dir
         '''
         # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact -o bact --output_dir tmp_borrar --scratch_dir tmp_scratch
         

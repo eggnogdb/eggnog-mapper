@@ -17,7 +17,7 @@ class Test(unittest.TestCase):
     # Tests    
     def test_hmm_mapper(self):
         '''
-        Tests the search to a custom db, run with -m hmmer
+        Tests hmm_mapper to search on a custom db, on disk
         '''
         # ./hmm_mapper.py -i tests/fixtures/test_queries.fa -d tests/fixtures/hmmer_custom_dbs/bact.hmm -o dummy --output_dir tmp_borrar
         
@@ -73,7 +73,7 @@ class Test(unittest.TestCase):
     
     def test_usemem(self):
         '''
-        Tests the search to a custom db, run with -m hmmer
+        Tests hmm_mapper to search on a custom db, on mem (--usemem)
         '''
         # ./hmm_mapper.py --usemem -i tests/fixtures/test_queries.fa -d tests/fixtures/hmmer_custom_dbs/bact.hmm -o dummy --output_dir tmp_borrar
         
