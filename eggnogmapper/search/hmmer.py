@@ -26,7 +26,6 @@ class HmmerSearcher:
     cpu = None
     usemem = None
     scantype = None
-    no_refine = None
 
     db = None
     dbtype = None
@@ -51,8 +50,6 @@ class HmmerSearcher:
             self.scantype = SCANTYPE_MEM
         else:
             self.scantype = SCANTYPE_DISK
-            
-        self.no_refine = args.no_refine
         
         self.db = args.db
         self.dbtype = args.dbtype
@@ -78,33 +75,46 @@ class HmmerSearcher:
         return
 
     ##
+    def search_hmm_matches(self, in_file, hmm_hits_file):
+        
+        annot = None
+        
+        # Prepare HMM database and/or server
+        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu)
+            
+        # Search for HMM hits (OG)
+        # if not pexists(hmm_hits_file): This avoids resuming the previous run
+        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
+
+        # Shutdown server, If a temp local server was set up
+        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
+            shutdown_server()
+            
+        return
+        
+    ##
     def search(self, in_file, seed_orthologs_file, hmm_hits_file):
 
         annot = None
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype,
-                                                                              self.no_refine, self.cpu)
-
-        # If a database custom, seed ortholog detection and annotation are not available
-        if setup_type == SETUP_TYPE_CUSTOM:
-            self.no_refine = True
-            annot = False
+        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
         self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
         
         # Search for seed orthologs within the HMM hits
-        if not self.no_refine and not pexists(seed_orthologs_file):
-            if dbname == 'viruses':
-                print('Skipping seed ortholog detection in "viruses" database')
-                
-            elif dbname in EGGNOG_DATABASES:
-                self.refine_matches(in_file, seed_orthologs_file, hmm_hits_file)
-                
-            else:
-                print('refined hits not available for custom hmm databases.')
+        if dbname == 'viruses':
+            print('Skipping seed ortholog detection in "viruses" database')
+            annot = False
+
+        elif dbname in EGGNOG_DATABASES:
+            self.refine_matches(in_file, seed_orthologs_file, hmm_hits_file)
+
+        else:
+            print(f'Could not find {dbname} among eggnog databases.')
+            annot = False
 
         # Shutdown server, If a temp local server was set up
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:

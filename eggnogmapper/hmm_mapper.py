@@ -65,7 +65,7 @@ class HmmMapper:
         args.excluded_taxa = None
         
         s = HmmerSearcher(args)
-        annot = s.search(infile, None, pjoin(self._current_dir, self.hmm_hits_file))
+        annot = s.search_hmm_matches(infile, pjoin(self._current_dir, self.hmm_hits_file))
         
         return annot
     

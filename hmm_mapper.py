@@ -16,7 +16,6 @@ from eggnogmapper.hmm_mapper import HmmMapper
 from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
 
-
 __description__ = ('A program wrapping HMM in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
@@ -48,7 +47,7 @@ def create_arg_parser():
 
     pg_hmmer.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
                        help=('specify the target database for sequence searches. '
-                            'Choose among: euk,bact,arch, host:port, or a local "hmmpress-ed" database'))
+                            'Choose among: db.hmm:host:port, or a local "hmmpress-ed" database'))
         
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
                        help="Type of input data (-i). "

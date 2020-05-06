@@ -101,7 +101,7 @@ def create_arg_parser():
 
     pg_hmmer.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
                        help=('specify the target database for sequence searches. '
-                            'Choose among: euk,bact,arch, host:port, or a local "hmmpress-ed" database'))
+                             'Choose among: euk,bact,arch, or a database loaded in a server, db.hmm:host:port (see hmm_server.py)'))
         
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
                        help="Type of input data (-i). "
@@ -135,9 +135,6 @@ def create_arg_parser():
     pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
                         help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
-
-    pg_hmmer.add_argument("--no_refine", action="store_true",
-                          help="Skip hit refinement, reporting only HMM hits. Implies --no_annot.")
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
@@ -254,11 +251,6 @@ def parse_args(parser):
         # NOTE: hmmer database format, name and checking if exists is done within hmmer module
         if not args.db:
             parser.error('HMMER mode requires a target database (-d, --database).')
-
-        # --no_refine identifies HMM hits (OGs), but no seed orthologs
-        # Therefore, annotation makes no sense, and --no_refine implies --no_annot
-        if args.no_refine:
-            args.no_annot = True
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
