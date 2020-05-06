@@ -26,7 +26,6 @@ class HmmerSearcher:
     cpu = None
     usemem = None
     scantype = None
-    servermode = None
     no_refine = None
 
     db = None
@@ -53,7 +52,6 @@ class HmmerSearcher:
         else:
             self.scantype = SCANTYPE_DISK
             
-        self.servermode = args.servermode
         self.no_refine = args.no_refine
         
         self.db = args.db
@@ -86,7 +84,7 @@ class HmmerSearcher:
         
         # Prepare HMM database and/or server
         dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype,
-                                                                      self.no_refine, self.cpu, self.servermode)
+                                                                              self.no_refine, self.cpu)
 
         # If a database custom, seed ortholog detection and annotation are not available
         if setup_type == SETUP_TYPE_CUSTOM:
