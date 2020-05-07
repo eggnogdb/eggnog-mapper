@@ -106,8 +106,7 @@ class Emapper:
     
     ##
     def run(self, args, infile, annotate_hits_table = None, predict_ortho = None):
-
-        print("emapper: run")
+        
         ##
         # Step 1. Sequence search
         if self.mode != SEARCH_MODE_NO_SEARCH:
