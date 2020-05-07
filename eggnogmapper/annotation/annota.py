@@ -1,4 +1,4 @@
-##
+#
 ## JHCepas
 
 
@@ -56,6 +56,17 @@ def get_best_og_description(ognames):
     
     return best[1], best[2]
 
+def get_deeper_og_description(deeper_og):
+    cmd = 'SELECT og.og, nm, description, COG_categories FROM og WHERE og.og IN ("%s")' % deeper_og
+    best = [None, '', '']
+    if db.execute(cmd):
+        for og, nm, desc, cat in db.fetchall():
+            desc = desc.strip()
+            if desc and desc != 'N/A' and desc != 'NA':
+                best = [nm, cat, desc]
+                break
+    
+    return best[1], best[2]
 
 def parse_gos(gos, target_go_ev, excluded_go_ev):
     selected_gos = set()
@@ -221,10 +232,10 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
         "all": set(),
     }
 
-    print("annota: get_member_orthologs")
-    print(member)
-    print(target_taxa)
-    print(target_levels)
+    # print("annota: get_member_orthologs")
+    # print(member)
+    # print(target_taxa)
+    # print(target_levels)
     
     orthology = setup_orthology(member, target_taxa, target_levels)
 
