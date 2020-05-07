@@ -38,8 +38,8 @@ class DiamondSearcher:
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
 
-        self.evalue_thr = args.seed_ortholog_evalue
-        self.score_thr = args.seed_ortholog_score
+        self.evalue_thr = args.dmnd_evalue
+        self.score_thr = args.dmnd_score
         self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
         
         self.temp_dir = args.temp_dir

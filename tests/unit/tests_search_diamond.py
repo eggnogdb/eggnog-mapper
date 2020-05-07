@@ -26,8 +26,8 @@ class Test(unittest.TestCase):
                          matrix=None,
                          gapopen=None,
                          gapextend=None,
-                         seed_ortholog_evalue=0.001,
-                         seed_ortholog_score=60,
+                         dmnd_evalue=0.001,
+                         dmnd_score=60,
                          excluded_taxa=None,
                          temp_dir=os.getcwd(),
                          no_file_comments=None)
@@ -52,8 +52,8 @@ class Test(unittest.TestCase):
                          matrix=None,
                          gapopen=None,
                          gapextend=None,
-                         seed_ortholog_evalue=0.001,
-                         seed_ortholog_score=60,
+                         dmnd_evalue=0.001,
+                         dmnd_score=60,
                          excluded_taxa=None,
                          temp_dir=os.getcwd(),
                          no_file_comments=None)
@@ -79,8 +79,8 @@ class Test(unittest.TestCase):
                          matrix=None,
                          gapopen=None,
                          gapextend=None,
-                         seed_ortholog_evalue=0.001,
-                         seed_ortholog_score=60,
+                         dmnd_evalue=0.001,
+                         dmnd_score=60,
                          excluded_taxa=None,
                          temp_dir=os.getcwd(),
                          no_file_comments=None)
