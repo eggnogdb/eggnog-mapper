@@ -60,7 +60,7 @@ class DiamondSearcher:
         tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=self.temp_dir)
         try:
             output_file = pjoin(tempdir, uuid.uuid4().hex)
-            cmd = self.run_diamond(in_file, output_file)
+            cmd = self.run_diamond(in_file, output_file, silent = True)
             parsed = self.parse_diamond(output_file)            
             self.output_diamond(cmd, parsed, seed_orthologs_file)
 
