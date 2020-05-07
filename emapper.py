@@ -63,16 +63,6 @@ def create_arg_parser():
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required). '
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
-
-    pg_search.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
-                           help='Min E-value expected when searching for seed eggNOG ortholog.'
-                           ' Queries not having a significant'
-                           ' seed orthologs will not be annotated. Default=0.001')
-
-    pg_search.add_argument('--seed_ortholog_score', default=60, type=float, metavar='MIN_SCORE',
-                           help='Min bit score expected when searching for seed eggNOG ortholog.'
-                           ' Queries not having a significant'
-                           ' seed orthologs will not be annotated. Default=60')
     
     ##
     pg_diamond = parser.add_argument_group('Diamond Search Options')
@@ -83,6 +73,12 @@ def create_arg_parser():
     pg_diamond.add_argument('--matrix', dest='matrix', 
                     choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
                     default=None, help='Scoring matrix')
+
+    pg_diamond.add_argument('--dmnd_evalue', dest='dmnd_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
+                        help="E-value threshold. Default=0.001")
+
+    pg_diamond.add_argument('--dmnd_score', dest='dmnd_score', default=60, type=float, metavar='MIN_SCORE',
+                        help="Bit score threshold. Default=60")
 
     pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
                     help='Gap open penalty')
@@ -141,6 +137,16 @@ def create_arg_parser():
 
     pg_annot.add_argument("--no_annot", action="store_true",
                         help="Skip functional annotation, reporting only hits")
+
+    pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
+                           help='Min E-value expected when searching for seed eggNOG ortholog.'
+                           ' Queries not having a significant'
+                           ' seed orthologs will not be annotated. Default=0.001')
+
+    pg_annot.add_argument('--seed_ortholog_score', default=60, type=float, metavar='MIN_SCORE',
+                           help='Min bit score expected when searching for seed eggNOG ortholog.'
+                           ' Queries not having a significant'
+                           ' seed orthologs will not be annotated. Default=60')
     
     pg_annot.add_argument("--tax_scope", type=str, choices=["TAXID", "auto"], #choices=list(LEVEL_NAMES.keys())+["auto"],
                           default='auto', 
@@ -151,7 +157,11 @@ def create_arg_parser():
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
                                                          "one2many","many2many", "all"],
                           default="all",
-                          help='defines what type of orthologs should be used for functional transfer')
+                          help='defines what type of orthologs (in relation to the seed ortholog) should be used for functional transfer')
+
+    pg_annot.add_argument('--target_taxa', type=str,
+                            default="all", metavar='TAXID', nargs="+",
+                            help='taxa that will be searched for orthologs')
 
     pg_annot.add_argument('--excluded_taxa', type=int, metavar='TAXID',
                           help='(for debugging and benchmark purposes)')
@@ -197,10 +207,6 @@ def create_arg_parser():
 
     pg_predict.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
         
-    pg_predict.add_argument('--target_taxa', type=str,
-                            default="all", metavar='TAXID', nargs="+",
-                            help='taxa that will be searched for orthologs')
-
     pg_predict.add_argument('--predict_output_format', choices=["per_query", "per_species"],
                             default= "per_species", help="Choose the output format among: per_query, per_species .Default = per_species")
         
