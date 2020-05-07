@@ -17,14 +17,24 @@ HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
               "seed_ortholog_evalue",
               "seed_ortholog_score",
-              "best_tax_level", ]
+              "taxonomic_scope",
+              "best_tax_level",
+              "COG Functional cat.",
+              "eggNOG free text desc.",              
+              "eggNOG OGs"]
 
-ANNOTATIONS_HEADER = ['Preferred_name', 'GOs', 'EC',
-                      'KEGG_ko', 'KEGG_Pathway', 'KEGG_Module', 'KEGG_Reaction', 'KEGG_rclass',
-                      'BRITE', 'KEGG_TC', 'CAZy', 'BiGG_Reaction']
-
-HIT_OG_HEADER = ["taxonomic scope", "eggNOG OGs", "best eggNOG OG",
-                 "COG Functional cat.", "eggNOG free text desc."]
+ANNOTATIONS_HEADER = ['Preferred_name',
+                      'GOs',
+                      'EC',
+                      'KEGG_ko',
+                      'KEGG_Pathway',
+                      'KEGG_Module',
+                      'KEGG_Reaction',
+                      'KEGG_rclass',
+                      'BRITE',
+                      'KEGG_TC',
+                      'CAZy',
+                      'BiGG_Reaction']
 
 ##
 def get_annotator(args):
@@ -84,7 +94,7 @@ class Annotator:
 
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
-            print('\t'.join(HIT_HEADER + ANNOTATIONS_HEADER + HIT_OG_HEADER), file=OUT)
+            print('\t'.join(HIT_HEADER + ANNOTATIONS_HEADER), file=OUT)
             
         qn = 0
         pool = multiprocessing.Pool(self.cpu)
@@ -99,7 +109,7 @@ class Annotator:
 
             if result:
                 (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-                 annotations, annot_level_max, swallowest_level, match_nogs, orthologs) = result
+                 annotations, annot_level_max, swallowest_og, swallowest_level, match_nogs, orthologs) = result
 
                 if self.report_orthologs:
                     print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
@@ -108,33 +118,28 @@ class Annotator:
                 annot_columns = [query_name,
                                  best_hit_name,
                                  str(best_hit_evalue),
-                                 str(best_hit_score),
-                                 swallowest_level]
+                                 str(best_hit_score)]
 
+                annot_columns.append(annot_level_max)
+                
+                annot_columns.append(swallowest_level)
+                
+                og_cat, og_desc = annota.get_deeper_og_description(swallowest_og)
+                
+                annot_columns.extend([og_cat.replace('\n', ''),
+                                      og_desc.replace('\n', ' ')])
+
+                match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
+                                    sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
+                
+                annot_columns.append(",".join(match_nogs_names))
+                
                 for h in ANNOTATIONS_HEADER:
                     if h in annotations:
                         annot_columns.append(','.join(sorted(annotations[h])))
                     else:
                         annot_columns.append('')
-
-                annot_columns.append(annot_level_max)
-                annot_columns.append(",".join(match_nogs))
-                
-                if query_name in seq2bestOG:
-                    (hitname, evalue, score, qlength, hmmfrom, hmmto, seqfrom,
-                     seqto, q_coverage) = seq2bestOG[query_name]
-                    
-                    bestOG = '%s|%s|%s' %(hitname, evalue, score)
-                    og_cat, og_desc = seq2annotOG.get(hitname, ['', ''])
-                    # og_cat, og_desc = annota.get_best_og_description(match_nogs)                    
-                else:
-                    bestOG = 'NA|NA|NA'
-                    og_cat, og_desc = annota.get_best_og_description(match_nogs)
-                    
-                annot_columns.extend([bestOG,
-                                      og_cat.replace('\n', ''),
-                                      og_desc.replace('\n', ' ')])
-
+                        
                 print('\t'.join(annot_columns), file=OUT)
 
             #OUT.flush()
@@ -233,11 +238,21 @@ def _annotate_hit_line(arguments):
         return None
 
     match_levels = set()
-    for nog in match_nogs:
-        match_levels.update(LEVEL_PARENTS[nog.split("@")[1]])
+    swallowest_og = None
+    swallowest_level = None
+    lvl_depths = set(LEVEL_DEPTH.keys())
     
-    swallowest_level = sorted(match_levels & set(LEVEL_DEPTH.keys()),
-                              key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+    for nog in match_nogs:
+        nog_lvls = LEVEL_PARENTS[nog.split("@")[1]]
+        match_levels.update(nog_lvls)
+
+        # detect swallowest OG
+        nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+        nog_depth = LEVEL_DEPTH[nog_lvl]
+        if swallowest_level is None or nog_depth > swallowest_depth:
+            swallowest_depth = nog_depth
+            swallowest_level = nog_lvl
+            swallowest_og = nog.split("@")[0]
 
     swallowest_level = LEVEL_NAMES.get(swallowest_level, swallowest_level)
 
@@ -282,6 +297,6 @@ def _annotate_hit_line(arguments):
         annotations = {}
 
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            annotations, annot_level_max, swallowest_level, match_nogs, orthologs)
+            annotations, annot_level_max, swallowest_og, swallowest_level, match_nogs, orthologs)
 
 ## END
