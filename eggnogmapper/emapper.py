@@ -11,11 +11,10 @@ from .emapperException import EmapperException
 
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH
 from .annotation.annotator import get_annotator
-from .orthologs import orthology as orthology
 
 class Emapper:
 
-    hmm_hits_file = seed_orthologs_file = annot_file = orthologs_file = None
+    hmm_hits_file = seed_orthologs_file = annot_file = None
     _output_files = None
     
     output_dir = scratch_dir = None
@@ -35,7 +34,6 @@ class Emapper:
         self.hmm_hits_file = f"{prefix}.emapper.hmm_hits"
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
-        self.orthologs_file = f"{prefix}.emapper.predict_orthologs"
 
         self.mode = mode
         self.annot = annot
@@ -118,13 +116,6 @@ class Emapper:
         # Step 2. Annotation
         if self.annot == True or self.report_orthologs:
             self.annotate(args, annotate_hits_table)
-
-        ##
-        # Optional step. Orthology prediction
-        if predict_ortho:
-            orthology.connect()
-            dump_orthologs(pjoin(self._current_dir, self.seed_orthologs_file),
-                           pjoin(self._current_dir, self.orthologs_file, args))
 
         ##
         # If running in scratch, move files to real output dir and clean up

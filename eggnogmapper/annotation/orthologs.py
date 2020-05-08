@@ -1,6 +1,6 @@
 ##
 
-from .annota import get_member_events
+from . import db_sqlite as db_sqlite
 
 def get_member_orthologs(member, target_taxa=None, target_levels=None):
 
@@ -46,7 +46,7 @@ def __setup_orthology(member, target_taxa, target_levels):
         target_taxa = list(map(str, target_taxa))
     member_as_set = set([member])
     
-    for level, _side1, _side2 in get_member_events(member.strip(), target_levels):
+    for level, _side1, _side2 in db_sqlite.get_member_events(member.strip(), target_levels):
 
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]

@@ -5,14 +5,14 @@ import sys
 import time
 import multiprocessing
 
-from ..common import get_version, get_db_version, get_call_info, pexists, TAXONOMIC_RESOLUTION, cleanup_og_name
-from ..emapperException import EmapperException
+from ..common import get_call_info, TAXONOMIC_RESOLUTION
 from ..utils import colorify
 from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
 # from ..orthologs.orthology import normalize_target_taxa
 from . import annota
-from .orthologs import get_member_orthologs
+from . import db_sqlite
+from . import orthologs as ortho
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -190,7 +190,7 @@ def _annotate_hit_line(arguments):
 
     # should connect also if no previous connection
     # exists in this Pool process (worker)
-    annota.connect()
+    db_sqlite.connect()
 
     line, seed_ortholog_score, seed_ortholog_evalue, tax_scope, target_taxa, target_orthologs, excluded_taxa, go_evidence, go_excluded = arguments
 
@@ -210,7 +210,7 @@ def _annotate_hit_line(arguments):
     if best_hit_score < seed_ortholog_score or best_hit_evalue > seed_ortholog_evalue:
         return None
 
-    match_nogs = annota.get_member_ogs(best_hit_name)
+    match_nogs = get_member_ogs(best_hit_name)
     if not match_nogs:
         return None
 
@@ -233,7 +233,7 @@ def _annotate_hit_line(arguments):
 
     swallowest_level = LEVEL_NAMES.get(swallowest_level, swallowest_level)
 
-    og_cat, og_desc = annota.get_deepest_og_description(swallowest_og)
+    og_cat, og_desc = get_deepest_og_description(swallowest_og)
 
     match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
                         sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
@@ -255,7 +255,7 @@ def _annotate_hit_line(arguments):
         target_taxa = None
 
     try:
-        all_orthologies = get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
+        all_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
         
     except Exception as e:
         # print(str(e))
@@ -277,7 +277,7 @@ def _annotate_hit_line(arguments):
     else:
         annotations = {}
 
-    annota.close()
+    db_sqlite.close()
     
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
             annotations, annot_level_max, swallowest_level,
@@ -307,5 +307,26 @@ def normalize_target_taxa(target_taxa):
             expanded_taxa.add(sp)
 
     return expanded_taxa
+
+
+def get_member_ogs(name):
+    match = db_sqlite.get_member_ogs(name)
+    ogs = None
+    if match:
+        ogs = [str(x).strip() for x in match[0].split(',')]
+    return ogs
+
+
+def get_deepest_og_description(deeper_og):
+    best = [None, '', '']
+    
+    for og, nm, desc, cat in db_sqlite.get_ogs_description(deeper_og):
+        desc = desc.strip()
+        if desc and desc != 'N/A' and desc != 'NA':
+            best = [nm, cat, desc]
+            break
+    
+    return best[1], best[2]
+
 
 ## END
