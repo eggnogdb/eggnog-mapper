@@ -25,7 +25,7 @@ class Emapper:
     override = resume = None
 
     ##
-    def __init__(self, mode, annot, prefix, output_dir, scratch_dir, resume, override):
+    def __init__(self, mode, annot, report_orthologs, prefix, output_dir, scratch_dir, resume, override):
 
         #
         self.output_dir = output_dir
@@ -39,6 +39,7 @@ class Emapper:
 
         self.mode = mode
         self.annot = annot
+        self.report_orthologs = report_orthologs
         self.resume = resume
         self.override = override
         
@@ -97,7 +98,7 @@ class Emapper:
             hits_file = pjoin(self._current_dir, self.seed_orthologs_file)
 
         if hits_file:
-            a = get_annotator(args)
+            a = get_annotator(args, self.annot, self.report_orthologs)
             a.annotate(hits_file,
                        pjoin(self._current_dir, self.annot_file))
                 
@@ -115,7 +116,7 @@ class Emapper:
 
         ##
         # Step 2. Annotation
-        if self.annot == True:
+        if self.annot == True or self.report_orthologs:
             self.annotate(args, annotate_hits_table)
 
         ##

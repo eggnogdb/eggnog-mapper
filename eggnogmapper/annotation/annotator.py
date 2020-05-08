@@ -37,29 +37,31 @@ ANNOTATIONS_HEADER = ['Preferred_name',
                       'BiGG_Reaction']
 
 ##
-def get_annotator(args):
+def get_annotator(args, annot, report_orthologs):
     annotator = None
 
-    annotator = Annotator(args)
+    annotator = Annotator(args, annot, report_orthologs)
     
     return annotator
 
 ##
 class Annotator:
 
-    no_file_comments = report_orthologs = None
+    annot = report_orthologs = None
 
-    cpu = None
+    no_file_comments = cpu = None
 
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope = target_taxa = target_orthologs = excluded_taxa = None
     go_evidence = go_excluded = None
 
     ##
-    def __init__(self, args):
+    def __init__(self, args, annot, report_orthologs):
 
+        self.annot = annot
+        self.report_orthologs = report_orthologs
+        
         self.no_file_comments = args.no_file_comments
-        self.report_orthologs = args.report_orthologs
         self.cpu = args.cpu
         self.seed_ortholog_score = args.seed_ortholog_score
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
@@ -69,8 +71,6 @@ class Annotator:
         self.excluded_taxa = args.excluded_taxa
         self.go_evidence = args.go_evidence
         self.go_excluded = args.go_excluded
-        
-        annota.connect()
         
         return
 
@@ -82,7 +82,6 @@ class Annotator:
         all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file, annot_file)
 
         # Output orthologs
-        
         if self.report_orthologs:
             ORTHOLOGS = open(annot_file+".orthologs", "w")
             for (query_name, orthologs) in all_orthologs:
@@ -90,21 +89,22 @@ class Annotator:
             ORTHOLOGS.close()
 
         # Output annotations
-        OUT = open(annot_file, "w")
-        
-        if not self.no_file_comments:
-            print(get_call_info(), file=OUT)
-            print('\t'.join(HIT_HEADER + ANNOTATIONS_HEADER), file=OUT)
-            
-        for annot_columns in all_annotations:
-            print('\t'.join(annot_columns), file=OUT)
+        if self.annot:
+            OUT = open(annot_file, "w")
 
-        if not self.no_file_comments:
-            print('# %d queries scanned' % (qn), file=OUT)
-            print('# Total time (seconds):', elapsed_time, file=OUT)
-            print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
-            
-        OUT.close()
+            if not self.no_file_comments:
+                print(get_call_info(), file=OUT)
+                print('\t'.join(HIT_HEADER + ANNOTATIONS_HEADER), file=OUT)
+
+            for annot_columns in all_annotations:
+                print('\t'.join(annot_columns), file=OUT)
+
+            if not self.no_file_comments:
+                print('# %d queries scanned' % (qn), file=OUT)
+                print('# Total time (seconds):', elapsed_time, file=OUT)
+                print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
+
+            OUT.close()
 
         return
 
@@ -129,29 +129,25 @@ class Annotator:
 
             if result:
                 (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-                 annotations, annot_level_max, swallowest_og, swallowest_level, match_nogs, orthologs) = result
+                 annotations, annot_level_max, swallowest_level,
+                 og_cat, og_desc, match_nogs_names, orthologs) = result
 
                 if self.report_orthologs:
                     all_orthologs.append((query_name, orthologs))
-                    # print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
-
-                og_cat, og_desc = annota.get_deeper_og_description(swallowest_og)
-
-                match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
-                                    sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
                     
-                # prepare annotations for printing
-                annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
-                                 annot_level_max, swallowest_level, og_cat.replace('\n', ''), og_desc.replace('\n', ' '),
-                                 ",".join(match_nogs_names)]
+                if self.annot:
+                    # prepare annotations for printing
+                    annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
+                                     annot_level_max, swallowest_level, og_cat.replace('\n', ''), og_desc.replace('\n', ' '),
+                                     ",".join(match_nogs_names)]
                 
-                for h in ANNOTATIONS_HEADER:
-                    if h in annotations:
-                        annot_columns.append(','.join(sorted(annotations[h])))
-                    else:
-                        annot_columns.append('')
+                    for h in ANNOTATIONS_HEADER:
+                        if h in annotations:
+                            annot_columns.append(','.join(sorted(annotations[h])))
+                        else:
+                            annot_columns.append('')
 
-                all_annotations.append(annot_columns)
+                    all_annotations.append(annot_columns)
 
         pool.terminate()
 
@@ -232,6 +228,11 @@ def _annotate_hit_line(arguments):
 
     swallowest_level = LEVEL_NAMES.get(swallowest_level, swallowest_level)
 
+    og_cat, og_desc = annota.get_deepest_og_description(swallowest_og)
+
+    match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
+                        sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
+    
     annot_levels = set()
     if tax_scope == "auto":
         for level in TAXONOMIC_RESOLUTION:
@@ -273,6 +274,7 @@ def _annotate_hit_line(arguments):
         annotations = {}
 
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            annotations, annot_level_max, swallowest_og, swallowest_level, match_nogs, orthologs)
+            annotations, annot_level_max, swallowest_level,
+            og_cat, og_desc, match_nogs_names, orthologs)
 
 ## END
