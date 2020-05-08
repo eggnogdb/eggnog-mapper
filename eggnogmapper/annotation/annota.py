@@ -18,8 +18,14 @@ cog_cat_cleaner = re.compile('[\[\]u\'\"]+')
 
 def connect():
     global conn, db
-    conn = sqlite3.connect(get_eggnogdb_file())
-    db = conn.cursor()
+    if not conn:
+        conn = sqlite3.connect(get_eggnogdb_file())
+        db = conn.cursor()
+
+def close():
+    global conn
+    if conn:
+        conn.close()
 
 def get_ogs_annotations(ognames):
     # og VARCHAR(16) PRIMARY KEY,
