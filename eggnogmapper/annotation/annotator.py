@@ -116,9 +116,9 @@ class Annotator:
         
         start_time = time.time()
         
-        qn = 0
         pool = multiprocessing.Pool(self.cpu)
-        # annotate_hit_line is outside the class because must be pickable
+
+        qn = 0
         for result in pool.imap(annotate_hit_line, self.iter_hit_lines(seed_orthologs_file)):
             qn += 1
             if qn and (qn % 500 == 0):
@@ -172,6 +172,7 @@ class Annotator:
             
         return
 
+# annotate_hit_line is outside the class because must be pickable
 ##
 def annotate_hit_line(arguments):
     try:
@@ -185,7 +186,9 @@ def annotate_hit_line(arguments):
 
 ##
 def _annotate_hit_line(arguments):
-    
+
+    # should connect also if no previous connection
+    # exists in this Pool process (worker)
     annota.connect()
 
     line, seed_ortholog_score, seed_ortholog_evalue, tax_scope, target_taxa, target_orthologs, excluded_taxa, go_evidence, go_excluded = arguments
@@ -196,6 +199,9 @@ def _annotate_hit_line(arguments):
     r = list(map(str.strip, line.split('\t')))
 
     query_name = r[0]
+
+    print("annotator._annotate_hit_line: ANNOTATE "+str(query_name))
+    
     best_hit_name = r[1]
     if best_hit_name == '-' or best_hit_name == 'ERROR':
         return None
@@ -273,6 +279,10 @@ def _annotate_hit_line(arguments):
     else:
         annotations = {}
 
+    print("annotator._annotate_hit_line: "+str(query_name)+" *** "+str(annotations))
+
+    annota.close()
+    
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
             annotations, annot_level_max, swallowest_level,
             og_cat, og_desc, match_nogs_names, orthologs)
