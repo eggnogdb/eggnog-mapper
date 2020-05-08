@@ -75,27 +75,47 @@ class Annotator:
         return
 
     ##
-    def annotate(self, seed_orthologs_file, annot_file, hmm_hits_file):
-
-        start_time = time.time()
+    def annotate(self, seed_orthologs_file, annot_file):
         
-        seq2bestOG = {}
-        seq2annotOG = {}
-        if pexists(hmm_hits_file):
-            seq2bestOG = self.get_seq_hmm_matches(hmm_hits_file)
-            seq2annotOG = annota.get_ogs_annotations(set([v[0] for v in seq2bestOG.values()]))
-
         print(colorify("Functional annotation of refined hits starts now", 'green'))
+        
+        all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file, annot_file)
 
-        OUT = open(annot_file, "w")
-
+        # Output orthologs
+        
         if self.report_orthologs:
             ORTHOLOGS = open(annot_file+".orthologs", "w")
+            for (query_name, orthologs) in all_orthologs:
+                print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
+            ORTHOLOGS.close()
 
+        # Output annotations
+        OUT = open(annot_file, "w")
+        
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
             print('\t'.join(HIT_HEADER + ANNOTATIONS_HEADER), file=OUT)
             
+        for annot_columns in all_annotations:
+            print('\t'.join(annot_columns), file=OUT)
+
+        if not self.no_file_comments:
+            print('# %d queries scanned' % (qn), file=OUT)
+            print('# Total time (seconds):', elapsed_time, file=OUT)
+            print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
+            
+        OUT.close()
+
+        return
+
+    ##
+    def _annotate(self, seed_orthologs_file, annot_file):
+
+        all_orthologs = []
+        all_annotations = []
+        
+        start_time = time.time()
+        
         qn = 0
         pool = multiprocessing.Pool(self.cpu)
         # annotate_hit_line is outside the class because must be pickable
@@ -103,8 +123,8 @@ class Annotator:
             qn += 1
             if qn and (qn % 500 == 0):
                 total_time = time.time() - start_time
-                print(qn, total_time, "%0.2f q/s (func. annotation)" % (
-                    (float(qn) / total_time)), file=sys.stderr)
+                print(f"{pq} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
+                # print(qn, total_time, "%0.2f q/s (func. annotation)" % ((float(qn) / total_time)), file=sys.stderr)
                 sys.stderr.flush()
 
             if result:
@@ -112,78 +132,34 @@ class Annotator:
                  annotations, annot_level_max, swallowest_og, swallowest_level, match_nogs, orthologs) = result
 
                 if self.report_orthologs:
-                    print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
+                    all_orthologs.append((query_name, orthologs))
+                    # print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
 
-                # prepare annotations for printing
-                annot_columns = [query_name,
-                                 best_hit_name,
-                                 str(best_hit_evalue),
-                                 str(best_hit_score)]
-
-                annot_columns.append(annot_level_max)
-                
-                annot_columns.append(swallowest_level)
-                
                 og_cat, og_desc = annota.get_deeper_og_description(swallowest_og)
-                
-                annot_columns.extend([og_cat.replace('\n', ''),
-                                      og_desc.replace('\n', ' ')])
 
                 match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
                                     sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
-                
-                annot_columns.append(",".join(match_nogs_names))
+                    
+                # prepare annotations for printing
+                annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
+                                 annot_level_max, swallowest_level, og_cat.replace('\n', ''), og_desc.replace('\n', ' '),
+                                 ",".join(match_nogs_names)]
                 
                 for h in ANNOTATIONS_HEADER:
                     if h in annotations:
                         annot_columns.append(','.join(sorted(annotations[h])))
                     else:
                         annot_columns.append('')
-                        
-                print('\t'.join(annot_columns), file=OUT)
 
-            #OUT.flush()
+                all_annotations.append(annot_columns)
 
         pool.terminate()
 
         elapsed_time = time.time() - start_time
-        if not self.no_file_comments:
-            print('# %d queries scanned' % (qn), file=OUT)
-            print('# Total time (seconds):', elapsed_time, file=OUT)
-            print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
-        OUT.close()
 
-        if self.report_orthologs:
-            ORTHOLOGS.close()
-
-        print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
-                       (qn, elapsed_time, "%0.2f q/s" % ((float(qn) / elapsed_time))), 'lblue'))
+        print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
         
-        return
-
-    ##
-    def get_seq_hmm_matches(self, hits_file):
-        # annota.connect()
-        print(colorify("Reading HMM matches", 'green'))
-        seq2oginfo = {}
-        start_time = time.time()
-        hitnames = set()
-        if pexists(hits_file):
-            for line in open(hits_file):
-                
-                if not line.strip() or line.startswith('#'):
-                    continue
-                
-                (query, hit, evalue, sum_score, query_length, hmmfrom, hmmto,
-                 seqfrom, seqto, q_coverage) = map(str.strip, line.split('\t'))
-
-                if query not in seq2oginfo and hit not in ['ERROR', '-']:
-                    hitname = cleanup_og_name(hit)
-                    seq2oginfo[query] = [hitname, evalue, sum_score, query_length,
-                                         hmmfrom, hmmto, seqfrom, seqto,
-                                         q_coverage]
-        
-        return seq2oginfo
+        return all_orthologs, all_annotations, qn, elapsed_time
     
     ##
     def iter_hit_lines(self, filename):

@@ -99,8 +99,7 @@ class Emapper:
         if hits_file:
             a = get_annotator(args)
             a.annotate(hits_file,
-                       pjoin(self._current_dir, self.annot_file),
-                       pjoin(self._current_dir, self.hmm_hits_file))
+                       pjoin(self._current_dir, self.annot_file))
                 
         return
     
