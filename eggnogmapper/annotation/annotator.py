@@ -12,6 +12,7 @@ from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
 # from ..orthologs.orthology import normalize_target_taxa
 from . import annota
+from .orthologs import get_member_orthologs
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -254,11 +255,10 @@ def _annotate_hit_line(arguments):
         target_taxa = None
 
     try:
-        all_orthologies = annota.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
+        all_orthologies = get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
         
-        # print("annotator: all_orthologies")
-        # print(all_orthologies)
-    except Exception:
+    except Exception as e:
+        # print(str(e))
         orthologs = None
         status = 'Error'
     else:
