@@ -10,7 +10,7 @@ from ..emapperException import EmapperException
 from ..utils import colorify
 from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
-from ..orthologs.orthology import normalize_target_taxa
+# from ..orthologs.orthology import normalize_target_taxa
 from . import annota
 
 HIT_HEADER = ["#query_name",
@@ -199,8 +199,6 @@ def _annotate_hit_line(arguments):
     r = list(map(str.strip, line.split('\t')))
 
     query_name = r[0]
-
-    print("annotator._annotate_hit_line: ANNOTATE "+str(query_name))
     
     best_hit_name = r[1]
     if best_hit_name == '-' or best_hit_name == 'ERROR':
@@ -279,12 +277,35 @@ def _annotate_hit_line(arguments):
     else:
         annotations = {}
 
-    print("annotator._annotate_hit_line: "+str(query_name)+" *** "+str(annotations))
-
     annota.close()
     
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
             annotations, annot_level_max, swallowest_level,
             og_cat, og_desc, match_nogs_names, orthologs)
+
+
+##
+def normalize_target_taxa(target_taxa):
+    """
+    Receives a list of taxa IDs and/or taxa names and returns a set of expanded taxids numbers
+    """
+    from ete3 import NCBITaxa
+    ncbi = NCBITaxa()
+    expanded_taxa = set()
+
+    for taxon in target_taxa:
+        taxid = ""
+        try:
+            taxid = int(taxon)
+        except ValueError:
+            taxid = ncbi.get_name_translator([taxon])[taxon][0]
+        else:
+            taxon = ncbi.get_taxid_translator([taxid])[taxid]
+
+        species = ncbi.get_descendant_taxa(taxid, collapse_subspecies=False)
+        for sp in species:
+            expanded_taxa.add(sp)
+
+    return expanded_taxa
 
 ## END
