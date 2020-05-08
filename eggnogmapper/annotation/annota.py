@@ -56,7 +56,7 @@ def get_best_og_description(ognames):
     
     return best[1], best[2]
 
-def get_deeper_og_description(deeper_og):
+def get_deepest_og_description(deeper_og):
     cmd = 'SELECT og.og, nm, description, COG_categories FROM og WHERE og.og IN ("%s")' % deeper_og
     best = [None, '', '']
     if db.execute(cmd):

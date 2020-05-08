@@ -297,7 +297,7 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
 
-        emapper = Emapper(args.mode, (not args.no_annot), args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
+        emapper = Emapper(args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table, args.predict_ortho)
 
         print(get_citation([args.mode]))
