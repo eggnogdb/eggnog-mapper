@@ -11,9 +11,12 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
         "many2one": set(),
         "all": set(),
     }
+    # each set contains a list of taxa.sequence items
     
     orthology = __setup_orthology(member, target_taxa, target_levels)
 
+    # k: (species, list_of_co-orthologs_species)
+    # v: set of species with orthologs:  set((species1, list_orths), (species2, list_orths), ...)
     for k, v in orthology.items():
 
         all_orthologs['all'].update(k[1])
@@ -63,6 +66,7 @@ def __setup_orthology(member, target_taxa, target_levels):
 
 
 def __set_coorthologs(by_sp1, by_sp2, target_members, orthology):
+    # spX: taxa (species); coX: set of sequences (co-orthologs)
     for sp1, co1 in by_sp1.items():
         if target_members & co1:
             key1 = (sp1, tuple(sorted((co1))))
@@ -75,6 +79,7 @@ def __set_coorthologs(by_sp1, by_sp2, target_members, orthology):
 
 def __by_species(side, target_taxa, query_taxa):
     by_sp = {}
+    # t: taxa; s: sequence
     for t, s in side:            
         if not target_taxa or t in target_taxa or t == query_taxa:
             mid = "%s.%s" % (t, s)
