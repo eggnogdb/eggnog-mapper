@@ -18,11 +18,11 @@ HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
               "seed_ortholog_evalue",
               "seed_ortholog_score",
-              "taxonomic_scope",
               "best_tax_level",
               "COG Functional cat.",
               "eggNOG free text desc.",              
-              "eggNOG OGs"]
+              "eggNOG OGs",
+              "taxonomic_scope"]
 
 ANNOTATIONS_HEADER = ['Preferred_name',
                       'GOs',
@@ -139,8 +139,8 @@ class Annotator:
                 if self.annot:
                     # prepare annotations for printing
                     annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
-                                     annot_level_max, swallowest_level, og_cat.replace('\n', ''), og_desc.replace('\n', ' '),
-                                     ",".join(match_nogs_names)]
+                                     swallowest_level, og_cat.replace('\n', ''), og_desc.replace('\n', ' '),
+                                     ",".join(match_nogs_names), annot_level_max]
                 
                     for h in ANNOTATIONS_HEADER:
                         if h in annotations:

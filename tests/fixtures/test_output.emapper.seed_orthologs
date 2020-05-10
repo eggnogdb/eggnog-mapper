@@ -1,7 +1,7 @@
-# Sun May 10 10:26:18 2020
-# emapper-2.0.1-96-g92f1e39
+# Sun May 10 10:42:43 2020
+# emapper-2.0.1-97-g46cea70
 # ./emapper.py -m diamond -i tests/fixtures/test_queries.fa --data_dir tests/fixtures/ --output_dir tmp_borrar -o test
 #
-#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/diamond blastp -d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/eggnog_proteins.dmnd -q /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/test_queries.fa --more-sensitive --threads 2 -e 0.001 -o /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_dmdn_0up8ezcd/96ef72666673427aaaa424c540be1ece --query-cover 0 --subject-cover 0 --top 3 
+#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/diamond blastp -d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/eggnog_proteins.dmnd -q /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/test_queries.fa --more-sensitive --threads 2 -e 0.001 -o /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_dmdn_doni70lb/39c6917ea96f43ef801393091f36f879 --query-cover 0 --subject-cover 0 --top 3 
 1000565.METUNv1_03812	1000565.METUNv1_03812	1.9e-207	716.8
 362663.ECP_0061	362663.ECP_0061	0.0	1636.3
