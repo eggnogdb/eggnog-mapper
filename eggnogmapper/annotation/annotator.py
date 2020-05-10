@@ -146,7 +146,7 @@ class Annotator:
                         if h in annotations:
                             annot_columns.append(','.join(sorted(annotations[h])))
                         else:
-                            annot_columns.append('')
+                            annot_columns.append('-')
 
                     all_annotations.append(annot_columns)
 
