@@ -272,8 +272,9 @@ def _annotate_hit_line(arguments):
 
     if orthologs:
         annotations = annota.summarize_annotations(orthologs,
-                                                   target_go_ev=go_evidence,
-                                                   excluded_go_ev=go_excluded)
+                                                   annotations_fields = ANNOTATIONS_HEADER,
+                                                   target_go_ev = go_evidence,
+                                                   excluded_go_ev = go_excluded)
     else:
         annotations = {}
 
