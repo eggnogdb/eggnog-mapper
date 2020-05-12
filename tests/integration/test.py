@@ -79,6 +79,65 @@ class Test(unittest.TestCase):
         
         return
 
+
+    def test_emapper_no_search(self):
+        '''
+        Tests the whole emapper (-m diamond) command
+        '''
+
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/test_output.emapper.seed_orthologs"
+        data_dir = "tests/fixtures"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
+        obs_orthologs = os.path.join(outdir, outprefix+ORTHOLOGS_SUFFIX)
+        
+        exp_annotations = os.path.join(data_dir, 'test_output.emapper.annotations')
+        exp_orthologs = os.path.join(data_dir, 'test_output.emapper.orthologs')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = f'./emapper.py -m no_search --annotate_hits_table {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --report_orthologs'
+
+        # print(f"\t{cmd}")
+
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+
+        # Check orthologs
+        check_orthologs(obs_orthologs, exp_orthologs)
+        
+        # Check annotation phase
+        check_annotations(obs_annotations, exp_annotations)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+
     
     def test_emapper_hmmer_eggnogdb(self):
         '''
