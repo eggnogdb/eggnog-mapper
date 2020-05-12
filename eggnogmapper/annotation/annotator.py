@@ -80,7 +80,7 @@ class Annotator:
         
         print(colorify("Functional annotation of refined hits starts now", 'green'))
         
-        all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file, annot_file)
+        all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file)
 
         # Output orthologs
         if self.report_orthologs:
@@ -110,7 +110,7 @@ class Annotator:
         return
 
     ##
-    def _annotate(self, seed_orthologs_file, annot_file):
+    def _annotate(self, seed_orthologs_file):
 
         all_orthologs = []
         all_annotations = []
