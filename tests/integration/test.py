@@ -5,12 +5,13 @@
 import unittest
 import os, shutil
 
-from .common import run, check_seed_orthologs, check_annotations, check_hmm_hits
+from .common import run, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs
 
 # General eggnog-mapper settings
 HMM_HITS_SUFFIX = '.emapper.hmm_hits'
 SEED_ORTHOLOGS_SUFFIX = '.emapper.seed_orthologs'
 ANNOTATIONS_SUFFIX = '.emapper.annotations'
+ORTHOLOGS_SUFFIX = '.emapper.orthologs'
 
 class Test(unittest.TestCase):
 
@@ -31,9 +32,11 @@ class Test(unittest.TestCase):
         # Observed and expected files
         obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
+        obs_orthologs = os.path.join(outdir, outprefix+ORTHOLOGS_SUFFIX)
         
         exp_seed_orthologs = os.path.join(data_dir, 'test_output.emapper.seed_orthologs')
         exp_annotations = os.path.join(data_dir, 'test_output.emapper.annotations')
+        exp_orthologs = os.path.join(data_dir, 'test_output.emapper.orthologs')
 
         ##
         # Run test
@@ -43,7 +46,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix}'
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --report_orthologs'
 
         # print(f"\t{cmd}")
 
@@ -60,6 +63,9 @@ class Test(unittest.TestCase):
         
         # Check alignment phase: detection of seed orthologs
         check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+
+        # Check orthologs
+        check_orthologs(obs_orthologs, exp_orthologs)
         
         # Check annotation phase
         check_annotations(obs_annotations, exp_annotations)
