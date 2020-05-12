@@ -108,7 +108,7 @@ class Emapper:
         return
     
     ##
-    def run(self, args, infile, annotate_hits_table = None, predict_ortho = None):
+    def run(self, args, infile, annotate_hits_table = None):
         
         ##
         # Step 1. Sequence search

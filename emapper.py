@@ -138,6 +138,9 @@ def create_arg_parser():
     pg_annot.add_argument("--no_annot", action="store_true",
                         help="Skip functional annotation, reporting only hits")
 
+    pg_annot.add_argument("--report_orthologs", action="store_true",
+                        help="Output the list of orthologs found for each query to a .orthologs file")
+
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
@@ -198,17 +201,6 @@ def create_arg_parser():
 
     pg_out.add_argument('--no_file_comments', action="store_true",
                         help="No header lines nor stats are included in the output files")
-
-    pg_out.add_argument("--report_orthologs", action="store_true",
-                        help="The list of orthologs used for functional transferred are dumped into a separate file")
-
-    ##
-    pg_predict = parser.add_argument_group('Predict orthologs options')
-
-    pg_predict.add_argument("--predict_ortho", action="store_true", help="The list of predicted orthologs")
-        
-    pg_predict.add_argument('--predict_output_format', choices=["per_query", "per_species"],
-                            default= "per_species", help="Choose the output format among: per_query, per_species .Default = per_species")
         
     return parser
 
@@ -298,7 +290,7 @@ if __name__ == "__main__":
         print('# emapper.py ', ' '.join(sys.argv[1:]))
 
         emapper = Emapper(args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
-        emapper.run(args, args.input, args.annotate_hits_table, args.predict_ortho)
+        emapper.run(args, args.input, args.annotate_hits_table)
 
         print(get_citation([args.mode]))
         print('Total time: %g secs' % (time.time()-_total_time))
