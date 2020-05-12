@@ -46,7 +46,7 @@ def create_arg_parser():
 
     pg_input.add_argument('--annotate_hits_table', type=str, metavar='SEED_ORTHOLOGS_FILE',
                           help=f'Annotate TSV formatted table with 4 fields:'
-                          f' query, hit, evalue, score. Required if -m {SEARCH_MODE_NO_SEARCH}.')
+                          f' query, hit, evalue, score. Requires -m {SEARCH_MODE_NO_SEARCH}.')
         
     pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
                           help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
@@ -236,6 +236,10 @@ def parse_args(parser):
             print(colorify("Diamond jobs cannot be resumed. --resume will be ignored.", 'blue'))
             args.resume = False
 
+        if args.annotate_hits_table is not None:
+            print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_DIAMOND}", 'blue'))
+            args.annotate_hits_table = None
+
     elif args.mode == SEARCH_MODE_HMMER:
 
         if not args.input:
@@ -249,12 +253,16 @@ def parse_args(parser):
         # NOTE: hmmer database format, name and checking if exists is done within hmmer module
         if not args.db:
             parser.error('HMMER mode requires a target database (-d, --database).')
+
+        if args.annotate_hits_table is not None:
+            print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_HMMER}", 'blue'))
+            args.annotate_hits_table = None
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
             parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) requires a hits table to annotate (--annotate_hits_table FILE.seed_orthologs)')
-        if args.no_annot == True:
-            parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) is not compatible with --no_annot option)')
+        if args.no_annot == True and args.report_orthologs == False:
+            parser.error(f'Nothing to do if running in no search mode (-m {SEARCH_MODE_NO_SEARCH}), with --no_annot and without --report_orthologs.')
             
     else:
         parser.error(f'unrecognized search mode (-m {args.mode})')
