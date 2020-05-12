@@ -76,7 +76,7 @@ class Annotator:
         return
 
     ##
-    def annotate(self, seed_orthologs_file, annot_file):
+    def annotate(self, seed_orthologs_file, annot_file, orthologs_file):
         
         print(colorify("Functional annotation of refined hits starts now", 'green'))
         
@@ -84,7 +84,7 @@ class Annotator:
 
         # Output orthologs
         if self.report_orthologs:
-            ORTHOLOGS = open(annot_file+".orthologs", "w")
+            ORTHOLOGS = open(orthologs_file, "w")
             for (query_name, orthologs) in all_orthologs:
                 print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
             ORTHOLOGS.close()

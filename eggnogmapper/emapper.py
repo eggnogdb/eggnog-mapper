@@ -34,6 +34,7 @@ class Emapper:
         self.hmm_hits_file = f"{prefix}.emapper.hmm_hits"
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
+        self.orthologs_file = f"{prefix}.emapper.orthologs"
 
         self.mode = mode
         self.annot = annot
@@ -47,6 +48,9 @@ class Emapper:
             self._output_files = [self.hmm_hits_file, self.seed_orthologs_file]
         else:
             self._output_files = [self.hmm_hits_file, self.seed_orthologs_file, self.annot_file]
+
+        if report_orthologs == True:
+            self._output_files.append(self.orthologs_file)
 
         # force user to decide what to do with existing files
         files_present = set([pexists(pjoin(self.output_dir, fname)) for fname in self._output_files])
@@ -98,7 +102,8 @@ class Emapper:
         if hits_file:
             a = get_annotator(args, self.annot, self.report_orthologs)
             a.annotate(hits_file,
-                       pjoin(self._current_dir, self.annot_file))
+                       pjoin(self._current_dir, self.annot_file),
+                       pjoin(self._current_dir, self.orthologs_file))
                 
         return
     
