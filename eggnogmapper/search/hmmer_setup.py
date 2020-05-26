@@ -121,9 +121,9 @@ def setup_custom_seqdb(db, scantype):
         raise ValueError('esl-reformat database not found')
 
     print(colorify(f"Preparing to query custom database {db}", 'green'))
-    dbpath = db + ".seqdb"
 
     if scantype == SCANTYPE_MEM:
+        dbpath = db + ".seqdb"
         host = 'localhost'
         port = 53000
         end_port = 53200
@@ -133,6 +133,7 @@ def setup_custom_seqdb(db, scantype):
             print(colorify('ID map file (with name %s.map) not present. Use esl-reformat to create the .map file' % (db), 'red'))
             raise ValueError('esl-reformat .map file not found')
     else:
+        dbpath = db
         host = None
         port = None
         end_port = None

@@ -41,7 +41,7 @@ def create_arg_parser():
                           ' or a HMM file with profiles (--qtype hmm)')
 
     pg_input.add_argument('--translate', action="store_true",
-                          help='Assume input sequences are CDS instead of proteins (it has effect only if --qtype seq)')
+                          help='Assume input sequences are CDS instead of proteins (it has effect only if --qtype seq, and also when -d is a plain FASTA file)')
 
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
