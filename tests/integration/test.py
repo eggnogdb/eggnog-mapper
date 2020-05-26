@@ -82,7 +82,7 @@ class Test(unittest.TestCase):
 
     def test_emapper_no_search(self):
         '''
-        Tests the whole emapper (-m diamond) command
+        Tests annotation (-m no_search) of an existing hits table, and reports orthologs (--report_orthologs)
         '''
 
         ##
@@ -141,7 +141,7 @@ class Test(unittest.TestCase):
     
     def test_emapper_hmmer_eggnogdb(self):
         '''
-        Tests the whole emapper (-m hmmer) command
+        Tests the whole emapper (-m hmmer) command against a eggNOG DB
         '''
         # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact -o bact --output_dir tmp_borrar
         
