@@ -35,7 +35,7 @@ class HmmerSearcher:
     resume = None
     no_file_comments = None
 
-    evalue = score = qcov = Z = maxhits = maxseqlen = tempdir = None
+    evalue = score = qcov = Z = maxhits = maxseqlen = None
     excluded_taxa = None
 
     temp_dir = None
