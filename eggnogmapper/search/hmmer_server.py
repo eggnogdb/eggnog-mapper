@@ -35,11 +35,11 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
             elif qtype == QUERY_TYPE_HMM:
 
                 testhmm = ""
-                with open("tests/fixtures/hmmer_custom_dbs/bact.hmm", 'r') as hmmfile:
+                with open("tests/fixtures/hmmer_custom_dbs/bact.short.hmm", 'r') as hmmfile:
                     for line in hmmfile:
                         testhmm += line
                         
-                # get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
+                get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
         except Exception as e:
             traceback.print_exc()
             print(e)
