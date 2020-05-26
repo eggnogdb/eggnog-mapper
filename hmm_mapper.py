@@ -123,17 +123,15 @@ def parse_args(parser):
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
 
+    # Required files
     if not args.input:
         parser.error('An input file is required (-i)')
-
-    # Output file required
+        
     if not args.output:
         parser.error('An output project name is required (-o)')
-
-    # Hmmer database
-    # NOTE: hmmer database format, name and checking if exists is done within hmmer module
+        
     if not args.db:
-        parser.error('HMMER mode requires a target database (-d, --database).')
+        parser.error('hmm_mapper requires a target database (-d, --database).')
     
     return args
 
