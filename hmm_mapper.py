@@ -37,17 +37,18 @@ def create_arg_parser():
     pg_input = parser.add_argument_group('Input Data Options')
 
     pg_input.add_argument('-i', dest="input", metavar='FASTA_FILE', type=existing_file,
-                          help=f'Input FASTA file containing query sequences (proteins by default; see --translate).')
+                          help=f'Input with queries. Either a FASTA file with sequences (proteins by default; see --translate)'
+                          ' or a HMM file with profiles (--qtype hmm)')
 
     pg_input.add_argument('--translate', action="store_true",
-                          help='Assume input sequences are CDS instead of proteins')
+                          help='Assume input sequences are CDS instead of proteins (it has effect only if --qtype seq)')
 
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
 
-    pg_hmmer.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
+    pg_hmmer.add_argument('-d', '--database', dest='db', metavar='DB_PATH',
                        help=('specify the target database for sequence searches. '
-                            'Choose among: db.hmm:host:port, or a local "hmmpress-ed" database'))
+                            'Choose among: db:host:port, or a local database.'))
         
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
                        help="Type of input data (-i). "
@@ -55,12 +56,13 @@ def create_arg_parser():
 
     pg_hmmer.add_argument('--dbtype', dest="dbtype",
                        choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
-                       help="Type of data in DB (-db). "
+                       help="Type of data in DB (-d). "
                           f"Default: {DB_TYPE_HMM}")
 
     pg_hmmer.add_argument('--usemem', action="store_true",
-                    help='''If a local "hmmpress-ed" database is provided as target using --database,
-                    --usemem will allocate the whole database in memory using hmmpgmd.
+                    help='''Use this option to allocate the whole database (-d) in memory using hmmpgmd.
+                    If --dbtype hmm, the database must be a hmmpress-ed database.
+                    If --dbtype seqdb, the database must be a HMMER-format database created with esl-reformat.
                     Database will be unloaded after execution.''')
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
