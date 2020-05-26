@@ -72,6 +72,9 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_SEQ:
         raise Exception("phmmer mode on disk is currently not supported.")
     
+    elif query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_HMM:
+        raise Exception("HMM to HMM search is not supported.")        
+    
     else:
         raise ValueError('not supported')
 
@@ -103,8 +106,7 @@ def unpack_stats(bindata):
 
 def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
               score_thr=None, max_hits=None, fixed_Z=None):
-
-    print("hmmer_search.py:scan_hits")
+    
     # print(data)
     
     s = socket.socket()
@@ -137,10 +139,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
             hits_end = hits_start + 152
             name, evalue, score, ndom = unpack_hit(binresult[hits_start:hits_end], Z)
             hitdata[hitid] = {"name": name, "evalue": evalue, "score":score, "ndom": ndom, "doms": []}
-
-            print("hmmer_search.py:scan_hits HIT reported")
-            print(hitid)
-            print(hitdata[hitid])
+            
             hits_start += 152
 
         next_start = hits_end
@@ -154,10 +153,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 is_included = dom[11]
                 hit["doms"].append(dom)
                 next_start += 72
-
-            print("hmmer_search.py:scan_hits after doms")
-            print(hit)
-            
+                
             for domid in range(hit["ndom"]):
                 alibit = struct.unpack("7Q I 4x 3Q 3I 4x 6Q I 4x Q", binresult[next_start:next_start+168])
 
@@ -174,10 +170,6 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 cevalue = math.exp(d[9] * domZ)
                 evalue = hit["evalue"]
                 score = hit["score"]
-
-                print("hmmer_search.py:scan_hits check thresholds")
-                print((evalue_thr is None or evalue <= evalue_thr))
-                print((score_thr is not None and score >= score_thr))
                 
                 if (evalue_thr is None or evalue <= evalue_thr) and \
                     (score_thr is None or score >= score_thr):
@@ -193,10 +185,6 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
         raise ValueError('hmmpgmd error: %s' % ret)
 
     s.close()
-
-    print("hmmer_search.py:scan_hits return")
-    print(elapsed)
-    print(reported_hits)
     
     return elapsed, reported_hits
 
@@ -204,8 +192,6 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
 def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM,
                   evalue_thr=None, score_thr=None,
                   max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
-
-    print("hmmer_search.py:iter_hmm_hits")
     
     hmmer_version = None
     model = ''
@@ -231,49 +217,11 @@ def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM,
                 else:                    
                     data = f'@--{dbtype} 1\n{hmmer_version}\n{model}'
 
-                    print("hmmer_search.py:iter_hmm_hits call scan_hist")
-                    print(str(name) + " - " + str(leng))
-                    # print(data)
-
                     etime, hits = scan_hits(data, host, port,
                                             evalue_thr=evalue_thr, score_thr=score_thr,
                                             max_hits=max_hits, fixed_Z=fixed_Z)
 
                     yield name, etime, hits, leng, None
-
-
-# HMMFILE.tell() nor working
-# OSError: telling position disabled by next() call
-# def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM, evalue_thr=None,
-#                   max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
-
-#     HMMFILE = open(hmmfile)
-#     with open(hmmfile) as HMMFILE:
-#         while HMMFILE.tell() != os.fstat(HMMFILE.fileno()).st_size:
-#             model = ''
-#             name = 'Unknown'
-#             leng = None
-#             for line in HMMFILE:
-#                 if line.startswith("NAME"):
-#                     name = line.split()[-1]
-#                 if line.startswith("LENG"):
-#                     hmm_leng = int(line.split()[-1])
-#                 model += line
-#                 if line.strip() == '//':
-#                     break
-
-#             if skip and name in skip:
-#                 continue
-
-#             data = '@--%s 1\n%s' % (dbtype, model)
-            
-#             # print("iter_hmm_hits")
-#             # print(data)
-            
-#             etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
-#                                     max_hits=max_hits, fixed_Z=fixed_Z)
-            
-#             yield name, etime, hits, hmm_leng, None
 
 
 def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
@@ -314,11 +262,6 @@ def get_hits(name, record, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM, 
     
     etime, hits = scan_hits(data, address=address, port=port,
                             evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
-
-    print("hmmer_search.py:get_hits")
-    print(name)
-    print(etime)
-    print(hits)
     
     return name, etime, hits
 
@@ -391,21 +334,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     last_query_len = None
     if sts == 0:
         for line in OUT:
-            # TBLOUT
-            # ['#', '---', 'full', 'sequence', '----', '---', 'best', '1', 'domain', '----', '---', 'domain', 'number', 'estimation', '----']
-            # ['#', 'target', 'name', 'accession', 'query', 'name', 'accession', 'E-value', 'score', 'bias', 'E-value', 'score', 'bias', 'exp', 'reg', 'clu', 'ov', 'env', 'dom', 'rep', 'inc', 'description', 'of', 'target']
-            # ['#-------------------', '----------', '--------------------', '----------', '---------', '------', '-----', '---------', '------', '-----', '---', '---', '---', '---', '---', '---', '---', '---', '---------------------']
-            # ['delNOG20504', '-', '553220', '-', '1.3e-116', '382.9', '6.2', '3.4e-116', '381.6', '6.2', '1.6', '1', '1', '0', '1', '1', '1', '1', '-']
-            # fields = line.split() # output is not tab delimited! Should I trust this split?
-            # hit, _, query, _ , evalue, score, bias, devalue, dscore, dbias = fields[0:10]
-
-            # DOMTBLOUT
-            #                                                                             --- full sequence --- -------------- this domain -------------   hmm coord   ali coord   env coord
-            # target name        accession   tlen query name            accession   qlen   E-value  score  bias   #  of  c-Evalue  i-Evalue  score  bias  from    to  from    to  from    to  acc description of target
-            # ------------------- ---------- -----  -------------------- -------
-            # Pkinase              PF00069.22   264 1000565.METUNv1_02451 -
-            # 858   4.5e-53  180.2   0.0   1   1   2.4e-56   6.6e-53  179.6
-            # 0.0     1   253   580   830   580   838 0.89 Protein kinase
+            
             # domain
             if line.startswith('#'):
                 continue
@@ -446,40 +375,6 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     shutil.rmtree(tempdir)
 
     return
-
-
-##
-# def hmmsearch(query_hmm, target_db, cpus=1):
-#     if not HMMSEARCH:
-#         raise ValueError('hmmsearch not found in path')
-
-#     OUT = NamedTemporaryFile()
-#     cmd = '%s --cpu %s -o /dev/null -Z 1000000 --tblout %s %s %s' % (
-#         HMMSEARCH, cpus, OUT.name, query_hmm, target_db)
-
-#     cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' % (
-#         HMMSCAN, cpus, OUT.name, database_path, fasta_file)
-        
-#     sts = subprocess.call(cmd, shell=True)
-#     byquery = defaultdict(list)
-#     if sts == 0:
-#         for line in OUT:
-#             #['#', '---', 'full', 'sequence', '----', '---', 'best', '1', 'domain', '----', '---', 'domain', 'number', 'estimation', '----']
-#             #['#', 'target', 'name', 'accession', 'query', 'name', 'accession', 'E-value', 'score', 'bias', 'E-value', 'score', 'bias', 'exp', 'reg', 'clu', 'ov', 'env', 'dom', 'rep', 'inc', 'description', 'of', 'target']
-#             #['#-------------------', '----------', '--------------------', '----------', '---------', '------', '-----', '---------', '------', '-----', '---', '---', '---', '---', '---', '---', '---', '---', '---------------------']
-#             #['delNOG20504', '-', '553220', '-', '1.3e-116', '382.9', '6.2', '3.4e-116', '381.6', '6.2', '1.6', '1', '1', '0', '1', '1', '1', '1', '-']
-#             if line.startswith('#'):
-#                 continue
-#             fields = line.split()  # output is not tab delimited! Should I trust this split?
-#             hit, _, query, _, evalue, score, bias, devalue, dscore, dbias = fields[0:10]
-#             evalue, score, bias, devalue, dscore, dbias = list(map(
-#                 float, [evalue, score, bias, devalue, dscore, dbias]))
-#             byquery[query].append([query, evalue, score])
-
-#     OUT.close()
-#     return byquery
-
-# refine orthologs using phmmer
 
 
 def refine_hit(args):
@@ -528,3 +423,5 @@ def get_best_hit(target_seq, target_og, excluded_taxa, tempdir):
         best_hit_name = '-'
 
     return [best_hit_name, best_hit_evalue, best_hit_score]
+
+## END
