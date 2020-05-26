@@ -80,7 +80,7 @@ class HmmerSearcher:
         annot = None
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu)
+        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu, self.querytype)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
@@ -124,7 +124,7 @@ class HmmerSearcher:
         return annot
     
     ##
-    def dump_hmm_matches(self, fasta_file, hits_file, dbpath, port, idmap_file):
+    def dump_hmm_matches(self, in_file, hits_file, dbpath, port, idmap_file):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
 
@@ -149,7 +149,7 @@ class HmmerSearcher:
         start_time = time.time()
         qn = 0 # in case nothing to loop bellow
         for qn, (name, elapsed, hits, querylen, seq) in enumerate(iter_hits(
-                                                            fasta_file,
+                                                            in_file,
                                                             self.translate,
                                                             self.querytype,
                                                             self.dbtype,
@@ -210,7 +210,7 @@ class HmmerSearcher:
 
 
     ##
-    def refine_matches(self, fasta_file, refine_file, hits_file):
+    def refine_matches(self, in_file, refine_file, hits_file):
         refine_header = map(str.strip, '''#query_name, best_hit_eggNOG_ortholog,
                             best_hit_evalue, best_hit_score'''.split(','))
 
@@ -226,7 +226,7 @@ class HmmerSearcher:
             print('\t'.join(refine_header), file=OUT)
 
         qn = 0 # in case no hits in loop bellow
-        for qn, r in enumerate(self.process_nog_hits_file(hits_file, fasta_file, og2level,
+        for qn, r in enumerate(self.process_nog_hits_file(hits_file, in_file, og2level,
                                                      translate=self.translate,
                                                      cpu=self.cpu,
                                                      excluded_taxa=self.excluded_taxa,

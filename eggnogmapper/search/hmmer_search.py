@@ -46,11 +46,13 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     except Exception:
         max_hits = None
 
+    print("hmmer_search.py:iter_hits")
+
     if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
         return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
     
     elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
-        return iter_hmm_hits(source, host, port, maxseqlen=maxseqlen)
+        return iter_hmm_hits(source, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen, fixed_Z=fixed_Z)
     
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ:
         return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
@@ -87,6 +89,9 @@ def unpack_stats(bindata):
 def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
               score_thr=None, max_hits=None, fixed_Z=None):
 
+    print("hmmer_search.py:scan_hits")
+    # print(data)
+    
     s = socket.socket()
     try:
         s.connect((address, port))
@@ -117,6 +122,10 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
             hits_end = hits_start + 152
             name, evalue, score, ndom = unpack_hit(binresult[hits_start:hits_end], Z)
             hitdata[hitid] = {"name": name, "evalue": evalue, "score":score, "ndom": ndom, "doms": []}
+
+            print("hmmer_search.py:scan_hits HIT reported")
+            print(hitid)
+            print(hitdata[hitid])
             hits_start += 152
 
         next_start = hits_end
@@ -131,6 +140,9 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 hit["doms"].append(dom)
                 next_start += 72
 
+            print("hmmer_search.py:scan_hits after doms")
+            print(hit)
+            
             for domid in range(hit["ndom"]):
                 alibit = struct.unpack("7Q I 4x 3Q 3I 4x 6Q I 4x Q", binresult[next_start:next_start+168])
 
@@ -147,8 +159,14 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 cevalue = math.exp(d[9] * domZ)
                 evalue = hit["evalue"]
                 score = hit["score"]
+
+                print("hmmer_search.py:scan_hits check thresholds")
+                print((evalue_thr is None or evalue <= evalue_thr))
+                print((score_thr is not None and score >= score_thr))
+                
                 if (evalue_thr is None or evalue <= evalue_thr) and \
-                    (score_thr is not None and score >= score_thr):
+                    (score_thr is None or score >= score_thr):
+                    
                     reported_hits.append((hit["name"], hit["evalue"], hit["score"], hmmfrom,
                              hmmto, sqfrom, sqto, bitscore))
 
@@ -160,33 +178,87 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
         raise ValueError('hmmpgmd error: %s' % ret)
 
     s.close()
+
+    print("hmmer_search.py:scan_hits return")
+    print(elapsed)
+    print(reported_hits)
+    
     return elapsed, reported_hits
 
-def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM, evalue_thr=None,
+
+def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM,
+                  evalue_thr=None, score_thr=None,
                   max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
 
-    HMMFILE = open(hmmfile)
+    print("hmmer_search.py:iter_hmm_hits")
+    
+    hmmer_version = None
+    model = ''
+    name = 'Unknown'
+    leng = None
     with open(hmmfile) as HMMFILE:
-        while HMMFILE.tell() != os.fstat(HMMFILE.fileno()).st_size:
-            model = ''
-            name = 'Unknown'
-            leng = None
-            for line in HMMFILE:
-                if line.startswith("NAME"):
-                    name = line.split()[-1]
-                if line.startswith("LENG"):
-                    hmm_leng = int(line.split()[-1])
-                model += line
-                if line.strip() == '//':
-                    break
+        for line in HMMFILE:
 
-            if skip and name in skip:
-                continue
+            if hmmer_version is None:
+                hmmer_version = line
+                
+            if line.startswith("NAME"):
+                name = line.split()[-1]
+                model = ''
+                leng = None
+            if line.startswith("LENG"):
+                leng = int(line.split()[-1])
+                
+            model += line
+            if line.strip() == '//':
+                if skip and name in skip:
+                    continue
+                else:                    
+                    data = f'@--{dbtype} 1\n{hmmer_version}\n{model}'
 
-            data = '@--%s 1\n%s' % (dbtype, model)
-            etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
-                                    max_hits=max_hits, fixed_Z=fixed_Z)
-            yield name, etime, hits, hmm_leng, None
+                    print("hmmer_search.py:iter_hmm_hits call scan_hist")
+                    print(str(name) + " - " + str(leng))
+                    # print(data)
+
+                    etime, hits = scan_hits(data, host, port,
+                                            evalue_thr=evalue_thr, score_thr=score_thr,
+                                            max_hits=max_hits, fixed_Z=fixed_Z)
+
+                    yield name, etime, hits, leng, None
+
+
+# HMMFILE.tell() nor working
+# OSError: telling position disabled by next() call
+# def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM, evalue_thr=None,
+#                   max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
+
+#     HMMFILE = open(hmmfile)
+#     with open(hmmfile) as HMMFILE:
+#         while HMMFILE.tell() != os.fstat(HMMFILE.fileno()).st_size:
+#             model = ''
+#             name = 'Unknown'
+#             leng = None
+#             for line in HMMFILE:
+#                 if line.startswith("NAME"):
+#                     name = line.split()[-1]
+#                 if line.startswith("LENG"):
+#                     hmm_leng = int(line.split()[-1])
+#                 model += line
+#                 if line.strip() == '//':
+#                     break
+
+#             if skip and name in skip:
+#                 continue
+
+#             data = '@--%s 1\n%s' % (dbtype, model)
+            
+#             # print("iter_hmm_hits")
+#             # print(data)
+            
+#             etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
+#                                     max_hits=max_hits, fixed_Z=fixed_Z)
+            
+#             yield name, etime, hits, hmm_leng, None
 
 
 def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
@@ -214,18 +286,25 @@ def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
         yield name, etime, hits, len(seq), None
 
 
+def get_hits(name, record, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM, qtype=QUERY_TYPE_SEQ,
+             evalue_thr=None, score_thr = None, max_hits=None):
 
-
-
-
-
-def get_hits(name, seq, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM,
-             evalue_thr=None, max_hits=None):
-
-    seq = re.sub("-.", "", seq)
-    data = f'@--{dbtype} 1\n>{name}\n{seq}\n//'
+    if qtype == QUERY_TYPE_SEQ:
+        seq = re.sub("-.", "", record)
+        data = f'@--{dbtype} 1\n>{name}\n{seq}\n//'
+    elif qtype == QUERY_TYPE_HMM:
+        data = f'@--{dbtype} 1\n{record}\n//'        
+    else:
+        raise Exception(f"Unrecognized query type {qtype}.")
+    
     etime, hits = scan_hits(data, address=address, port=port,
-                            evalue_thr=evalue_thr, max_hits=max_hits)
+                            evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
+
+    print("hmmer_search.py:get_hits")
+    print(name)
+    print(etime)
+    print(hits)
+    
     return name, etime, hits
 
 
