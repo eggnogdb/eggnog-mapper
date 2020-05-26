@@ -48,14 +48,29 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
 
     print("hmmer_search.py:iter_hits")
 
+    ## On mem searches
+    # "hmmscan- and phmmer-like" modes
     if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
         return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
-    
+
+    # "hmmsearch"-like mode
     elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
         return iter_hmm_hits(source, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen, fixed_Z=fixed_Z)
-    
-    elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ:
+
+    ## On disk searches
+    # hmmscan mode
+    elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_HMM:
         return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
+
+    # hmmsearch mode
+    elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
+        # host is the fasta_file in this case
+        # source is the hmm_file in this case
+        return hmmsearch(host, translate, source, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
+
+    # phmmer mode
+    elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_SEQ:
+        raise Exception("phmmer mode on disk is currently not supported.")
     
     else:
         raise ValueError('not supported')
@@ -308,31 +323,65 @@ def get_hits(name, record, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM, 
     return name, etime, hits
 
 
-def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
+##
+def hmmscan(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
             score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
             base_tempdir=None):
-    if not HMMSCAN:
-        raise ValueError('hmmscan not found in path')
+    
+    cmd = HMMSCAN
+    return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
+            base_tempdir=None)
 
-    tempdir = mkdtemp(prefix='emappertmp_hmmscan_', dir=base_tempdir)
 
-    OUT = NamedTemporaryFile(dir=tempdir, mode='w+')
+##
+def hmmsearch(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
+            base_tempdir=None):
+    
+    cmd = HMMSEARCH
+    return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
+            base_tempdir=None)
+
+
+##
+def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
+            base_tempdir=None):
+    
+    if not hmmer_cmd:
+        raise ValueError(f'{hmmer_cmd} not found in path')
+    
+    tempdir = mkdtemp(prefix='emappertmp_hmmcmd_', dir=base_tempdir)
+
+    ##
+    # Translate FASTA nts to aas if needed
+    
     if translate or maxseqlen:
         if translate:
             print('translating query input file')
         Q = NamedTemporaryFile(mode='w')
-        for name, seq in iter_fasta_seqs(query_file, translate=translate):
+        for name, seq in iter_fasta_seqs(fasta_file, translate=translate):
             if maxseqlen is None or len(seq) <= maxseqlen:
                 print(f">{name}\n{seq}", file=Q)
                 # Q.write(f">{name}\n{seq}".encode())
         Q.flush()
-        query_file = Q.name
+        fasta_file = Q.name
 
+    ##
+    # Run command
+    
+    OUT = NamedTemporaryFile(dir=tempdir, mode='w+')
+    
     cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' % (
-        HMMSCAN, cpus, OUT.name, database_path, query_file)
+        hmmer_cmd, cpus, OUT.name, hmm_file, fasta_file)
     # print '#', cmd
-    # print cmd
     sts = subprocess.call(cmd, shell=True)
+
+    ##
+    # Process output
+    
     byquery = defaultdict(list)
 
     last_query = None
@@ -380,7 +429,7 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
             last_query_len = qlen
 
             if (evalue_thr is None or evalue <= evalue_thr) and \
-               (score_thr is not None and score >= score_thr) and \
+               (score_thr is None or score >= score_thr) and \
                (max_hits is None or last_hitname == hitname or len(hit_ids) < max_hits):
 
                 hit_list.append([hitname, evalue, score, hmmfrom,
@@ -396,32 +445,39 @@ def hmmscan(query_file, translate, database_path, cpus=1, evalue_thr=None,
         Q.close()
     shutil.rmtree(tempdir)
 
-def hmmsearch(query_hmm, target_db, cpus=1):
-    if not HMMSEARCH:
-        raise ValueError('hmmsearch not found in path')
+    return
 
-    OUT = NamedTemporaryFile()
-    cmd = '%s --cpu %s -o /dev/null -Z 1000000 --tblout %s %s %s' % (
-        HMMSEARCH, cpus, OUT.name, query_hmm, target_db)
 
-    sts = subprocess.call(cmd, shell=True)
-    byquery = defaultdict(list)
-    if sts == 0:
-        for line in OUT:
-            #['#', '---', 'full', 'sequence', '----', '---', 'best', '1', 'domain', '----', '---', 'domain', 'number', 'estimation', '----']
-            #['#', 'target', 'name', 'accession', 'query', 'name', 'accession', 'E-value', 'score', 'bias', 'E-value', 'score', 'bias', 'exp', 'reg', 'clu', 'ov', 'env', 'dom', 'rep', 'inc', 'description', 'of', 'target']
-            #['#-------------------', '----------', '--------------------', '----------', '---------', '------', '-----', '---------', '------', '-----', '---', '---', '---', '---', '---', '---', '---', '---', '---------------------']
-            #['delNOG20504', '-', '553220', '-', '1.3e-116', '382.9', '6.2', '3.4e-116', '381.6', '6.2', '1.6', '1', '1', '0', '1', '1', '1', '1', '-']
-            if line.startswith('#'):
-                continue
-            fields = line.split()  # output is not tab delimited! Should I trust this split?
-            hit, _, query, _, evalue, score, bias, devalue, dscore, dbias = fields[0:10]
-            evalue, score, bias, devalue, dscore, dbias = list(map(
-                float, [evalue, score, bias, devalue, dscore, dbias]))
-            byquery[query].append([query, evalue, score])
+##
+# def hmmsearch(query_hmm, target_db, cpus=1):
+#     if not HMMSEARCH:
+#         raise ValueError('hmmsearch not found in path')
 
-    OUT.close()
-    return byquery
+#     OUT = NamedTemporaryFile()
+#     cmd = '%s --cpu %s -o /dev/null -Z 1000000 --tblout %s %s %s' % (
+#         HMMSEARCH, cpus, OUT.name, query_hmm, target_db)
+
+#     cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' % (
+#         HMMSCAN, cpus, OUT.name, database_path, fasta_file)
+        
+#     sts = subprocess.call(cmd, shell=True)
+#     byquery = defaultdict(list)
+#     if sts == 0:
+#         for line in OUT:
+#             #['#', '---', 'full', 'sequence', '----', '---', 'best', '1', 'domain', '----', '---', 'domain', 'number', 'estimation', '----']
+#             #['#', 'target', 'name', 'accession', 'query', 'name', 'accession', 'E-value', 'score', 'bias', 'E-value', 'score', 'bias', 'exp', 'reg', 'clu', 'ov', 'env', 'dom', 'rep', 'inc', 'description', 'of', 'target']
+#             #['#-------------------', '----------', '--------------------', '----------', '---------', '------', '-----', '---------', '------', '-----', '---', '---', '---', '---', '---', '---', '---', '---', '---------------------']
+#             #['delNOG20504', '-', '553220', '-', '1.3e-116', '382.9', '6.2', '3.4e-116', '381.6', '6.2', '1.6', '1', '1', '0', '1', '1', '1', '1', '-']
+#             if line.startswith('#'):
+#                 continue
+#             fields = line.split()  # output is not tab delimited! Should I trust this split?
+#             hit, _, query, _, evalue, score, bias, devalue, dscore, dbias = fields[0:10]
+#             evalue, score, bias, devalue, dscore, dbias = list(map(
+#                 float, [evalue, score, bias, devalue, dscore, dbias]))
+#             byquery[query].append([query, evalue, score])
+
+#     OUT.close()
+#     return byquery
 
 # refine orthologs using phmmer
 
