@@ -29,7 +29,7 @@ class HmmerSearcher:
 
     db = None
     dbtype = None
-    querytype = None
+    qtype = None
     translate = None
 
     resume = None
@@ -53,7 +53,7 @@ class HmmerSearcher:
         
         self.db = args.db
         self.dbtype = args.dbtype
-        self.querytype = args.qtype
+        self.qtype = args.qtype
         self.translate = args.translate
 
         self.resume = args.resume
@@ -80,7 +80,7 @@ class HmmerSearcher:
         annot = None
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu, self.querytype)
+        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu, self.qtype)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
@@ -151,7 +151,7 @@ class HmmerSearcher:
         for qn, (name, elapsed, hits, querylen, seq) in enumerate(iter_hits(
                                                             in_file,
                                                             self.translate,
-                                                            self.querytype,
+                                                            self.qtype,
                                                             self.dbtype,
                                                             self.scantype,
                                                             dbpath,
