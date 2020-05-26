@@ -70,7 +70,7 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
 
     # phmmer mode
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_SEQ:
-        raise Exception("phmmer mode on disk is currently not supported.")
+        return phmmer(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
     
     elif query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_HMM:
         raise Exception("HMM to HMM search is not supported.")        
@@ -289,6 +289,17 @@ def hmmsearch(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
 
 
 ##
+def phmmer(fasta_file, translate, fasta_target_file, cpus=1, evalue_thr=None,
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
+            base_tempdir=None):
+    
+    cmd = PHMMER
+    return hmmcommand(cmd, fasta_file, translate, fasta_target_file, cpus=1, evalue_thr=None,
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
+            base_tempdir=None)
+
+
+##
 def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
             score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
             base_tempdir=None):
@@ -311,6 +322,19 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                 # Q.write(f">{name}\n{seq}".encode())
         Q.flush()
         fasta_file = Q.name
+
+    if hmmer_cmd == PHMMER:
+        # if cmd in phmmer, hmm_file is actually a fasta file of sequences
+        if translate or maxseqlen:
+            if translate:
+                print('translating target fasta file')
+            Q = NamedTemporaryFile(mode='w')
+            for name, seq in iter_fasta_seqs(hmm_file, translate=translate):
+                if maxseqlen is None or len(seq) <= maxseqlen:
+                    print(f">{name}\n{seq}", file=Q)
+                    # Q.write(f">{name}\n{seq}".encode())
+            Q.flush()
+            hmm_file = Q.name        
 
     ##
     # Run command
