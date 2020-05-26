@@ -11,7 +11,7 @@ import traceback
 
 from ..common import *
 from ..utils import colorify
-from .hmmer_search import get_hits, DB_TYPE_SEQ, DB_TYPE_HMM
+from .hmmer_search import get_hits, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ, QUERY_TYPE_HMM
 
 CHILD_PROC = None
 MASTER = None
@@ -27,10 +27,19 @@ def server_up(host, port):
     else:
         return False
 
-def server_functional(host, port, dbtype = DB_TYPE_HMM):
+def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
     if server_up(host, port):
         try:
-            get_hits("test", "TESTSEQ", host, port, dbtype)
+            if qtype == QUERY_TYPE_SEQ:
+                get_hits("test", "TESTSEQ", host, port, dbtype, qtype=qtype)
+            elif qtype == QUERY_TYPE_HMM:
+
+                testhmm = ""
+                with open("tests/fixtures/hmmer_custom_dbs/bact.hmm", 'r') as hmmfile:
+                    for line in hmmfile:
+                        testhmm += line
+                        
+                # get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
         except Exception as e:
             traceback.print_exc()
             print(e)

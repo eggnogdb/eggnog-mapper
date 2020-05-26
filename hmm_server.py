@@ -92,7 +92,7 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# hmm_server.py ', ' '.join(sys.argv[1:]))
 
-        dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(args.db, scantype = SCANTYPE_MEM)
+        dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(args.db, scantype = SCANTYPE_MEM, dbtype = args.dbtype)
 
         host = 'localhost'
         port = args.port

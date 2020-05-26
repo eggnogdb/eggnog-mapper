@@ -11,7 +11,7 @@ from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER, get_dat
 from ..utils import colorify
 
 from .hmmer_server import server_functional, load_server, load_worker
-from .hmmer_search import SCANTYPE_MEM
+from .hmmer_search import SCANTYPE_MEM, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ
 from .hmmer_idmap import generate_idmap
 
 SETUP_TYPE_REMOTE = "remote"
@@ -19,12 +19,12 @@ SETUP_TYPE_EGGNOG = "eggnog"
 SETUP_TYPE_CUSTOM = "custom"
 
 ##
-def setup_hmm_search(db, scantype, dbtype, cpu):
+def setup_hmm_search(db, scantype, dbtype, cpu, qtype = QUERY_TYPE_SEQ):
 
     setup_type = None
     
     if ":" in db:
-        dbname, dbpath, host, port, idmap_file = setup_remote_db(db, dbtype)
+        dbname, dbpath, host, port, idmap_file = setup_remote_db(db, dbtype, qtype)
         setup_type = SETUP_TYPE_REMOTE
 
     else: # setup_local_db --> dbpath, host, port, idmap_file
@@ -32,7 +32,7 @@ def setup_hmm_search(db, scantype, dbtype, cpu):
             dbname, dbpath, host, port, end_port, idmap_file = setup_eggnog_db(db, scantype)
             setup_type = SETUP_TYPE_EGGNOG
         else:
-            dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype)
+            dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype, dbtype)
             setup_type = SETUP_TYPE_CUSTOM
 
         if scantype == SCANTYPE_MEM:
@@ -69,9 +69,22 @@ def setup_eggnog_db(db, scantype):
 
     return db, dbpath, host, port, end_port, idmap_file
 
-##
-def setup_custom_db(db, scantype):
 
+##
+def setup_custom_db(db, scantype, dbtype = DB_TYPE_HMM):
+    
+    if dbtype == DB_TYPE_HMM:
+        db, dbpath, host, port, end_port, idmap_file = setup_custom_hmmdb(db, scantype)
+    elif dbtype == DB_TYPE_SEQ:
+        db, dbpath, host, port, end_port, idmap_file = setup_custom_seqdb(db, scantype)
+    else:
+        raise Exception("Unrecognized dbtype {dbtype}.")
+
+    return db, dbpath, host, port, end_port, idmap_file
+    
+        
+##
+def setup_custom_hmmdb(db, scantype):
     if not os.path.isfile(db + '.h3f'):
         print(colorify('Database %s not present. Use hmmpress to create the h3* files' % (db), 'red'))
         raise ValueError('Database not found')
@@ -99,8 +112,49 @@ def setup_custom_db(db, scantype):
 
     return db, dbpath, host, port, end_port, idmap_file
 
+
 ##
-def setup_remote_db(db, dbtype):
+def setup_custom_seqdb(db, scantype):
+
+    if not os.path.isfile(db + '.seqdb'):
+        print(colorify('esl-reformat database (with name %s.seqdb) not present. Use esl-reformat to create the .seqdb file' % (db), 'red'))
+        raise ValueError('esl-reformat database not found')
+
+    print(colorify(f"Preparing to query custom database {db}", 'green'))
+    dbpath = db + ".seqdb"
+
+    if scantype == SCANTYPE_MEM:
+        host = 'localhost'
+        port = 53000
+        end_port = 53200
+
+        idmap_file = db + ".map"
+        if not pexists(idmap_file):
+            print(colorify('ID map file (with name %s.map) not present. Use esl-reformat to create the .map file' % (db), 'red'))
+            raise ValueError('esl-reformat .map file not found')
+    else:
+        host = None
+        port = None
+        end_port = None
+        idmap_file = None
+    
+    return db, dbpath, host, port, end_port, idmap_file
+
+
+##
+def setup_remote_db(db, dbtype, qtype):
+    
+    if dbtype == DB_TYPE_HMM:
+        dbname, dbpath, host, port, idmap_file = setup_remote_hmmdb(db, dbtype, qtype)
+    elif dbtype == DB_TYPE_SEQ:
+        dbname, dbpath, host, port, idmap_file = setup_remote_seqdb(db, dbtype, qtype)
+    else:
+        raise Exception("Unrecognized dbtype {dbtype}.")
+
+    return dbname, dbpath, host, port, idmap_file
+
+##
+def setup_remote_hmmdb(db, dbtype, qtype):
     dbname, host, port = map(str.strip, db.split(":"))
     port = int(port)
     if dbname in EGGNOG_DATABASES:
@@ -114,14 +168,35 @@ def setup_remote_db(db, dbtype):
         raise ValueError("idmap file not found: %s" % idmap_file)
 
     dbpath = host
-    if not server_functional(host, port, dbtype):
+    if not server_functional(host, port, dbtype, qtype):
         print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
         exit(1)
 
     return dbname, dbpath, host, port, idmap_file
 
+
 ##
-def start_server(dbpath, host, port, end_port, cpu, dbtype):
+def setup_remote_seqdb(db, dbtype, qtype):
+    dbname, host, port = map(str.strip, db.split(":"))
+    port = int(port)
+    dbfile = dbname + ".seqdb"
+    if not pexists(dbfile):
+        raise ValueError("%s file not found: %s" % dbfile)
+    
+    idmap_file = dbname + '.map'
+    if not pexists(idmap_file):
+        raise ValueError("%s file not found: %s" % idmap_file)
+
+    dbpath = host
+    if not server_functional(host, port, dbtype, qtype):
+        print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
+        exit(1)
+
+    return dbname, dbpath, host, port, idmap_file
+
+
+##
+def start_server(dbpath, host, port, end_port, cpu, dbtype, qtype = QUERY_TYPE_SEQ):
     master_db, worker_db = None, None
     for try_port in range(port, end_port, 2):
         print(colorify("Loading server at localhost, port %s-%s" %
@@ -139,7 +214,7 @@ def start_server(dbpath, host, port, end_port, cpu, dbtype):
                 worker_db.terminate()
                 worker_db.join()
                 break
-            elif server_functional(host, port, dbtype):
+            elif server_functional(host, port, dbtype, qtype):
                 print(f"Server ready at {host}:{port}")
                 ready = True
                 break
