@@ -46,8 +46,6 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     except Exception:
         max_hits = None
 
-    print("hmmer_search.py:iter_hits")
-
     ## On mem searches
     # "hmmscan- and phmmer-like" modes
     if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
@@ -153,7 +151,8 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 is_included = dom[11]
                 hit["doms"].append(dom)
                 next_start += 72
-                
+
+            lasthitname = None
             for domid in range(hit["ndom"]):
                 alibit = struct.unpack("7Q I 4x 3Q 3I 4x 6Q I 4x Q", binresult[next_start:next_start+168])
 
@@ -168,17 +167,27 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 bitscore = d[8]
                 ievalue = math.exp(d[9] * Z)
                 cevalue = math.exp(d[9] * domZ)
+                hitname = hit["name"]
                 evalue = hit["evalue"]
                 score = hit["score"]
                 
                 if (evalue_thr is None or evalue <= evalue_thr) and \
-                    (score_thr is None or score >= score_thr):
+                    (score_thr is None or score >= score_thr) and \
+                    (max_hits is None or len(reported_hits)+1 <= max_hits or lasthitname == hitname):
                     
-                    reported_hits.append((hit["name"], hit["evalue"], hit["score"], hmmfrom,
-                             hmmto, sqfrom, sqto, bitscore))
+                    reported_hits.append((hitname, evalue, score, hmmfrom,
+                                          hmmto, sqfrom, sqto, bitscore))
 
-            if max_hits is not None and (hitid+1) == max_hits:
-                break
+                    lasthitname = hitname
+
+                    # if max_hits is not None and len(reported_hits) == max_hits and \
+                    #    (lasthitname is not None and hitname != lasthitname):
+                    #     break
+                    
+                elif (max_hits is not None and len(reported_hits)+1 > max_hits and lasthitname != hitname):
+                    break
+                    
+
     else:
         ret = s.recv(4096).decode().strip()
         s.close()        
@@ -272,9 +281,9 @@ def hmmscan(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
             base_tempdir=None):
     
     cmd = HMMSCAN
-    return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
-            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
-            base_tempdir=None)
+    return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus, evalue_thr,
+            score_thr, max_hits, fixed_Z, maxseqlen,
+            base_tempdir)
 
 
 ##
@@ -283,9 +292,9 @@ def hmmsearch(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
             base_tempdir=None):
     
     cmd = HMMSEARCH
-    return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
-            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
-            base_tempdir=None)
+    return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus, evalue_thr,
+            score_thr, max_hits, fixed_Z, maxseqlen,
+            base_tempdir)
 
 
 ##
@@ -294,9 +303,9 @@ def phmmer(fasta_file, translate, fasta_target_file, cpus=1, evalue_thr=None,
             base_tempdir=None):
     
     cmd = PHMMER
-    return hmmcommand(cmd, fasta_file, translate, fasta_target_file, cpus=1, evalue_thr=None,
-            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None,
-            base_tempdir=None)
+    return hmmcommand(cmd, fasta_file, translate, fasta_target_file, cpus, evalue_thr,
+            score_thr, max_hits, fixed_Z, maxseqlen,
+            base_tempdir)
 
 
 ##
@@ -328,13 +337,32 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
         if translate or maxseqlen:
             if translate:
                 print('translating target fasta file')
-            Q = NamedTemporaryFile(mode='w')
+            R = NamedTemporaryFile(mode='w')
             for name, seq in iter_fasta_seqs(hmm_file, translate=translate):
                 if maxseqlen is None or len(seq) <= maxseqlen:
-                    print(f">{name}\n{seq}", file=Q)
+                    print(f">{name}\n{seq}", file=R)
                     # Q.write(f">{name}\n{seq}".encode())
-            Q.flush()
-            hmm_file = Q.name        
+            R.flush()
+            hmm_file = R.name
+
+    # we need the list of queries to be sure that all queries without hits
+    # are reported, which would be consistent with the results from
+    # hmmpgmd
+    queries_dict = {}
+    if hmmer_cmd == HMMSCAN or hmmer_cmd == PHMMER:
+        for name, seq in iter_fasta_seqs(fasta_file, translate=False): # seqs were already translated if needed
+            queries_dict[name] = len(seq)
+    elif hmmer_cmd == HMMSEARCH:
+        with open(hmm_file, 'r') as hmm_data:
+            for line in hmm_data:
+                if line.startswith("NAME"):
+                    name = line.split()[-1]
+
+                if line.startswith("LENG"):
+                    queries_dict[name] = int(line.split()[-1]) # query length
+                    
+    else:
+        raise Exception(f"cmd {hmmer_cmd} is not supported")
 
     ##
     # Run command
@@ -356,6 +384,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     hit_list = []
     hit_ids = set()
     last_query_len = None
+    queries_with_hits = set()
     if sts == 0:
         for line in OUT:
             
@@ -368,19 +397,25 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
              dnum, c_evalue, i_evalue, d_score, d_bias, hmmfrom, hmmto, seqfrom,
              seqto, env_from, env_to, acc) = list(map(safe_cast, fields[:22]))
 
-            if (last_query and qname != last_query):
-                yield last_query, 0, hit_list, last_query_len, None
+            # If a new query is being processed,
+            # report the results of the previous one
+            if last_query and qname != last_query:
+                if len(hit_list) > 0:
+                    yield last_query, 0, hit_list, last_query_len, None
+                    queries_with_hits.add(last_query)
+
+                last_query = qname
+                last_hitname = None
                 hit_list = []
                 hit_ids = set()
-                last_query = qname
                 last_query_len = None
 
-            last_query = qname
             if last_query_len and last_query_len != qlen:
                 raise ValueError(
                     "Inconsistent qlen when parsing hmmscan output")
             last_query_len = qlen
 
+            # Filter thresholds
             if (evalue_thr is None or evalue <= evalue_thr) and \
                (score_thr is None or score >= score_thr) and \
                (max_hits is None or last_hitname == hitname or len(hit_ids) < max_hits):
@@ -389,14 +424,24 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                                  hmmto, seqfrom, seqto, d_score])
                 hit_ids.add(hitname)
                 last_hitname = hitname
+                
+            last_query = qname
 
-        if last_query:
+        # Finally, report results of the last processed query
+        if last_query and len(hit_list) > 0:
             yield last_query, 0, hit_list, last_query_len, None
+            queries_with_hits.add(last_query)
 
     OUT.close()
     if translate:
         Q.close()
     shutil.rmtree(tempdir)
+
+    # report queries without hits
+    queries_without_hits = set(queries_dict.keys()) ^ queries_with_hits
+    for query in queries_without_hits:
+        qlen = queries_dict[query]
+        yield query, 0, [], qlen, None
 
     return
 
