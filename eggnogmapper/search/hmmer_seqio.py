@@ -9,7 +9,6 @@ def iter_fasta_seqs(source, translate=False):
     if translate:
         from Bio.Seq import Seq
         from Bio.Alphabet import generic_dna
-        
     
     if os.path.isfile(source):
         if source.endswith('.gz'):

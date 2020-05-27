@@ -64,6 +64,7 @@ class HmmerSearcher:
         
         self.evalue = args.evalue
         self.score = args.score
+        
         self.qcov = args.qcov
         
         self.Z = args.Z
@@ -148,8 +149,7 @@ class HmmerSearcher:
         last_time = time.time()
         start_time = time.time()
         qn = 0 # in case nothing to loop bellow
-        for qn, (name, elapsed, hits, querylen, seq) in enumerate(iter_hits(
-                                                            in_file,
+        for name, elapsed, hits, querylen, seq in iter_hits(in_file,
                                                             self.translate,
                                                             self.qtype,
                                                             self.dbtype,
@@ -164,7 +164,8 @@ class HmmerSearcher:
                                                             skip=VISITED,
                                                             maxseqlen=self.maxseqlen,
                                                             cpus=self.cpu,
-                                                            base_tempdir=self.temp_dir)):
+                                                            base_tempdir=self.temp_dir):
+            qn += 1
 
             if elapsed == -1:
                 # error occurred
@@ -181,7 +182,7 @@ class HmmerSearcher:
                     if idmap_idx:
                         hitname = idmap_idx[hid][0]
 
-                    print('\t'.join(map(str, [name, hitname, heval, hscore,
+                    print('\t'.join(map(str, [name, hitname, f'{heval:.1e}', f'{hscore:.1f}',
                                                      int(querylen), int(hmmfrom),
                                                      int(hmmto), int(sqfrom),
                                                      int(sqto),

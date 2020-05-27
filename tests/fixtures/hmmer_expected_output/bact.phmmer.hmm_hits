@@ -1,10 +1,10 @@
-# Tue May 26 16:31:07 2020
-# emapper-2.0.1-118-g7c8cb46
-# ./hmm_mapper.py --qtype seq -i tests/fixtures/test_queries.fa --dbtype seqdb -d tests/fixtures/test_queries.fa -o dummy --output_dir tmp_borrar
+# Wed May 27 19:57:41 2020
+# emapper-2.0.1-119-g7c5e44d
+# ./hmm_mapper.py --qtype seq -i tests/fixtures/test_queries.fa --dbtype seqdb -d tests/fixtures/test_queries.fa -o dummy --output_dir tmp_borrar --override
 #
 # #query_name	hit	evalue	sum_score	query_length	hmmfrom	hmmto	seqfrom	seqto	query_coverage
 1000565.METUNv1_03812	1000565.METUNv1_03812	2.2e-245	800.0	363	1	363	1	363	0.9972451790633609
-362663.ECP_0061	362663.ECP_0061	0.0	1848.0	783	1	783	1	783	0.9987228607918263
-# 2 queries scanned
-# Total time (seconds): 0.1414196491241455
-# Rate: 14.14 q/s
+362663.ECP_0061	362663.ECP_0061	0.0e+00	1848.0	783	1	783	1	783	0.9987228607918263
+# 3 queries scanned
+# Total time (seconds): 0.14281940460205078
+# Rate: 21.01 q/s
