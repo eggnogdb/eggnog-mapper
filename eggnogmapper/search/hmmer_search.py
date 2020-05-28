@@ -137,13 +137,13 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
             hits_end = hits_start + 152
             name, evalue, score, ndom = unpack_hit(binresult[hits_start:hits_end], Z)
             hitdata[hitid] = {"name": name, "evalue": evalue, "score":score, "ndom": ndom, "doms": []}
-            
             hits_start += 152
 
         next_start = hits_end
         reported_hits = []
         for hitid in range(nreported):
             hit = hitdata[hitid]
+            
             for domid in range(hit["ndom"]):
                 dombit = binresult[next_start:next_start + 72]
                 dom = struct.unpack("4i 5f 4x d 2i Q 8x", dombit)
@@ -180,12 +180,10 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
 
                     lasthitname = hitname
 
-                    # if max_hits is not None and len(reported_hits) == max_hits and \
-                    #    (lasthitname is not None and hitname != lasthitname):
-                    #     break
-                    
-                elif (max_hits is not None and len(reported_hits)+1 > max_hits and lasthitname != hitname):
-                    break
+                # IMPORTANT: WE MUST NOT BREAK BECAUSE OF THE BYTES LOGIC
+                # READING HMMPGMD RESPONSE
+                # elif (max_hits is not None and len(reported_hits)+1 > max_hits and lasthitname != hitname):
+                #     break
                     
 
     else:
