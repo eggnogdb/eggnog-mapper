@@ -36,7 +36,7 @@ B62_IDENTITIES = {'A': 4, 'B': 4, 'C': 9, 'D': 6, 'E': 5, 'F': 6, 'G': 6, 'H': 8
 
 def iter_hits(source, translate, query_type, dbtype, scantype, host, port, servers = None,
               evalue_thr=None, score_thr=None, max_hits=None, return_seq=False,
-              skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cpus=1,
+              skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cut_ga=False, cpus=1,
               base_tempdir=None):
 
     try:
@@ -49,7 +49,8 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port, serve
     ## On mem searches
     # "hmmscan- and phmmer-like" modes
     if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
-        return iter_seq_hits(source, translate, cpus, servers, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
+        return iter_seq_hits(source, translate, cpus, servers, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr,
+                             max_hits=max_hits, skip=skip, maxseqlen=maxseqlen, cut_ga=cut_ga)
 
     # "hmmsearch"-like mode
     elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
@@ -231,7 +232,7 @@ def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM,
                     yield name, etime, hits, leng, None
 
 def iter_seq(seq):
-    seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip = seq
+    seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga = seq
 
     num_servers = len(servers)
     num_server = seqnum % num_servers
@@ -246,8 +247,13 @@ def iter_seq(seq):
     if not seq:
         return
 
+    if cut_ga == True:
+        cut_ga = " --cut_ga"
+    else:
+        cut_ga = ""
+
     seq = re.sub("-.", "", seq)
-    data = '@--%s 1\n>%s\n%s\n//' % (dbtype, name, seq)
+    data = '@--%s 1%s\n>%s\n%s\n//' % (dbtype, cut_ga, name, seq)
     etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
                             score_thr=score_thr, max_hits=max_hits,
                             fixed_Z=fixed_Z)
@@ -257,10 +263,10 @@ def iter_seq(seq):
 
 def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
-                  skip=None):
+                  skip=None, cut_ga=False):
 
     pool = multiprocessing.Pool(cpus)
-    seqs = [[seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip]
+    seqs = [[seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
             for seqnum, (name, seq) in
             enumerate(iter_fasta_seqs(src, translate=translate))]
     

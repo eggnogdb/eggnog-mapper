@@ -92,6 +92,9 @@ def create_arg_parser():
                         help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
 
+    pg_hmmer.add_argument('--cut_ga', action="store_true",
+                          help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")    
+
     ##
     pg_out = parser.add_argument_group('Output options')
 
