@@ -13,7 +13,7 @@ from os.path import join as pjoin
 from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, get_call_info, cleanup_og_name, gopen, TIMEOUT_LOAD_SERVER
 from ..utils import colorify
 
-from .hmmer_server import shutdown_server, load_server, server_functional
+from .hmmer_server import shutdown_server_by_pid, load_server, server_functional
 from .hmmer_search import iter_hits, refine_hit
 from .hmmer_seqio import iter_fasta_seqs
 
@@ -80,7 +80,8 @@ class HmmerSearcher:
         self.excluded_taxa = args.excluded_taxa
         
         return
-
+    
+    
     ##
     def create_servers(self, dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker):
         servers = []
@@ -88,8 +89,8 @@ class HmmerSearcher:
         shost = host
         sport = port
         for num_server, server in enumerate(range(num_servers)):
-            sdbpath, shost, sport = self.start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype)
-            servers.append((sdbpath, sport))
+            sdbpath, shost, sport, master_pid, workers_pids = self.start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype)
+            servers.append((sdbpath, sport, master_pid, workers_pids))
             sport = sport + 2
         dbpath = sdbpath
         host = shost
@@ -109,14 +110,16 @@ class HmmerSearcher:
         if self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
                                                               self.servers, self.workers, self.cpus_per_worker)
-        
+            
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
-        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, servers, idmap_file)
+        hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
+        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file)
 
         # Shutdown server, If a temp local server was set up
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
-            shutdown_server()
+            for dbpath, port, master_pid, workers_pids in servers:
+                shutdown_server_by_pid(master_pid, workers_pids)
             
         return
         
@@ -130,25 +133,13 @@ class HmmerSearcher:
 
         servers = None
         if self.scantype == SCANTYPE_MEM:
-            servers = []
-            # for server in range(self.servers):
-            sdbpath = dbpath
-            shost = host
-            sport = port
-            for num_server, server in enumerate(range(self.servers)):
-                sdbpath, shost, sport = self.start_server(dbpath, host, sport, end_port, self.cpus_per_worker, self.workers, self.dbtype)
-                servers.append((sdbpath, sport))
-                sport = sport + 2
-            dbpath = sdbpath
-            host = shost
-            port = sport
-            
-        # if self.scantype == SCANTYPE_MEM:
-        #     dbpath, host, port = self.start_server(dbpath, host, port, end_port, self.cpus_per_worker, self.workers, self.dbtype)
+            dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
+                                                              self.servers, self.workers, self.cpus_per_worker)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
-        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, servers, idmap_file)
+        hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
+        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file)
         
         # Search for seed orthologs within the HMM hits
         if dbname == 'viruses':
@@ -165,7 +156,8 @@ class HmmerSearcher:
 
         # Shutdown server, If a temp local server was set up
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
-            shutdown_server()
+            for dbpath, port, master_pid, workers_pids in servers:
+                shutdown_server_by_pid(master_pid, workers_pids)
             
         return annot
 
@@ -175,8 +167,7 @@ class HmmerSearcher:
         for try_port in range(port, end_port, 2):
             print(colorify("Loading server at localhost, port %s-%s" %
                            (try_port, try_port + 1), 'lblue'))
-            # dbpath, master_db, worker_db = load_server(
-            #     dbpath, try_port, try_port + 1, cpus_per_worker, dbtype = dbtype)
+            
             dbpath, master_db, workers = load_server(dbpath, try_port, try_port + 1,
                                                      cpus_per_worker, workers = workers, dbtype = dbtype)
             port = try_port
@@ -204,7 +195,7 @@ class HmmerSearcher:
                 dbpath = host
                 break
 
-        return dbpath, host, port
+        return dbpath, host, port, master_db, workers
 
     ##
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file):
