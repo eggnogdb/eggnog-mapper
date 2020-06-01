@@ -269,29 +269,6 @@ def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
     pool.terminate()
     return
 
-    
-# def iter_seq_hits(src, translate, cpus, host, port, dbtype, evalue_thr=None,
-#                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
-#                   skip=None):    
-    # for seqnum, (name, seq) in enumerate(iter_fasta_seqs(src, translate=translate)):
-    #     if skip and name in skip:
-    #         continue
-
-    #     if maxseqlen and len(seq) > maxseqlen:
-    #         yield name, -1, [], len(seq), None
-    #         continue
-
-    #     if not seq:
-    #         continue
-
-    #     seq = re.sub("-.", "", seq)
-    #     data = '@--%s 1\n>%s\n%s\n//' % (dbtype, name, seq)
-    #     etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
-    #                             score_thr=score_thr, max_hits=max_hits,
-    #                             fixed_Z=fixed_Z)
-        
-    #     yield name, etime, hits, len(seq), None
-
 
 def get_hits(name, record, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM, qtype=QUERY_TYPE_SEQ,
              evalue_thr=None, score_thr = None, max_hits=None):
