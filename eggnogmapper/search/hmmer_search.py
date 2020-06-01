@@ -317,11 +317,14 @@ def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   skip=None, cut_ga=False):
 
     pool = multiprocessing.Pool(cpus)
-    seqs = [[seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
-            for seqnum, (name, seq) in
-            enumerate(iter_fasta_seqs(src, translate=translate))]
+    # seqs = [[seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
+    #         for seqnum, (name, seq) in
+    #         enumerate(iter_fasta_seqs(src, translate=translate))]
     
-    for r in pool.imap(iter_seq, seqs):
+    # for r in pool.imap(iter_seq, seqs):
+    for r in pool.imap(iter_seq, ([seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
+                                  for seqnum, (name, seq) in
+                                  enumerate(iter_fasta_seqs(src, translate=translate)))):
         yield r
     pool.terminate()
     return
