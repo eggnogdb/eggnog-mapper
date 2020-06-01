@@ -42,8 +42,8 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
                         
                 get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
         except Exception as e:
-            traceback.print_exc()
-            print(e)
+            # traceback.print_exc()
+            # print(e)
             return False
         else:
             return True
@@ -124,9 +124,8 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, workers=1, ou
     return dbpath, MASTER, WORKERS
     # return dbpath, MASTER, WORKER
 
-def shutdown_server():
-    global MASTER, WORKERS
-    # global MASTER, WORKER
+
+def shutdown_server_by_pid(MASTER, WORKERS):
 
     import psutil
     
@@ -139,36 +138,17 @@ def shutdown_server():
             for child in parent.children(recursive=True):  # or parent.children() for recursive=False
                 child.kill()
             parent.kill()
-        
-        # parent = psutil.Process(WORKER.pid)
-        # for child in parent.children(recursive=True):  # or parent.children() for recursive=False
-        #     child.kill()
-        # parent.kill()
-            
-        # WORKER.terminate()
-        # if WORKER.is_alive():
-        #     WORKER.kill()
-        #     if WORKER.is_alive:
-        #         os.kill(WORKER.pid, signal.SIGKILL)
 
     except (OSError, AttributeError):
         print("warning: could not kill hmmpgmd worker")
         pass
     
     try:
-        # This is killing THIS python script also, and is UNIX dependent
-        # os.killpg(os.getpgid(MASTER.pid), signal.SIGTERM)
 
         parent = psutil.Process(MASTER.pid)
         for child in parent.children(recursive=True):  # or parent.children() for recursive=False
             child.kill()
         parent.kill()
-            
-        # MASTER.terminate()
-        # if MASTER.is_alive():
-        #     MASTER.kill()
-        #     if MASTER.is_alive():
-        #         os.kill(MASTER.pid, signal.SIGKILL)
                 
     except Exception as e:
         print(e)
@@ -176,6 +156,11 @@ def shutdown_server():
         print("warning: could not kill hmmpgmd master")
         pass
     
+    return
+
+def shutdown_server():
+    global MASTER, WORKERS
+    shutdown_server_by_pid(MASTER, WORKERS)
     return
  
     

@@ -236,7 +236,7 @@ def iter_seq(seq):
     num_servers = len(servers)
     num_server = seqnum % num_servers
     host, port = servers[num_server]
-    print(num_server, host, port)
+    
     if skip and name in skip:
         return
 
