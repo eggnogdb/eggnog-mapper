@@ -54,7 +54,8 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port, serve
 
     # "hmmsearch"-like mode
     elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
-        return iter_hmm_hits(source, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen, fixed_Z=fixed_Z)
+        return iter_hmm_hits(source, cpus, servers, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr,
+                             max_hits=max_hits, skip=skip, fixed_Z=fixed_Z, cut_ga=cut_ga)
 
     ## On disk searches
     # hmmscan mode
@@ -197,17 +198,13 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
     return elapsed, reported_hits
 
 
-def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM,
-                  evalue_thr=None, score_thr=None,
-                  max_hits=None, skip=None, maxseqlen=None, fixed_Z=None):
-    
+def iter_hmm_file(hmmfile):
     hmmer_version = None
     model = ''
     name = 'Unknown'
     leng = None
     with open(hmmfile) as HMMFILE:
         for line in HMMFILE:
-
             if hmmer_version is None:
                 hmmer_version = line
                 
@@ -220,16 +217,70 @@ def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM,
                 
             model += line
             if line.strip() == '//':
-                if skip and name in skip:
-                    continue
-                else:                    
-                    data = f'@--{dbtype} 1\n{hmmer_version}\n{model}'
+                yield hmmer_version, name, leng, model
 
-                    etime, hits = scan_hits(data, host, port,
-                                            evalue_thr=evalue_thr, score_thr=score_thr,
-                                            max_hits=max_hits, fixed_Z=fixed_Z)
+    return
+    
+def iter_hmm(hmm):
+    hmm_num, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga = hmm
 
-                    yield name, etime, hits, leng, None
+    if skip and name in skip:
+        return
+
+    num_servers = len(servers)
+    num_server = hmm_num % num_servers
+    host, port = servers[num_server]
+    
+    if cut_ga == True:
+        cut_ga = " --cut_ga"
+    else:
+        cut_ga = ""
+        
+    data = f'@--{dbtype} 1 {cut_ga}\n{hmmer_version}\n{model}'    
+    etime, hits = scan_hits(data, host, port,
+                            evalue_thr=evalue_thr, score_thr=score_thr,
+                            max_hits=max_hits, fixed_Z=fixed_Z)
+
+    return name, etime, hits, leng, None
+    
+def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
+                  evalue_thr=None, score_thr=None,
+                  max_hits=None, skip=None, fixed_Z=None, cut_ga=False):
+    
+    pool = multiprocessing.Pool(cpus)
+    hmms = [[hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
+            for hmmnum, (hmmer_version, name, leng, model) in
+            enumerate(iter_hmm_file(hmmfile))]
+    
+    for r in pool.imap(iter_hmm, hmms):
+        yield r
+    pool.terminate()
+    return
+    # with open(hmmfile) as HMMFILE:
+    #     for line in HMMFILE:
+
+    #         if hmmer_version is None:
+    #             hmmer_version = line
+                
+    #         if line.startswith("NAME"):
+    #             name = line.split()[-1]
+    #             model = ''
+    #             leng = None
+    #         if line.startswith("LENG"):
+    #             leng = int(line.split()[-1])
+                
+    #         model += line
+    #         if line.strip() == '//':
+    #             if skip and name in skip:
+    #                 continue
+    #             else:                    
+    #                 data = f'@--{dbtype} 1\n{hmmer_version}\n{model}'
+
+    #                 etime, hits = scan_hits(data, host, port,
+    #                                         evalue_thr=evalue_thr, score_thr=score_thr,
+    #                                         max_hits=max_hits, fixed_Z=fixed_Z)
+
+    #                 yield name, etime, hits, leng, None
 
 def iter_seq(seq):
     seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga = seq

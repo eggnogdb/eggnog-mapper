@@ -25,8 +25,8 @@ class HmmerSearcher:
 
     cpu = None
     usemem = None
-    servers = None
-    workers = None
+    num_servers = None
+    num_workers = None
     cpus_per_worker = None
     scantype = None
 
@@ -48,8 +48,8 @@ class HmmerSearcher:
         self.cpu = args.cpu
         
         self.usemem = args.usemem
-        self.servers = args.servers
-        self.workers = args.workers
+        self.num_servers = args.num_servers
+        self.num_workers = args.num_workers
         self.cpus_per_worker = args.cpus_per_worker
         
         if self.usemem or ":" in args.db:
@@ -110,7 +110,7 @@ class HmmerSearcher:
         servers = None
         if self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                              self.servers, self.workers, self.cpus_per_worker)
+                                                              self.num_servers, self.num_workers, self.cpus_per_worker)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
@@ -135,7 +135,7 @@ class HmmerSearcher:
         servers = None
         if self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                              self.servers, self.workers, self.cpus_per_worker)
+                                                              self.num_servers, self.num_workers, self.cpus_per_worker)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
@@ -163,14 +163,14 @@ class HmmerSearcher:
         return annot
 
     ##
-    def start_server(self, dbpath, host, port, end_port, cpus_per_worker, workers, dbtype, qtype = QUERY_TYPE_SEQ):
+    def start_server(self, dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ):
         master_db, worker_db = None, None
         for try_port in range(port, end_port, 2):
             print(colorify("Loading server at localhost, port %s-%s" %
                            (try_port, try_port + 1), 'lblue'))
             
             dbpath, master_db, workers = load_server(dbpath, try_port, try_port + 1,
-                                                     cpus_per_worker, workers = workers, dbtype = dbtype)
+                                                     cpus_per_worker, num_workers = num_workers, dbtype = dbtype)
             port = try_port
             ready = False
             for _ in range(TIMEOUT_LOAD_SERVER):
@@ -182,8 +182,6 @@ class HmmerSearcher:
                     for worker_db in workers:
                         worker_db.terminate()
                         worker_db.join()                        
-                    # worker_db.terminate()
-                    # worker_db.join()
                     break
                 elif server_functional(host, port, dbtype, qtype):
                     print(f"Server ready at {host}:{port}")

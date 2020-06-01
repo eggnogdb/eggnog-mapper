@@ -65,12 +65,12 @@ def create_arg_parser():
                     If --dbtype seqdb, the database must be a HMMER-format database created with esl-reformat.
                     Database will be unloaded after execution.''')
 
-    pg_hmmer.add_argument('--servers', dest='servers', type=int, default=1, metavar="NUM_SERVERS",
+    pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
                           help="When using --usemem, specify the number of servers to fire up."
                           " By default, cpus specified with --cpu will be distributed among servers and workers.")
     
-    pg_hmmer.add_argument('--workers', dest='workers', type=int, default=1, metavar="NUM_WORKERS",
-                          help="When using --usemem, specify the number of workers per server (--servers) to fire up."
+    pg_hmmer.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
+                          help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
                           " By default, cpus specified with --cpu will be distributed among servers and workers.")
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
@@ -134,7 +134,7 @@ def parse_args(parser):
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
 
-    total_workers = args.workers * args.servers
+    total_workers = args.num_workers * args.num_servers
     if args.cpu < total_workers:
         parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
     if args.cpu % total_workers != 0:
