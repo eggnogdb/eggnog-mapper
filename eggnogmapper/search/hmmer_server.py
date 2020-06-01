@@ -16,7 +16,6 @@ from .hmmer_search import get_hits, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ, QU
 CHILD_PROC = None
 MASTER = None
 WORKERS = None
-# WORKER = None
 
 def server_up(host, port):
     import socket
@@ -58,7 +57,6 @@ def safe_exit(a, b):
 
 def load_worker(master_host, worker_port, cpu, output=None):
     global CHILD_PID, WORKERS
-    # global CHILD_PID, WORKER
     if not output:
         OUT = open(os.devnull, 'w')
     else:
@@ -77,13 +75,10 @@ def load_worker(master_host, worker_port, cpu, output=None):
     worker = Process(target=start_worker)
     worker.start()
     WORKERS = [worker]
-    # WORKER = Process(target=start_worker)
-    # WORKER.start()
     
     return worker
 
 def load_server(dbpath, client_port, worker_port, cpus_per_worker, workers=1, output=None, dbtype=DB_TYPE_HMM, is_worker = True):
-    # global CHILD_PID, MASTER, WORKER
     global CHILD_PID, MASTER, WORKERS
     if not output:
         OUT = open(os.devnull, 'w')
@@ -109,10 +104,6 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, workers=1, ou
     
     MASTER = Process(target=start_master)
     MASTER.start()
-    
-    # if is_worker == True:
-    #     WORKER = Process(target=start_worker)
-    #     WORKER.start()
         
     if is_worker == True and workers > 0:
         WORKERS = []
@@ -122,7 +113,6 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, workers=1, ou
             WORKERS.append(worker)
             
     return dbpath, MASTER, WORKERS
-    # return dbpath, MASTER, WORKER
 
 
 def shutdown_server_by_pid(MASTER, WORKERS):
