@@ -38,7 +38,7 @@ class HmmerSearcher:
     resume = None
     no_file_comments = None
 
-    evalue = score = qcov = Z = maxhits = maxseqlen = None
+    evalue = score = qcov = Z = maxhits = maxseqlen = cut_ga = None
     excluded_taxa = None
 
     temp_dir = None
@@ -67,6 +67,7 @@ class HmmerSearcher:
 
         self.maxhits = args.maxhits
         self.maxseqlen = args.maxseqlen
+        self.cut_ga = args.cut_ga
         
         self.evalue = args.evalue
         self.score = args.score
@@ -241,6 +242,7 @@ class HmmerSearcher:
                                                             max_hits=self.maxhits,
                                                             skip=VISITED,
                                                             maxseqlen=self.maxseqlen,
+                                                            cut_ga=self.cut_ga,
                                                             cpus=self.cpu,
                                                             base_tempdir=self.temp_dir):
 
