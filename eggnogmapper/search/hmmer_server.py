@@ -78,7 +78,7 @@ def load_worker(master_host, worker_port, cpu, output=None):
     
     return worker
 
-def load_server(dbpath, client_port, worker_port, cpus_per_worker, workers=1, output=None, dbtype=DB_TYPE_HMM, is_worker = True):
+def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1, output=None, dbtype=DB_TYPE_HMM, is_worker = True):
     global CHILD_PID, MASTER, WORKERS
     if not output:
         OUT = open(os.devnull, 'w')
@@ -105,9 +105,9 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, workers=1, ou
     MASTER = Process(target=start_master)
     MASTER.start()
         
-    if is_worker == True and workers > 0:
+    if is_worker == True and num_workers > 0:
         WORKERS = []
-        for i in range(workers):
+        for i in range(num_workers):
             worker = Process(target=start_worker)
             worker.start()
             WORKERS.append(worker)
