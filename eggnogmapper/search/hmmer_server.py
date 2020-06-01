@@ -15,7 +15,8 @@ from .hmmer_search import get_hits, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ, QU
 
 CHILD_PROC = None
 MASTER = None
-WORKER = None
+WORKERS = None
+# WORKER = None
 
 def server_up(host, port):
     import socket
@@ -56,7 +57,8 @@ def safe_exit(a, b):
     sys.exit(0)
 
 def load_worker(master_host, worker_port, cpu, output=None):
-    global CHILD_PID, WORKER
+    global CHILD_PID, WORKERS
+    # global CHILD_PID, WORKER
     if not output:
         OUT = open(os.devnull, 'w')
     else:
@@ -71,14 +73,18 @@ def load_worker(master_host, worker_port, cpu, output=None):
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
-
-    WORKER = Process(target=start_worker)
-    WORKER.start()
+            
+    worker = Process(target=start_worker)
+    worker.start()
+    WORKERS = [worker]
+    # WORKER = Process(target=start_worker)
+    # WORKER.start()
     
-    return WORKER
+    return worker
 
-def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TYPE_HMM, is_worker = True):
-    global CHILD_PID, MASTER, WORKER
+def load_server(dbpath, client_port, worker_port, cpus_per_worker, workers=1, output=None, dbtype=DB_TYPE_HMM, is_worker = True):
+    # global CHILD_PID, MASTER, WORKER
+    global CHILD_PID, MASTER, WORKERS
     if not output:
         OUT = open(os.devnull, 'w')
     else:
@@ -95,7 +101,7 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TY
             time.sleep(60)
 
     def start_worker():
-        cmd = HMMPGMD + f' --worker localhost --wport {worker_port} --cpu {cpu}'
+        cmd = HMMPGMD + f' --worker localhost --wport {worker_port} --cpu {cpus_per_worker}'
         print(colorify(f"Loading worker: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
@@ -103,26 +109,41 @@ def load_server(dbpath, client_port, worker_port, cpu, output=None, dbtype=DB_TY
     
     MASTER = Process(target=start_master)
     MASTER.start()
-
-    if is_worker == True:
-        WORKER = Process(target=start_worker)
-        WORKER.start()
     
-    return dbpath, MASTER, WORKER
+    # if is_worker == True:
+    #     WORKER = Process(target=start_worker)
+    #     WORKER.start()
+        
+    if is_worker == True and workers > 0:
+        WORKERS = []
+        for i in range(workers):
+            worker = Process(target=start_worker)
+            worker.start()
+            WORKERS.append(worker)
+            
+    return dbpath, MASTER, WORKERS
+    # return dbpath, MASTER, WORKER
 
 def shutdown_server():
-    global MASTER, WORKER
+    global MASTER, WORKERS
+    # global MASTER, WORKER
 
     import psutil
     
     try:
         # This is killing THIS python script also, and is UNIX dependent
         # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
+
+        for worker in WORKERS:
+            parent = psutil.Process(worker.pid)
+            for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+                child.kill()
+            parent.kill()
         
-        parent = psutil.Process(WORKER.pid)
-        for child in parent.children(recursive=True):  # or parent.children() for recursive=False
-            child.kill()
-        parent.kill()
+        # parent = psutil.Process(WORKER.pid)
+        # for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+        #     child.kill()
+        # parent.kill()
             
         # WORKER.terminate()
         # if WORKER.is_alive():

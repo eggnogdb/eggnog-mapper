@@ -7,10 +7,10 @@ import time
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_db_info, TIMEOUT_LOAD_SERVER, get_data_path
+from ..common import EGGNOG_DATABASES, get_db_info, get_data_path
 from ..utils import colorify
 
-from .hmmer_server import server_functional, load_server, load_worker
+from .hmmer_server import server_functional
 from .hmmer_search import SCANTYPE_MEM, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ
 from .hmmer_idmap import generate_idmap
 
@@ -19,12 +19,13 @@ SETUP_TYPE_EGGNOG = "eggnog"
 SETUP_TYPE_CUSTOM = "custom"
 
 ##
-def setup_hmm_search(db, scantype, dbtype, cpu, qtype = QUERY_TYPE_SEQ):
+def setup_hmm_search(db, scantype, dbtype, qtype = QUERY_TYPE_SEQ):
 
     setup_type = None
     
     if ":" in db:
         dbname, dbpath, host, port, idmap_file = setup_remote_db(db, dbtype, qtype)
+        end_port = port
         setup_type = SETUP_TYPE_REMOTE
 
     else: # setup_local_db --> dbpath, host, port, idmap_file
@@ -35,11 +36,9 @@ def setup_hmm_search(db, scantype, dbtype, cpu, qtype = QUERY_TYPE_SEQ):
             dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype, dbtype)
             setup_type = SETUP_TYPE_CUSTOM
 
-        if scantype == SCANTYPE_MEM:
-            dbpath, host, port = start_server(dbpath, host, port, end_port, cpu, dbtype)
+    return dbname, dbpath, host, port, end_port, idmap_file, setup_type
 
-    return dbname, dbpath, host, port, idmap_file, setup_type
-    
+
 ##
 def setup_eggnog_db(db, scantype):
 
@@ -194,38 +193,5 @@ def setup_remote_seqdb(db, dbtype, qtype):
         exit(1)
 
     return dbname, dbpath, host, port, idmap_file
-
-
-##
-def start_server(dbpath, host, port, end_port, cpu, dbtype, qtype = QUERY_TYPE_SEQ):
-    master_db, worker_db = None, None
-    for try_port in range(port, end_port, 2):
-        print(colorify("Loading server at localhost, port %s-%s" %
-                       (try_port, try_port + 1), 'lblue'))
-        dbpath, master_db, worker_db = load_server(
-            dbpath, try_port, try_port + 1, cpu, dbtype = dbtype)
-        port = try_port
-        ready = False
-        for _ in range(TIMEOUT_LOAD_SERVER):
-            print(f"Waiting for server to become ready at {host}:{port} ...")
-            time.sleep(1)
-            if not master_db.is_alive() or not worker_db.is_alive():
-                master_db.terminate()
-                master_db.join()
-                worker_db.terminate()
-                worker_db.join()
-                break
-            elif server_functional(host, port, dbtype, qtype):
-                print(f"Server ready at {host}:{port}")
-                ready = True
-                break
-            else:
-                print(f"Waiting for server to become ready at {host}:{port} ...")
-            
-        if ready:
-            dbpath = host
-            break
-
-    return dbpath, host, port
 
 ## END

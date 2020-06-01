@@ -10,14 +10,14 @@ import shutil
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, get_call_info, cleanup_og_name, gopen
+from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, get_call_info, cleanup_og_name, gopen, TIMEOUT_LOAD_SERVER
 from ..utils import colorify
 
-from .hmmer_server import shutdown_server
+from .hmmer_server import shutdown_server, load_server, server_functional
 from .hmmer_search import iter_hits, refine_hit
 from .hmmer_seqio import iter_fasta_seqs
 
-from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK
+from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ
 from .hmmer_setup import setup_hmm_search, SETUP_TYPE_EGGNOG, SETUP_TYPE_CUSTOM
 from .hmmer_idmap import load_idmap_idx
 
@@ -25,6 +25,9 @@ class HmmerSearcher:
 
     cpu = None
     usemem = None
+    servers = None
+    workers = None
+    cpus_per_worker = None
     scantype = None
 
     db = None
@@ -45,6 +48,9 @@ class HmmerSearcher:
         self.cpu = args.cpu
         
         self.usemem = args.usemem
+        self.servers = args.servers
+        self.workers = args.workers
+        self.cpus_per_worker = args.cpus_per_worker
         
         if self.usemem or ":" in args.db:
             self.scantype = SCANTYPE_MEM
@@ -76,16 +82,37 @@ class HmmerSearcher:
         return
 
     ##
+    def create_servers(self, dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker):
+        servers = []
+        sdbpath = dbpath
+        shost = host
+        sport = port
+        for num_server, server in enumerate(range(num_servers)):
+            sdbpath, shost, sport = self.start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype)
+            servers.append((sdbpath, sport))
+            sport = sport + 2
+        dbpath = sdbpath
+        host = shost
+        port = sport
+            
+        return dbpath, host, port, servers
+        
+    ##
     def search_hmm_matches(self, in_file, hmm_hits_file):
         
         annot = None
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu, self.qtype)
-            
+        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype)
+
+        servers = None
+        if self.scantype == SCANTYPE_MEM:
+            dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
+                                                              self.servers, self.workers, self.cpus_per_worker)
+        
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
-        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
+        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, servers, idmap_file)
 
         # Shutdown server, If a temp local server was set up
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
@@ -99,11 +126,29 @@ class HmmerSearcher:
         annot = None
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.cpu)
+        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype)
+
+        servers = None
+        if self.scantype == SCANTYPE_MEM:
+            servers = []
+            # for server in range(self.servers):
+            sdbpath = dbpath
+            shost = host
+            sport = port
+            for num_server, server in enumerate(range(self.servers)):
+                sdbpath, shost, sport = self.start_server(dbpath, host, sport, end_port, self.cpus_per_worker, self.workers, self.dbtype)
+                servers.append((sdbpath, sport))
+                sport = sport + 2
+            dbpath = sdbpath
+            host = shost
+            port = sport
+            
+        # if self.scantype == SCANTYPE_MEM:
+        #     dbpath, host, port = self.start_server(dbpath, host, port, end_port, self.cpus_per_worker, self.workers, self.dbtype)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
-        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, idmap_file)
+        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, servers, idmap_file)
         
         # Search for seed orthologs within the HMM hits
         if dbname == 'viruses':
@@ -123,9 +168,46 @@ class HmmerSearcher:
             shutdown_server()
             
         return annot
-    
+
     ##
-    def dump_hmm_matches(self, in_file, hits_file, dbpath, port, idmap_file):
+    def start_server(self, dbpath, host, port, end_port, cpus_per_worker, workers, dbtype, qtype = QUERY_TYPE_SEQ):
+        master_db, worker_db = None, None
+        for try_port in range(port, end_port, 2):
+            print(colorify("Loading server at localhost, port %s-%s" %
+                           (try_port, try_port + 1), 'lblue'))
+            # dbpath, master_db, worker_db = load_server(
+            #     dbpath, try_port, try_port + 1, cpus_per_worker, dbtype = dbtype)
+            dbpath, master_db, workers = load_server(dbpath, try_port, try_port + 1,
+                                                     cpus_per_worker, workers = workers, dbtype = dbtype)
+            port = try_port
+            ready = False
+            for _ in range(TIMEOUT_LOAD_SERVER):
+                print(f"Waiting for server to become ready at {host}:{port} ...")
+                time.sleep(1)
+                if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
+                    master_db.terminate()
+                    master_db.join()
+                    for worker_db in workers:
+                        worker_db.terminate()
+                        worker_db.join()                        
+                    # worker_db.terminate()
+                    # worker_db.join()
+                    break
+                elif server_functional(host, port, dbtype, qtype):
+                    print(f"Server ready at {host}:{port}")
+                    ready = True
+                    break
+                else:
+                    print(f"Waiting for server to become ready at {host}:{port} ...")
+
+            if ready:
+                dbpath = host
+                break
+
+        return dbpath, host, port
+
+    ##
+    def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
 
@@ -144,11 +226,15 @@ class HmmerSearcher:
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
             print('# ' + '\t'.join(hits_header), file=OUT)
+
+        idmap_idx = None
+        if idmap_file:
+            idmap_idx = load_idmap_idx(idmap_file)
             
         total_time = 0
         last_time = time.time()
         start_time = time.time()
-        qn = 0 # in case nothing to loop bellow
+        qn = -1 # in case nothing to loop bellow
         for name, elapsed, hits, querylen, seq in iter_hits(in_file,
                                                             self.translate,
                                                             self.qtype,
@@ -156,6 +242,7 @@ class HmmerSearcher:
                                                             self.scantype,
                                                             dbpath,
                                                             port,
+                                                            servers,
                                                             evalue_thr=self.evalue,
                                                             score_thr=self.score,
                                                             qcov_thr=self.qcov,
@@ -165,7 +252,6 @@ class HmmerSearcher:
                                                             maxseqlen=self.maxseqlen,
                                                             cpus=self.cpu,
                                                             base_tempdir=self.temp_dir):
-            qn += 1
 
             if elapsed == -1:
                 # error occurred
@@ -174,9 +260,7 @@ class HmmerSearcher:
             elif not hits:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
-                idmap_idx = None
-                if idmap_file:
-                    idmap_idx = load_idmap_idx(idmap_file)
+                
                 for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
                     hitname = hid
                     if idmap_idx:
@@ -188,6 +272,8 @@ class HmmerSearcher:
                                                      int(sqto),
                                                      float(sqto - sqfrom) / querylen])), file=OUT)
             OUT.flush()
+
+            qn += 1
 
             # monitoring
             total_time += time.time() - last_time

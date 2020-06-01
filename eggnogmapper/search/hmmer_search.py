@@ -34,7 +34,7 @@ B62_IDENTITIES = {'A': 4, 'B': 4, 'C': 9, 'D': 6, 'E': 5, 'F': 6, 'G': 6, 'H': 8
                   'S': 4, 'T': 5, 'V': 4, 'W': 11, 'X': -1, 'Y': 7, 'Z': 4}
 
 
-def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
+def iter_hits(source, translate, query_type, dbtype, scantype, host, port, servers = None,
               evalue_thr=None, score_thr=None, max_hits=None, return_seq=False,
               skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cpus=1,
               base_tempdir=None):
@@ -49,7 +49,7 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port,
     ## On mem searches
     # "hmmscan- and phmmer-like" modes
     if scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_SEQ:
-        return iter_seq_hits(source, translate, host, port, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
+        return iter_seq_hits(source, translate, cpus, servers, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, skip=skip, maxseqlen=maxseqlen)
 
     # "hmmsearch"-like mode
     elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
@@ -230,30 +230,67 @@ def iter_hmm_hits(hmmfile, host, port, dbtype=DB_TYPE_HMM,
 
                     yield name, etime, hits, leng, None
 
+def iter_seq(seq):
+    seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip = seq
 
-def iter_seq_hits(src, translate, host, port, dbtype, evalue_thr=None,
+    num_servers = len(servers)
+    num_server = seqnum % num_servers
+    host, port = servers[num_server]
+    print(num_server, host, port)
+    if skip and name in skip:
+        return
+
+    if maxseqlen and len(seq) > maxseqlen:
+        return name, -1, [], len(seq), None
+
+    if not seq:
+        return
+
+    seq = re.sub("-.", "", seq)
+    data = '@--%s 1\n>%s\n%s\n//' % (dbtype, name, seq)
+    etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
+                            score_thr=score_thr, max_hits=max_hits,
+                            fixed_Z=fixed_Z)
+
+    return name, etime, hits, len(seq), None
+
+
+def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
                   skip=None):
 
-    for seqnum, (name, seq) in enumerate(iter_fasta_seqs(src, translate=translate)):
-        if skip and name in skip:
-            continue
+    pool = multiprocessing.Pool(cpus)
+    seqs = [[seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip]
+            for seqnum, (name, seq) in
+            enumerate(iter_fasta_seqs(src, translate=translate))]
+    
+    for r in pool.imap(iter_seq, seqs):
+        yield r
+    pool.terminate()
+    return
 
-        if maxseqlen and len(seq) > maxseqlen:
-            yield name, -1, [], len(seq), None
-            continue
+    
+# def iter_seq_hits(src, translate, cpus, host, port, dbtype, evalue_thr=None,
+#                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
+#                   skip=None):    
+    # for seqnum, (name, seq) in enumerate(iter_fasta_seqs(src, translate=translate)):
+    #     if skip and name in skip:
+    #         continue
 
-        if not seq:
-            continue
+    #     if maxseqlen and len(seq) > maxseqlen:
+    #         yield name, -1, [], len(seq), None
+    #         continue
 
-        seq = re.sub("-.", "", seq)
-        data = '@--%s 1\n>%s\n%s\n//' % (dbtype, name, seq)
-        etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
-                                score_thr=score_thr, max_hits=max_hits,
-                                fixed_Z=fixed_Z)
+    #     if not seq:
+    #         continue
 
-        #max_score = sum([B62_IDENTITIES.get(nt, 0) for nt in seq])
-        yield name, etime, hits, len(seq), None
+    #     seq = re.sub("-.", "", seq)
+    #     data = '@--%s 1\n>%s\n%s\n//' % (dbtype, name, seq)
+    #     etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
+    #                             score_thr=score_thr, max_hits=max_hits,
+    #                             fixed_Z=fixed_Z)
+        
+    #     yield name, etime, hits, len(seq), None
 
 
 def get_hits(name, record, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM, qtype=QUERY_TYPE_SEQ,
