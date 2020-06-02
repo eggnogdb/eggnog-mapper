@@ -10,10 +10,10 @@ import shutil
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, get_call_info, cleanup_og_name, gopen, TIMEOUT_LOAD_SERVER
+from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, get_call_info, cleanup_og_name, gopen
 from ..utils import colorify
 
-from .hmmer_server import shutdown_server_by_pid, load_server, server_functional
+from .hmmer_server import shutdown_server_by_pid, create_servers
 from .hmmer_search import iter_hits, refine_hit
 from .hmmer_seqio import iter_fasta_seqs
 
@@ -83,21 +83,57 @@ class HmmerSearcher:
         return
     
     
-    ##
-    def create_servers(self, dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker):
-        servers = []
-        sdbpath = dbpath
-        shost = host
-        sport = port
-        for num_server, server in enumerate(range(num_servers)):
-            sdbpath, shost, sport, master_pid, workers_pids = self.start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype)
-            servers.append((sdbpath, sport, master_pid, workers_pids))
-            sport = sport + 2
-        dbpath = sdbpath
-        host = shost
-        port = sport
+    # ##
+    # def create_servers(self, dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker):
+    #     servers = []
+    #     sdbpath = dbpath
+    #     shost = host
+    #     sport = port
+    #     for num_server, server in enumerate(range(num_servers)):
+    #         sdbpath, shost, sport, master_pid, workers_pids = self.start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype)
+    #         servers.append((sdbpath, sport, master_pid, workers_pids))
+    #         sport = sport + 2
+    #     dbpath = sdbpath
+    #     host = shost
+    #     port = sport
             
-        return dbpath, host, port, servers
+    #     return dbpath, host, port, servers
+
+
+    # ##
+    # def start_server(self, dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ):
+    #     master_db, worker_db = None, None
+    #     for try_port in range(port, end_port, 2):
+    #         print(colorify("Loading server at localhost, port %s-%s" %
+    #                        (try_port, try_port + 1), 'lblue'))
+            
+    #         dbpath, master_db, workers = load_server(dbpath, try_port, try_port + 1,
+    #                                                  cpus_per_worker, num_workers = num_workers, dbtype = dbtype)
+    #         port = try_port
+    #         ready = False
+    #         for _ in range(TIMEOUT_LOAD_SERVER):
+    #             print(f"Waiting for server to become ready at {host}:{port} ...")
+    #             time.sleep(1)
+    #             if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
+    #                 master_db.terminate()
+    #                 master_db.join()
+    #                 for worker_db in workers:
+    #                     worker_db.terminate()
+    #                     worker_db.join()                        
+    #                 break
+    #             elif server_functional(host, port, dbtype, qtype):
+    #                 print(f"Server ready at {host}:{port}")
+    #                 ready = True
+    #                 break
+    #             else:
+    #                 print(f"Waiting for server to become ready at {host}:{port} ...")
+
+    #         if ready:
+    #             dbpath = host
+    #             break
+
+    #     return dbpath, host, port, master_db, workers
+    
         
     ##
     def search_hmm_matches(self, in_file, hmm_hits_file):
@@ -109,8 +145,8 @@ class HmmerSearcher:
 
         servers = None
         if self.scantype == SCANTYPE_MEM:
-            dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                              self.num_servers, self.num_workers, self.cpus_per_worker)
+            dbpath, host, port, servers = create_servers(self.dbtype, dbpath, host, port, end_port,
+                                                         self.num_servers, self.num_workers, self.cpus_per_worker)
 
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
@@ -137,8 +173,8 @@ class HmmerSearcher:
 
         servers = None
         if self.scantype == SCANTYPE_MEM:
-            dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                              self.num_servers, self.num_workers, self.cpus_per_worker)
+            dbpath, host, port, servers = create_servers(self.dbtype, dbpath, host, port, end_port,
+                                                         self.num_servers, self.num_workers, self.cpus_per_worker)
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
@@ -168,39 +204,7 @@ class HmmerSearcher:
             
         return annot
 
-    ##
-    def start_server(self, dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ):
-        master_db, worker_db = None, None
-        for try_port in range(port, end_port, 2):
-            print(colorify("Loading server at localhost, port %s-%s" %
-                           (try_port, try_port + 1), 'lblue'))
-            
-            dbpath, master_db, workers = load_server(dbpath, try_port, try_port + 1,
-                                                     cpus_per_worker, num_workers = num_workers, dbtype = dbtype)
-            port = try_port
-            ready = False
-            for _ in range(TIMEOUT_LOAD_SERVER):
-                print(f"Waiting for server to become ready at {host}:{port} ...")
-                time.sleep(1)
-                if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
-                    master_db.terminate()
-                    master_db.join()
-                    for worker_db in workers:
-                        worker_db.terminate()
-                        worker_db.join()                        
-                    break
-                elif server_functional(host, port, dbtype, qtype):
-                    print(f"Server ready at {host}:{port}")
-                    ready = True
-                    break
-                else:
-                    print(f"Waiting for server to become ready at {host}:{port} ...")
 
-            if ready:
-                dbpath = host
-                break
-
-        return dbpath, host, port, master_db, workers
 
     ##
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file):
