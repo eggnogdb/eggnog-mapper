@@ -247,42 +247,12 @@ def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
                   max_hits=None, skip=None, fixed_Z=None, cut_ga=False):
     
     pool = multiprocessing.Pool(cpus)
-    # hmms = [[hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
-    #         for hmmnum, (hmmer_version, name, leng, model) in
-    #         enumerate(iter_hmm_file(hmmfile))]
-    
-    # for r in pool.imap(iter_hmm, hmms):
     for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, cut_ga]
                                   for hmmnum, (hmmer_version, name, leng, model) in
                                   enumerate(iter_hmm_file(hmmfile, skip)))):
         yield r
     pool.terminate()
     return
-    # with open(hmmfile) as HMMFILE:
-    #     for line in HMMFILE:
-
-    #         if hmmer_version is None:
-    #             hmmer_version = line
-                
-    #         if line.startswith("NAME"):
-    #             name = line.split()[-1]
-    #             model = ''
-    #             leng = None
-    #         if line.startswith("LENG"):
-    #             leng = int(line.split()[-1])
-                
-    #         model += line
-    #         if line.strip() == '//':
-    #             if skip and name in skip:
-    #                 continue
-    #             else:                    
-    #                 data = f'@--{dbtype} 1\n{hmmer_version}\n{model}'
-
-    #                 etime, hits = scan_hits(data, host, port,
-    #                                         evalue_thr=evalue_thr, score_thr=score_thr,
-    #                                         max_hits=max_hits, fixed_Z=fixed_Z)
-
-    #                 yield name, etime, hits, leng, None
 
 def iter_seq(seq):
     seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga = seq
@@ -319,11 +289,6 @@ def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   skip=None, cut_ga=False):
 
     pool = multiprocessing.Pool(cpus)
-    # seqs = [[seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
-    #         for seqnum, (name, seq) in
-    #         enumerate(iter_fasta_seqs(src, translate=translate))]
-    
-    # for r in pool.imap(iter_seq, seqs):
     for r in pool.imap(iter_seq, ([seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
                                   for seqnum, (name, seq) in
                                   enumerate(iter_fasta_seqs(src, translate=translate)))):

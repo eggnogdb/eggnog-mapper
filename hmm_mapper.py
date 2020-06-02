@@ -134,14 +134,17 @@ def parse_args(parser):
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
 
-    total_workers = args.num_workers * args.num_servers
-    if args.cpu < total_workers:
-        parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
-    if args.cpu % total_workers != 0:
-        parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
-        
-    args.cpus_per_worker = int(args.cpu / total_workers)
-    sys.stderr.write(f"CPUs per worker: {args.cpus_per_worker}\n")
+    if args.usemem == True:
+        total_workers = args.num_workers * args.num_servers
+        if args.cpu < total_workers:
+            parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
+        if args.cpu % total_workers != 0:
+            parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
+
+        args.cpus_per_worker = int(args.cpu / total_workers)
+        sys.stderr.write(f"CPUs per worker: {args.cpus_per_worker}\n")
+    else:
+        args.cpus_per_worker = args.cpu    
 
     # Required files
     if not args.input:
