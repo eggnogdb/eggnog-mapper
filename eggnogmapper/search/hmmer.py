@@ -184,16 +184,18 @@ class HmmerSearcher:
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
             print('# ' + '\t'.join(hits_header), file=OUT)
+        
+        total_time = 0
+        last_time = time.time()
+        start_time = time.time()
 
+        # Loading the DB identifiers will also taken into account for total_time
         idmap_idx = None
         if idmap_file:
             idmap_idx = load_idmap_idx(idmap_file)
 
         print(colorify("Sequence mapping starts now!", 'green'))
         
-        total_time = 0
-        last_time = time.time()
-        start_time = time.time()
         qn = -1 # in case nothing to loop bellow
         for name, elapsed, hits, querylen, seq in iter_hits(in_file,
                                                             self.translate,
