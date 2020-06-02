@@ -231,11 +231,6 @@ def iter_hmm(hmm):
     num_servers = len(servers)
     num_server = hmm_num % num_servers
     host, port = servers[num_server]
-    
-    if cut_ga == True:
-        cut_ga = " --cut_ga"
-    else:
-        cut_ga = ""
         
     data = f'@--{dbtype} 1 {cut_ga}\n{hmmer_version}\n{model}'    
     etime, hits = scan_hits(data, host, port,
@@ -247,7 +242,12 @@ def iter_hmm(hmm):
 def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
                   evalue_thr=None, score_thr=None,
                   max_hits=None, skip=None, fixed_Z=None, cut_ga=False):
-    
+
+    if cut_ga == True:
+        cut_ga = " --cut_ga"
+    else:
+        cut_ga = ""
+        
     pool = multiprocessing.Pool(cpus)
     for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, cut_ga]
                                   for hmmnum, (hmmer_version, name, leng, model) in
@@ -272,11 +272,6 @@ def iter_seq(seq):
     if not seq:
         return
 
-    if cut_ga == True:
-        cut_ga = " --cut_ga"
-    else:
-        cut_ga = ""
-
     seq = re.sub("-.", "", seq)
     data = '@--%s 1%s\n>%s\n%s\n//' % (dbtype, cut_ga, name, seq)
     etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
@@ -290,6 +285,11 @@ def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
                   skip=None, cut_ga=False):
 
+    if cut_ga == True:
+        cut_ga = " --cut_ga"
+    else:
+        cut_ga = ""
+        
     pool = multiprocessing.Pool(cpus)
     for r in pool.imap(iter_seq, ([seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
                                   for seqnum, (name, seq) in
