@@ -37,7 +37,7 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
 
 ##
 def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ):
-    master_db, worker_db = None, None
+    master_db = worker_db = workers = None
     for try_port in range(port, end_port, 2):
         print(colorify("Loading server at localhost, port %s-%s" %
                        (try_port, try_port + 1), 'lblue'))
