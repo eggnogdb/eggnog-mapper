@@ -144,7 +144,7 @@ class HmmerSearcher:
         dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype)
 
         servers = None
-        if self.scantype == SCANTYPE_MEM:
+        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = create_servers(self.dbtype, dbpath, host, port, end_port,
                                                          self.num_servers, self.num_workers, self.cpus_per_worker)
 
@@ -172,7 +172,7 @@ class HmmerSearcher:
         dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype)
 
         servers = None
-        if self.scantype == SCANTYPE_MEM:
+        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = create_servers(self.dbtype, dbpath, host, port, end_port,
                                                          self.num_servers, self.num_workers, self.cpus_per_worker)
             

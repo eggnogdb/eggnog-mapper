@@ -13,7 +13,7 @@ from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
 from eggnogmapper.search.hmmer_setup import setup_custom_db
-from eggnogmapper.search.hmmer_server import load_server, server_functional
+from eggnogmapper.search.hmmer_server import load_server, server_functional, create_servers
 
 __description__ = ('A server for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
@@ -51,8 +51,16 @@ def create_arg_parser():
     pg_server.add_argument('-w', '--wport', dest='wport', type=int, default=53001, metavar='PORT',
                           help=('Port used by workers to connect to this HMM master server'))
 
-    pg_server.add_argument('--is_worker', action="store_true",
-                           help='In addition to the master, create a worker also in this host.')
+    # pg_server.add_argument('--is_worker', action="store_true",
+    #                        help='In addition to the master, create a worker also in this host.')
+
+    pg_server.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
+                          help="When using --usemem, specify the number of servers to fire up."
+                          " By default, cpus specified with --cpu will be distributed among servers and workers.")
+    
+    pg_server.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
+                          help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
+                          " By default, cpus specified with --cpu will be distributed among servers and workers.")
         
     return parser
 
@@ -68,6 +76,16 @@ def parse_args(parser):
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
 
+    # cpus per worker
+    total_workers = args.num_workers * args.num_servers
+    if args.cpu < total_workers:
+        parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
+    if args.cpu % total_workers != 0:
+        parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
+
+    args.cpus_per_worker = int(args.cpu / total_workers)
+    sys.stderr.write(f"CPUs per worker: {args.cpus_per_worker}\n")
+        
     # Hmmer database
     # NOTE: hmmer database format, name and checking if exists is done within hmmer module
     if not args.db:
@@ -97,38 +115,41 @@ if __name__ == "__main__":
         host = 'localhost'
         port = args.port
         wport = args.wport
-            
-        print(colorify(f"Loading server at {host}:{port}; workers port:{wport}", 'green'))
-        
-        dbpath, master_db, worker_db = load_server(dbpath, port, wport, args.cpu, dbtype = args.dbtype, is_worker = args.is_worker)
-        
-        ready = False
-        for _ in range(TIMEOUT_LOAD_SERVER):
-            print(f"Waiting for server to become ready at {host}:{port} ...")
-            time.sleep(1)
-            if master_db.is_alive() and (not args.is_worker or worker_db.is_alive()):
-                if not args.is_worker:
-                    print(colorify("master is UP", 'green'))
-                    break
-                else: # worker_db.is_alive
-                    if server_functional(host, port, args.dbtype):
-                        print(colorify("master and worker are UP", 'green'))
-                        break
-                
-            elif not master_db.is_alive():
-                master_db.terminate()
-                master_db.join()
-                print(colorify("master not alive"), 'red')
-                break
-            
-            elif args.is_worker and not worker_db.is_alive():
-                worker_db.terminate()
-                worker_db.join()
-                print(colorify("worker not alive"), 'red')
-                break
 
-        print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green'))
-        print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue'))
+        dbpath, host, port, servers = create_servers(args.dbtype, dbpath, host, port, end_port,
+                                                     args.num_servers, args.num_workers, args.cpus_per_worker)
+        
+        # print(colorify(f"Loading server at {host}:{port}; workers port:{wport}", 'green'))
+        
+        # dbpath, master_db, worker_db = load_server(dbpath, port, wport, args.cpu, dbtype = args.dbtype, is_worker = args.is_worker)
+        
+        # ready = False
+        # for _ in range(TIMEOUT_LOAD_SERVER):
+        #     print(f"Waiting for server to become ready at {host}:{port} ...")
+        #     time.sleep(1)
+        #     if master_db.is_alive() and (not args.is_worker or worker_db.is_alive()):
+        #         if not args.is_worker:
+        #             print(colorify("master is UP", 'green'))
+        #             break
+        #         else: # worker_db.is_alive
+        #             if server_functional(host, port, args.dbtype):
+        #                 print(colorify("master and worker are UP", 'green'))
+        #                 break
+                
+        #     elif not master_db.is_alive():
+        #         master_db.terminate()
+        #         master_db.join()
+        #         print(colorify("master not alive"), 'red')
+        #         break
+            
+        #     elif args.is_worker and not worker_db.is_alive():
+        #         worker_db.terminate()
+        #         worker_db.join()
+        #         print(colorify("worker not alive"), 'red')
+        #         break
+
+        # print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green'))
+        # print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue'))
         
         while True:
             time.sleep(10)
