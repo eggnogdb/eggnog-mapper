@@ -111,10 +111,13 @@ class HmmerSearcher:
         if self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = self.create_servers(self.dbtype, dbpath, host, port, end_port,
                                                               self.num_servers, self.num_workers, self.cpus_per_worker)
-            
+
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
-        hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
+        if servers is None:
+            hosts = [(dbpath, port)]
+        else:
+            hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
         self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file)
 
         # Shutdown server, If a temp local server was set up
@@ -139,7 +142,10 @@ class HmmerSearcher:
             
         # Search for HMM hits (OG)
         # if not pexists(hmm_hits_file): This avoids resuming the previous run
-        hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
+        if servers is None:
+            hosts = [(dbpath, port)]
+        else:
+            hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
         self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file)
         
         # Search for seed orthologs within the HMM hits

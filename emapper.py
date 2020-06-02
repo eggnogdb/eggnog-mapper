@@ -113,6 +113,14 @@ def create_arg_parser():
                     --usemem will allocate the whole database in memory using hmmpgmd.
                     Database will be unloaded after execution.''')
 
+    pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
+                          help="When using --usemem, specify the number of servers to fire up."
+                          " By default, cpus specified with --cpu will be distributed among servers and workers.")
+    
+    pg_hmmer.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
+                          help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
+                          " By default, cpus specified with --cpu will be distributed among servers and workers.")
+
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                         help="Max number of hits to report (0 to report all). Default=1.")
 
@@ -131,6 +139,9 @@ def create_arg_parser():
     pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
                         help='Fixed database size used in phmmer/hmmscan'
                         ' (allows comparing e-values among databases). Default=40,000,000')
+
+    pg_hmmer.add_argument('--cut_ga', action="store_true",
+                          help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")    
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
@@ -242,6 +253,18 @@ def parse_args(parser):
 
     elif args.mode == SEARCH_MODE_HMMER:
 
+        if args.usemem == True:
+            total_workers = args.num_workers * args.num_servers
+            if args.cpu < total_workers:
+                parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
+            if args.cpu % total_workers != 0:
+                parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
+
+            args.cpus_per_worker = int(args.cpu / total_workers)
+            sys.stderr.write(f"CPUs per worker: {args.cpus_per_worker}\n")
+        else:
+            args.cpus_per_worker = args.cpu
+        
         if not args.input:
             parser.error('An input file is required (-i)')
 
