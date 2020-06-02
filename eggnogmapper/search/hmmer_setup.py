@@ -10,7 +10,7 @@ from os.path import join as pjoin
 from ..common import EGGNOG_DATABASES, get_db_info, get_data_path
 from ..utils import colorify
 
-from .hmmer_server import server_functional
+# from .hmmer_server import server_functional
 from .hmmer_search import SCANTYPE_MEM, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ
 from .hmmer_idmap import generate_idmap
 
@@ -19,11 +19,12 @@ SETUP_TYPE_EGGNOG = "eggnog"
 SETUP_TYPE_CUSTOM = "custom"
 
 ##
-def setup_hmm_search(db, scantype, dbtype, qtype = QUERY_TYPE_SEQ):
+def setup_hmm_search(db, scantype, dbtype, qtype = QUERY_TYPE_SEQ, servers_list = None):
 
     setup_type = None
     
-    if ":" in db:
+    if ":" in db or servers_list is not None:
+        
         dbname, dbpath, host, port, idmap_file = setup_remote_db(db, dbtype, qtype)
         end_port = port
         setup_type = SETUP_TYPE_REMOTE
@@ -155,8 +156,17 @@ def setup_remote_db(db, dbtype, qtype):
 
 ##
 def setup_remote_hmmdb(db, dbtype, qtype):
-    dbname, host, port = map(str.strip, db.split(":"))
-    port = int(port)
+    if ":" in db:
+        dbname, host, port = map(str.strip, db.split(":"))
+        dbpath = host
+        port = int(port)
+        
+    else:
+        dbname = db
+        dbpath = None
+        host = None
+        port = None
+
     if dbname in EGGNOG_DATABASES:
         dbfile, port = get_db_info(dbname)
         db = dbname
@@ -167,18 +177,26 @@ def setup_remote_hmmdb(db, dbtype, qtype):
     if not pexists(idmap_file):
         raise ValueError("idmap file not found: %s" % idmap_file)
 
-    dbpath = host
-    if not server_functional(host, port, dbtype, qtype):
-        print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
-        exit(1)
+    # if not server_functional(host, port, dbtype, qtype):
+    #     print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
+    #     exit(1)
 
     return dbname, dbpath, host, port, idmap_file
 
 
 ##
 def setup_remote_seqdb(db, dbtype, qtype):
-    dbname, host, port = map(str.strip, db.split(":"))
-    port = int(port)
+    if ":" in db:
+        dbname, host, port = map(str.strip, db.split(":"))
+        dbpath = host
+        port = int(port)
+        
+    else:
+        dbname = db
+        dbpath = None
+        host = None
+        port = None
+
     dbfile = dbname + ".seqdb"
     if not pexists(dbfile):
         raise ValueError("%s file not found: %s" % dbfile)
@@ -187,10 +205,9 @@ def setup_remote_seqdb(db, dbtype, qtype):
     if not pexists(idmap_file):
         raise ValueError("%s file not found: %s" % idmap_file)
 
-    dbpath = host
-    if not server_functional(host, port, dbtype, qtype):
-        print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
-        exit(1)
+    # if not server_functional(host, port, dbtype, qtype):
+    #     print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
+    #     exit(1)
 
     return dbname, dbpath, host, port, idmap_file
 

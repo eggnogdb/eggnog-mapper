@@ -19,6 +19,37 @@ WORKERS = None
 
 
 ##
+def check_servers(dbtype, qtype, dbpath, host, port, servers_list):
+    # Get list of servers
+    servers = []
+    functional = 0
+    if servers_list is not None:
+        with open(servers_list, 'r') as servers_fn:
+            for line in servers_fn:
+                host, port = map(str.strip, line.split(":"))
+                port = int(port)
+                servers.append([host, port, -1, -1]) # set -1 to master and worker PIDs, since they are not needed here
+                if server_functional(host, port, dbtype, qtype):
+                    functional += 1
+                else:
+                    print(colorify("warning: eggnog-mapper server not found at %s:%s" % (host, port), 'orange'))
+                    
+    else:
+        servers = [[host, port, -1, -1]] # set -1 to master and worker PIDs, since they are not needed here
+        if server_functional(host, port, dbtype, qtype):
+            functional += 1
+        else:
+            print(colorify("eggnog-mapper server not found at %s:%s" % (host, port), 'red'))
+            exit(1)
+            
+    if functional == 0:
+        print(colorify("No functional server was found", 'red'))
+        exit(1)
+
+    return dbpath, host, port, servers
+
+
+##
 def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker):
     servers = []
     sdbpath = dbpath

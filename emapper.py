@@ -98,7 +98,12 @@ def create_arg_parser():
     pg_hmmer.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
                        help=('specify the target database for sequence searches. '
                              'Choose among: euk,bact,arch, or a database loaded in a server, db.hmm:host:port (see hmm_server.py)'))
-        
+
+    pg_hmmer.add_argument('--servers_list', dest="servers_list", metavar="FILE",
+                          help="A FILE with a list of remote hmmpgmd servers. "
+                                "Each row in the file represents a server, in the format 'host:port'. "
+                                "If --servers_list is specified, host and port from -d option will be ignored.")
+    
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
                        help="Type of input data (-i). "
                           f"Default: {QUERY_TYPE_SEQ}")
