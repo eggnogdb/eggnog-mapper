@@ -30,7 +30,7 @@ def create_arg_parser():
     ##
     pg_exec = parser.add_argument_group('Execution Options')
     
-    pg_exec.add_argument('--cpu', type=int, default=2, metavar='NUM_CPU',
+    pg_exec.add_argument('--cpu', type=int, default=1, metavar='NUM_CPU',
                         help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
 
     ##
