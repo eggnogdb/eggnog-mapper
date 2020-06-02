@@ -248,11 +248,14 @@ def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
                   max_hits=None, skip=None, fixed_Z=None, cut_ga=False):
     
     pool = multiprocessing.Pool(cpus)
-    hmms = [[hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
-            for hmmnum, (hmmer_version, name, leng, model) in
-            enumerate(iter_hmm_file(hmmfile))]
+    # hmms = [[hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
+    #         for hmmnum, (hmmer_version, name, leng, model) in
+    #         enumerate(iter_hmm_file(hmmfile))]
     
-    for r in pool.imap(iter_hmm, hmms):
+    # for r in pool.imap(iter_hmm, hmms):
+    for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
+                                  for hmmnum, (hmmer_version, name, leng, model) in
+                                  enumerate(iter_hmm_file(hmmfile)))):
         yield r
     pool.terminate()
     return
