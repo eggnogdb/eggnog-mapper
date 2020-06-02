@@ -51,9 +51,6 @@ def create_arg_parser():
     pg_server.add_argument('-w', '--wport', dest='wport', type=int, default=53001, metavar='PORT',
                           help=('Port used by workers to connect to this HMM master server'))
 
-    # pg_server.add_argument('--is_worker', action="store_true",
-    #                        help='In addition to the master, create a worker also in this host.')
-
     pg_server.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
                           help="When using --usemem, specify the number of servers to fire up."
                           " By default, cpus specified with --cpu will be distributed among servers and workers.")
@@ -61,6 +58,9 @@ def create_arg_parser():
     pg_server.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
                           help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
                           " By default, cpus specified with --cpu will be distributed among servers and workers.")
+
+    pg_server.add_argument('-o', '--output_servers_list', dest="output_servers_list", type=str, default=None, metavar="FILE",
+                           help='Output the list of running servers to FILE.')
         
     return parser
 
@@ -90,6 +90,10 @@ def parse_args(parser):
     # NOTE: hmmer database format, name and checking if exists is done within hmmer module
     if not args.db:
         parser.error('The HMMER server requires a target database (-d, --database).')
+
+    if os.path.exists(args.output_servers_list):
+        parser.error(f"File {args.output_servers_list} already exists, and won't be overwritten."
+                     "Please, remove it and run again to create it.")
     
     return args
 
@@ -120,7 +124,16 @@ if __name__ == "__main__":
                                                      args.num_servers, args.num_workers, args.cpus_per_worker)
 
         print(colorify("All servers ready and listening", 'green'))
-        print(colorify("Use `emapper.py (-d db:host:port or --servers_list FILE) to search against these servers", 'lblue'))
+        if args.output_servers_list is not None:
+            print(f"Creating servers list file: {args.output_servers_list}")
+            with open(args.output_servers_list, 'w') as outfn:
+                for server in servers:
+                    print(f"{server[0]}:{server[1]}", file=outfn)
+            print(f"File {args.output_servers_list} created successfully.")
+            
+            print(colorify(f"Use `emapper.py (-d db:host:port or --servers_list {args.output_servers_list}) to search against these servers", 'lblue'))
+        else:
+            print(colorify("Use `emapper.py (-d db:host:port or --servers_list FILE) to search against these servers", 'lblue'))                    
         
         while True:
             time.sleep(10)
