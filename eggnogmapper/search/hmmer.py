@@ -212,7 +212,6 @@ class HmmerSearcher:
         else:
             OUT = open(hits_file, 'w')
 
-        print(colorify("Sequence mapping starts now!", 'green'))
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
             print('# ' + '\t'.join(hits_header), file=OUT)
@@ -220,7 +219,9 @@ class HmmerSearcher:
         idmap_idx = None
         if idmap_file:
             idmap_idx = load_idmap_idx(idmap_file)
-            
+
+        print(colorify("Sequence mapping starts now!", 'green'))
+        
         total_time = 0
         last_time = time.time()
         start_time = time.time()

@@ -198,7 +198,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
     return elapsed, reported_hits
 
 
-def iter_hmm_file(hmmfile):
+def iter_hmm_file(hmmfile, skip):
     hmmer_version = None
     model = ''
     name = 'Unknown'
@@ -217,15 +217,14 @@ def iter_hmm_file(hmmfile):
                 
             model += line
             if line.strip() == '//':
+                if skip and name in skip:
+                    continue
                 yield hmmer_version, name, leng, model
 
     return
     
 def iter_hmm(hmm):
-    hmm_num, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga = hmm
-
-    if skip and name in skip:
-        return
+    hmm_num, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, cut_ga = hmm
 
     num_servers = len(servers)
     num_server = hmm_num % num_servers
@@ -253,9 +252,9 @@ def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
     #         enumerate(iter_hmm_file(hmmfile))]
     
     # for r in pool.imap(iter_hmm, hmms):
-    for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
+    for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, cut_ga]
                                   for hmmnum, (hmmer_version, name, leng, model) in
-                                  enumerate(iter_hmm_file(hmmfile)))):
+                                  enumerate(iter_hmm_file(hmmfile, skip)))):
         yield r
     pool.terminate()
     return
