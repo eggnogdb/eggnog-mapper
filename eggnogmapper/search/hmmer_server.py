@@ -9,7 +9,7 @@ from multiprocessing import Process
 import signal
 import traceback
 
-from ..common import *
+from ..common import HMMPGMD, TIMEOUT_LOAD_SERVER
 from ..utils import colorify
 from .hmmer_search import get_hits, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ, QUERY_TYPE_HMM
 
@@ -17,6 +17,60 @@ CHILD_PROC = None
 MASTER = None
 WORKERS = None
 
+
+##
+def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker):
+    servers = []
+    sdbpath = dbpath
+    shost = host
+    sport = port
+    for num_server, server in enumerate(range(num_servers)):
+        sdbpath, shost, sport, master_pid, workers_pids = start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype)
+        servers.append((sdbpath, sport, master_pid, workers_pids))
+        sport = sport + 2
+    dbpath = sdbpath
+    host = shost
+    port = sport
+
+    return dbpath, host, port, servers
+
+
+##
+def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ):
+    master_db, worker_db = None, None
+    for try_port in range(port, end_port, 2):
+        print(colorify("Loading server at localhost, port %s-%s" %
+                       (try_port, try_port + 1), 'lblue'))
+
+        dbpath, master_db, workers = load_server(dbpath, try_port, try_port + 1,
+                                                 cpus_per_worker, num_workers = num_workers, dbtype = dbtype)
+        port = try_port
+        ready = False
+        for _ in range(TIMEOUT_LOAD_SERVER):
+            print(f"Waiting for server to become ready at {host}:{port} ...")
+            time.sleep(1)
+            if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
+                master_db.terminate()
+                master_db.join()
+                for worker_db in workers:
+                    worker_db.terminate()
+                    worker_db.join()                        
+                break
+            elif server_functional(host, port, dbtype, qtype):
+                print(f"Server ready at {host}:{port}")
+                ready = True
+                break
+            else:
+                print(f"Waiting for server to become ready at {host}:{port} ...")
+
+        if ready:
+            dbpath = host
+            break
+
+    return dbpath, host, port, master_db, workers
+
+
+##
 def server_up(host, port):
     import socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -159,3 +213,4 @@ def alive(p):
     """ Check For the existence of a unix pid. """
     return p.is_alive()
     
+## END
