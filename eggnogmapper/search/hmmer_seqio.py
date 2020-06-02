@@ -1,4 +1,6 @@
-import os
+##
+
+import os, sys
 import re
 import gzip
 
@@ -6,6 +8,7 @@ CLEAN_SEQ = re.compile("[\s\-\.]+")
 def iter_fasta_seqs(source, translate=False):    
     """Iter seq records in a FASTA file"""
 
+    sys.stderr.write(f"Parsing fasta file {source}...\n")
     if translate:
         from Bio.Seq import Seq
         from Bio.Alphabet import generic_dna

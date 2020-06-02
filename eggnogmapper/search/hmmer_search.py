@@ -199,6 +199,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
 
 
 def iter_hmm_file(hmmfile, skip):
+    sys.stderr.write(f"Parsing hmm file {hmmfile}...\n")
     hmmer_version = None
     model = ''
     name = 'Unknown'
