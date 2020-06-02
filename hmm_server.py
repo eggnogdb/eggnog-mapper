@@ -118,42 +118,13 @@ if __name__ == "__main__":
 
         dbpath, host, port, servers = create_servers(args.dbtype, dbpath, host, port, end_port,
                                                      args.num_servers, args.num_workers, args.cpus_per_worker)
-        
-        # print(colorify(f"Loading server at {host}:{port}; workers port:{wport}", 'green'))
-        
-        # dbpath, master_db, worker_db = load_server(dbpath, port, wport, args.cpu, dbtype = args.dbtype, is_worker = args.is_worker)
-        
-        # ready = False
-        # for _ in range(TIMEOUT_LOAD_SERVER):
-        #     print(f"Waiting for server to become ready at {host}:{port} ...")
-        #     time.sleep(1)
-        #     if master_db.is_alive() and (not args.is_worker or worker_db.is_alive()):
-        #         if not args.is_worker:
-        #             print(colorify("master is UP", 'green'))
-        #             break
-        #         else: # worker_db.is_alive
-        #             if server_functional(host, port, args.dbtype):
-        #                 print(colorify("master and worker are UP", 'green'))
-        #                 break
-                
-        #     elif not master_db.is_alive():
-        #         master_db.terminate()
-        #         master_db.join()
-        #         print(colorify("master not alive"), 'red')
-        #         break
-            
-        #     elif args.is_worker and not worker_db.is_alive():
-        #         worker_db.terminate()
-        #         worker_db.join()
-        #         print(colorify("worker not alive"), 'red')
-        #         break
 
-        # print(colorify("Server ready listening at %s:%s and using %d CPU cores" % (host, port, args.cpu), 'green'))
-        # print(colorify("Use `emapper.py -d %s:%s:%s (...)` to search against this server" % (args.db, host, port), 'lblue'))
+        print(colorify("All servers ready and listening", 'green'))
+        print(colorify("Use `emapper.py (-d db:host:port or --servers_list FILE) to search against these servers", 'lblue'))
         
         while True:
             time.sleep(10)
-        raise emapperException("Server {db}:{host}:{port} stopped.")
+        raise emapperException("Servers stopped.")
         
     except EmapperException as ee:
         print(ee)
