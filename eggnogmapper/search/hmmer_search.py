@@ -222,6 +222,7 @@ def iter_hmm_file(hmmfile, skip):
                     continue
                 yield hmmer_version, name, leng, model
 
+    sys.stderr.write(f"hmm file {hmmfile} parsing complete.\n")
     return
     
 def iter_hmm(hmm):

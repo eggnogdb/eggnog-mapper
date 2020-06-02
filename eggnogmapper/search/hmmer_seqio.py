@@ -56,3 +56,7 @@ def iter_fasta_seqs(source, translate=False):
             yield seq_name, str(prot)
         else:
             yield seq_name, ''.join(seq_chunks)
+
+    sys.stderr.write(f"Fasta file {source} parsing complete.\n")
+    
+    return
