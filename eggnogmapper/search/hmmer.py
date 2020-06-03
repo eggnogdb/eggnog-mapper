@@ -38,7 +38,7 @@ class HmmerSearcher:
     resume = None
     no_file_comments = None
 
-    evalue = score = qcov = Z = maxhits = maxseqlen = cut_ga = None
+    evalue = score = qcov = Z = maxhits = report_no_hits = maxseqlen = cut_ga = None
     excluded_taxa = None
 
     temp_dir = None
@@ -67,6 +67,7 @@ class HmmerSearcher:
         self.no_file_comments = args.no_file_comments
 
         self.maxhits = args.maxhits
+        self.report_no_hits = args.report_no_hits
         self.maxseqlen = args.maxseqlen
         self.cut_ga = args.cut_ga
         
@@ -169,7 +170,7 @@ class HmmerSearcher:
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
-
+        
         # Cache previous results if resuming is enabled
         VISITED = set()
         if self.resume and pexists(hits_file):
@@ -210,6 +211,7 @@ class HmmerSearcher:
                                                             qcov_thr=self.qcov,
                                                             fixed_Z=self.Z,
                                                             max_hits=self.maxhits,
+                                                            report_no_hits=self.report_no_hits,
                                                             skip=VISITED,
                                                             maxseqlen=self.maxseqlen,
                                                             cut_ga=self.cut_ga,
@@ -220,7 +222,7 @@ class HmmerSearcher:
                 # error occurred
                 print('\t'.join(
                     [name] + ['ERROR'] * (len(hits_header) - 1)), file=OUT)
-            elif not hits:
+            elif not hits and self.report_no_hits == True:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
                 

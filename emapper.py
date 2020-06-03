@@ -129,6 +129,9 @@ def create_arg_parser():
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                         help="Max number of hits to report (0 to report all). Default=1.")
 
+    pg_hmmer.add_argument('--report_no_hits', action="store_true",
+                        help="Whether queries without hits should be included in the output table.")
+
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
                         help="Ignore query sequences larger than `maxseqlen`. Default=5000")
         
