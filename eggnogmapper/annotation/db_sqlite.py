@@ -19,6 +19,7 @@ def close():
     global conn
     if conn:
         conn.close()
+        conn = None
 
 
 def get_member_ogs(name):

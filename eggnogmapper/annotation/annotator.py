@@ -193,92 +193,94 @@ def _annotate_hit_line(arguments):
     db_sqlite.connect()
 
     line, seed_ortholog_score, seed_ortholog_evalue, tax_scope, target_taxa, target_orthologs, excluded_taxa, go_evidence, go_excluded = arguments
-
-    if not line.strip() or line.startswith('#'):
-        return None
     
-    r = list(map(str.strip, line.split('\t')))
-
-    query_name = r[0]
-    
-    best_hit_name = r[1]
-    if best_hit_name == '-' or best_hit_name == 'ERROR':
-        return None
-
-    best_hit_evalue = float(r[2])
-    best_hit_score = float(r[3])
-    if best_hit_score < seed_ortholog_score or best_hit_evalue > seed_ortholog_evalue:
-        return None
-
-    match_nogs = get_member_ogs(best_hit_name)
-    if not match_nogs:
-        return None
-
-    match_levels = set()
-    swallowest_og = None
-    swallowest_level = None
-    lvl_depths = set(LEVEL_DEPTH.keys())
-    
-    for nog in match_nogs:
-        nog_lvls = LEVEL_PARENTS[nog.split("@")[1]]
-        match_levels.update(nog_lvls)
-
-        # detect swallowest OG
-        nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
-        nog_depth = LEVEL_DEPTH[nog_lvl]
-        if swallowest_level is None or nog_depth > swallowest_depth:
-            swallowest_depth = nog_depth
-            swallowest_level = nog_lvl
-            swallowest_og = nog.split("@")[0]
-
-    swallowest_level = LEVEL_NAMES.get(swallowest_level, swallowest_level)
-
-    og_cat, og_desc = get_deepest_og_description(swallowest_og)
-
-    match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
-                        sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
-    
-    annot_levels = set()
-    if tax_scope == "auto":
-        for level in TAXONOMIC_RESOLUTION:
-            if level in match_levels:
-                annot_levels.add(level)
-                annot_level_max = LEVEL_NAMES.get(level, level)
-                break
-    else:
-        annot_levels.add(tax_scope)
-        annot_level_max = LEVEL_NAMES.get(tax_scope, tax_scope)
-    
-    if target_taxa != 'all':
-        target_taxa = normalize_target_taxa(target_taxa)
-    else:
-        target_taxa = None
-
     try:
-        all_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
-        
+        if not line.strip() or line.startswith('#'):
+            return None
+
+        r = list(map(str.strip, line.split('\t')))
+
+        query_name = r[0]
+
+        best_hit_name = r[1]
+        if best_hit_name == '-' or best_hit_name == 'ERROR':
+            return None
+
+        best_hit_evalue = float(r[2])
+        best_hit_score = float(r[3])
+        if best_hit_score < seed_ortholog_score or best_hit_evalue > seed_ortholog_evalue:
+            return None
+
+        match_nogs = get_member_ogs(best_hit_name)
+        if not match_nogs:
+            return None
+
+        match_levels = set()
+        swallowest_og = None
+        swallowest_level = None
+        lvl_depths = set(LEVEL_DEPTH.keys())
+
+        for nog in match_nogs:
+            nog_lvls = LEVEL_PARENTS[nog.split("@")[1]]
+            match_levels.update(nog_lvls)
+
+            # detect swallowest OG
+            nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+            nog_depth = LEVEL_DEPTH[nog_lvl]
+            if swallowest_level is None or nog_depth > swallowest_depth:
+                swallowest_depth = nog_depth
+                swallowest_level = nog_lvl
+                swallowest_og = nog.split("@")[0]
+
+        swallowest_level = LEVEL_NAMES.get(swallowest_level, swallowest_level)
+
+        og_cat, og_desc = get_deepest_og_description(swallowest_og)
+
+        match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
+                            sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
+
+        annot_levels = set()
+        if tax_scope == "auto":
+            for level in TAXONOMIC_RESOLUTION:
+                if level in match_levels:
+                    annot_levels.add(level)
+                    annot_level_max = LEVEL_NAMES.get(level, level)
+                    break
+        else:
+            annot_levels.add(tax_scope)
+            annot_level_max = LEVEL_NAMES.get(tax_scope, tax_scope)
+
+        if target_taxa != 'all':
+            target_taxa = normalize_target_taxa(target_taxa)
+        else:
+            target_taxa = None
+
+        try:
+            all_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
+
+        except Exception as e:
+            # print(str(e))
+            orthologs = None
+            status = 'Error'
+        else:
+            orthologs = sorted(all_orthologies[target_orthologs])
+            if excluded_taxa:
+                orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
+            status = 'OK'
+
+        if orthologs:
+            annotations = annota.summarize_annotations(orthologs,
+                                                       annotations_fields = ANNOTATIONS_HEADER,
+                                                       target_go_ev = go_evidence,
+                                                       excluded_go_ev = go_excluded)
+        else:
+            annotations = {}
+
     except Exception as e:
-        # print(str(e))
-        orthologs = None
-        status = 'Error'
-    else:
-        orthologs = sorted(all_orthologies[target_orthologs])
-        
-        # print("annotator: orthologs")
-        # print(orthologs)
-        if excluded_taxa:
-            orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
-        status = 'OK'
-
-    if orthologs:
-        annotations = annota.summarize_annotations(orthologs,
-                                                   annotations_fields = ANNOTATIONS_HEADER,
-                                                   target_go_ev = go_evidence,
-                                                   excluded_go_ev = go_excluded)
-    else:
-        annotations = {}
-
-    db_sqlite.close()
+        print(e)
+        return None
+    finally:
+        db_sqlite.close()
     
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
             annotations, annot_level_max, swallowest_level,
