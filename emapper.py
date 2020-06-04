@@ -151,8 +151,8 @@ def create_arg_parser():
     pg_hmmer.add_argument('--cut_ga', action="store_true",
                           help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")
 
-    pg_hmmer.add_argument('--clean_overlaps', action="store_true",
-                          help="Removes those hits which overlap, keeping only the one with best evalue.")    
+    # pg_hmmer.add_argument('--clean_overlaps', action="store_true",
+    #                       help="Removes those hits which overlap, keeping only the one with best evalue.")    
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
@@ -229,6 +229,8 @@ def create_arg_parser():
 def parse_args(parser):
     
     args = parser.parse_args()
+
+    args.clean_overlaps = False
 
     if args.version:
         print(get_version())
