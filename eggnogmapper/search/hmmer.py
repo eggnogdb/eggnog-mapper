@@ -39,6 +39,7 @@ class HmmerSearcher:
     no_file_comments = None
 
     evalue = score = qcov = Z = maxhits = report_no_hits = maxseqlen = cut_ga = None
+    clean_overlaps = None
     excluded_taxa = None
 
     temp_dir = None
@@ -70,6 +71,7 @@ class HmmerSearcher:
         self.report_no_hits = args.report_no_hits
         self.maxseqlen = args.maxseqlen
         self.cut_ga = args.cut_ga
+        self.clean_overlaps = args.clean_overlaps
         
         self.evalue = args.evalue
         self.score = args.score
@@ -225,17 +227,14 @@ class HmmerSearcher:
             elif not hits and self.report_no_hits == True:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
-                
-                for hitindex, (hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore) in enumerate(hits):
-                    hitname = hid
-                    if idmap_idx:
-                        hitname = idmap_idx[hid][0]
 
-                    print('\t'.join(map(str, [name, hitname, f'{heval:.1e}', f'{hscore:.1f}',
-                                                     int(querylen), int(hmmfrom),
-                                                     int(hmmto), int(sqfrom),
-                                                     int(sqto),
-                                                     float(sqto - sqfrom) / querylen])), file=OUT)
+                if self.clean_overlaps == True:
+                    clean_doms = self.process_overlaps(hits)
+                    self.output_hits(name, querylen, clean_doms, OUT, idmap_idx)
+                    
+                else:
+                    self.output_hits(name, querylen, hits, OUT, idmap_idx)
+                    
             OUT.flush()
 
             qn += 1
@@ -257,6 +256,62 @@ class HmmerSearcher:
         OUT.close()
         print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
                        (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue'))
+
+        return
+
+
+    ##
+    def process_overlaps(self, hits):
+        clean_doms = []
+        total_range = set()
+        
+        for hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore in hits:
+            hmmfrom, hmmto, sqfrom, sqto = map(int, [hmmfrom, hmmto, sqfrom, sqto])
+            new_span = set(range(sqfrom, sqto+1))
+            
+            total_overlap = new_span & total_range
+            if len(total_overlap) > 0:
+                best = True
+                tmp_clean_doms = []
+                tmp_overlapping = []
+
+                for phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore in clean_doms:
+                    prev_span = set(range(psqfrom, psqto+1))
+                    overlap = new_span & prev_span
+                    if len(overlap) > 0 and best == True:
+                        if heval > pheval:
+                            best = False
+                        tmp_overlapping.append([phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore])
+                    else:
+                        tmp_clean_doms.append([phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore])
+                    
+                if best == True:
+                    tmp_clean_doms.append([hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore])
+                else:
+                    tmp_clean_doms.extend(tmp_overlapping)
+
+                # update clean_doms and total_range
+                clean_doms = tmp_clean_doms
+                for phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore in clean_doms:
+                    clean_span = set(range(psqfrom, psqto+1))
+                    total_range.update(clean_span)
+            else:
+                clean_doms.append([hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore])
+                total_range.update(new_span)
+        
+        return clean_doms
+    
+        
+    ##
+    def output_hits(self, name, querylen, hits, OUT, idmap_idx = None):
+        for hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore in hits:
+            hitname = hid
+            if idmap_idx:
+                hitname = idmap_idx[hid][0]
+
+            print('\t'.join(map(str, [name, hitname, f'{heval:.1e}', f'{hscore:.1f}', int(querylen),
+                                      int(hmmfrom), int(hmmto), int(sqfrom), int(sqto),
+                                      float(sqto - sqfrom) / querylen])), file=OUT)
 
         return
 
