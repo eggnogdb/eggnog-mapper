@@ -35,7 +35,7 @@ B62_IDENTITIES = {'A': 4, 'B': 4, 'C': 9, 'D': 6, 'E': 5, 'F': 6, 'G': 6, 'H': 8
 
 
 def iter_hits(source, translate, query_type, dbtype, scantype, host, port, servers = None,
-              evalue_thr=None, score_thr=None, max_hits=None, report_no_hits=False, return_seq=False,
+              evalue_thr=None, score_thr=None, max_hits=None, return_seq=False,
               skip=None, maxseqlen=None, fixed_Z=None, qcov_thr=None, cut_ga=False, cpus=1,
               base_tempdir=None):
 
@@ -60,20 +60,20 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port, serve
     ## On disk searches
     # hmmscan mode
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_HMM:
-        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, report_no_hits=report_no_hits,
-                       cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
+        return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, 
+                       cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga)
 
     # hmmsearch mode
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
         # host is the fasta_file in this case
         # source is the hmm_file in this case
-        return hmmsearch(host, translate, source, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, report_no_hits=report_no_hits,
-                         cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
+        return hmmsearch(host, translate, source, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, 
+                         cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga)
 
     # phmmer mode
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_SEQ:
-        return phmmer(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, report_no_hits=report_no_hits,
-                      cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
+        return phmmer(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, 
+                      cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga)
     
     elif query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_HMM:
         raise Exception("HMM to HMM search is not supported.")        
@@ -138,14 +138,18 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
         hits_start = 120 # First 120 bits are the stats
         hits_end = hits_start
 
+        #The first hit section contains all of the sequence matches
+        #but not domain mataches.
         for hitid in range(nreported):
             hits_end = hits_start + 152
             name, evalue, score, ndom = unpack_hit(binresult[hits_start:hits_end], Z)
             hitdata[hitid] = {"name": name, "evalue": evalue, "score":score, "ndom": ndom, "doms": []}
             hits_start += 152
-
+        
         next_start = hits_end
         reported_hits = []
+        
+        #Now, unpack the domain hits for the sequences
         for hitid in range(nreported):
             hit = hitdata[hitid]
             
@@ -160,7 +164,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
             lasthitname = None
             for domid in range(hit["ndom"]):
                 alibit = struct.unpack("7Q I 4x 3Q 3I 4x 6Q I 4x Q", binresult[next_start:next_start+168])
-
+                
                 (rfline, mmline, csline, model, mline, aseq, ppline, N,
                 hmmname, hmmacc, hmmdesc, hmmfrom, hmmto, M, sqname, sqacc,
                 sqdesc,sqfrom, sqto, L, memsize, mem) = alibit
@@ -169,6 +173,9 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 # ....
                 next_start += (memsize)
                 d = hit["doms"][domid]
+                is_reported = d[10] == 1
+                is_included = d[11] == 1
+                
                 bitscore = d[8]
                 ievalue = math.exp(d[9] * Z)
                 cevalue = math.exp(d[9] * domZ)
@@ -178,7 +185,8 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 
                 if (evalue_thr is None or evalue <= evalue_thr) and \
                     (score_thr is None or score >= score_thr) and \
-                    (max_hits is None or len(reported_hits)+1 <= max_hits or lasthitname == hitname):
+                    (max_hits is None or len(reported_hits)+1 <= max_hits or lasthitname == hitname) and \
+                    is_reported and is_included:
                     
                     reported_hits.append((hitname, evalue, score, hmmfrom,
                                           hmmto, sqfrom, sqto, bitscore))
@@ -234,15 +242,11 @@ def iter_hmm(hmm):
     num_servers = len(servers)
     num_server = hmm_num % num_servers
     host, port = servers[num_server]
-
-    print(f"hmmer_search.py:iter_hmm - Pre scan_hits: {host}, {port}")
         
     data = f'@--{dbtype} 1 {cut_ga}\n{hmmer_version}\n{model}'    
     etime, hits = scan_hits(data, host, port,
                             evalue_thr=evalue_thr, score_thr=score_thr,
                             max_hits=max_hits, fixed_Z=fixed_Z)
-
-    print(f"hmmer_search.py:iter_hmm - Post")
 
     return name, etime, hits, leng, None
     
@@ -280,7 +284,7 @@ def iter_seq(seq):
         return
 
     seq = re.sub("-.", "", seq)
-    data = '@--%s 1%s\n>%s\n%s\n//' % (dbtype, cut_ga, name, seq)
+    data = '@--%s 1%s\n>%s\n%s\n//' % (dbtype, cut_ga, name, seq)    
     etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
                             score_thr=score_thr, max_hits=max_hits,
                             fixed_Z=fixed_Z)
@@ -325,40 +329,40 @@ def get_hits(name, record, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM, 
 
 ##
 def hmmscan(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
-            score_thr=None, max_hits=None, report_no_hits=False, fixed_Z=None, maxseqlen=None,
+            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
             base_tempdir=None):
     
     cmd = HMMSCAN
     return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus, evalue_thr,
-                      score_thr, max_hits, report_no_hits, fixed_Z, maxseqlen,
+                      score_thr, max_hits, fixed_Z, maxseqlen, cut_ga,
                       base_tempdir)
 
 
 ##
 def hmmsearch(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
-              score_thr=None, max_hits=None, report_no_hits=False, fixed_Z=None, maxseqlen=None,
+              score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
               base_tempdir=None):
     
     cmd = HMMSEARCH
     return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus, evalue_thr,
-                      score_thr, max_hits, report_no_hits, fixed_Z, maxseqlen,
+                      score_thr, max_hits, fixed_Z, maxseqlen, cut_ga,
                       base_tempdir)
 
 
 ##
 def phmmer(fasta_file, translate, fasta_target_file, cpus=1, evalue_thr=None,
-           score_thr=None, max_hits=None, report_no_hits=False, fixed_Z=None, maxseqlen=None,
+           score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
            base_tempdir=None):
     
     cmd = PHMMER
     return hmmcommand(cmd, fasta_file, translate, fasta_target_file, cpus, evalue_thr,
-                      score_thr, max_hits, report_no_hits, fixed_Z, maxseqlen,
+                      score_thr, max_hits, fixed_Z, maxseqlen, cut_ga,
                       base_tempdir)
 
 
 ##
 def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
-               score_thr=None, max_hits=None, report_no_hits=False, fixed_Z=None, maxseqlen=None,
+               score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
                base_tempdir=None):
     
     if not hmmer_cmd:
@@ -393,34 +397,39 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
             R.flush()
             hmm_file = R.name
 
-    if report_no_hits == True:
-        # we need the list of queries to be sure that all queries without hits
-        # are reported, which would be consistent with the results from
-        # hmmpgmd
-        queries_dict = {}
-        if hmmer_cmd == HMMSCAN or hmmer_cmd == PHMMER:
-            for name, seq in iter_fasta_seqs(fasta_file, translate=False): # seqs were already translated if needed
-                queries_dict[name] = len(seq)
-        elif hmmer_cmd == HMMSEARCH:
-            with open(hmm_file, 'r') as hmm_data:
-                for line in hmm_data:
-                    if line.startswith("NAME"):
-                        name = line.split()[-1]
+    # if report_no_hits == True:
+    # we need the list of queries to be sure that all queries without hits
+    # are reported, which would be consistent with the results from
+    # hmmpgmd
+    queries_dict = {}
+    if hmmer_cmd == HMMSCAN or hmmer_cmd == PHMMER:
+        for name, seq in iter_fasta_seqs(fasta_file, translate=False): # seqs were already translated if needed
+            queries_dict[name] = len(seq)
+    elif hmmer_cmd == HMMSEARCH:
+        with open(hmm_file, 'r') as hmm_data:
+            for line in hmm_data:
+                if line.startswith("NAME"):
+                    name = line.split()[-1]
 
-                    if line.startswith("LENG"):
-                        queries_dict[name] = int(line.split()[-1]) # query length
+                if line.startswith("LENG"):
+                    queries_dict[name] = int(line.split()[-1]) # query length
 
-        else:
-            raise Exception(f"cmd {hmmer_cmd} is not supported")
+    else:
+        raise Exception(f"cmd {hmmer_cmd} is not supported")
 
     ##
     # Run command
     
     OUT = NamedTemporaryFile(dir=tempdir, mode='w+')
-    
-    cmd = '%s --cpu %s -o /dev/null --domtblout %s %s %s' % (
-        hmmer_cmd, cpus, OUT.name, hmm_file, fasta_file)
-    # print '#', cmd
+
+    if cut_ga:
+        cut_ga = " --cut_ga"
+    else:
+        cut_ga = ""
+        
+    cmd = '%s %s --cpu %s -o /dev/null --domtblout %s %s %s' % (
+        hmmer_cmd, cut_ga, cpus, OUT.name, hmm_file, fasta_file)
+    print(f'# {cmd}')
     sts = subprocess.call(cmd, shell=True)
 
     ##
@@ -479,20 +488,20 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
         # Finally, report results of the last processed query
         if last_query and len(hit_list) > 0:
             yield last_query, 0, hit_list, last_query_len, None
-            if report_no_hits == True:
-                queries_with_hits.add(last_query)
+            # if report_no_hits == True:
+            queries_with_hits.add(last_query)
 
     OUT.close()
     if translate:
         Q.close()
     shutil.rmtree(tempdir)
 
-    if report_no_hits == True:
-        # report queries without hits
-        queries_without_hits = set(queries_dict.keys()) ^ queries_with_hits
-        for query in queries_without_hits:
-            qlen = queries_dict[query]
-            yield query, 0, [], qlen, None
+    # if report_no_hits == True:
+    # report queries without hits
+    queries_without_hits = set(queries_dict.keys()) ^ queries_with_hits
+    for query in queries_without_hits:
+        qlen = queries_dict[query]
+        yield query, 0, [], qlen, None
 
     return
 
