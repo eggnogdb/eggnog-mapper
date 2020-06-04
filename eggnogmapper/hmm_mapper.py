@@ -59,15 +59,14 @@ class HmmMapper:
 
     ##
     def search(self, args, infile):
-        annot = None
 
         args.no_refine = True
         args.excluded_taxa = None
         
         s = HmmerSearcher(args)
-        annot = s.search_hmm_matches(infile, pjoin(self._current_dir, self.hmm_hits_file))
+        s.search_hmm_matches(infile, pjoin(self._current_dir, self.hmm_hits_file))
         
-        return annot
+        return
     
 
     ##
@@ -76,7 +75,7 @@ class HmmMapper:
         print("hmm_mapper: run")
         ##
         # Step 1. Sequence search
-        annot = self.search(args, infile)
+        self.search(args, infile)
 
         ##
         # If running in scratch, move files to real output dir and clean up

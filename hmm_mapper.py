@@ -101,7 +101,10 @@ def create_arg_parser():
                         ' (allows comparing e-values among databases). Default=40,000,000')
 
     pg_hmmer.add_argument('--cut_ga', action="store_true",
-                          help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")    
+                          help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")
+
+    pg_hmmer.add_argument('--clean_overlaps', action="store_true",
+                          help="Removes those hits which overlap, keeping only the one with best evalue.")    
 
     ##
     pg_out = parser.add_argument_group('Output options')
