@@ -87,11 +87,11 @@ def create_arg_parser():
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
                         help="Ignore query sequences larger than `maxseqlen`. Default=5000")
         
-    pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
-                        help="E-value threshold. Default=0.001")
+    pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=None, type=float, metavar='MIN_E-VALUE',
+                          help="E-value threshold. For example, -hmm_evalue 0.001. Default=10")
 
-    pg_hmmer.add_argument('--hmm_score', dest='score', default=20, type=float, metavar='MIN_SCORE',
-                        help="Bit score threshold. Default=20")
+    pg_hmmer.add_argument('--hmm_score', dest='score', default=None, type=float, metavar='MIN_SCORE',
+                          help="Bit score threshold. For example, --hmm_score 20. Default=None")
 
     pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='MIN_QCOV',
                         help="min query coverage (from 0 to 1). Default=(disabled)")
