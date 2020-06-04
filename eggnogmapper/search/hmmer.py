@@ -213,7 +213,6 @@ class HmmerSearcher:
                                                             qcov_thr=self.qcov,
                                                             fixed_Z=self.Z,
                                                             max_hits=self.maxhits,
-                                                            report_no_hits=self.report_no_hits,
                                                             skip=VISITED,
                                                             maxseqlen=self.maxseqlen,
                                                             cut_ga=self.cut_ga,
@@ -222,8 +221,7 @@ class HmmerSearcher:
 
             if elapsed == -1:
                 # error occurred
-                print('\t'.join(
-                    [name] + ['ERROR'] * (len(hits_header) - 1)), file=OUT)
+                print('\t'.join([name] + ['ERROR'] * (len(hits_header) - 1)), file=OUT)
             elif not hits and self.report_no_hits == True:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
@@ -262,6 +260,12 @@ class HmmerSearcher:
 
     ##
     def process_overlaps(self, hits):
+        # for hit in hits:
+        #     print(hit)
+        # sorted_hits = sorted(hits, key=lambda x: float(x[1]))
+        # for hit in sorted_hits:
+        #     print(hit)
+        # sys.exit(1)
         clean_doms = []
         total_range = set()
         
