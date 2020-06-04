@@ -15,7 +15,7 @@ def iter_fasta_seqs(source, translate=False):
     
     if os.path.isfile(source):
         if source.endswith('.gz'):
-            _source = gzip.open(source)
+            _source = gzip.open(source, "rt")
         else:
             _source = open(source, "rU")
     else:
