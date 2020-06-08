@@ -55,7 +55,7 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port, serve
     # "hmmsearch"-like mode
     elif scantype == SCANTYPE_MEM and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
         return iter_hmm_hits(source, cpus, servers, dbtype=dbtype, evalue_thr=evalue_thr, score_thr=score_thr,
-                             max_hits=max_hits, skip=skip, fixed_Z=fixed_Z, cut_ga=cut_ga)
+                             max_hits=max_hits, skip=skip, maxseqlen=maxseqlen, fixed_Z=fixed_Z, cut_ga=cut_ga)
 
     ## On disk searches
     # hmmscan mode
@@ -238,7 +238,7 @@ def iter_hmm_file(hmmfile, skip):
     return
     
 def iter_hmm(hmm):
-    hmm_num, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga = hmm
+    hmm_num, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga = hmm
 
     if skip and name in skip:
         return name, -1, ["SKIPPED"], leng, None
@@ -259,7 +259,8 @@ def iter_hmm(hmm):
     
 def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
                   evalue_thr=None, score_thr=None,
-                  max_hits=None, skip=None, fixed_Z=None, cut_ga=False):
+                  max_hits=None, skip=None, maxseqlen=None,
+                  fixed_Z=None, cut_ga=False):
 
     if cut_ga == True:
         cut_ga = " --cut_ga"
@@ -267,7 +268,8 @@ def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
         cut_ga = ""
         
     pool = multiprocessing.Pool(cpus)
-    for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
+    for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr,
+                                   max_hits, maxseqlen, fixed_Z, skip, cut_ga]
                                   for hmmnum, (hmmer_version, name, leng, model) in
                                   enumerate(iter_hmm_file(hmmfile, skip)))):
         yield r

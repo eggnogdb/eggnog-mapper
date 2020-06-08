@@ -77,8 +77,8 @@ def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbt
                                                  cpus_per_worker, num_workers = num_workers, dbtype = dbtype)
         port = try_port
         ready = False
+        print(f"Waiting for server to become ready at {host}:{port} ...")
         for _ in range(TIMEOUT_LOAD_SERVER):
-            print(f"Waiting for server to become ready at {host}:{port} ...")
             time.sleep(1)
             if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
                 master_db.terminate()
@@ -92,7 +92,8 @@ def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbt
                 ready = True
                 break
             else:
-                print(f"Waiting for server to become ready at {host}:{port} ...")
+                sys.stdout.write(".")
+                sys.stdout.flush()
 
         if ready:
             dbpath = host
@@ -131,8 +132,8 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
             return False
         else:
             return True
-    else:
-        print(colorify("Server is still down", 'red'))
+    # else:
+    #     print(colorify("Server is still down", 'red'))
     return False
 
 def safe_exit(a, b):
