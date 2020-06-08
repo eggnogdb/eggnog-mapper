@@ -187,12 +187,12 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1
         while 1:
             time.sleep(60)
 
-    print(f"Creating hmmpgmd server at {host}:{port} ...")
+    print(f"Creating hmmpgmd server at port {client_port} ...")
     MASTER = Process(target=start_master)
     MASTER.start()
 
     if is_worker == True and num_workers > 0:
-        print(f"Creating hmmpgmd workers ({num_workers}) at {host}:{port} ...")
+        print(f"Creating hmmpgmd workers ({num_workers}) at port {worker_port} ...")
         WORKERS = []
         for i in range(num_workers):
             worker = Process(target=start_worker)
