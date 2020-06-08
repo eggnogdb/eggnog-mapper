@@ -220,8 +220,8 @@ class HmmerSearcher:
                                                             base_tempdir=self.temp_dir):
 
             if elapsed == -1:
-                # error occurred
-                print('\t'.join([name] + ['ERROR'] * (len(hits_header) - 1)), file=OUT)
+                # error occurred. hits should contain a single element with the error msg. e.g. hits = ["ERROR_MSG"]
+                print('\t'.join([name] + hits * (len(hits_header) - 1)), file=OUT)
             elif not hits and self.report_no_hits == True:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:

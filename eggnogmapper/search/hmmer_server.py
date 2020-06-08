@@ -186,11 +186,13 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
-    
+
+    print(f"Creating hmmpgmd server at {host}:{port} ...")
     MASTER = Process(target=start_master)
     MASTER.start()
-        
+
     if is_worker == True and num_workers > 0:
+        print(f"Creating hmmpgmd workers ({num_workers}) at {host}:{port} ...")
         WORKERS = []
         for i in range(num_workers):
             worker = Process(target=start_worker)
