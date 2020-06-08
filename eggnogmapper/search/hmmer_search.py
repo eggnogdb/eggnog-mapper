@@ -129,6 +129,7 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
         binresult = b''
         while len(binresult) < msg_len:
             binresult += s.recv(4096)
+            
         elapsed, nreported, Z, domZ = unpack_stats(binresult[0:120])
         if fixed_Z:
             Z = fixed_Z
@@ -237,8 +238,14 @@ def iter_hmm_file(hmmfile, skip):
     return
     
 def iter_hmm(hmm):
-    hmm_num, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, cut_ga = hmm
+    hmm_num, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga = hmm
 
+    if skip and name in skip:
+        return name, -1, ["SKIPPED"], leng, None
+
+    if maxseqlen and leng > maxseqlen:
+        return name, -1, ["SEQ_TOO_LARGE "+str(leng)], leng, None
+    
     num_servers = len(servers)
     num_server = hmm_num % num_servers
     host, port = servers[num_server]
@@ -260,7 +267,7 @@ def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
         cut_ga = ""
         
     pool = multiprocessing.Pool(cpus)
-    for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, cut_ga]
+    for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr, max_hits, fixed_Z, skip, cut_ga]
                                   for hmmnum, (hmmer_version, name, leng, model) in
                                   enumerate(iter_hmm_file(hmmfile, skip)))):
         yield r
@@ -275,13 +282,13 @@ def iter_seq(seq):
     host, port = servers[num_server]
     
     if skip and name in skip:
-        return
+        return name, -1, ["SKIPPED"], len(seq), None
 
     if maxseqlen and len(seq) > maxseqlen:
-        return name, -1, [], len(seq), None
+        return name, -1, ["SEQ_TOO_LARGE "+str(len(seq))], len(seq), None
 
     if not seq:
-        return
+        return name, -1, ["NO_SEQ_FOUND"], len(seq), None
 
     seq = re.sub("-.", "", seq)
     data = '@--%s 1%s\n>%s\n%s\n//' % (dbtype, cut_ga, name, seq)    
