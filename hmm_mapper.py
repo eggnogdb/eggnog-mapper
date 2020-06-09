@@ -103,8 +103,11 @@ def create_arg_parser():
     pg_hmmer.add_argument('--cut_ga', action="store_true",
                           help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")
 
-    # pg_hmmer.add_argument('--clean_overlaps', action="store_true",
-    #                       help="Removes those hits which overlap, keeping only the one with best evalue.")    
+    pg_hmmer.add_argument('--clean_overlaps', dest="clean_overlaps", type=str, default=None, metavar="none|all|clans|hmmsearch_all|hmmsearch_clans",
+                          help='Removes those hits which overlap, keeping only the one with best evalue. '
+                          'Use the "all" and "clans" options when performing a hmmscan type search (i.e. domains are in the database). '
+                          'Use the "hmmsearch_all" and "hmmsearch_clans" options when using a hmmsearch type search (i.e. domains are the queries from -i file). '
+                          'The "clans" and "hmmsearch_clans" and options will only have effecto for hits to/from Pfam.')
 
     ##
     pg_out = parser.add_argument_group('Output options')
@@ -138,7 +141,9 @@ def parse_args(parser):
     
     args = parser.parse_args()
 
-    args.clean_overlaps = False
+    if args.clean_overlaps is not None:
+        if args.clean_overlaps == "none":
+            args.clean_overlaps = None
 
     if args.version:
         print(get_version())
