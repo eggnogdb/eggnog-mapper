@@ -20,6 +20,7 @@ from .hmmer_seqio import iter_fasta_seqs
 from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ
 from .hmmer_setup import setup_hmm_search, SETUP_TYPE_EGGNOG, SETUP_TYPE_CUSTOM, SETUP_TYPE_REMOTE
 from .hmmer_idmap import load_idmap_idx
+from .hmmer_overlaps import process_overlaps, CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS_CLANS, CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS
 
 class HmmerSearcher:
 
@@ -198,7 +199,10 @@ class HmmerSearcher:
             idmap_idx = load_idmap_idx(idmap_file)
 
         print(colorify("Sequence mapping starts now!", 'green'))
-        
+
+        if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
+            namedhits = []
+            
         qn = -1 # in case nothing to loop bellow
         for name, elapsed, hits, querylen, seq in iter_hits(in_file,
                                                             self.translate,
@@ -226,11 +230,14 @@ class HmmerSearcher:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
 
-                if self.clean_overlaps == True:
-                    clean_doms = self.process_overlaps(hits)
-                    self.output_hits(name, querylen, clean_doms, OUT, idmap_idx)
+                if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS_CLANS]:
+                    hits = process_overlaps(hits, self.clean_overlaps, idmap_idx)
+
+                elif self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
+                    namedhits.append((name, querylen, hits))
                     
-                else:
+                # output
+                if self.clean_overlaps is None or self.clean_overlaps not in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
                     self.output_hits(name, querylen, hits, OUT, idmap_idx)
                     
             OUT.flush()
@@ -245,6 +252,12 @@ class HmmerSearcher:
                        1, total_time, "%0.2f q/s" % ((float(qn + 1) / total_time)), file=sys.stderr)
                 sys.stderr.flush()
 
+        if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
+            sys.stderr.write("Postprocessing overlapping hits...\n")
+            namedhits = process_overlaps(namedhits, self.clean_overlaps, idmap_idx)
+            for (name, querylen, hits) in namedhits:
+                self.output_hits(name, querylen, hits, OUT, idmap_idx)
+
         # Writes final stats
         elapsed_time = time.time() - start_time
         if not self.no_file_comments:
@@ -257,55 +270,7 @@ class HmmerSearcher:
 
         return
 
-
-    ##
-    def process_overlaps(self, hits):
-        # for hit in hits:
-        #     print(hit)
-        # sorted_hits = sorted(hits, key=lambda x: float(x[1]))
-        # for hit in sorted_hits:
-        #     print(hit)
-        # sys.exit(1)
-        clean_doms = []
-        total_range = set()
-        
-        for hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore in hits:
-            hmmfrom, hmmto, sqfrom, sqto = map(int, [hmmfrom, hmmto, sqfrom, sqto])
-            new_span = set(range(sqfrom, sqto+1))
-            
-            total_overlap = new_span & total_range
-            if len(total_overlap) > 0:
-                best = True
-                tmp_clean_doms = []
-                tmp_overlapping = []
-
-                for phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore in clean_doms:
-                    prev_span = set(range(psqfrom, psqto+1))
-                    overlap = new_span & prev_span
-                    if len(overlap) > 0 and best == True:
-                        if heval > pheval:
-                            best = False
-                        tmp_overlapping.append([phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore])
-                    else:
-                        tmp_clean_doms.append([phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore])
-                    
-                if best == True:
-                    tmp_clean_doms.append([hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore])
-                else:
-                    tmp_clean_doms.extend(tmp_overlapping)
-
-                # update clean_doms and total_range
-                clean_doms = tmp_clean_doms
-                for phid, pheval, phscore, phmmfrom, phmmto, psqfrom, psqto, pdomscore in clean_doms:
-                    clean_span = set(range(psqfrom, psqto+1))
-                    total_range.update(clean_span)
-            else:
-                clean_doms.append([hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore])
-                total_range.update(new_span)
-        
-        return clean_doms
     
-        
     ##
     def output_hits(self, name, querylen, hits, OUT, idmap_idx = None):
         for hid, heval, hscore, hmmfrom, hmmto, sqfrom, sqto, domscore in hits:
