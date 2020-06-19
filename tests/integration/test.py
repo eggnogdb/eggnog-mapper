@@ -143,7 +143,7 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m hmmer) command against a eggNOG DB
         '''
-        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact -o bact --output_dir tmp_borrar
+        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact --output_dir tests/integration/out -o bact
         
         ##
         # Setup test
