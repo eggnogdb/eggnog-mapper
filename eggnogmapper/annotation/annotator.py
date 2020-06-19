@@ -202,6 +202,8 @@ def _annotate_hit_line(arguments):
 
         query_name = r[0]
 
+        ##
+        # Filter by empty hit, error, evalue and/or score
         best_hit_name = r[1]
         if best_hit_name == '-' or best_hit_name == 'ERROR':
             return None
@@ -211,17 +213,48 @@ def _annotate_hit_line(arguments):
         if best_hit_score < seed_ortholog_score or best_hit_evalue > seed_ortholog_evalue:
             return None
 
+        ##
+        # Retrieve OGs (orthologs groups) the hit belongs to
         match_nogs = get_member_ogs(best_hit_name)
         if not match_nogs:
             return None
 
+        # match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1])
+        #                     for nog in
+        #                     sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
+        
+        # match_levels = set()
+        # swallowest_og = None
+        # swallowest_level = None
+        # lvl_depths = set(LEVEL_DEPTH.keys())
+
+        # for nog in match_nogs:
+        #     nog_lvls = LEVEL_PARENTS[nog.split("@")[1]]
+        #     match_levels.update(nog_lvls)
+
+        #     # detect swallowest OG
+        #     nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+        #     nog_depth = LEVEL_DEPTH[nog_lvl]
+        #     if swallowest_level is None or nog_depth > swallowest_depth:
+        #         swallowest_depth = nog_depth
+        #         swallowest_level = nog_lvl
+        #         swallowest_og = nog.split("@")[0]
+
+        ##
+        # Obtain a set of tax levels from OGs, and the swallowest_level (best_tax_level)
         match_levels = set()
+        match_nogs_names = []
         swallowest_og = None
         swallowest_level = None
         lvl_depths = set(LEVEL_DEPTH.keys())
 
-        for nog in match_nogs:
-            nog_lvls = LEVEL_PARENTS[nog.split("@")[1]]
+        for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
+            nog_tax = nog.split("@")[1]
+            
+            nog_name = nog+"|"+LEVEL_NAMES.get(nog_tax, nog_tax)
+            match_nogs_names.append(nog_name)
+            
+            nog_lvls = LEVEL_PARENTS[nog_tax]
             match_levels.update(nog_lvls)
 
             # detect swallowest OG
@@ -231,14 +264,13 @@ def _annotate_hit_line(arguments):
                 swallowest_depth = nog_depth
                 swallowest_level = nog_lvl
                 swallowest_og = nog.split("@")[0]
-
+                
         swallowest_level = f"{swallowest_level}|{LEVEL_NAMES.get(swallowest_level, swallowest_level)}"
 
         og_cat, og_desc = get_deepest_og_description(swallowest_og)
 
-        match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1]) for nog in
-                            sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
-
+        ##
+        # Obtain tax levels from which to retrieve co-orthologs
         annot_levels = set()
         if tax_scope == "auto":
             for level in TAXONOMIC_RESOLUTION:
@@ -250,11 +282,17 @@ def _annotate_hit_line(arguments):
             annot_levels.add(tax_scope)
             annot_level_max = f"{tax_scope}|{LEVEL_NAMES.get(tax_scope, tax_scope)}"
 
+        ##
+        # Normalize target_taxa if any
         if target_taxa != 'all':
             target_taxa = normalize_target_taxa(target_taxa)
         else:
             target_taxa = None
 
+        ##
+        # Retrieve co-orthologs of seed ortholog
+        # annot_levels are used to restrict the speciation events retrieved
+        # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
         try:
             all_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
 
@@ -263,11 +301,14 @@ def _annotate_hit_line(arguments):
             orthologs = None
             status = 'Error'
         else:
+            # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
             orthologs = sorted(all_orthologies[target_orthologs])
             if excluded_taxa:
                 orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
             status = 'OK'
 
+        ##
+        # Retrieve annotations of co-orthologs
         if orthologs:
             annotations = annota.summarize_annotations(orthologs,
                                                        annotations_fields = ANNOTATIONS_HEADER,
