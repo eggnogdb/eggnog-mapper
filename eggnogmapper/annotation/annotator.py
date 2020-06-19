@@ -232,7 +232,7 @@ def _annotate_hit_line(arguments):
                 swallowest_level = nog_lvl
                 swallowest_og = nog.split("@")[0]
 
-        swallowest_level = LEVEL_NAMES.get(swallowest_level, swallowest_level)
+        swallowest_level = f"{swallowest_level}|{LEVEL_NAMES.get(swallowest_level, swallowest_level)}"
 
         og_cat, og_desc = get_deepest_og_description(swallowest_og)
 
@@ -244,11 +244,11 @@ def _annotate_hit_line(arguments):
             for level in TAXONOMIC_RESOLUTION:
                 if level in match_levels:
                     annot_levels.add(level)
-                    annot_level_max = LEVEL_NAMES.get(level, level)
+                    annot_level_max = f"{level}|{LEVEL_NAMES.get(level, level)}"
                     break
         else:
             annot_levels.add(tax_scope)
-            annot_level_max = LEVEL_NAMES.get(tax_scope, tax_scope)
+            annot_level_max = f"{tax_scope}|{LEVEL_NAMES.get(tax_scope, tax_scope)}"
 
         if target_taxa != 'all':
             target_taxa = normalize_target_taxa(target_taxa)
