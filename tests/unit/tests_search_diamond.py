@@ -36,7 +36,7 @@ class Test(unittest.TestCase):
         output_file = "tests/unit/out/test_run_diamond_blastp.seed_orthologs"
                 
         searcher = DiamondSearcher(args)
-        cmd = searcher.run_diamond(fasta_file, output_file, silent = True)
+        cmd = searcher.run_diamond(fasta_file, output_file)
         
         self.assertIsNotNone(cmd)
         self.assertTrue(cmd.startswith(DIAMOND))
@@ -63,7 +63,7 @@ class Test(unittest.TestCase):
                 
         searcher = DiamondSearcher(args)
         
-        cmd = searcher.run_diamond(fasta_file, output_file, silent = True)
+        cmd = searcher.run_diamond(fasta_file, output_file)
         
         self.assertIsNotNone(cmd)
         self.assertTrue(cmd.startswith(DIAMOND))

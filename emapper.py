@@ -347,8 +347,9 @@ if __name__ == "__main__":
     except EmapperException as ee:
         print(ee)
         sys.exit(1)
-    except Exception:
+    except Exception as e:
         traceback.print_exc()
+        # print(e)
         sys.exit(1)
     else:
         print("FINISHED")

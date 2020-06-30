@@ -7,6 +7,7 @@ import subprocess
 from tempfile import mkdtemp
 import uuid
 
+from ..emapperException import EmapperException
 from ..common import DIAMOND, get_eggnog_dmnd_db, get_call_info
 from ..utils import colorify
 
@@ -60,11 +61,11 @@ class DiamondSearcher:
         tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=self.temp_dir)
         try:
             output_file = pjoin(tempdir, uuid.uuid4().hex)
-            cmd = self.run_diamond(in_file, output_file, silent = True)
+            cmd = self.run_diamond(in_file, output_file)
             parsed = self.parse_diamond(output_file)            
             self.output_diamond(cmd, parsed, seed_orthologs_file)
 
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             raise e
         finally:
             shutil.rmtree(tempdir)
@@ -72,7 +73,7 @@ class DiamondSearcher:
         return
 
     ##
-    def run_diamond(self, fasta_file, output_file, silent = False):
+    def run_diamond(self, fasta_file, output_file):
                
         cmd = (
             f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
@@ -87,16 +88,11 @@ class DiamondSearcher:
         if self.excluded_taxa: cmd += " --max-target-seqs 25 "
         else: cmd += " --top 3 "
 
-        if silent == True:
-            with open(output_file+'.stdout', 'w') as STDOUT, \
-                 open(output_file+'.stderr', 'w') as STDERR:
-                subprocess.check_call(cmd, shell=True, stdout=STDOUT, stderr=STDERR)
-                
-        else:
-            print(colorify('  '+cmd, 'yellow'))
-            
-            with open(output_file+'.stdout', 'w') as STDOUT:
-                subprocess.check_call(cmd, shell=True, stdout=STDOUT)
+        print(colorify('  '+cmd, 'yellow'))
+        try:
+            completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
+        except subprocess.CalledProcessError as cpe:
+            raise EmapperException("Error running diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
 
         return cmd
 
