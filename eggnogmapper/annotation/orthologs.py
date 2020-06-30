@@ -44,7 +44,7 @@ def get_member_orthologs(member, target_taxa=None, target_levels=None):
 def __setup_orthology(member, target_taxa, target_levels):
     orthology = {}
     
-    query_taxa = member.split('.', 1)[0]
+    # query_taxa = member.split('.', 1)[0]
     if target_taxa:
         target_taxa = list(map(str, target_taxa))
     member_as_set = set([member])
@@ -55,8 +55,8 @@ def __setup_orthology(member, target_taxa, target_levels):
         side2 = [m.split('.', 1) for m in _side2.split(',')]
 
         # filter by taxa (by species)
-        by_sp1 = __by_species(side1, target_taxa, query_taxa)
-        by_sp2 = __by_species(side2, target_taxa, query_taxa)
+        by_sp1 = __by_species(side1, target_taxa)#, query_taxa)
+        by_sp2 = __by_species(side2, target_taxa)#, query_taxa)
         
         # merge by coorthologs
         __set_coorthologs(by_sp1, by_sp2, member_as_set, orthology)
@@ -77,11 +77,11 @@ def __set_coorthologs(by_sp1, by_sp2, target_members, orthology):
     return
 
 
-def __by_species(side, target_taxa, query_taxa):
+def __by_species(side, target_taxa):#, query_taxa):
     by_sp = {}
     # t: taxa; s: sequence
     for t, s in side:            
-        if not target_taxa or t in target_taxa or t == query_taxa:
+        if not target_taxa or t in target_taxa:# or t == query_taxa:
             mid = "%s.%s" % (t, s)
             by_sp.setdefault(t, set()).add(mid)
     return by_sp
