@@ -176,20 +176,20 @@ def create_arg_parser():
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated. Default=60')
     
-    pg_annot.add_argument("--tax_scope", type=str, choices=["TAXID", "auto"], #choices=list(LEVEL_NAMES.keys())+["auto"],
+    pg_annot.add_argument("--tax_scope", type=str, choices=["auto", "TAXID"],
                           default='auto', 
-                          help=("Fix the taxonomic scope used for annotation, so only orthologs from a "
+                          help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
                                 "particular clade are used for functional transfer. "
-                                "By default, this is automatically adjusted for every query sequence."))
+                                "By default ('auto'), it is automatically adjusted for every query sequence."))
 
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
                                                          "one2many","many2many", "all"],
                           default="all",
                           help='defines what type of orthologs (in relation to the seed ortholog) should be used for functional transfer')
 
-    pg_annot.add_argument('--target_taxa', type=str,
+    pg_annot.add_argument('--target_taxa', type=str, 
                             default="all", metavar='TAXID', nargs="+",
-                            help='taxa that will be searched for orthologs')
+                            help="Broadest taxa which will used to search for orthologs. By default ('all'), all taxa are used.")
 
     pg_annot.add_argument('--excluded_taxa', type=int, metavar='TAXID',
                           help='(for debugging and benchmark purposes)')
