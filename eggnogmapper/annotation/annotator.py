@@ -184,7 +184,7 @@ def annotate_hit_line(arguments):
         raise
 
     return
-
+        
 ##
 def _annotate_hit_line(arguments):
 
@@ -198,47 +198,25 @@ def _annotate_hit_line(arguments):
         if not line.strip() or line.startswith('#'):
             return None
 
+        ##
+        # Split fields of search results
         r = list(map(str.strip, line.split('\t')))
 
         query_name = r[0]
+        best_hit_name = r[1]
+        best_hit_evalue = float(r[2])
+        best_hit_score = float(r[3])
 
         ##
         # Filter by empty hit, error, evalue and/or score
-        best_hit_name = r[1]
-        if best_hit_name == '-' or best_hit_name == 'ERROR':
+        if filter_out(best_hit_name, best_hit_evalue, best_hit_score, seed_ortholog_evalue, seed_ortholog_score):
             return None
-
-        best_hit_evalue = float(r[2])
-        best_hit_score = float(r[3])
-        if best_hit_score < seed_ortholog_score or best_hit_evalue > seed_ortholog_evalue:
-            return None
-
+                
         ##
         # Retrieve OGs (orthologs groups) the hit belongs to
         match_nogs = get_member_ogs(best_hit_name)
         if not match_nogs:
             return None
-
-        # match_nogs_names = [nog+"|"+LEVEL_NAMES.get(nog.split("@")[1], nog.split("@")[1])
-        #                     for nog in
-        #                     sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])]
-        
-        # match_levels = set()
-        # swallowest_og = None
-        # swallowest_level = None
-        # lvl_depths = set(LEVEL_DEPTH.keys())
-
-        # for nog in match_nogs:
-        #     nog_lvls = LEVEL_PARENTS[nog.split("@")[1]]
-        #     match_levels.update(nog_lvls)
-
-        #     # detect swallowest OG
-        #     nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
-        #     nog_depth = LEVEL_DEPTH[nog_lvl]
-        #     if swallowest_level is None or nog_depth > swallowest_depth:
-        #         swallowest_depth = nog_depth
-        #         swallowest_level = nog_lvl
-        #         swallowest_og = nog.split("@")[0]
 
         ##
         # Obtain a set of tax levels from OGs, and the swallowest_level (best_tax_level)
@@ -327,6 +305,18 @@ def _annotate_hit_line(arguments):
             annotations, annot_level_max, swallowest_level,
             og_cat, og_desc, match_nogs_names, orthologs)
 
+##
+def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_score):
+    """
+    Filter hit if ERROR, by score or by evalue
+    """
+    if hit_name == '-' or hit_name == 'ERROR':
+        return True
+    
+    if hit_score < threshold_score or hit_evalue > threshold_evalue:
+        return True
+    
+    return False
 
 ##
 def normalize_target_taxa(target_taxa):
