@@ -220,29 +220,8 @@ def _annotate_hit_line(arguments):
 
         ##
         # Obtain a set of tax levels from OGs, and the swallowest_level (best_tax_level)
-        match_levels = set()
-        match_nogs_names = []
-        swallowest_og = None
-        swallowest_level = None
-        lvl_depths = set(LEVEL_DEPTH.keys())
-
-        for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
-            nog_tax = nog.split("@")[1]
-            
-            nog_name = nog+"|"+LEVEL_NAMES.get(nog_tax, nog_tax)
-            match_nogs_names.append(nog_name)
-            
-            nog_lvls = LEVEL_PARENTS[nog_tax]
-            match_levels.update(nog_lvls)
-
-            # detect swallowest OG
-            nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
-            nog_depth = LEVEL_DEPTH[nog_lvl]
-            if swallowest_level is None or nog_depth > swallowest_depth:
-                swallowest_depth = nog_depth
-                swallowest_level = nog_lvl
-                swallowest_og = nog.split("@")[0]
-                
+        match_levels, match_nogs_names, swallowest_og, swallowest_level = get_nogs_levels(match_nogs)
+        
         swallowest_level = f"{swallowest_level}|{LEVEL_NAMES.get(swallowest_level, swallowest_level)}"
 
         og_cat, og_desc = get_deepest_og_description(swallowest_og)
@@ -305,6 +284,34 @@ def _annotate_hit_line(arguments):
             annotations, annot_level_max, swallowest_level,
             og_cat, og_desc, match_nogs_names, orthologs)
 
+##
+def get_nogs_levels(match_nogs):        
+    match_levels = set()
+    match_nogs_names = []
+    swallowest_og = None
+    swallowest_level = None
+
+    lvl_depths = set(LEVEL_DEPTH.keys())
+
+    for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
+        nog_tax = nog.split("@")[1]
+
+        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax, nog_tax)}"
+        match_nogs_names.append(nog_name)
+
+        nog_lvls = LEVEL_PARENTS[nog_tax]
+        match_levels.update(nog_lvls)
+
+        # detect swallowest OG
+        nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
+        nog_depth = LEVEL_DEPTH[nog_lvl]
+        if swallowest_level is None or nog_depth > swallowest_depth:
+            swallowest_depth = nog_depth
+            swallowest_level = nog_lvl
+            swallowest_og = nog.split("@")[0]
+
+    return match_levels, match_nogs_names, swallowest_og, swallowest_level
+        
 ##
 def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_score):
     """
