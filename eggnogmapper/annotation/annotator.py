@@ -5,6 +5,7 @@ import sys
 import time
 import multiprocessing
 
+from ..emapperException import EmapperException
 from ..common import get_call_info, TAXONOMIC_RESOLUTION
 from ..utils import colorify
 from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
@@ -18,11 +19,14 @@ HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
               "seed_ortholog_evalue",
               "seed_ortholog_score",
-              "best_tax_level",
-              "COG Functional cat.",
-              "eggNOG free text desc.",              
               "eggNOG OGs",
-              "taxonomic_scope"]
+              "narr_og_name",
+              "narr_og_cat",
+              "narr_og_desc"]
+
+BEST_OG_HEADER = ["best_og_name",
+                  "best_og_cat",
+                  "best_og_desc"]
 
 ANNOTATIONS_HEADER = ['Preferred_name',
                       'GOs',
@@ -53,9 +57,9 @@ class Annotator:
     no_file_comments = cpu = None
 
     seed_ortholog_score = seed_ortholog_evalue = None
-    tax_scope = target_taxa = target_orthologs = excluded_taxa = None
+    tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
     go_evidence = go_excluded = None
-
+    
     ##
     def __init__(self, args, annot, report_orthologs):
 
@@ -66,7 +70,9 @@ class Annotator:
         self.cpu = args.cpu
         self.seed_ortholog_score = args.seed_ortholog_score
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
-        self.tax_scope = args.tax_scope
+
+        self.tax_scope_mode, self.tax_scope_id = self.__parse_tax_scope(args.tax_scope)
+                
         self.target_taxa = args.target_taxa
         self.target_orthologs = args.target_orthologs
         self.excluded_taxa = args.excluded_taxa
@@ -75,6 +81,51 @@ class Annotator:
         
         return
 
+
+    ##
+    # Parses tax_scope command line argument
+    # to define tax_scope_mode and tax_scope_id (one or more tax IDs)
+    def __parse_tax_scope(self, tax_scope):
+        tax_scope_mode = None
+        tax_scope_id = None
+
+        tax_scope_fields = tax_scope.strip().split(",")
+        tax_scope_mode = tax_scope_fields[0]
+
+        # Auto
+        if tax_scope_mode == "auto":
+            # if len(tax_scope_fields) > 1:
+            #     tax_scope_mode = "auto_custom"
+            #     tax_scope_id = tax_scope_fields[1:]
+            # else:
+            tax_scope_id = None
+
+        # Narrowest
+        elif tax_scope_mode == "narrowest":
+            tax_scope_id = None
+
+        # Tax IDs
+        else:
+            # Only the specified tax ID
+            if len(tax_scope_fields) == 1:
+                tax_scope_mode = "none"
+                tax_scope_id = [tax_scope_fields[0]]
+
+            # Tax ID lis, with or without mode for those not found in the list
+            elif len(tax_scope_fields) > 1:
+                last_pos = tax_scope_fields[-1]
+                if last_pos in ["narrowest", "none"]:
+                    tax_scope_mode = last_pos
+                    tax_scope_id = tax_scope_fields[:-1]
+                else:
+                    tax_scope_mode = "none"
+                    tax_scope_id = tax_scope_fields
+            else:
+                raise EmapperException(f"Error: unrecognized tax scope format {tax_scope}.")
+
+        return tax_scope_mode, tax_scope_id
+
+    
     ##
     def annotate(self, seed_orthologs_file, annot_file, orthologs_file):
         
@@ -95,7 +146,10 @@ class Annotator:
 
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
-                print('\t'.join(HIT_HEADER + ANNOTATIONS_HEADER), file=OUT)
+                print('\t'.join(HIT_HEADER), end="\t", file=OUT)
+                if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
+                    print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)                    
+                print('\t'.join(ANNOTATIONS_HEADER), file=OUT)
 
             for annot_columns in all_annotations:
                 print('\t'.join(annot_columns), file=OUT)
@@ -120,37 +174,48 @@ class Annotator:
         pool = multiprocessing.Pool(self.cpu)
 
         qn = 0
-        for result in pool.imap(annotate_hit_line, self.iter_hit_lines(seed_orthologs_file)):
-            qn += 1
-            if qn and (qn % 500 == 0):
-                total_time = time.time() - start_time
-                print(f"{pq} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
-                # print(qn, total_time, "%0.2f q/s (func. annotation)" % ((float(qn) / total_time)), file=sys.stderr)
-                sys.stderr.flush()
+        try:
+            for result in pool.imap(annotate_hit_line, self.iter_hit_lines(seed_orthologs_file)):
+                qn += 1
+                if qn and (qn % 500 == 0):
+                    total_time = time.time() - start_time
+                    print(f"{pq} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
+                    # print(qn, total_time, "%0.2f q/s (func. annotation)" % ((float(qn) / total_time)), file=sys.stderr)
+                    sys.stderr.flush()
 
-            if result:
-                (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-                 annotations, annot_level_max, swallowest_level,
-                 og_cat, og_desc, match_nogs_names, orthologs) = result
+                if result:
+                    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+                     annotations, 
+                     narr_og_name, narr_og_cat, narr_og_desc,
+                     best_og_name, best_og_cat, best_og_desc,                     
+                     match_nogs_names, orthologs) = result
 
-                if self.report_orthologs:
-                    all_orthologs.append((query_name, orthologs))
-                    
-                if self.annot:
-                    # prepare annotations for printing
-                    annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
-                                     swallowest_level, og_cat.replace('\n', ''), og_desc.replace('\n', ' '),
-                                     ",".join(match_nogs_names), annot_level_max]
-                
-                    for h in ANNOTATIONS_HEADER:
-                        if h in annotations:
-                            annot_columns.append(','.join(sorted(annotations[h])))
-                        else:
-                            annot_columns.append('-')
+                    if self.report_orthologs:
+                        all_orthologs.append((query_name, orthologs))
 
-                    all_annotations.append(annot_columns)
+                    if self.annot:
+                        # prepare annotations for printing
+                        annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
+                                         ",".join(match_nogs_names), 
+                                         narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
 
-        pool.terminate()
+                        if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
+                            annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
+
+                        for h in ANNOTATIONS_HEADER:
+                            if h in annotations:
+                                annot_columns.append(','.join(sorted(annotations[h])))
+                            else:
+                                annot_columns.append('-')
+
+                        all_annotations.append(annot_columns)
+
+        except EmapperException:
+            raise
+        except Exception as e:
+            raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
+        finally:
+            pool.terminate()
 
         elapsed_time = time.time() - start_time
 
@@ -166,33 +231,23 @@ class Annotator:
                 continue
             
             yield_tuple = (line, self.seed_ortholog_score, self.seed_ortholog_evalue,
-                   self.tax_scope, self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                   self.go_evidence, self.go_excluded)
+                           self.tax_scope_mode, self.tax_scope_id, self.target_taxa, self.target_orthologs, self.excluded_taxa,
+                           self.go_evidence, self.go_excluded)
             
             yield yield_tuple
             
         return
 
+    
 # annotate_hit_line is outside the class because must be pickable
 ##
 def annotate_hit_line(arguments):
-    try:
-        return _annotate_hit_line(arguments)
-    except:
-        import traceback
-        traceback.print_exc(file=sys.stdout)
-        raise
-
-    return
-        
-##
-def _annotate_hit_line(arguments):
 
     # should connect also if no previous connection
     # exists in this Pool process (worker)
     db_sqlite.connect()
 
-    line, seed_ortholog_score, seed_ortholog_evalue, tax_scope, target_taxa, target_orthologs, excluded_taxa, go_evidence, go_excluded = arguments
+    line, seed_ortholog_score, seed_ortholog_evalue, tax_scope_mode, tax_scope_id, target_taxa, target_orthologs, excluded_taxa, go_evidence, go_excluded = arguments
     
     try:
         if not line.strip() or line.startswith('#'):
@@ -211,33 +266,31 @@ def _annotate_hit_line(arguments):
         # Filter by empty hit, error, evalue and/or score
         if filter_out(best_hit_name, best_hit_evalue, best_hit_score, seed_ortholog_evalue, seed_ortholog_score):
             return None
-                
+        
         ##
         # Retrieve OGs (orthologs groups) the hit belongs to
         match_nogs = get_member_ogs(best_hit_name)
         if not match_nogs:
             return None
-
-        ##
-        # Obtain a set of tax levels from OGs, and the swallowest_level (best_tax_level)
-        match_levels, match_nogs_names, swallowest_og, swallowest_level = get_nogs_levels(match_nogs)
         
-        swallowest_level = f"{swallowest_level}|{LEVEL_NAMES.get(swallowest_level, swallowest_level)}"
-
-        og_cat, og_desc = get_deepest_og_description(swallowest_og)
-
         ##
-        # Obtain tax levels from which to retrieve co-orthologs
+        # Obtain names of OGs and the best OG according to tax_scope
+        match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
+        
         annot_levels = set()
-        if tax_scope == "auto":
-            for level in TAXONOMIC_RESOLUTION:
-                if level in match_levels:
-                    annot_levels.add(level)
-                    annot_level_max = f"{level}|{LEVEL_NAMES.get(level, level)}"
-                    break
+        annot_levels.add(best_og_level)
+                
+        # swallowest_level = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
+        if best_og_id is None:
+            best_og_name = "-"
+            best_og_cat = "-"
+            best_og_desc = "-"
         else:
-            annot_levels.add(tax_scope)
-            annot_level_max = f"{tax_scope}|{LEVEL_NAMES.get(tax_scope, tax_scope)}"
+            best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
+            best_og_cat, best_og_desc = get_og_description(best_og_id)
+
+        narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
+        narr_og_cat, narr_og_desc = get_og_description(narr_og_id)
 
         ##
         # Normalize target_taxa if any
@@ -275,42 +328,92 @@ def _annotate_hit_line(arguments):
             annotations = {}
 
     except Exception as e:
-        print(e)
-        return None
+        raise EmapperException(f"Error: annotation went wrong for line \"{line.strip()}\". "+str(e))
+    
     finally:
         db_sqlite.close()
     
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            annotations, annot_level_max, swallowest_level,
-            og_cat, og_desc, match_nogs_names, orthologs)
+            annotations,
+            narr_og_name, narr_og_cat, narr_og_desc,
+            best_og_name, best_og_cat, best_og_desc,
+            match_nogs_names, orthologs)
+
 
 ##
-def get_nogs_levels(match_nogs):        
-    match_levels = set()
+def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):        
     match_nogs_names = []
-    swallowest_og = None
-    swallowest_level = None
+    best_og_id = None
+    best_og_level = None
+    best_og_depth = None
+    narr_og_id = None
+    narr_og_level = None
+    narr_og_depth = None
 
     lvl_depths = set(LEVEL_DEPTH.keys())
-
+    
+    # tax_scope_id_2 = [x for x in tax_scope_id]
+    tax_scope_id_2 = tax_scope_id
+    
     for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
-        nog_tax = nog.split("@")[1]
+        nog_id = nog.split("@")[0]
+        nog_level = nog.split("@")[1]
 
-        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax, nog_tax)}"
+        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_level, nog_level)}"
         match_nogs_names.append(nog_name)
 
-        nog_lvls = LEVEL_PARENTS[nog_tax]
-        match_levels.update(nog_lvls)
+        nog_depth = LEVEL_DEPTH[nog_level]
 
-        # detect swallowest OG
-        nog_lvl = sorted(set(nog_lvls) & set(lvl_depths), key=lambda x: LEVEL_DEPTH[x], reverse=True)[0]
-        nog_depth = LEVEL_DEPTH[nog_lvl]
-        if swallowest_level is None or nog_depth > swallowest_depth:
-            swallowest_depth = nog_depth
-            swallowest_level = nog_lvl
-            swallowest_og = nog.split("@")[0]
+        # Obtain narrowest OG
+        if narr_og_depth is None or nog_depth >= narr_og_depth:
+            narr_og_id = nog_id
+            narr_og_level = nog_level
+            narr_og_depth = nog_depth
+            if tax_scope_id is None and tax_scope_mode == "narrowest":
+                best_og_id = narr_og_id
+                best_og_level = narr_og_level
+                best_og_depth = narr_og_depth
 
-    return match_levels, match_nogs_names, swallowest_og, swallowest_level
+        # Obtain best OG based on tax scope
+        if tax_scope_id is None:
+            if tax_scope_mode == "auto":
+                for level in TAXONOMIC_RESOLUTION:
+                    if level == nog_level:
+                        best_og_id = nog_id
+                        best_og_level = nog_level
+                        best_og_depth = nog_depth
+                        break
+
+            elif tax_scope_mode == "narrowest":
+                pass # Already processed above
+
+            else:
+                raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}")    
+
+        else: # tax_scope_id is not None:
+            for i, level in enumerate(tax_scope_id_2):
+                if level == nog_level:
+                    best_og_id = nog_id
+                    best_og_level = nog_level
+                    best_og_depth = nog_depth
+                    tax_scope_id_2 = tax_scope_id_2[:i+1]
+                    break
+
+    if best_og_id is None:
+        if tax_scope_mode == "none":
+            pass
+        elif tax_scope_mode == "narrowest":
+            best_og_id = narr_og_id
+            best_og_level = narr_og_level
+            best_og_depth = narr_og_depth
+        else:
+            raise EmapperException(f"Error. Unrecognized tax scope mode {tax_scope_mode}.")
+        
+    # print(match_nogs_names)
+    # print(f"Best OG: {best_og_id}-{best_og_level}")
+
+    return match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level
+
         
 ##
 def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_score):
@@ -358,10 +461,10 @@ def get_member_ogs(name):
     return ogs
 
 
-def get_deepest_og_description(deeper_og):
+def get_og_description(og):
     best = [None, '', '']
     
-    for og, nm, desc, cat in db_sqlite.get_ogs_description(deeper_og):
+    for og, nm, desc, cat in db_sqlite.get_ogs_description(og):
         desc = desc.strip()
         if desc and desc != 'N/A' and desc != 'NA':
             best = [nm, cat, desc]
