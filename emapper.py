@@ -176,11 +176,17 @@ def create_arg_parser():
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated. Default=60')
     
-    pg_annot.add_argument("--tax_scope", type=str, choices=["auto", "TAXID"],
-                          default='auto', 
+    pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
                                 "particular clade are used for functional transfer. "
-                                "By default ('auto'), it is automatically adjusted for every query sequence."))
+                                "By default ('auto'), it is automatically adjusted for every query sequence, with a predefined list of tax IDs. "
+                                "Use 'narrowest' to use the deepest or narrowest taxon among the OGs identified for each hit. "
+                                "Use a comma-separated list of tax IDs to choose an OG among the OGs identified for each hit. "
+                                "The list of tax IDs can be followed by 'narrowest' or 'none', to specify the behaviour when the tax ID is not found among OGs. "
+                                "If only the list of tax IDs is specified, the default behaviour is 'none', "
+                                "so that no OG will be used for annotation if not found among the tax IDs. "
+                                "If 'narrowest' is specified, if no OG is found among the list of tax IDs, the narrowest OG will be used for annotation. "
+                                "An example of list of tax IDs would be 2759,2157,2,1 for euk, arch, bact and root, in that order of preference. "))
 
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
                                                          "one2many","many2many", "all"],
