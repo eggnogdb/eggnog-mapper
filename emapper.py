@@ -273,6 +273,19 @@ def __parse_tax_scope(tax_scope):
         else:
             raise EmapperException(f"Error: unrecognized tax scope format {tax_scope}.")
 
+        if tax_scope_id is not None and len(tax_scope_id) > 0:
+            tax_scope_id_int = []
+            from eggnogmapper.vars import LEVEL_NAMES, LEVEL_DICT
+            for tax_id in tax_scope_id:
+                if tax_id in LEVEL_NAMES:
+                    tax_scope_id_int.append(tax_id)
+                elif tax_id in LEVEL_DICT:
+                    tax_scope_id_int.append(LEVEL_DICT[tax_id])
+                else:
+                    raise EmapperException(f"Unrecognized tax ID or tax name {tax_id}.")
+
+            tax_scope_id = tax_scope_id_int
+
     return tax_scope_mode, tax_scope_id
 
 
