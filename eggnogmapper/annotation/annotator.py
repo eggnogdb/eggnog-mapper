@@ -355,6 +355,7 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
                     best_og_id = nog_id
                     best_og_level = nog_tax_id
                     best_og_depth = nog_depth
+                    # only leave IDs of equal or more priority (left-most in the list)
                     tax_scope_id_2 = tax_scope_id_2[:i+1]
                     break
 
