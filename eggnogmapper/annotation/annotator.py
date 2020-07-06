@@ -71,7 +71,8 @@ class Annotator:
         self.seed_ortholog_score = args.seed_ortholog_score
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 
-        self.tax_scope_mode, self.tax_scope_id = self.__parse_tax_scope(args.tax_scope)
+        self.tax_scope_mode = args.tax_scope_mode
+        self.tax_scope_id = args.tax_scope_id
                 
         self.target_taxa = args.target_taxa
         self.target_orthologs = args.target_orthologs
@@ -80,50 +81,6 @@ class Annotator:
         self.go_excluded = args.go_excluded
         
         return
-
-
-    ##
-    # Parses tax_scope command line argument
-    # to define tax_scope_mode and tax_scope_id (one or more tax IDs)
-    def __parse_tax_scope(self, tax_scope):
-        tax_scope_mode = None
-        tax_scope_id = None
-
-        tax_scope_fields = tax_scope.strip().split(",")
-        tax_scope_mode = tax_scope_fields[0]
-
-        # Auto
-        if tax_scope_mode == "auto":
-            # if len(tax_scope_fields) > 1:
-            #     tax_scope_mode = "auto_custom"
-            #     tax_scope_id = tax_scope_fields[1:]
-            # else:
-            tax_scope_id = None
-
-        # Narrowest
-        elif tax_scope_mode == "narrowest":
-            tax_scope_id = None
-
-        # Tax IDs
-        else:
-            # Only the specified tax ID
-            if len(tax_scope_fields) == 1:
-                tax_scope_mode = "none"
-                tax_scope_id = [tax_scope_fields[0]]
-
-            # Tax ID lis, with or without mode for those not found in the list
-            elif len(tax_scope_fields) > 1:
-                last_pos = tax_scope_fields[-1]
-                if last_pos in ["narrowest", "none"]:
-                    tax_scope_mode = last_pos
-                    tax_scope_id = tax_scope_fields[:-1]
-                else:
-                    tax_scope_mode = "none"
-                    tax_scope_id = tax_scope_fields
-            else:
-                raise EmapperException(f"Error: unrecognized tax scope format {tax_scope}.")
-
-        return tax_scope_mode, tax_scope_id
 
     
     ##
