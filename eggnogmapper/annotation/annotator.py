@@ -104,8 +104,11 @@ class Annotator:
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
                 print('\t'.join(HIT_HEADER), end="\t", file=OUT)
+                
+                # If tax_scope_mode == narrowest there is no need to output best_og colums
                 if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
-                    print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)                    
+                    print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)
+                    
                 print('\t'.join(ANNOTATIONS_HEADER), file=OUT)
 
             for annot_columns in all_annotations:
@@ -156,6 +159,7 @@ class Annotator:
                                          ",".join(match_nogs_names), 
                                          narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
 
+                        # If tax_scope_mode == narrowest there is no need to output best_og colums
                         if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
                             annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
 
@@ -231,13 +235,12 @@ def annotate_hit_line(arguments):
             return None
         
         ##
-        # Obtain names of OGs and the best OG according to tax_scope
+        # Obtain names of OGs, narrowest OG, and the best OG according to tax_scope
         match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
         
         annot_levels = set()
         annot_levels.add(best_og_level)
-                
-        # swallowest_level = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
+        
         if best_og_id is None:
             best_og_name = "-"
             best_og_cat = "-"
@@ -309,22 +312,21 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
 
     lvl_depths = set(LEVEL_DEPTH.keys())
     
-    # tax_scope_id_2 = [x for x in tax_scope_id]
     tax_scope_id_2 = tax_scope_id
     
     for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
         nog_id = nog.split("@")[0]
-        nog_level = nog.split("@")[1]
+        nog_tax_id = nog.split("@")[1]
 
-        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_level, nog_level)}"
+        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id)}"
         match_nogs_names.append(nog_name)
 
-        nog_depth = LEVEL_DEPTH[nog_level]
+        nog_depth = LEVEL_DEPTH[nog_tax_id]
 
         # Obtain narrowest OG
         if narr_og_depth is None or nog_depth >= narr_og_depth:
             narr_og_id = nog_id
-            narr_og_level = nog_level
+            narr_og_level = nog_tax_id
             narr_og_depth = nog_depth
             if tax_scope_id is None and tax_scope_mode == "narrowest":
                 best_og_id = narr_og_id
@@ -334,10 +336,10 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
         # Obtain best OG based on tax scope
         if tax_scope_id is None:
             if tax_scope_mode == "auto":
-                for level in TAXONOMIC_RESOLUTION:
-                    if level == nog_level:
+                for filter_tax_id in TAXONOMIC_RESOLUTION:
+                    if filter_tax_id == nog_tax_id:
                         best_og_id = nog_id
-                        best_og_level = nog_level
+                        best_og_level = nog_tax_id
                         best_og_depth = nog_depth
                         break
 
@@ -348,10 +350,10 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
                 raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}")    
 
         else: # tax_scope_id is not None:
-            for i, level in enumerate(tax_scope_id_2):
-                if level == nog_level:
+            for i, filter_tax_id in enumerate(tax_scope_id_2):
+                if filter_tax_id == nog_tax_id:
                     best_og_id = nog_id
-                    best_og_level = nog_level
+                    best_og_level = nog_tax_id
                     best_og_depth = nog_depth
                     tax_scope_id_2 = tax_scope_id_2[:i+1]
                     break
