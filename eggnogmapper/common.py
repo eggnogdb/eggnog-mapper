@@ -76,7 +76,7 @@ TAXONOMIC_RESOLUTION = ["10239", # viruses
                         "5794", #apicomplexa
                         "33090", # plants
                         "6231", "6656", # nematods, arthopods
-                        "40674", "78", "aveNOG", # mammals, fishes, avian
+                        "40674", "78", "8782", # mammals, fishes, avian
                         "33208", # metazoa
                         "4751", # fungi
                         "33154", # opithokonta
