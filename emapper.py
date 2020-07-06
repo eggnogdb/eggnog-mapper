@@ -175,6 +175,9 @@ def create_arg_parser():
                            help='Min bit score expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated. Default=60')
+
+    pg_annot.add_argument('--list_taxa', action="store_true",
+                          help="List taxa available for --tax_scope, --target_taxa, etc. and exit")
     
     pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
@@ -300,6 +303,16 @@ def parse_args(parser):
 
     if args.version:
         print(get_version())
+        sys.exit(0)
+
+    if args.list_taxa:
+        from eggnogmapper.vars import LEVEL_DEPTH, LEVEL_DICT, LEVEL_NAMES, LEVEL_PARENTS
+        print("tax_name\ttax_id\tdepth\tparents\tparents_names")
+        for tax_name, tax_id in LEVEL_DICT.items():
+            depth = LEVEL_DEPTH.get(tax_id, "-")
+            parents = LEVEL_PARENTS.get(tax_id, "-")
+            parents_names = [LEVEL_NAMES.get(x, "-") for x in parents]
+            print(f"{tax_name}\t{tax_id}\t{depth}\t{','.join(parents)}\t{','.join(parents_names)}")
         sys.exit(0)
 
     if args.cpu == 0:
