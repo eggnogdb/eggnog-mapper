@@ -235,6 +235,48 @@ def create_arg_parser():
         
     return parser
 
+
+##
+# Parses tax_scope command line argument
+# to define tax_scope_mode and tax_scope_id (one or more tax IDs)
+def __parse_tax_scope(tax_scope):
+    tax_scope_mode = None
+    tax_scope_id = None
+
+    tax_scope_fields = tax_scope.strip().split(",")
+    tax_scope_mode = tax_scope_fields[0]
+
+    # Auto
+    if tax_scope_mode == "auto":
+        tax_scope_id = None
+
+    # Narrowest
+    elif tax_scope_mode == "narrowest":
+        tax_scope_id = None
+
+    # Tax IDs
+    else:
+        # Only the specified tax ID
+        if len(tax_scope_fields) == 1:
+            tax_scope_mode = "none"
+            tax_scope_id = [tax_scope_fields[0]]
+
+        # Tax ID lis, with or without mode for those not found in the list
+        elif len(tax_scope_fields) > 1:
+            last_pos = tax_scope_fields[-1]
+            if last_pos in ["narrowest", "none"]:
+                tax_scope_mode = last_pos
+                tax_scope_id = tax_scope_fields[:-1]
+            else:
+                tax_scope_mode = "none"
+                tax_scope_id = tax_scope_fields
+        else:
+            raise EmapperException(f"Error: unrecognized tax scope format {tax_scope}.")
+
+    return tax_scope_mode, tax_scope_id
+
+
+##
 def parse_args(parser):
     
     args = parser.parse_args()
@@ -315,9 +357,12 @@ def parse_args(parser):
         parser.error(f'unrecognized search mode (-m {args.mode})')
     
     # Annotation options
-    if not args.no_annot and not pexists(get_eggnogdb_file()):
-        print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
-        raise EmapperException()
+    if not args.no_annot:
+        if not pexists(get_eggnogdb_file()):
+            print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
+            raise EmapperException()
+
+        args.tax_scope_mode, args.tax_scope_id = __parse_tax_scope(args.tax_scope)
         
     # Sets GO evidence bases
     if args.go_evidence == 'experimental':
