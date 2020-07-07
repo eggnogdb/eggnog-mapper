@@ -264,10 +264,10 @@ def __parse_tax_scope(tax_scope):
             tax_scope_mode = "none"
             tax_scope_id = [tax_scope_fields[0]]
 
-        # Tax ID lis, with or without mode for those not found in the list
+        # Tax ID list, with or without mode for those not found in the list
         elif len(tax_scope_fields) > 1:
             last_pos = tax_scope_fields[-1]
-            if last_pos in ["narrowest", "none"]:
+            if last_pos in ["narrowest", "auto", "none"]:
                 tax_scope_mode = last_pos
                 tax_scope_id = tax_scope_fields[:-1]
             else:
@@ -285,7 +285,7 @@ def __parse_tax_scope(tax_scope):
                 elif tax_id in LEVEL_DICT:
                     tax_scope_id_int.append(LEVEL_DICT[tax_id])
                 else:
-                    raise EmapperException(f"Unrecognized tax ID or tax name {tax_id}.")
+                    raise EmapperException(f"Unrecognized tax ID, tax name or tax_scope mode: '{tax_id}'.")
 
             tax_scope_id = tax_scope_id_int
 
@@ -406,11 +406,12 @@ def parse_args(parser):
 
 if __name__ == "__main__":
 
-    parser = create_arg_parser()
-    args = parse_args(parser)
-
-    _total_time = time.time()
     try:
+
+        parser = create_arg_parser()
+        args = parse_args(parser)
+
+        _total_time = time.time()
         
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
