@@ -366,6 +366,15 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
             best_og_id = narr_og_id
             best_og_level = narr_og_level
             best_og_depth = narr_og_depth
+        elif tax_scope_mode == "auto":
+            for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
+                nog_tax_id = nog.split("@")[1]
+                for filter_tax_id in TAXONOMIC_RESOLUTION:
+                    if filter_tax_id == nog_tax_id:
+                        best_og_id = nog_id
+                        best_og_level = nog_tax_id
+                        best_og_depth = nog_depth
+                        break                
         else:
             raise EmapperException(f"Error. Unrecognized tax scope mode {tax_scope_mode}.")
         
