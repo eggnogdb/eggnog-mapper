@@ -198,8 +198,8 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
             for domid in range(hit["ndom"]):
                 dombit = binresult[next_start:next_start + 72]
                 dom = struct.unpack("4i 5f 4x d 2i Q 8x", dombit)
-                is_reported = dom[10]
-                is_included = dom[11]
+                # is_reported = dom[10]
+                # is_included = dom[11]
                 hit["doms"].append(dom)
                 next_start += 72
 
