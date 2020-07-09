@@ -26,7 +26,7 @@ def create_arg_parser():
     
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--version', action='store_true',
+    parser.add_argument('-v', '--version', action='store_true',
                         help="show version and exit.")
 
     ##
