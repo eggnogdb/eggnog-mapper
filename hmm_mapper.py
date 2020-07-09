@@ -141,10 +141,6 @@ def parse_args(parser):
     
     args = parser.parse_args()
 
-    if args.clean_overlaps is not None:
-        if args.clean_overlaps == "none":
-            args.clean_overlaps = None
-
     if args.version:
         print(get_version())
         sys.exit(0)
@@ -173,7 +169,11 @@ def parse_args(parser):
         
     if not args.db:
         parser.error('hmm_mapper requires a target database (-d, --database).')
-    
+
+    if args.clean_overlaps is not None:
+        if args.clean_overlaps == "none":
+            args.clean_overlaps = None
+            
     return args
 
 def get_version():
