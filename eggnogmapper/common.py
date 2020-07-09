@@ -158,13 +158,16 @@ def get_version():
     else:
         version = 'emapper-'+ __VERSION__
 
+    db_version = get_db_version()
+    if db_version:
+        version = f"{version} / eggNOG DB version: {db_version}"
+        
     return version
 
 def get_db_version():
-    from . import annota
-    annota.connect()
-    annota.db.execute('select * from version;')
-    return annota.db.fetchone()[0]
+    from .annotation import db_sqlite
+    db_sqlite.connect()
+    return db_sqlite.get_db_version()
 
 
 def get_level_base_path(level):
