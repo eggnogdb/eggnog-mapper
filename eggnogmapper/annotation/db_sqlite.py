@@ -20,6 +20,13 @@ def close():
     if conn:
         conn.close()
         conn = None
+    return
+
+
+def get_db_version():
+    cmd = 'select * from version'
+    db.execute(cmd)
+    return db.fetchone()[0]
 
 
 def get_member_ogs(name):
