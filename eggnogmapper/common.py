@@ -158,6 +158,7 @@ def get_version():
     else:
         version = 'emapper-'+ __VERSION__
 
+    db_version = None
     try:
         db_version = get_db_version()
     except Exception as e:
@@ -165,7 +166,7 @@ def get_version():
     else:
         db_version = "unknown"
         
-    if db_version:
+    if db_version is not None:
         version = f"{version} / eggNOG DB version: {db_version}"
         
     return version
