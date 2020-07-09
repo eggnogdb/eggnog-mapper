@@ -10,7 +10,7 @@ import shutil
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, get_call_info, cleanup_og_name, gopen
+from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, cleanup_og_name, gopen
 from ..utils import colorify
 
 from .hmmer_server import shutdown_server_by_pid, create_servers, check_servers
@@ -24,6 +24,7 @@ from .hmmer_overlaps import process_overlaps, CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS
 
 class HmmerSearcher:
 
+    call_info = None
     cpu = None
     usemem = None
     num_servers = None
@@ -47,6 +48,8 @@ class HmmerSearcher:
     
     ##
     def __init__(self, args):
+        self.call_info = args.call_info
+        
         self.cpu = args.cpu
         
         self.usemem = args.usemem
@@ -86,6 +89,10 @@ class HmmerSearcher:
         self.excluded_taxa = args.excluded_taxa
         
         return
+
+    ##
+    def get_call_info(self):
+        return self.call_info
     
         
     ##
@@ -186,7 +193,7 @@ class HmmerSearcher:
             OUT = open(hits_file, 'w')
 
         if not self.no_file_comments:
-            print(get_call_info(), file=OUT)
+            print(self.get_call_info(), file=OUT)
             print('# ' + '\t'.join(hits_header), file=OUT)
         
         total_time = 0
@@ -298,7 +305,7 @@ class HmmerSearcher:
         OUT = open(refine_file, "w")
 
         if not self.no_file_comments:
-            print(get_call_info(), file=OUT)
+            print(self.get_call_info(), file=OUT)
             print('\t'.join(refine_header), file=OUT)
 
         qn = 0 # in case no hits in loop bellow
