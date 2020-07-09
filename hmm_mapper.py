@@ -179,6 +179,14 @@ def parse_args(parser):
 def get_version():
     return "1.0"
 
+def get_call_info():
+    text = []
+    text.append('# ' + time.ctime())
+    text.append('# ' + get_version())
+    text.append('# ' + ' '.join(sys.argv))
+    text.append('#')
+    return '\n'.join(text)
+
 def get_citation():
     return __author__+" "+__license__+" : "+__description__
 
@@ -193,6 +201,7 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# hmm_mapper.py ', ' '.join(sys.argv[1:]))
 
+        args.call_info = get_call_info()
         hmm_mapper = HmmMapper(args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         hmm_mapper.run(args, args.input)
         
