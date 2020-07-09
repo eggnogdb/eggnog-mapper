@@ -297,10 +297,9 @@ def parse_args(parser):
     
     args = parser.parse_args()
 
-    if args.clean_overlaps is not None:
-        if args.clean_overlaps == "none":
-            args.clean_overlaps = None
-
+    if args.data_dir:
+        set_data_path(args.data_dir)
+        
     if args.version:
         print(get_version())
         sys.exit(0)
@@ -319,9 +318,6 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-
-    if args.data_dir:
-        set_data_path(args.data_dir)
 
     # Search modes
     if args.mode == SEARCH_MODE_DIAMOND:
@@ -374,6 +370,10 @@ def parse_args(parser):
         if args.annotate_hits_table is not None:
             print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_HMMER}", 'blue'))
             args.annotate_hits_table = None
+
+        if args.clean_overlaps is not None:
+            if args.clean_overlaps == "none":
+                args.clean_overlaps = None
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if not args.annotate_hits_table:
