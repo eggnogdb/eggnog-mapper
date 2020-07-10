@@ -13,8 +13,10 @@ from subprocess import Popen, PIPE
 
 try:
     from .version import __VERSION__
+    from .version import __DB_VERSION__
 except ImportError:
     __VERSION__ = 'unknown'
+    __DB_VERSION__ = 'unknown'
 
 
 # ANNOTATIONS_HEADER = list(map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(',')))
@@ -158,16 +160,18 @@ def get_version():
     else:
         version = 'emapper-'+ __VERSION__
 
+    exp_db_version = __DB_VERSION__
+    if exp_db_version is not None:
+        version = f"{version} / Expected eggNOG DB version: {exp_db_version}"
+
     db_version = None
     try:
         db_version = get_db_version()
     except Exception as e:
-        pass
-    else:
         db_version = "unknown"
         
     if db_version is not None:
-        version = f"{version} / eggNOG DB version: {db_version}"
+        version = f"{version} / Installed eggNOG DB version: {db_version}"
         
     return version
 
