@@ -44,12 +44,13 @@ def get_ogs_description(ogs):
 def get_annotations(seq_names):
     cmd = """SELECT seq.pname, gene_ontology.gos,
     kegg.ec, kegg.ko, kegg.pathway, kegg.module, kegg.reaction, kegg.rclass, kegg.brite, kegg.tc, kegg.cazy, 
-    bigg.reaction
+    bigg.reaction, pfam.pfam
         FROM eggnog
         LEFT JOIN seq on seq.name = eggnog.name
         LEFT JOIN gene_ontology on gene_ontology.name = eggnog.name
         LEFT JOIN kegg on kegg.name = eggnog.name
         LEFT JOIN bigg on bigg.name = eggnog.name
+        LEFT JOIN pfam on pfam.name = eggnog.name
         WHERE eggnog.name in (%s)
         """ % seq_names
     
