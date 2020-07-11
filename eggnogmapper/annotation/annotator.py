@@ -14,6 +14,7 @@ from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 from . import annota
 from . import db_sqlite
 from . import orthologs as ortho
+from .pfam import align_whole_pfam, align_query_pfams
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -39,7 +40,8 @@ ANNOTATIONS_HEADER = ['Preferred_name',
                       'BRITE',
                       'KEGG_TC',
                       'CAZy',
-                      'BiGG_Reaction']
+                      'BiGG_Reaction',
+                      'PFAMs']
 
 ##
 def get_annotator(args, annot, report_orthologs):
@@ -59,6 +61,7 @@ class Annotator:
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
     go_evidence = go_excluded = None
+    pfam = queries_fasta = None
     
     ##
     def __init__(self, args, annot, report_orthologs):
@@ -79,6 +82,8 @@ class Annotator:
         self.excluded_taxa = args.excluded_taxa
         self.go_evidence = args.go_evidence
         self.go_excluded = args.go_excluded
+        self.pfam = args.pfam
+        self.queries_fasta = args.input
         
         return
 
@@ -178,6 +183,21 @@ class Annotator:
         finally:
             pool.terminate()
 
+        if self.pfam == 'transfer':
+            pass # keep PFAMs from orthologs
+        elif self.pfam == 'align':
+            pass # keep realigned PFAMs from orthologs obtained previously for each query
+        elif self.pfam == 'denovo':
+            # # align all queries to whole PFAM to carry out a de novo annotation
+            # aligned_pfams = align_whole_pfam(self.queries_fasta)
+            # for annot_columns in all_annotations:
+            #     query_name = annot_columns[0]
+            #     if query_name in aligned_pfams:
+            #         annot_columns["PFAMs"] = aligned_pfams[query_name]
+            pass
+        else:
+            raise EmapperException(f"Unrecognized pfams option {self.pfam}")
+
         elapsed_time = time.time() - start_time
 
         print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
@@ -191,9 +211,9 @@ class Annotator:
             if line.startswith('#') or not line.strip():
                 continue
             
-            yield_tuple = (line, self.seed_ortholog_score, self.seed_ortholog_evalue,
+            yield_tuple = (line, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_id, self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded)
+                           self.go_evidence, self.go_excluded, self.pfam, self.queries_fasta)
             
             yield yield_tuple
             
@@ -208,7 +228,10 @@ def annotate_hit_line(arguments):
     # exists in this Pool process (worker)
     db_sqlite.connect()
 
-    line, seed_ortholog_score, seed_ortholog_evalue, tax_scope_mode, tax_scope_id, target_taxa, target_orthologs, excluded_taxa, go_evidence, go_excluded = arguments
+    line, annot, seed_ortholog_score, seed_ortholog_evalue, \
+        tax_scope_mode, tax_scope_id, \
+        target_taxa, target_orthologs, excluded_taxa, \
+        go_evidence, go_excluded, pfam, queries_fasta = arguments
     
     try:
         if not line.strip() or line.startswith('#'):
@@ -279,11 +302,17 @@ def annotate_hit_line(arguments):
 
         ##
         # Retrieve annotations of co-orthologs
-        if orthologs:
+        if annot == True and orthologs is not None and len(orthologs) > 0:
             annotations = annota.summarize_annotations(orthologs,
                                                        annotations_fields = ANNOTATIONS_HEADER,
                                                        target_go_ev = go_evidence,
                                                        excluded_go_ev = go_excluded)
+
+            if pfam == 'align':
+                # # realign the query to the PFAMs from the orthologs
+                # aligned_pfams = align_query_pfams(query_name, queries_fasta, annotations["PFAMs"])
+                # annotations["PFAMs"] = aligned_pfams
+                pass
         else:
             annotations = {}
 

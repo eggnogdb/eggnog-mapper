@@ -209,6 +209,15 @@ def create_arg_parser():
                           'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
 
+    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'align', 'denovo'),
+                          default='transfer',
+                          help='Defines how PFAM annotation will be performed. '
+                          'transfer = A list of PFAMs from orthologs will be reported. '
+                          'align = PFAMs from orthologs will be realigned to the query and '
+                          'a list of PFAMs and their positions on the corresponding query will be reported. '
+                          'denovo = each query will be realigned to PFAM and '
+                          'a list of PFAMs and their positions on the corresponding query will be reported.')
+
     ##
     pg_out = parser.add_argument_group('Output options')
 
@@ -402,6 +411,18 @@ def parse_args(parser):
         args.go_excluded = set(["ND", "IEA"])
     else:
         raise ValueError('Invalid --go_evidence value')
+
+    # PFAM annotation options
+    if args.pfam == 'transfer':
+        pass
+    elif args.pfam == 'align':
+        if not args.input:
+            parser.error(f'An input fasta file is required (-i) for --pfam {args.pfam}')
+    elif args.pfam == 'denovo':
+        if not args.input:
+            parser.error(f'An input fasta file is required (-i) for --pfam {args.pfam}')
+    else:
+        raise ValueError(f'Invalid --pfam option {args.pfam}')
     
     return args
 
