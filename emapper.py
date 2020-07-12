@@ -212,11 +212,11 @@ def create_arg_parser():
     pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'align', 'denovo'),
                           default='transfer',
                           help='Defines how PFAM annotation will be performed. '
-                          'transfer = A list of PFAMs from orthologs will be reported. '
+                          'transfer = A list of PFAMs, directly transferred from orthologs, will be reported. '
                           'align = PFAMs from orthologs will be realigned to the query and '
-                          'a list of PFAMs and their positions on the corresponding query will be reported. '
+                          'a list of PFAMs and their positions on the query will be reported. '
                           'denovo = each query will be realigned to PFAM and '
-                          'a list of PFAMs and their positions on the corresponding query will be reported.')
+                          'a list of PFAMs and their positions on the query will be reported.')
 
     ##
     pg_out = parser.add_argument_group('Output options')
