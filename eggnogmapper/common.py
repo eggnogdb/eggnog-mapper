@@ -172,6 +172,10 @@ def get_version():
         
     if db_version is not None:
         version = f"{version} / Installed eggNOG DB version: {db_version}"
+
+    if exp_db_version is not None and db_version is not None:
+        if exp_db_version != db_version:
+            print(colorify(f"Warning: expected DB version ({exp_db_version}) is different than the one found ({db_version}).", 'red'))
         
     return version
 
