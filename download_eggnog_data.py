@@ -15,10 +15,29 @@ def run(cmd):
 def gunzip_flag():
     if args.force:
         return '-f'
-    else:
-        return ''
+    return ''
 
+##
+# Diamond DBs
+def download_diamond_db():
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz  %s && echo Decompressing... && gunzip eggnog_proteins.dmnd.gz %s' %(get_data_path(),  url, gunzip_flag())
+    run(cmd)
 
+##
+# Annotation DBs
+def download_annotations():
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz %s' %(get_data_path(), url, gunzip_flag())
+    run(cmd)
+
+def download_pfam_db():
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/pfam.tar.gz' %(DATABASE_VERSION)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O pfam.tar.gz  %s && echo Decompressing... && tar -zxf pfam.tar.gz %s && rm pfam.tar.gz' %(get_data_path(),  url, gunzip_flag())
+    run(cmd)
+
+##
+# HMMER mode DBs
 def download_hmm_database(level):
     level_base_path = get_level_base_path(level)
     target_dir = os.path.split(get_db_info(level)[0])[0]
@@ -32,28 +51,20 @@ def download_hmm_database(level):
         flag = ''
     cmd = 'mkdir -p %s; cd %s; wget %s -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(target_dir, target_dir, flag, url)
     run(cmd)
-
-def download_annotations():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz %s' %(get_data_path(), url, gunzip_flag())
-    run(cmd)
-
+    
 def download_groups():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/OG_fasta.tar.gz' %(DATABASE_VERSION)
     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O OG_fasta.tar.gz  %s && echo Decompressing... && tar -zxf OG_fasta.tar.gz && rm OG_fasta.tar.gz' %(get_data_path(),  url)
     run(cmd)
-
-def download_diamond_db():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz  %s && echo Decompressing... && gunzip eggnog_proteins.dmnd.gz %s' %(get_data_path(),  url, gunzip_flag())
-    run(cmd)
-
+    
 def download_og2level():
     url= 'http://eggnogdb.embl.de/download/emapperdb-%s/og2level.tsv.gz' %(DATABASE_VERSION)
     cmd = 'cd %s && wget -O og2level.tsv.gz %s' %(get_data_path(),  url)
     run(cmd)
 
 
+##
+# MAIN
 if __name__ == "__main__":
     parser = ArgumentParser()
     # parser.add_argument('dbs', metavar='dbs', nargs='+', choices=sorted(EGGNOG_DATABASES.keys()+['all', 'none']),
@@ -130,3 +141,5 @@ if __name__ == "__main__":
     #                 download_hmm_database(db)
     #     else:
     #         print 'Skipping'
+
+## END
