@@ -12,7 +12,9 @@ from eggnogmapper.emapper import Emapper
 from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER
 from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
-from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, get_eggnogdb_file, get_eggnog_dmnd_db, get_version, get_citation, get_call_info
+from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
+    get_eggnogdb_file, get_eggnog_dmnd_db, \
+    get_version, get_full_version_info, get_citation, get_call_info
 
 from eggnogmapper.utils import colorify
 
@@ -310,7 +312,7 @@ def parse_args(parser):
         set_data_path(args.data_dir)
         
     if args.version:
-        print(get_version())
+        print(get_full_version_info())
         sys.exit(0)
 
     args.call_info = get_call_info()

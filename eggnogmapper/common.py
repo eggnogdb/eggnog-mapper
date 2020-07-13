@@ -132,6 +132,35 @@ def get_call_info():
     text.append('#')
     return '\n'.join(text)
 
+
+def get_full_version_info():
+
+    version = get_version()
+    
+    exp_db_version = __DB_VERSION__
+    if exp_db_version is not None:
+        version = f"{version} / Expected eggNOG DB version: {exp_db_version}"
+
+    db_version = None
+    try:
+        db_version = get_db_version()
+    except Exception as e:
+        db_version = "unknown"
+        
+    if db_version is not None:
+        version = f"{version} / Installed eggNOG DB version: {db_version}"
+
+    if exp_db_version is not None and db_version is not None:
+        if exp_db_version != db_version:
+            print(colorify(f"Warning: expected DB version ({exp_db_version}) is different than the one found ({db_version}).", 'red'))
+
+    dmnd_version = get_diamond_version()
+    if dmnd_version is not None:
+        version = f"{version} / {dmnd_version}"
+        
+    return version
+
+
 def get_version():
     _version = ''
     try:
@@ -160,27 +189,6 @@ def get_version():
         version = 'emapper' + _version
     else:
         version = 'emapper-'+ __VERSION__
-
-    exp_db_version = __DB_VERSION__
-    if exp_db_version is not None:
-        version = f"{version} / Expected eggNOG DB version: {exp_db_version}"
-
-    db_version = None
-    try:
-        db_version = get_db_version()
-    except Exception as e:
-        db_version = "unknown"
-        
-    if db_version is not None:
-        version = f"{version} / Installed eggNOG DB version: {db_version}"
-
-    if exp_db_version is not None and db_version is not None:
-        if exp_db_version != db_version:
-            print(colorify(f"Warning: expected DB version ({exp_db_version}) is different than the one found ({db_version}).", 'red'))
-
-    dmnd_version = get_diamond_version()
-    if dmnd_version is not None:
-        version = f"{version} / {dmnd_version}"
         
     return version
 
