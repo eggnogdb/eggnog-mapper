@@ -9,7 +9,7 @@ from os.path import exists as pexists
 import gzip
 import shutil
 import errno
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, run, CalledProcessError
 
 try:
     from .version import __VERSION__
@@ -92,7 +92,8 @@ HMMSCAN = find_executable('hmmscan') or pjoin(BASE_PATH, 'bin', 'hmmscan')
 HMMSTAT = find_executable('hmmstat') or pjoin(BASE_PATH, 'bin', 'hmmstat')
 HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'bin', 'hmmpgmd')
 PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'bin', 'phmmer')
-DIAMOND = find_executable('diamond') or pjoin(BASE_PATH, 'bin', 'diamond')
+LOCAL_DIAMOND = pjoin(BASE_PATH, 'bin', 'diamond')
+DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
@@ -176,6 +177,10 @@ def get_version():
     if exp_db_version is not None and db_version is not None:
         if exp_db_version != db_version:
             print(colorify(f"Warning: expected DB version ({exp_db_version}) is different than the one found ({db_version}).", 'red'))
+
+    dmnd_version = get_diamond_version()
+    if dmnd_version is not None:
+        version = f"{version} / {dmnd_version}"
         
     return version
 
@@ -183,6 +188,19 @@ def get_db_version():
     from .annotation import db_sqlite
     db_sqlite.connect()
     return db_sqlite.get_db_version()
+
+def get_diamond_version():
+    dmnd_version = None
+    cmd = f"{LOCAL_DIAMOND} --version"
+    try:
+        completed_process = run(cmd, capture_output=True, check=True, shell=True)
+    except CalledProcessError as cpe:
+        raise EmapperException("Error running local diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
+
+    if completed_process is not None:
+        dmnd_version = f"Local diamond version: {completed_process.stdout.decode('utf-8').strip()}"
+    
+    return dmnd_version
 
 
 def get_level_base_path(level):
