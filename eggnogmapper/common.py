@@ -102,6 +102,8 @@ def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmdb_levels")
 def get_eggnogdb_file(): return pjoin(DATA_PATH, "eggnog.db")
 def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 def get_eggnog_dmnd_db(): return pjoin(DATA_PATH, "eggnog_proteins.dmnd")
+def get_pfam_db(): return pjoin(DATA_PATH, "pfam", "Pfam-A.hmm")
+def get_pfam_clans_file(): return pjoin(DATA_PATH, "pfam", "Pfam-A.clans.tsv.gz")
 
 def set_data_path(data_path):
     global DATA_PATH

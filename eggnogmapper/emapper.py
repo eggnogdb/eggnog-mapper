@@ -35,6 +35,7 @@ class Emapper:
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
         self.orthologs_file = f"{prefix}.emapper.orthologs"
+        self.pfam_file = f"{prefix}.emapper.pfam"
 
         self.mode = mode
         self.annot = annot
@@ -43,11 +44,11 @@ class Emapper:
         self.override = override
         
         if mode == SEARCH_MODE_NO_SEARCH:
-            self._output_files = [self.annot_file]
+            self._output_files = [self.annot_file, self.pfam_file]
         elif not annot:
             self._output_files = [self.hmm_hits_file, self.seed_orthologs_file]
         else:
-            self._output_files = [self.hmm_hits_file, self.seed_orthologs_file, self.annot_file]
+            self._output_files = [self.hmm_hits_file, self.seed_orthologs_file, self.annot_file, self.pfam_file]
 
         if report_orthologs == True:
             self._output_files.append(self.orthologs_file)
@@ -103,7 +104,8 @@ class Emapper:
             a = get_annotator(args, self.annot, self.report_orthologs)
             a.annotate(hits_file,
                        pjoin(self._current_dir, self.annot_file),
-                       pjoin(self._current_dir, self.orthologs_file))
+                       pjoin(self._current_dir, self.orthologs_file),
+                       pjoin(self._current_dir, self.pfam_file))
                 
         return
     

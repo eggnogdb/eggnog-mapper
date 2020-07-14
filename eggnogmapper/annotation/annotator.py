@@ -1,7 +1,7 @@
 ##
 ## CPCantalapiedra 2019
 
-import sys
+import os, sys
 import time
 import multiprocessing
 
@@ -14,7 +14,7 @@ from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 from . import annota
 from . import db_sqlite
 from . import orthologs as ortho
-from .pfam import align_whole_pfam, align_query_pfams
+from .pfam import PfamAligner, get_pfam_args, parse_pfam_file
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -61,7 +61,7 @@ class Annotator:
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
     go_evidence = go_excluded = None
-    pfam = queries_fasta = None
+    pfam = queries_fasta = translate = temp_dir = None
     
     ##
     def __init__(self, args, annot, report_orthologs):
@@ -82,18 +82,21 @@ class Annotator:
         self.excluded_taxa = args.excluded_taxa
         self.go_evidence = args.go_evidence
         self.go_excluded = args.go_excluded
+        
         self.pfam = args.pfam
         self.queries_fasta = args.input
+        self.translate = args.translate
+        self.temp_dir = args.temp_dir
         
         return
 
     
     ##
-    def annotate(self, seed_orthologs_file, annot_file, orthologs_file):
+    def annotate(self, seed_orthologs_file, annot_file, orthologs_file, pfam_file):
         
         print(colorify("Functional annotation of refined hits starts now", 'green'))
         
-        all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file)
+        all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file, pfam_file)
 
         # Output orthologs
         if self.report_orthologs:
@@ -129,7 +132,7 @@ class Annotator:
         return
 
     ##
-    def _annotate(self, seed_orthologs_file):
+    def _annotate(self, seed_orthologs_file, pfam_file):
 
         all_orthologs = []
         all_annotations = []
@@ -144,11 +147,11 @@ class Annotator:
                 qn += 1
                 if qn and (qn % 500 == 0):
                     total_time = time.time() - start_time
-                    print(f"{pq} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
-                    # print(qn, total_time, "%0.2f q/s (func. annotation)" % ((float(qn) / total_time)), file=sys.stderr)
+                    print(f"{qn} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
                     sys.stderr.flush()
 
                 if result:
+                    
                     (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                      annotations, 
                      narr_og_name, narr_og_cat, narr_og_desc,
@@ -183,24 +186,56 @@ class Annotator:
         finally:
             pool.terminate()
 
-        if self.pfam == 'transfer':
-            pass # keep PFAMs from orthologs
-        elif self.pfam == 'align':
-            pass # keep realigned PFAMs from orthologs obtained previously for each query
-        elif self.pfam == 'denovo':
-            # # align all queries to whole PFAM to carry out a de novo annotation
-            # aligned_pfams = align_whole_pfam(self.queries_fasta)
-            # for annot_columns in all_annotations:
-            #     query_name = annot_columns[0]
-            #     if query_name in aligned_pfams:
-            #         annot_columns["PFAMs"] = aligned_pfams[query_name]
-            pass
-        else:
-            raise EmapperException(f"Unrecognized pfams option {self.pfam}")
-
         elapsed_time = time.time() - start_time
 
         print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
+        
+        if self.pfam == 'denovo':
+            print(colorify("de novo search of PFAM domains", 'green'))
+            # align all queries to whole PFAM to carry out a de novo annotation
+            from argparse import Namespace
+            usemem, num_servers, num_workers, cpus_per_worker, scan_type, db, infile, dbtype, qtype = get_pfam_args(self.cpu, self.queries_fasta)
+            args = Namespace(call_info = get_call_info(),
+                             cpu = self.cpu,
+                             usemem = usemem,
+                             num_servers = num_servers,
+                             num_workers = num_workers,
+                             cpus_per_worker = cpus_per_worker,
+                             scan_type = scan_type,
+                             db = db,
+                             servers_list = None,
+                             dbtype = dbtype,
+                             qtype = qtype,
+                             translate = self.translate,
+                             resume = False,
+                             no_file_comments = False,
+                             maxhits = 0, # unlimited
+                             report_no_hits = False,
+                             maxseqlen = 5000,
+                             cut_ga = True,
+                             clean_overlaps = "clans",
+                             evalue = 1E-10,
+                             score = None,
+                             qcov = 0,
+                             Z = 40000000,
+                             temp_dir = self.temp_dir,
+                             excluded_taxa = None)
+
+            pfam_aligner = PfamAligner(args)
+            pfam_aligner.align_whole_pfam(infile, pfam_file)
+            aligned_pfams = parse_pfam_file(pfam_file)
+            
+            PFAM_COL = -1 # position of PFAMs annotations in list of annotations
+            for annot_columns in all_annotations:
+                query_name = annot_columns[0]
+                if query_name in aligned_pfams:
+                    annot_columns[PFAM_COL] = ",".join(aligned_pfams[query_name])
+                else:
+                    annot_columns[PFAM_COL] = "-"
+
+            elapsed_time = time.time() - start_time
+
+            print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
         
         return all_orthologs, all_annotations, qn, elapsed_time
     
@@ -223,7 +258,6 @@ class Annotator:
 # annotate_hit_line is outside the class because must be pickable
 ##
 def annotate_hit_line(arguments):
-
     # should connect also if no previous connection
     # exists in this Pool process (worker)
     db_sqlite.connect()
@@ -245,7 +279,7 @@ def annotate_hit_line(arguments):
         best_hit_name = r[1]
         best_hit_evalue = float(r[2])
         best_hit_score = float(r[3])
-
+        
         ##
         # Filter by empty hit, error, evalue and/or score
         if filter_out(best_hit_name, best_hit_evalue, best_hit_score, seed_ortholog_evalue, seed_ortholog_score):
@@ -281,7 +315,7 @@ def annotate_hit_line(arguments):
             target_taxa = normalize_target_taxa(target_taxa)
         else:
             target_taxa = None
-
+            
         ##
         # Retrieve co-orthologs of seed ortholog
         # annot_levels are used to restrict the speciation events retrieved
@@ -299,7 +333,7 @@ def annotate_hit_line(arguments):
             if excluded_taxa:
                 orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
             status = 'OK'
-
+            
         ##
         # Retrieve annotations of co-orthologs
         if annot == True and orthologs is not None and len(orthologs) > 0:

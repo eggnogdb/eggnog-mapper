@@ -3,15 +3,13 @@
 
 import gzip, os, sys
 
-from ..common import get_data_path
+from ..common import get_pfam_clans_file
 
 CLEAN_OVERLAPS_ALL = "all"
 CLEAN_OVERLAPS_CLANS = "clans"
 CLEAN_OVERLAPS_NONE = "none"
 CLEAN_OVERLAPS_HMMSEARCH_ALL = "hmmsearch_all"
 CLEAN_OVERLAPS_HMMSEARCH_CLANS = "hmmsearch_clans"
-
-CLANS_FILE = os.path.join(get_data_path(), "Pfam-A.clans.tsv.gz")
 
 ##
 def process_overlaps(hits, clean_overlaps, idmap_idx = None):
@@ -31,11 +29,12 @@ def process_overlaps(hits, clean_overlaps, idmap_idx = None):
 
 ##
 def process_overlaps_clans(hits, idmap_idx = None):
+    CLANS_FILE = get_pfam_clans_file()
 
     if not os.path.exists(CLANS_FILE) or not os.path.isfile(CLANS_FILE):
         raise Exception(f"Couldn't find PFAM clans file at path {CLANS_FILE}, or it is not a file.")
 
-    sys.stderr.write("Loading clans data...\n")
+    # sys.stderr.write("Loading clans data...\n")
     
     clans_dict = {}
     with gzip.open(CLANS_FILE, 'rt') as clans_f:
@@ -46,7 +45,7 @@ def process_overlaps_clans(hits, idmap_idx = None):
             if clan is not None and clan != "":
                 clans_dict[pfname] = clan
 
-    sys.stderr.write("Checking clans overlaps...\n")
+    # sys.stderr.write("Checking clans overlaps...\n")
     clean_doms = []
     total_range = set()
 
@@ -104,6 +103,8 @@ def process_overlaps_clans(hits, idmap_idx = None):
 
 ##
 def process_overlaps_all(hits):
+    CLANS_FILE = get_pfam_clans_file()
+    
     clean_doms = []
     total_range = set()
 
@@ -146,7 +147,8 @@ def process_overlaps_all(hits):
 
 ##
 def process_overlaps_all_queries(namedhits):
-
+    CLANS_FILE = get_pfam_clans_file()
+    
     targets_hits = {}
 
     for name, querylen, hits in namedhits:
@@ -203,7 +205,8 @@ def process_overlaps_all_queries(namedhits):
 
 ##
 def process_overlaps_clans_queries(namedhits):
-
+    CLANS_FILE = get_pfam_clans_file()
+    
     if not os.path.exists(CLANS_FILE) or not os.path.isfile(CLANS_FILE):
         raise Exception(f"Couldn't find PFAM clans file at path {CLANS_FILE}, or it is not a file.")
 

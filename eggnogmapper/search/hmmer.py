@@ -236,7 +236,6 @@ class HmmerSearcher:
             elif not hits and self.report_no_hits == True:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
-
                 if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS_CLANS]:
                     hits = process_overlaps(hits, self.clean_overlaps, idmap_idx)
 
