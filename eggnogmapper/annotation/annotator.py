@@ -189,42 +189,18 @@ class Annotator:
         elapsed_time = time.time() - start_time
 
         print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
-        
+
+        aligned_pfams = None
         if self.pfam == 'denovo':
             print(colorify("de novo search of PFAM domains", 'green'))
             # align all queries to whole PFAM to carry out a de novo annotation
-            from argparse import Namespace
-            usemem, num_servers, num_workers, cpus_per_worker, scan_type, db, infile, dbtype, qtype = get_pfam_args(self.cpu, self.queries_fasta)
-            args = Namespace(call_info = get_call_info(),
-                             cpu = self.cpu,
-                             usemem = usemem,
-                             num_servers = num_servers,
-                             num_workers = num_workers,
-                             cpus_per_worker = cpus_per_worker,
-                             scan_type = scan_type,
-                             db = db,
-                             servers_list = None,
-                             dbtype = dbtype,
-                             qtype = qtype,
-                             translate = self.translate,
-                             resume = False,
-                             no_file_comments = False,
-                             maxhits = 0, # unlimited
-                             report_no_hits = False,
-                             maxseqlen = 5000,
-                             cut_ga = True,
-                             clean_overlaps = "clans",
-                             evalue = 1E-10,
-                             score = None,
-                             qcov = 0,
-                             Z = 40000000,
-                             temp_dir = self.temp_dir,
-                             excluded_taxa = None)
 
-            pfam_aligner = PfamAligner(args)
+            pfam_args, infile = get_pfam_args(self.cpu, self.queries_fasta, self.translate, self.temp_dir)
+            pfam_aligner = PfamAligner(pfam_args)
             pfam_aligner.align_whole_pfam(infile, pfam_file)
             aligned_pfams = parse_pfam_file(pfam_file)
-            
+
+        if aligned_pfams is not None:
             PFAM_COL = -1 # position of PFAMs annotations in list of annotations
             for annot_columns in all_annotations:
                 query_name = annot_columns[0]

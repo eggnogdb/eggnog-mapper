@@ -8,7 +8,7 @@ from ..search.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, D
 from ..common import get_pfam_db
 
 ##
-def get_pfam_args(cpu, fasta_file):
+def get_pfam_args(cpu, fasta_file, translate, temp_dir):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
 
@@ -36,7 +36,7 @@ def get_pfam_args(cpu, fasta_file):
         dbtype = DB_TYPE_HMM
         qtype = QUERY_TYPE_SEQ
         
-    elif query_number >= 15000:
+    else: #elif query_number >= 15000:
         if mapfile(fasta_file):
             usemem = True
             num_servers = cpu
@@ -57,8 +57,38 @@ def get_pfam_args(cpu, fasta_file):
             infile = fasta_file
             dbtype = DB_TYPE_HMM
             qtype = QUERY_TYPE_SEQ
+            
+    from argparse import Namespace
+    from ..common import get_call_info
     
-    return usemem, num_servers, num_workers, cpus_per_worker, scan_type, db, infile, dbtype, qtype
+    pfam_args = Namespace(call_info = get_call_info(),
+                          cpu = cpu,
+                          usemem = usemem,
+                          num_servers = num_servers,
+                          num_workers = num_workers,
+                          cpus_per_worker = cpus_per_worker,
+                          scan_type = scan_type,
+                          db = db,
+                          servers_list = None,
+                          dbtype = dbtype,
+                          qtype = qtype,
+                          translate = translate,
+                          resume = False,
+                          no_file_comments = False,
+                          maxhits = 0, # unlimited
+                          report_no_hits = False,
+                          maxseqlen = 5000,
+                          cut_ga = True,
+                          clean_overlaps = "clans",
+                          evalue = 1E-10,
+                          score = None,
+                          qcov = 0,
+                          Z = 40000000,
+                          temp_dir = temp_dir,
+                          excluded_taxa = None)
+    
+    # return usemem, num_servers, num_workers, cpus_per_worker, scan_type, db, infile, dbtype, qtype    
+    return pfam_args, infile
 
 def mapfile(fasta_file):
     exists = False
