@@ -240,7 +240,7 @@ class Annotator:
             for annot_columns in all_annotations:
                 query_name = annot_columns[0]
                 if query_name in aligned_pfams:
-                    annot_columns[PFAM_COL] = ",".join(aligned_pfams[query_name])
+                    annot_columns[PFAM_COL] = ",".join(sorted(aligned_pfams[query_name]))
                 else:
                     annot_columns[PFAM_COL] = "-"
 

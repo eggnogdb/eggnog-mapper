@@ -42,6 +42,11 @@ def load_orthologs(orthologs_fn):
     '''
     return _load_commented_file(orthologs_fn)
 
+def load_pfam(pfam_fn):
+    '''
+    Loads the rows from a pfam output, to a list
+    '''
+    return _load_commented_file(pfam_fn)
 
 def load_seed_orthologs(seed_orthologs_fn):
     '''
@@ -144,6 +149,25 @@ def check_orthologs(obs_out, exp_out):
 
     # Load expected output
     exp_rows = load_orthologs(exp_out)
+
+    # compare both files 
+    _basic_rows_comparison(obs_rows, exp_rows)
+    return
+
+
+def check_pfam(obs_out, exp_out):
+    '''
+    Compares the obtained pfam file with the expected one
+    '''
+    # Check that output file has been created
+    assert os.path.exists(obs_out)
+
+    # Compare expected and observed output
+    # Load test output
+    obs_rows = sorted(load_pfam(obs_out))
+
+    # Load expected output
+    exp_rows = sorted(load_pfam(exp_out))
 
     # compare both files 
     _basic_rows_comparison(obs_rows, exp_rows)

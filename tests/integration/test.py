@@ -5,13 +5,14 @@
 import unittest
 import os, shutil
 
-from .common import run, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs
+from .common import run, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs, check_pfam
 
 # General eggnog-mapper settings
 HMM_HITS_SUFFIX = '.emapper.hmm_hits'
 SEED_ORTHOLOGS_SUFFIX = '.emapper.seed_orthologs'
 ANNOTATIONS_SUFFIX = '.emapper.annotations'
 ORTHOLOGS_SUFFIX = '.emapper.orthologs'
+PFAM_SUFFIX = '.emapper.pfam'
 
 class Test(unittest.TestCase):
 
@@ -284,6 +285,136 @@ class Test(unittest.TestCase):
 
         if os.path.isdir(scratchdir):
             shutil.rmtree(scratchdir)
+        
+        return
+
+    
+    def test_pfam_align(self):
+        '''
+        Tests --pfam align
+        '''
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam align
+        
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/test_pfam_groups.fa"
+        data_dir = "tests/fixtures"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
+        obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
+        obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
+        
+        exp_seed_orthologs = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.seed_orthologs')
+        exp_annotations = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.annotations')
+        exp_pfam = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.pfam')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam align'
+
+        # print(f"\t{cmd}")
+
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok        
+
+        ##
+        # Check test
+        
+        # Check alignment phase: detection of seed orthologs
+        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+
+        # Check PFAM
+        check_pfam(obs_pfam, exp_pfam)
+        
+        # Check annotation phase
+        check_annotations(obs_annotations, exp_annotations)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+
+
+    def test_pfam_denovo(self):
+        '''
+        Tests --pfam denovo
+        '''
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam denovo
+        
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/test_pfam_groups.fa"
+        data_dir = "tests/fixtures"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
+        obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
+        obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
+        
+        exp_seed_orthologs = os.path.join(data_dir, 'pfam_denovo_output', 'test.emapper.seed_orthologs')
+        exp_annotations = os.path.join(data_dir, 'pfam_denovo_output', 'test.emapper.annotations')
+        exp_pfam = os.path.join(data_dir, 'pfam_denovo_output', 'test.emapper.pfam')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam denovo'
+
+        # print(f"\t{cmd}")
+
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok        
+
+        ##
+        # Check test
+        
+        # Check alignment phase: detection of seed orthologs
+        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+
+        # Check PFAM
+        check_pfam(obs_pfam, exp_pfam)
+        
+        # Check annotation phase
+        check_annotations(obs_annotations, exp_annotations)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
         
         return
     
