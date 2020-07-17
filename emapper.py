@@ -949,6 +949,9 @@ def parse_args(parser):
         print get_version()
         sys.exit(0)
 
+    if "EGGNOG_DATA_DIR" in os.environ:
+        set_data_path(os.environ["EGGNOG_DATA_DIR"])
+
     if args.data_dir:
         set_data_path(args.data_dir)
 
