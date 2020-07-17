@@ -79,6 +79,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    if "EGGNOG_DATA_DIR" in os.environ:
+        set_data_path(os.environ["EGGNOG_DATA_DIR"])
+
     if args.data_dir:
         set_data_path(args.data_dir)
 
