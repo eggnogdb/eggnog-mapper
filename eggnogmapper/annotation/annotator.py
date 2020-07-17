@@ -4,9 +4,11 @@
 import os, sys
 import time
 import multiprocessing
-
+import subprocess
+from tempfile import NamedTemporaryFile
+    
 from ..emapperException import EmapperException
-from ..common import get_call_info, TAXONOMIC_RESOLUTION
+from ..common import get_call_info, TAXONOMIC_RESOLUTION, get_pfam_db, HMMFETCH
 from ..utils import colorify
 from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
@@ -14,7 +16,7 @@ from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 from . import annota
 from . import db_sqlite
 from . import orthologs as ortho
-from .pfam import PfamAligner, get_pfam_args, parse_pfam_file
+from .pfam import PfamAligner, get_pfam_args, parse_pfam_file, group_queries_pfams, get_hmmsearch_args, parse_hmmsearch_file
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -42,6 +44,8 @@ ANNOTATIONS_HEADER = ['Preferred_name',
                       'CAZy',
                       'BiGG_Reaction',
                       'PFAMs']
+
+PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 
 ##
 def get_annotator(args, annot, report_orthologs):
@@ -190,6 +194,9 @@ class Annotator:
 
         print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
 
+        ##
+        # PFAMs annotation
+        
         aligned_pfams = None
         if self.pfam == 'denovo':
             print(colorify("de novo search of PFAM domains", 'green'))
@@ -200,8 +207,36 @@ class Annotator:
             pfam_aligner.align_whole_pfam(infile, pfam_file)
             aligned_pfams = parse_pfam_file(pfam_file)
 
+        elif self.pfam == 'align':
+            print(colorify("re-aligning PFAM domains from orthologs to queries", 'green'))
+            
+            for queries_pfams_group in group_queries_pfams(all_annotations, PFAM_COL):
+                # fetch pfams to a new HMM file
+                # fetch queries to a new Fasta file
+                fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, self.queries_fasta, get_pfam_db(), self.temp_dir)
+
+                # output file for this group
+                P = NamedTemporaryFile(mode='w')
+                
+                # align queries to the new HMM file
+                pfam_args, infile = get_hmmsearch_args(self.cpu, fasta_file.name, hmm_file.name, self.translate, self.temp_dir)
+                pfam_aligner = PfamAligner(pfam_args)
+                pfam_aligner.align_whole_pfam(infile, P.name)
+                if aligned_pfams is None:
+                    aligned_pfams = parse_hmmsearch_file(P.name)
+                else:
+                    aligned_pfams.update(parse_hmmsearch_file(P.name))
+
+                # Append contents of output file for this group into pfam_file,
+                # which is the file reporting all the pfam hits together
+                with open(pfam_file, 'a') as pfamf:
+                    pfamf.write(open(P.name, 'r').read())
+
+                fasta_file.close()
+                hmm_file.close()
+                P.close()
+
         if aligned_pfams is not None:
-            PFAM_COL = -1 # position of PFAMs annotations in list of annotations
             for annot_columns in all_annotations:
                 query_name = annot_columns[0]
                 if query_name in aligned_pfams:
@@ -224,12 +259,58 @@ class Annotator:
             
             yield_tuple = (line, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_id, self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded, self.pfam, self.queries_fasta)
+                           self.go_evidence, self.go_excluded)
             
             yield yield_tuple
             
         return
 
+
+def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
+    
+    new_fasta = new_hmm = None
+    
+    queries = queries_pfams[0]
+    pfams = queries_pfams[1]
+
+    # Process fasta queries
+    Q = NamedTemporaryFile(mode='w')
+    with open(orig_fasta, 'r') as origf:
+        found = False
+        for line in origf:
+            if line.startswith(">"):
+                orig_query = line.strip()[1:]
+                if " " in orig_query:
+                    orig_query = orig_query[:index(" ", orig_query)-1]
+                if orig_query in queries:
+                    found = True
+                    print(f">{orig_query}", file=Q)
+                else:
+                    found = False
+            else:
+                if found == True:
+                    print(f"{line.strip()}", file=Q)
+    Q.flush()
+
+    # Process pfams
+    P = NamedTemporaryFile(mode='w')
+    for pfam in pfams:
+        print(pfam, file=P)
+    P.flush()
+        
+    H = NamedTemporaryFile(mode='w')
+    cmd = f"{HMMFETCH} -f {orig_hmm} {P.name}"
+    cp = subprocess.run(cmd, shell=True, stdout=H)
+    # print(cp.stdout.decode("utf-8"))
+
+    # # check files
+    # cp = subprocess.run(["wc", "-l", Q.name], capture_output = True)
+    # print(cp)    
+    # cp = subprocess.run(["wc", "-l", H.name], capture_output = True)
+    # print(cp)
+    
+    return Q, H
+    
     
 # annotate_hit_line is outside the class because must be pickable
 ##
@@ -241,7 +322,7 @@ def annotate_hit_line(arguments):
     line, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_id, \
         target_taxa, target_orthologs, excluded_taxa, \
-        go_evidence, go_excluded, pfam, queries_fasta = arguments
+        go_evidence, go_excluded = arguments
     
     try:
         if not line.strip() or line.startswith('#'):
@@ -317,12 +398,6 @@ def annotate_hit_line(arguments):
                                                        annotations_fields = ANNOTATIONS_HEADER,
                                                        target_go_ev = go_evidence,
                                                        excluded_go_ev = go_excluded)
-
-            if pfam == 'align':
-                # # realign the query to the PFAMs from the orthologs
-                # aligned_pfams = align_query_pfams(query_name, queries_fasta, annotations["PFAMs"])
-                # annotations["PFAMs"] = aligned_pfams
-                pass
         else:
             annotations = {}
 
