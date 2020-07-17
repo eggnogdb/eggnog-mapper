@@ -12,8 +12,10 @@ def iter_fasta_seqs(source, translate=False):
     if translate:
         from Bio.Seq import Seq
         from Bio.Alphabet import generic_dna
+        
+    from pathlib import Path
     
-    if os.path.isfile(source):
+    if os.path.isfile(source) or Path(source).is_file():
         if source.endswith('.gz'):
             _source = gzip.open(source, "rt")
         else:
