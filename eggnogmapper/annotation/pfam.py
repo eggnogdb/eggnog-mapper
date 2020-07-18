@@ -55,8 +55,6 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
 
-    print(f"pfam.py:get_pfam_args {cpu}, {query_number}")
-
     if query_number < 100:
         usemem = False
         num_servers = cpu
@@ -148,6 +146,8 @@ def group_queries_pfams(all_annotations, PFAM_COL):
         query_name = annot_columns[0]
         pfams = annot_columns[PFAM_COL]
         
+        if pfams == "-": continue
+        
         for pfam in pfams.split(","):
             if pfam in pfams_queries:
                 pfams_queries[pfam].add(query_name)
@@ -208,22 +208,12 @@ class PfamAligner:
 
     
     ##
-    def align_whole_pfam(self, infile, pfam_file):
+    def align_whole_pfam(self, infile, pfam_file, silent = False):
 
         # hmmscan
         s = HmmerSearcher(self.args)
-        s.search_hmm_matches(infile, pfam_file)
+        s.search_hmm_matches(infile, pfam_file, silent)
 
-        return
-
-    
-    ##
-    def align_query_pfams(self, infile, pfam_file):
-
-        # hmmscan
-        s = HmmerSearcher(self.args)
-        s.search_hmm_matches(infile, pfam_file)
-        
         return
 
 ## END

@@ -51,13 +51,13 @@ def check_servers(dbtype, qtype, dbpath, host, port, servers_list):
 
 
 ##
-def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker):
+def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker, silent = False):
     servers = []
     sdbpath = dbpath
     shost = host
     sport = port
     for num_server, server in enumerate(range(num_servers)):
-        sdbpath, shost, sport, master_pid, workers_pids = start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype)
+        sdbpath, shost, sport, master_pid, workers_pids = start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype, silent = silent)
         servers.append((sdbpath, sport, master_pid, workers_pids))
         sport = sport + 2
     dbpath = sdbpath
@@ -68,17 +68,20 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
 
 
 ##
-def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ):
+def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ, silent = False):
     master_db = worker_db = workers = None
     for try_port in range(port, end_port, 2):
-        print(colorify("Loading server at localhost, port %s-%s" %
-                       (try_port, try_port + 1), 'lblue'))
+        if silent == False:
+            print(colorify("Loading server at localhost, port %s-%s" %
+                           (try_port, try_port + 1), 'lblue'))
 
         dbpath, master_db, workers = load_server(dbpath, try_port, try_port + 1,
-                                                 cpus_per_worker, num_workers = num_workers, dbtype = dbtype)
+                                                 cpus_per_worker, num_workers = num_workers, dbtype = dbtype,
+                                                 silent = silent)
         port = try_port
         ready = False
-        print(f"Waiting for server to become ready at {host}:{port} ...")
+        if silent == False:
+            print(f"Waiting for server to become ready at {host}:{port} ...")
         for _ in range(TIMEOUT_LOAD_SERVER):
             time.sleep(1)
             if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
@@ -89,12 +92,14 @@ def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbt
                     worker_db.join()                        
                 break
             elif server_functional(host, port, dbtype, qtype):
-                print(f"Server ready at {host}:{port}")
+                if silent == False:
+                    print(f"Server ready at {host}:{port}")
                 ready = True
                 break
             else:
-                sys.stdout.write(".")
-                sys.stdout.flush()
+                if silent == False:
+                    sys.stdout.write(".")
+                    sys.stdout.flush()
 
         if ready:
             dbpath = host
@@ -142,7 +147,7 @@ def safe_exit(a, b):
         CHILD_PROC.kill()
     sys.exit(0)
 
-def load_worker(master_host, worker_port, cpu, output=None):
+def load_worker(master_host, worker_port, cpu, output=None, silent = False):
     global CHILD_PID, WORKERS
     if not output:
         OUT = open(os.devnull, 'w')
@@ -154,7 +159,8 @@ def load_worker(master_host, worker_port, cpu, output=None):
               
     def start_worker():
         cmd = HMMPGMD + f' --worker {master_host} --wport {worker_port} --cpu {cpu}'
-        print(colorify(f"Loading worker: {cmd}", 'orange'))
+        if silent == False:
+            print(colorify(f"Loading worker: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
@@ -165,7 +171,7 @@ def load_worker(master_host, worker_port, cpu, output=None):
     
     return worker
 
-def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1, output=None, dbtype=DB_TYPE_HMM, is_worker = True):
+def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1, output=None, dbtype=DB_TYPE_HMM, is_worker = True, silent = False):
     global CHILD_PID, MASTER, WORKERS
     if not output:
         OUT = open(os.devnull, 'w')
@@ -177,24 +183,28 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1
 
     def start_master():
         cmd = HMMPGMD + f' --master --cport {client_port} --wport {worker_port} --{dbtype} {dbpath}'
-        print(colorify(f"Loading master: {cmd}", 'orange'))
+        if silent == False:
+            print(colorify(f"Loading master: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
 
     def start_worker():
         cmd = HMMPGMD + f' --worker localhost --wport {worker_port} --cpu {cpus_per_worker}'
-        print(colorify(f"Loading worker: {cmd}", 'orange'))
+        if silent == False:
+            print(colorify(f"Loading worker: {cmd}", 'orange'))
         CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
         while 1:
             time.sleep(60)
 
-    print(f"Creating hmmpgmd server at port {client_port} ...")
+    if silent == False:
+        print(f"Creating hmmpgmd server at port {client_port} ...")
     MASTER = Process(target=start_master)
     MASTER.start()
 
     if is_worker == True and num_workers > 0:
-        print(f"Creating hmmpgmd workers ({num_workers}) at port {worker_port} ...")
+        if silent == False:
+            print(f"Creating hmmpgmd workers ({num_workers}) at port {worker_port} ...")
         WORKERS = []
         for i in range(num_workers):
             worker = Process(target=start_worker)

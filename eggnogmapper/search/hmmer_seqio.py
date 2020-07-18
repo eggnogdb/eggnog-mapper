@@ -5,10 +5,11 @@ import re
 import gzip
 
 CLEAN_SEQ = re.compile("[\s\-\.]+")
-def iter_fasta_seqs(source, translate=False):    
+def iter_fasta_seqs(source, translate=False, silent=False):    
     """Iter seq records in a FASTA file"""
 
-    sys.stderr.write(f"Parsing fasta file {source}...\n")
+    if silent == False:
+        sys.stderr.write(f"Parsing fasta file {source}...\n")
     if translate:
         from Bio.Seq import Seq
         from Bio.Alphabet import generic_dna
@@ -59,6 +60,7 @@ def iter_fasta_seqs(source, translate=False):
         else:
             yield seq_name, ''.join(seq_chunks)
 
-    sys.stderr.write(f"Fasta file {source} parsing complete.\n")
+    if silent == False:
+        sys.stderr.write(f"Fasta file {source} parsing complete.\n")
     
     return

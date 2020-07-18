@@ -204,38 +204,19 @@ class Annotator:
 
             pfam_args, infile = get_pfam_args(self.cpu, self.queries_fasta, self.translate, self.temp_dir)
             pfam_aligner = PfamAligner(pfam_args)
-            pfam_aligner.align_whole_pfam(infile, pfam_file)
+            pfam_aligner.align_whole_pfam(infile, pfam_file, silent = True)
             aligned_pfams = parse_pfam_file(pfam_file)
 
         elif self.pfam == 'align':
             print(colorify("re-aligning PFAM domains from orthologs to queries", 'green'))
+
+            aligned_pfams = self.pfam_align_serial(all_annotations, PFAM_COL, pfam_file)
+
+        elif self.pfam == 'alignp':
+            print(colorify("re-aligning PFAM domains from orthologs to queries, in parallel mode", 'green'))
+
+            aligned_pfams = self.pfam_align_parallel(all_annotations, PFAM_COL, pfam_file)    
             
-            for queries_pfams_group in group_queries_pfams(all_annotations, PFAM_COL):
-                # fetch pfams to a new HMM file
-                # fetch queries to a new Fasta file
-                fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, self.queries_fasta, get_pfam_db(), self.temp_dir)
-
-                # output file for this group
-                P = NamedTemporaryFile(mode='w')
-                
-                # align queries to the new HMM file
-                pfam_args, infile = get_hmmsearch_args(self.cpu, fasta_file.name, hmm_file.name, self.translate, self.temp_dir)
-                pfam_aligner = PfamAligner(pfam_args)
-                pfam_aligner.align_whole_pfam(infile, P.name)
-                if aligned_pfams is None:
-                    aligned_pfams = parse_hmmsearch_file(P.name)
-                else:
-                    aligned_pfams.update(parse_hmmsearch_file(P.name))
-
-                # Append contents of output file for this group into pfam_file,
-                # which is the file reporting all the pfam hits together
-                with open(pfam_file, 'a') as pfamf:
-                    pfamf.write(open(P.name, 'r').read())
-
-                fasta_file.close()
-                hmm_file.close()
-                P.close()
-
         if aligned_pfams is not None:
             for annot_columns in all_annotations:
                 query_name = annot_columns[0]
@@ -265,7 +246,124 @@ class Annotator:
             
         return
 
+    ##
+    def pfam_align_serial(self, annotations, PFAM_COL, pfam_file):
+        aligned_pfams = None
 
+        for queries_pfams_group in group_queries_pfams(annotations, PFAM_COL):
+            # fetch pfams to a new HMM file
+            # fetch queries to a new Fasta file
+
+            arguments = queries_pfams_group, self.queries_fasta, get_pfam_db(), self.temp_dir, self.translate, pfam_file, self.cpu
+            alignments = query_pfam_annotate(arguments)
+            if alignments is not None:
+                if aligned_pfams is None:
+                    aligned_pfams = alignments
+                else:
+                    aligned_pfams.update(alignments)
+            
+            # fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, self.queries_fasta, get_pfam_db(), self.temp_dir)
+
+            # if fasta_file is None or hmm_file is None:
+            #     continue
+            
+            # # output file for this group
+            # P = NamedTemporaryFile(mode='w')
+
+            # # align queries to the new HMM file
+            # pfam_args, infile = get_hmmsearch_args(self.cpu, fasta_file.name, hmm_file.name, self.translate, self.temp_dir)
+            # pfam_aligner = PfamAligner(pfam_args)
+            # pfam_aligner.align_whole_pfam(infile, P.name, silent = True)
+            
+            # if aligned_pfams is None:
+            #     aligned_pfams = parse_hmmsearch_file(P.name)
+            # else:
+            #     aligned_pfams.update(parse_hmmsearch_file(P.name))
+
+            # # Append contents of output file for this group into pfam_file,
+            # # which is the file reporting all the pfam hits together
+            # with open(pfam_file, 'a') as pfamf:
+            #     pfamf.write(open(P.name, 'r').read())
+
+            # fasta_file.close()
+            # hmm_file.close()
+            # P.close()
+
+        return aligned_pfams
+
+
+    ##
+    def wrap_group_queries_pfams(self, annotations, PFAM_COL, pfam_file):
+        queries_pfams_groups = group_queries_pfams(annotations, PFAM_COL)
+
+        for queries_pfams_group in group_queries_pfams(annotations, PFAM_COL):
+            yield (queries_pfams_group, self.queries_fasta, get_pfam_db(), self.temp_dir, self.translate, pfam_file, 1)
+            # cpu = 1 since we are already parallelizing
+            
+        return
+
+    ##
+    def pfam_align_parallel(self, annotations, PFAM_COL, pfam_file):
+        aligned_pfams = None
+
+        pool = multiprocessing.Pool(self.cpu)
+        
+        try:
+            
+            for alignments in pool.imap(query_pfam_annotate, self.wrap_group_queries_pfams(annotations, PFAM_COL, pfam_file)):
+                if alignments is not None:
+                    if aligned_pfams is None:
+                        aligned_pfams = alignments
+                    else:
+                        aligned_pfams.update(alignments)                
+                
+        except EmapperException:
+            raise
+        except Exception as e:
+            raise EmapperException(f"Error: annotation went wrong for pfam alignment in parallel. "+str(e))
+        finally:
+            pool.terminate()
+
+        return aligned_pfams
+    
+
+##
+def query_pfam_annotate(arguments):
+    queries_pfams_group, queries_fasta, pfam_db, temp_dir, translate, pfam_file, cpu = arguments
+    
+    aligned_pfams = None
+
+    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db, temp_dir)
+
+    if fasta_file is None or hmm_file is None:
+        pass
+    else:
+        # output file for this group
+        P = NamedTemporaryFile(mode='w')
+
+        # align queries to the new HMM file
+        pfam_args, infile = get_hmmsearch_args(cpu, fasta_file.name, hmm_file.name, translate, temp_dir)
+        pfam_aligner = PfamAligner(pfam_args)
+        pfam_aligner.align_whole_pfam(infile, P.name, silent = True)
+
+        aligned_pfams = parse_hmmsearch_file(P.name)
+
+        # Append contents of output file for this group into pfam_file,
+        # which is the file reporting all the pfam hits together
+        with open(pfam_file, 'a') as pfamf:
+            pfamf.write(open(P.name, 'r').read())
+
+        P.close()
+
+    if fasta_file is not None:
+        fasta_file.close()
+    if hmm_file is not None:
+        hmm_file.close()
+
+    return aligned_pfams
+
+
+##
 def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
     
     new_fasta = new_hmm = None
@@ -291,23 +389,20 @@ def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
                 if found == True:
                     print(f"{line.strip()}", file=Q)
     Q.flush()
-
+    
     # Process pfams
     P = NamedTemporaryFile(mode='w')
     for pfam in pfams:
         print(pfam, file=P)
     P.flush()
-        
-    H = NamedTemporaryFile(mode='w')
-    cmd = f"{HMMFETCH} -f {orig_hmm} {P.name}"
-    cp = subprocess.run(cmd, shell=True, stdout=H)
-    # print(cp.stdout.decode("utf-8"))
 
-    # # check files
-    # cp = subprocess.run(["wc", "-l", Q.name], capture_output = True)
-    # print(cp)    
-    # cp = subprocess.run(["wc", "-l", H.name], capture_output = True)
-    # print(cp)
+    H = None
+    if os.stat(P.name).st_size > 0:
+        H = NamedTemporaryFile(mode='w')
+        cmd = f"{HMMFETCH} -f {orig_hmm} {P.name}"
+        cp = subprocess.run(cmd, shell=True, stdout=H, stderr=subprocess.DEVNULL)
+        if os.stat(H.name).st_size == 0:
+            H = None
     
     return Q, H
     
