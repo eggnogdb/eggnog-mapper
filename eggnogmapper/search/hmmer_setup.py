@@ -19,7 +19,7 @@ SETUP_TYPE_EGGNOG = "eggnog"
 SETUP_TYPE_CUSTOM = "custom"
 
 ##
-def setup_hmm_search(db, scantype, dbtype, qtype = QUERY_TYPE_SEQ, servers_list = None):
+def setup_hmm_search(db, scantype, dbtype, qtype = QUERY_TYPE_SEQ, servers_list = None, silent = False):
 
     setup_type = None
     
@@ -34,7 +34,7 @@ def setup_hmm_search(db, scantype, dbtype, qtype = QUERY_TYPE_SEQ, servers_list 
             dbname, dbpath, host, port, end_port, idmap_file = setup_eggnog_db(db, scantype)
             setup_type = SETUP_TYPE_EGGNOG
         else:
-            dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype, dbtype)
+            dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(db, scantype, dbtype, silent)
             setup_type = SETUP_TYPE_CUSTOM
 
     return dbname, dbpath, host, port, end_port, idmap_file, setup_type
@@ -71,12 +71,12 @@ def setup_eggnog_db(db, scantype):
 
 
 ##
-def setup_custom_db(db, scantype, dbtype = DB_TYPE_HMM):
+def setup_custom_db(db, scantype, dbtype = DB_TYPE_HMM, silent = False):
     
     if dbtype == DB_TYPE_HMM:
-        db, dbpath, host, port, end_port, idmap_file = setup_custom_hmmdb(db, scantype)
+        db, dbpath, host, port, end_port, idmap_file = setup_custom_hmmdb(db, scantype, silent)
     elif dbtype == DB_TYPE_SEQ:
-        db, dbpath, host, port, end_port, idmap_file = setup_custom_seqdb(db, scantype)
+        db, dbpath, host, port, end_port, idmap_file = setup_custom_seqdb(db, scantype, silent)
     else:
         raise Exception("Unrecognized dbtype {dbtype}.")
 
@@ -84,12 +84,13 @@ def setup_custom_db(db, scantype, dbtype = DB_TYPE_HMM):
     
         
 ##
-def setup_custom_hmmdb(db, scantype):
+def setup_custom_hmmdb(db, scantype, silent = False):
     if not os.path.isfile(db + '.h3f'):
         print(colorify('Database %s not present. Use hmmpress to create the h3* files' % (db), 'red'))
         raise ValueError('Database not found')
 
-    print(colorify(f"Preparing to query custom database {db}", 'green'))
+    if silent == False:
+        print(colorify(f"Preparing to query custom database {db}", 'green'))
     dbpath = db
 
     if scantype == SCANTYPE_MEM:
@@ -101,7 +102,8 @@ def setup_custom_hmmdb(db, scantype):
         if not pexists(idmap_file):
             if generate_idmap(db):
                 # idmap_file = db + ".idmap"
-                print("idmap succesfully created!", file=sys.stderr)
+                if silent == False:
+                    print("idmap succesfully created!", file=sys.stderr)
             else:
                 raise ValueError("idmap could not be created!")
     else:
@@ -114,13 +116,14 @@ def setup_custom_hmmdb(db, scantype):
 
 
 ##
-def setup_custom_seqdb(db, scantype):
+def setup_custom_seqdb(db, scantype, silent = False):
 
     # if not os.path.isfile(db + '.seqdb'):
     #     print(colorify('esl-reformat database (with name %s.seqdb) not present. Use esl-reformat to create the .seqdb file' % (db), 'red'))
     #     raise ValueError('esl-reformat database not found')
 
-    print(colorify(f"Preparing to query custom database {db}", 'green'))
+    if silent == False:
+        print(colorify(f"Preparing to query custom database {db}", 'green'))
 
     if scantype == SCANTYPE_MEM:
         if not os.path.isfile(db + '.seqdb'):

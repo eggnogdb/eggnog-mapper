@@ -19,7 +19,7 @@ def generate_idmap(dbpath):
 def load_idmap_idx(idmap_file):
     idmap_idx = {}
 
-    print(colorify("Reading idmap %s" % idmap_file, color='lblue'))
+    # print(colorify("Reading idmap %s" % idmap_file, color='lblue'))
     for _lnum, _line in enumerate(open(idmap_file)):
         if not _line.strip():
             continue
@@ -33,7 +33,7 @@ def load_idmap_idx(idmap_file):
                 raise
         _seqid = int(_seqid)
         idmap_idx[_seqid] = [_seqname]
-    print(str(len(idmap_idx)) + " names loaded")
+    # print(str(len(idmap_idx)) + " names loaded")
 
     return idmap_idx
 

@@ -21,7 +21,7 @@ DB_TYPE_HMM = "hmmdb"
 
 def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
-                  skip=None, cut_ga=False):
+                  skip=None, cut_ga=False, silent=False):
 
     if cut_ga == True:
         cut_ga = " --cut_ga"
@@ -31,7 +31,7 @@ def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
     pool = multiprocessing.Pool(cpus)
     for r in pool.imap(iter_seq, ([seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
                                   for seqnum, (name, seq) in
-                                  enumerate(iter_fasta_seqs(src, translate=translate)))):
+                                  enumerate(iter_fasta_seqs(src, translate=translate, silent=silent)))):
         yield r
     pool.terminate()
     return
@@ -65,7 +65,7 @@ def iter_seq(seq):
 def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
                   evalue_thr=None, score_thr=None,
                   max_hits=None, skip=None, maxseqlen=None,
-                  fixed_Z=None, cut_ga=False):
+                  fixed_Z=None, cut_ga=False, silent=False):
 
     if cut_ga == True:
         cut_ga = " --cut_ga"
@@ -76,14 +76,15 @@ def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
     for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr,
                                    max_hits, maxseqlen, fixed_Z, skip, cut_ga]
                                   for hmmnum, (hmmer_version, name, leng, model) in
-                                  enumerate(iter_hmm_file(hmmfile, skip)))):
+                                  enumerate(iter_hmm_file(hmmfile, skip, silent=silent)))):
         yield r
     pool.terminate()
     return
 
 
-def iter_hmm_file(hmmfile, skip):
-    sys.stderr.write(f"Parsing hmm file {hmmfile}...\n")
+def iter_hmm_file(hmmfile, skip, silent=False):
+    if silent == False:
+        sys.stderr.write(f"Parsing hmm file {hmmfile}...\n")
     hmmer_version = None
     model = ''
     name = 'Unknown'
@@ -106,7 +107,8 @@ def iter_hmm_file(hmmfile, skip):
                     continue
                 yield hmmer_version, name, leng, model
 
-    sys.stderr.write(f"hmm file {hmmfile} parsing complete.\n")
+    if silent == False:
+        sys.stderr.write(f"hmm file {hmmfile} parsing complete.\n")
     return
 
 

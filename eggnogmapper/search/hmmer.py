@@ -96,17 +96,18 @@ class HmmerSearcher:
     
         
     ##
-    def search_hmm_matches(self, in_file, hmm_hits_file):
+    def search_hmm_matches(self, in_file, hmm_hits_file, silent = False):
         
         annot = None
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype, self.servers_list)
+        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype, self.servers_list, silent)
 
         servers = None
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                         self.num_servers, self.num_workers, self.cpus_per_worker)
+                                                         self.num_servers, self.num_workers, self.cpus_per_worker,
+                                                         silent)
             
         elif setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
             dbpath, host, port, servers = check_servers(self.dbtype, self.qtype, dbpath, host, port, self.servers_list)
@@ -119,7 +120,7 @@ class HmmerSearcher:
         else:
             hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
             
-        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file)
+        self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file, silent)
 
         # Shutdown server, If a temp local server was set up
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
@@ -177,7 +178,7 @@ class HmmerSearcher:
 
 
     ##
-    def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file):
+    def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file, silent = False):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
         
@@ -205,7 +206,8 @@ class HmmerSearcher:
         if idmap_file:
             idmap_idx = load_idmap_idx(idmap_file)
 
-        print(colorify("Sequence mapping starts now!", 'green'))
+        if silent == False:
+            print(colorify("Sequence mapping starts now!", 'green'))
 
         if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
             namedhits = []
@@ -228,7 +230,8 @@ class HmmerSearcher:
                                                             maxseqlen=self.maxseqlen,
                                                             cut_ga=self.cut_ga,
                                                             cpus=self.cpu,
-                                                            base_tempdir=self.temp_dir):
+                                                            base_tempdir=self.temp_dir,
+                                                            silent=silent):
 
             if elapsed == -1:
                 # error occurred. hits should contain a single element with the error msg. e.g. hits = ["ERROR_MSG"]
@@ -254,12 +257,13 @@ class HmmerSearcher:
             total_time += time.time() - last_time
             last_time = time.time()
             if qn and (qn % 25 == 0):
-                print(qn + \
-                       1, total_time, "%0.2f q/s" % ((float(qn + 1) / total_time)), file=sys.stderr)
-                sys.stderr.flush()
+                if silent == False:
+                    print(qn + 1, total_time, "%0.2f q/s" % ((float(qn + 1) / total_time)), file=sys.stderr)
+                    sys.stderr.flush()
 
         if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
-            sys.stderr.write("Postprocessing overlapping hits...\n")
+            if silent == False:
+                sys.stderr.write("Postprocessing overlapping hits...\n")
             namedhits = process_overlaps(namedhits, self.clean_overlaps, idmap_idx)
             for (name, querylen, hits) in namedhits:
                 self.output_hits(name, querylen, hits, OUT, idmap_idx)
@@ -271,8 +275,9 @@ class HmmerSearcher:
             print('# Total time (seconds): '+str(elapsed_time), file=OUT)
             print('# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time)), file=OUT)
         OUT.close()
-        print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
-                       (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue'))
+        if silent == False:
+            print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
+                           (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue'))
 
         return
 
@@ -341,8 +346,7 @@ class HmmerSearcher:
     def process_nog_hits_file(self, hits_file, query_fasta, og2level, skip_queries=None,
                               translate=False, cpu=1, excluded_taxa=None, base_tempdir=None):
 
-        sequences = {name: seq for name, seq in iter_fasta_seqs(
-            query_fasta, translate=translate)}
+        sequences = {name: seq for name, seq in iter_fasta_seqs(query_fasta, translate=translate)}
         cmds = []
         visited_queries = set()
 
