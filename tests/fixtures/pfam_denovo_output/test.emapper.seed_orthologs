@@ -1,8 +1,8 @@
-# Fri Jul 17 16:49:09 2020
-# emapper-2.0.2-rf1-16-g41c3286
+# Wed Jul 29 16:17:02 2020
+# emapper-2.0.2-rf1-19-g6908158
 # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp_borrar -o test --pfam denovo
 #
-#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/diamond blastp -d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/eggnog_proteins.dmnd -q /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/test_pfam_groups.fa --more-sensitive --threads 1 -e 0.001 -o /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_dmdn_dnqb6c1o/6ee7fc3a6d4a4a978408ef251c87068a --query-cover 0 --subject-cover 0 --top 3 
+#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/diamond blastp -d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/eggnog_proteins.dmnd -q /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/test_pfam_groups.fa --more-sensitive --threads 1 -e 0.001 -o /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_dmdn_5nov8jb0/3bfce90854844ae786f8cbe105d5782c --query-cover 0 --subject-cover 0 --top 3 
 1000565.METUNv1_03812	1000565.METUNv1_03812	1.9e-207	716.8
 1000565.METUNv1_03812_2	1000565.METUNv1_03812	1.9e-207	716.8
 362663.ECP_0061	362663.ECP_0061	0.0	1636.3
