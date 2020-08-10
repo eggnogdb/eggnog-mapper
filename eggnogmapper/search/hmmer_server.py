@@ -52,17 +52,40 @@ def check_servers(dbtype, qtype, dbpath, host, port, servers_list):
 
 ##
 def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker, silent = False):
+    if silent == False:
+        print(f"create_servers: {dbtype}:{dbpath}:{host}:{port}-{end_port}")
     servers = []
     sdbpath = dbpath
     shost = host
     sport = port
+    MAX_CREATE_SERVER_FAILS = 3 # max number of cummulative fails creating servers before aborting creating new ones
+    fails = 0
+    
     for num_server, server in enumerate(range(num_servers)):
-        sdbpath, shost, sport, master_pid, workers_pids = start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype, silent = silent)
-        servers.append((sdbpath, sport, master_pid, workers_pids))
+        if sport >= end_port:
+            printf(colorify(f"start port ({sport}) equal or greater than end port ({end_port})", 'red'))
+            break
+
+        if silent == False:
+            print(f"Creating server number {num_server+1}/{num_servers}")
+        try:
+            sdbpath, shost, sport, master_pid, workers_pids = start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype, silent = silent)
+            servers.append((sdbpath, sport, master_pid, workers_pids))
+            fails = 0
+        except Exception as e:
+            fails += 1
+            print(colorify(f"Could not create server number {num_server+1}/{num_servers}. Fails: {fails}", 'red'))
+            if fails >= MAX_CREATE_SERVER_FAILS:
+                break
+            
         sport = sport + 2
+        
     dbpath = sdbpath
     host = shost
     port = sport
+
+    if silent == False:
+        print(f"Created {len(servers)} out of {num_servers}")
 
     return dbpath, host, port, servers
 
@@ -70,6 +93,9 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
 ##
 def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ, silent = False):
     master_db = worker_db = workers = None
+    MAX_PORTS_TO_TRY = 3
+    ports_tried = 0
+    ready = False
     for try_port in range(port, end_port, 2):
         if silent == False:
             print(colorify("Loading server at localhost, port %s-%s" %
@@ -79,7 +105,7 @@ def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbt
                                                  cpus_per_worker, num_workers = num_workers, dbtype = dbtype,
                                                  silent = silent)
         port = try_port
-        ready = False
+        # ready = False
         if silent == False:
             print(f"Waiting for server to become ready at {host}:{port} ...")
         for _ in range(TIMEOUT_LOAD_SERVER):
@@ -101,9 +127,16 @@ def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbt
                     sys.stdout.write(".")
                     sys.stdout.flush()
 
+        ports_tried += 1
         if ready:
             dbpath = host
             break
+        else:
+            if ports_tried >= MAX_PORTS_TO_TRY:
+                raise Exception("Could not start server after trying {ports_tried} ports.")
+            
+    if ready == False:
+        raise Exception("Could not start server.")        
 
     return dbpath, host, port, master_db, workers
 
