@@ -54,7 +54,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
 def get_pfam_args(cpu, fasta_file, translate, temp_dir):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
-
+    
     if query_number < 100:
         usemem = False
         num_servers = cpu
@@ -65,7 +65,7 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
         infile = fasta_file
         dbtype = DB_TYPE_HMM
         qtype = QUERY_TYPE_SEQ
-        
+
     elif query_number >= 100 and query_number < 15000:
         usemem = True
         num_servers = cpu

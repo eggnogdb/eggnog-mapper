@@ -142,7 +142,8 @@ class Annotator:
         all_annotations = []
         
         start_time = time.time()
-        
+
+        # multiprocessing.set_start_method("spawn")
         pool = multiprocessing.Pool(self.cpu)
 
         qn = 0
@@ -200,9 +201,12 @@ class Annotator:
         aligned_pfams = None
         if self.pfam == 'denovo':
             print(colorify("de novo search of PFAM domains", 'green'))
-            # align all queries to whole PFAM to carry out a de novo annotation
+            # filter fasta file to have only annotated queries
+            queries = [annot_columns[0] for annot_columns in all_annotations]
+            fasta_file = filter_fasta_file(queries, self.queries_fasta)
 
-            pfam_args, infile = get_pfam_args(self.cpu, self.queries_fasta, self.translate, self.temp_dir)
+            # align those queries to whole PFAM to carry out a de novo annotation
+            pfam_args, infile = get_pfam_args(self.cpu, fasta_file.name, self.translate, self.temp_dir)
             pfam_aligner = PfamAligner(pfam_args)
             pfam_aligner.align_whole_pfam(infile, pfam_file, silent = True)
             aligned_pfams = parse_pfam_file(pfam_file)
@@ -261,33 +265,6 @@ class Annotator:
                     aligned_pfams = alignments
                 else:
                     aligned_pfams.update(alignments)
-            
-            # fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, self.queries_fasta, get_pfam_db(), self.temp_dir)
-
-            # if fasta_file is None or hmm_file is None:
-            #     continue
-            
-            # # output file for this group
-            # P = NamedTemporaryFile(mode='w')
-
-            # # align queries to the new HMM file
-            # pfam_args, infile = get_hmmsearch_args(self.cpu, fasta_file.name, hmm_file.name, self.translate, self.temp_dir)
-            # pfam_aligner = PfamAligner(pfam_args)
-            # pfam_aligner.align_whole_pfam(infile, P.name, silent = True)
-            
-            # if aligned_pfams is None:
-            #     aligned_pfams = parse_hmmsearch_file(P.name)
-            # else:
-            #     aligned_pfams.update(parse_hmmsearch_file(P.name))
-
-            # # Append contents of output file for this group into pfam_file,
-            # # which is the file reporting all the pfam hits together
-            # with open(pfam_file, 'a') as pfamf:
-            #     pfamf.write(open(P.name, 'r').read())
-
-            # fasta_file.close()
-            # hmm_file.close()
-            # P.close()
 
         return aligned_pfams
 
@@ -333,7 +310,7 @@ def query_pfam_annotate(arguments):
     
     aligned_pfams = None
 
-    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db, temp_dir)
+    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db)
 
     if fasta_file is None or hmm_file is None:
         pass
@@ -362,24 +339,17 @@ def query_pfam_annotate(arguments):
 
     return aligned_pfams
 
-
 ##
-def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
+# Create a new temp fasta file including only
+# the queries in the list "queries"
+def filter_fasta_file(queries, orig_fasta):
     
-    new_fasta = new_hmm = None
-    
-    queries = queries_pfams[0]
-    pfams = queries_pfams[1]
-
-    # Process fasta queries
     Q = NamedTemporaryFile(mode='w')
     with open(orig_fasta, 'r') as origf:
         found = False
         for line in origf:
             if line.startswith(">"):
-                orig_query = line.strip()[1:]
-                if " " in orig_query:
-                    orig_query = orig_query[:index(" ", orig_query)-1]
+                orig_query = line.strip()[1:].split(" ")[0]
                 if orig_query in queries:
                     found = True
                     print(f">{orig_query}", file=Q)
@@ -389,6 +359,19 @@ def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
                 if found == True:
                     print(f"{line.strip()}", file=Q)
     Q.flush()
+    
+    return Q
+
+##
+def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm):
+    
+    new_fasta = new_hmm = None
+    
+    queries = queries_pfams[0]
+    pfams = queries_pfams[1]
+    
+    # Process fasta queries
+    Q = filter_fasta_file(queries, orig_fasta)
     
     # Process pfams
     P = NamedTemporaryFile(mode='w')
@@ -413,7 +396,7 @@ def annotate_hit_line(arguments):
     # should connect also if no previous connection
     # exists in this Pool process (worker)
     db_sqlite.connect()
-
+    
     line, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_id, \
         target_taxa, target_orthologs, excluded_taxa, \
