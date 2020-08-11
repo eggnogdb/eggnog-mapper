@@ -211,13 +211,14 @@ def create_arg_parser():
                           'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
 
-    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'align', 'alignp', 'denovo'),
+    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'align', 'alignp', 'align_scan', 'denovo'),
                           default='transfer',
                           help='Defines how PFAM annotation will be performed. '
                           'transfer = A list of PFAMs, directly transferred from orthologs, will be reported. '
                           'align = PFAMs from orthologs will be realigned to the query and '
                           'a list of PFAMs and their positions on the query will be reported. '
                           'alignp = like align but parallel setup of files. '
+                          'align_scan = like alignp, but using hmmscan instead of hmmsearch. '
                           'denovo = each query will be realigned to PFAM and '
                           'a list of PFAMs and their positions on the query will be reported.')
 
@@ -418,7 +419,7 @@ def parse_args(parser):
     # PFAM annotation options
     if args.pfam == 'transfer':
         pass
-    elif args.pfam == 'align' or args.pfam == 'alignp' or args.pfam == 'denovo':
+    elif args.pfam == 'align' or args.pfam == 'alignp' or args.pfam == 'align_scan' or args.pfam == 'denovo':
         if not args.input:
             parser.error(f'An input fasta file is required (-i) for --pfam {args.pfam}')
     else:
