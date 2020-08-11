@@ -9,6 +9,45 @@ from ..search.hmmer import HmmerSearcher
 from ..search.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
 from ..common import get_pfam_db, get_call_info
 
+##
+def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
+    usemem = False
+    num_servers = cpu
+    num_workers = 1
+    cpus_per_worker = 1
+    scan_type = SCANTYPE_DISK
+    db = hmm_file
+    infile = fasta_file
+    dbtype = DB_TYPE_HMM
+    qtype = QUERY_TYPE_SEQ
+
+    pfam_args = Namespace(call_info = get_call_info(),
+                          cpu = cpu,
+                          usemem = usemem,
+                          num_servers = num_servers,
+                          num_workers = num_workers,
+                          cpus_per_worker = cpus_per_worker,
+                          scan_type = scan_type,
+                          db = db,
+                          servers_list = None,
+                          dbtype = dbtype,
+                          qtype = qtype,
+                          translate = translate,
+                          resume = False,
+                          no_file_comments = False,
+                          maxhits = 0, # unlimited
+                          report_no_hits = False,
+                          maxseqlen = 5000,
+                          cut_ga = True,
+                          clean_overlaps = "clans",
+                          evalue = 1E-10,
+                          score = None,
+                          qcov = 0,
+                          Z = 40000000,
+                          temp_dir = temp_dir,
+                          excluded_taxa = None)
+    
+    return pfam_args, infile
 
 ##
 def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
@@ -196,6 +235,19 @@ def parse_hmmsearch_file(pfam_file):
 
     return pfams
 
+def parse_hmmscan_file(pfam_file):
+    pfams = {}
+
+    with open(pfam_file, 'r') as pfamf:
+        for line in pfamf:
+            if line.startswith("#"): continue
+            query, pfam, evalue, score, qlen, hmmfrom, hmmto, seqfrom, seqto, qcov = map(str.strip, line.split("\t"))
+            if query in pfams:
+                pfams[query].add(pfam)
+            else:
+                pfams[query] = {pfam}
+
+    return pfams
 
 ##
 class PfamAligner:

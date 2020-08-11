@@ -8,7 +8,7 @@ import subprocess
 from tempfile import NamedTemporaryFile
     
 from ..emapperException import EmapperException
-from ..common import get_call_info, TAXONOMIC_RESOLUTION, get_pfam_db, HMMFETCH
+from ..common import get_call_info, TAXONOMIC_RESOLUTION, get_pfam_db, HMMFETCH, HMMPRESS
 from ..utils import colorify
 from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 
@@ -16,7 +16,7 @@ from ..vars import LEVEL_PARENTS, LEVEL_NAMES, LEVEL_DEPTH
 from . import annota
 from . import db_sqlite
 from . import orthologs as ortho
-from .pfam import PfamAligner, get_pfam_args, parse_pfam_file, group_queries_pfams, get_hmmsearch_args, parse_hmmsearch_file
+from .pfam import PfamAligner, get_pfam_args, parse_pfam_file, group_queries_pfams, get_hmmsearch_args, get_hmmscan_args, parse_hmmsearch_file, parse_hmmscan_file
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -219,7 +219,12 @@ class Annotator:
         elif self.pfam == 'alignp':
             print(colorify("re-aligning PFAM domains from orthologs to queries, in parallel mode", 'green'))
 
-            aligned_pfams = self.pfam_align_parallel(all_annotations, PFAM_COL, pfam_file)    
+            aligned_pfams = self.pfam_align_parallel(all_annotations, PFAM_COL, pfam_file)
+
+        elif self.pfam == 'align_scan':
+            print(colorify("re-aligning PFAM domains from orthologs to queries, in parallel mode, using hmmscan", 'green'))
+
+            aligned_pfams = self.pfam_align_parallel_scan(all_annotations, PFAM_COL, pfam_file)
             
         if aligned_pfams is not None:
             for annot_columns in all_annotations:
@@ -303,7 +308,30 @@ class Annotator:
 
         return aligned_pfams
     
+    ##
+    def pfam_align_parallel_scan(self, annotations, PFAM_COL, pfam_file):
+        aligned_pfams = None
 
+        pool = multiprocessing.Pool(self.cpu)
+        
+        try:
+            
+            for alignments in pool.imap(query_pfam_annotate_scan, self.wrap_group_queries_pfams(annotations, PFAM_COL, pfam_file)):
+                if alignments is not None:
+                    if aligned_pfams is None:
+                        aligned_pfams = alignments
+                    else:
+                        aligned_pfams.update(alignments)                
+                
+        except EmapperException:
+            raise
+        except Exception as e:
+            raise EmapperException(f"Error: annotation went wrong for pfam alignment in parallel. "+str(e))
+        finally:
+            pool.terminate()
+
+        return aligned_pfams
+    
 ##
 def query_pfam_annotate(arguments):
     queries_pfams_group, queries_fasta, pfam_db, temp_dir, translate, pfam_file, cpu = arguments
@@ -324,6 +352,47 @@ def query_pfam_annotate(arguments):
         pfam_aligner.align_whole_pfam(infile, P.name, silent = True)
 
         aligned_pfams = parse_hmmsearch_file(P.name)
+
+        # Append contents of output file for this group into pfam_file,
+        # which is the file reporting all the pfam hits together
+        with open(pfam_file, 'a') as pfamf:
+            pfamf.write(open(P.name, 'r').read())
+
+        P.close()
+
+    if fasta_file is not None:
+        fasta_file.close()
+    if hmm_file is not None:
+        hmm_file.close()
+
+    return aligned_pfams
+
+##
+def query_pfam_annotate_scan(arguments):
+    queries_pfams_group, queries_fasta, pfam_db, temp_dir, translate, pfam_file, cpu = arguments
+    
+    aligned_pfams = None
+
+    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db)
+
+    # create hmmdb
+    print("Running hmmpress on {hmm_file.name}")
+    cmd = f"{HMMPRESS} {hmm_file.name}"
+    cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print(cp)
+    
+    if fasta_file is None or hmm_file is None:
+        pass
+    else:
+        # output file for this group
+        P = NamedTemporaryFile(mode='w')
+
+        # align queries to the new HMM file
+        pfam_args, infile = get_hmmscan_args(cpu, fasta_file.name, hmm_file.name, translate, temp_dir)
+        pfam_aligner = PfamAligner(pfam_args)
+        pfam_aligner.align_whole_pfam(infile, P.name, silent = True)
+
+        aligned_pfams = parse_hmmscan_file(P.name)
 
         # Append contents of output file for this group into pfam_file,
         # which is the file reporting all the pfam hits together
