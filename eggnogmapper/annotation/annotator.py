@@ -481,9 +481,10 @@ def annotate_hit_line(arguments):
 
     except Exception as e:
         raise EmapperException(f"Error: annotation went wrong for line \"{line.strip()}\". "+str(e))
-    
-    finally:
-        db_sqlite.close()
+
+    # WARNING: do NOT close db connections, because it becomes super slow
+    # finally:
+    #     db_sqlite.close()
     
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
             annotations,
