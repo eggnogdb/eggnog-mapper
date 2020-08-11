@@ -1,0 +1,23 @@
+# Tue Aug 11 17:16:52 2020
+# emapper-2.0.2-rf1-23-gb2aedf1
+# ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp_borrar -o test --pfam align_scan
+#
+# #query_name	hit	evalue	sum_score	query_length	hmmfrom	hmmto	seqfrom	seqto	query_coverage
+1000565.METUNv1_03812	YchF-GTPase_C	5.1e-43	133.4	363	1	84	279	362	0.22865013774104684
+1000565.METUNv1_03812	MMR_HSR1	2.4e-26	80.3	363	2	95	5	123	0.325068870523416
+1000565.METUNv1_03812_2	YchF-GTPase_C	5.1e-43	133.4	363	1	84	279	362	0.22865013774104684
+1000565.METUNv1_03812_2	MMR_HSR1	2.4e-26	80.3	363	2	95	5	123	0.325068870523416
+# 2 queries scanned
+# Total time (seconds): 0.08806276321411133
+# Rate: 22.71 q/s
+# Tue Aug 11 17:16:53 2020
+# emapper-2.0.2-rf1-23-gb2aedf1
+# ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp_borrar -o test --pfam align_scan
+#
+# #query_name	hit	evalue	sum_score	query_length	hmmfrom	hmmto	seqfrom	seqto	query_coverage
+362663.ECP_0061	DNA_pol_B	3.3e-46	146.2	783	30	415	382	735	0.4508301404853129
+362663.ECP_0061	DNA_pol_B_exo1	6.6e-17	50.0	783	65	173	74	164	0.11494252873563218
+362663.ECP_0061	DNA_pol_B_exo1	6.6e-17	50.0	783	241	337	204	296	0.11749680715197956
+# 1 queries scanned
+# Total time (seconds): 0.06004810333251953
+# Rate: 16.65 q/s
