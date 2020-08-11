@@ -376,10 +376,8 @@ def query_pfam_annotate_scan(arguments):
     fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db)
 
     # create hmmdb
-    print("Running hmmpress on {hmm_file.name}")
     cmd = f"{HMMPRESS} {hmm_file.name}"
     cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print(cp)
     
     if fasta_file is None or hmm_file is None:
         pass
