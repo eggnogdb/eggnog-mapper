@@ -202,8 +202,9 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
              dnum, c_evalue, i_evalue, d_score, d_bias, hmmfrom, hmmto, seqfrom,
              seqto, env_from, env_to, acc) = list(map(safe_cast, fields[:22]))
 
-            # if "CG50_08330" in qname:
-            #     print(hitname)
+            # if "CG50_09910" in qname:
+            #     print(f"hmmer_search.py: {hitname}")
+            #     print(f"hmmer_search.py: {list(map(safe_cast, fields[:22]))}")
 
             # If a new query is being processed,
             # report the results of the previous one
@@ -228,8 +229,8 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                (score_thr is None or score >= score_thr))) and \
                (max_hits is None or last_hitname == hitname or len(hit_ids) < max_hits):
 
-                # if "CG50_08330" in qname:
-                #     print(f"PASS FILTER {hitname}")
+                # if "CG50_09910" in qname:
+                #     print(f"hmmer_search.py: PASS FILTER {hitname}")
                     
                 hit_list.append([hitname, evalue, score, hmmfrom,
                                  hmmto, seqfrom, seqto, d_score])
