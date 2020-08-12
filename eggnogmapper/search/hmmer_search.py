@@ -169,12 +169,12 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     OUT = NamedTemporaryFile(dir=tempdir, mode='w+')
 
     if cut_ga:
-        cut_ga = " --cut_ga"
+        cut_ga_p = " --cut_ga"
     else:
-        cut_ga = ""
+        cut_ga_p = ""
         
     cmd = '%s %s --cpu %s -o /dev/null --domtblout %s %s %s' % (
-        hmmer_cmd, cut_ga, cpus, OUT.name, hmm_file, fasta_file)
+        hmmer_cmd, cut_ga_p, cpus, OUT.name, hmm_file, fasta_file)
     if silent == False:
         print(f'# {cmd}')
     sts = subprocess.call(cmd, shell=True)
@@ -216,19 +216,28 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                 last_query_len = None
 
             if last_query_len and last_query_len != qlen:
-                raise ValueError(
-                    "Inconsistent qlen when parsing hmmscan output")
+                raise ValueError("Inconsistent qlen when parsing hmmscan output")
             last_query_len = qlen
 
             # Filter thresholds
-            if (evalue_thr is None or evalue <= evalue_thr) and \
-               (score_thr is None or score >= score_thr) and \
+            if (cut_ga == True or \
+               ((evalue_thr is None or evalue <= evalue_thr) and \
+               (score_thr is None or score >= score_thr))) and \
                (max_hits is None or last_hitname == hitname or len(hit_ids) < max_hits):
 
                 hit_list.append([hitname, evalue, score, hmmfrom,
                                  hmmto, seqfrom, seqto, d_score])
                 hit_ids.add(hitname)
                 last_hitname = hitname
+            
+            # if (evalue_thr is None or evalue <= evalue_thr) and \
+            #    (score_thr is None or score >= score_thr) and \
+            #    (max_hits is None or last_hitname == hitname or len(hit_ids) < max_hits):
+
+            #     hit_list.append([hitname, evalue, score, hmmfrom,
+            #                      hmmto, seqfrom, seqto, d_score])
+            #     hit_ids.add(hitname)
+            #     last_hitname = hitname
                 
             last_query = qname
 
