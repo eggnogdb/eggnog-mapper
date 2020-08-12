@@ -225,11 +225,16 @@ class Annotator:
             print(colorify("re-aligning PFAM domains from orthologs to queries, in parallel mode, using hmmscan", 'green'))
 
             aligned_pfams = self.pfam_align_parallel_scan(all_annotations, PFAM_COL, pfam_file)
-            
+
+        # Add found pfams to annotations output
         if aligned_pfams is not None:
             for annot_columns in all_annotations:
                 query_name = annot_columns[0]
                 if query_name in aligned_pfams:
+
+                    # if query_name == "1105367.SAMN02673274.CG50_08330":
+                    #     print(f"annotator.py:annotate {aligned_pfams[query_name]}")
+                        
                     annot_columns[PFAM_COL] = ",".join(sorted(aligned_pfams[query_name]))
                 else:
                     annot_columns[PFAM_COL] = "-"
@@ -269,7 +274,12 @@ class Annotator:
                 if aligned_pfams is None:
                     aligned_pfams = alignments
                 else:
-                    aligned_pfams.update(alignments)
+                    for k,v in alignments.items():
+                        if k in aligned_pfams:
+                            aligned_pfams[k] = aligned_pfams[k] | v
+                        else:
+                            aligned_pfams[k] = v
+                    # aligned_pfams.update(alignments)
 
         return aligned_pfams
 
@@ -297,7 +307,12 @@ class Annotator:
                     if aligned_pfams is None:
                         aligned_pfams = alignments
                     else:
-                        aligned_pfams.update(alignments)                
+                        for k,v in alignments.items():
+                            if k in aligned_pfams:
+                                aligned_pfams[k] = aligned_pfams[k] | v
+                            else:
+                                aligned_pfams[k] = v
+                        # aligned_pfams.update(alignments)                
                 
         except EmapperException:
             raise
@@ -318,10 +333,19 @@ class Annotator:
             
             for alignments in pool.imap(query_pfam_annotate_scan, self.wrap_group_queries_pfams(annotations, PFAM_COL, pfam_file)):
                 if alignments is not None:
+                        
                     if aligned_pfams is None:
                         aligned_pfams = alignments
                     else:
-                        aligned_pfams.update(alignments)                
+                        for k,v in alignments.items():
+                            if k in aligned_pfams:
+                                aligned_pfams[k] = aligned_pfams[k] | v
+                            else:
+                                aligned_pfams[k] = v
+                        # aligned_pfams.update(alignments)
+
+                    # if "1105367.SAMN02673274.CG50_08330" in alignments:
+                    #     print(f"annotator.py:pfam_align_parallel_scan: {alignments['1105367.SAMN02673274.CG50_08330']}")
                 
         except EmapperException:
             raise
