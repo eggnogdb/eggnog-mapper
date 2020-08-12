@@ -79,7 +79,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
                           report_no_hits = False,
                           maxseqlen = 5000,
                           cut_ga = True,
-                          clean_overlaps = "clans",
+                          clean_overlaps = "hmmsearch_clans",
                           evalue = 1E-10,
                           score = None,
                           qcov = 0,
@@ -104,6 +104,7 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
         infile = fasta_file
         dbtype = DB_TYPE_HMM
         qtype = QUERY_TYPE_SEQ
+        clean_overlaps = "clans"
 
     elif query_number >= 100 and query_number < 15000:
         usemem = True
@@ -115,6 +116,7 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
         infile = fasta_file
         dbtype = DB_TYPE_HMM
         qtype = QUERY_TYPE_SEQ
+        clean_overlaps = "clans"
         
     else: #elif query_number >= 15000:
         if mapfile(fasta_file):
@@ -126,7 +128,8 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
             db = fasta_file
             infile = get_pfam_db()
             dbtype = DB_TYPE_SEQ
-            qtype = QUERY_TYPE_HMM            
+            qtype = QUERY_TYPE_HMM
+            clean_overlaps = "hmmsearch_clans"
         else:
             usemem = True
             num_servers = cpu
@@ -137,6 +140,7 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
             infile = fasta_file
             dbtype = DB_TYPE_HMM
             qtype = QUERY_TYPE_SEQ
+            clean_overlaps = "clans"
     
     pfam_args = Namespace(call_info = get_call_info(),
                           cpu = cpu,
@@ -156,7 +160,7 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
                           report_no_hits = False,
                           maxseqlen = 5000,
                           cut_ga = True,
-                          clean_overlaps = "clans",
+                          clean_overlaps = clean_overlaps,
                           evalue = 1E-10,
                           score = None,
                           qcov = 0,
@@ -179,31 +183,71 @@ def mapfile(fasta_file):
 def group_queries_pfams(all_annotations, PFAM_COL):
     queries_pfams_groups = []
 
-    # Extract list of queries for each pfam
-    pfams_queries = {}
+    # Extract list of pfams for each query
+    queries_pfams = {}
     for annot_columns in all_annotations:
         query_name = annot_columns[0]
         pfams = annot_columns[PFAM_COL]
-        
+
         if pfams == "-": continue
-        
-        for pfam in pfams.split(","):
-            if pfam in pfams_queries:
-                pfams_queries[pfam].add(query_name)
+
+        for pfam in sorted(pfams.split(",")):
+            if query_name in queries_pfams:
+                queries_pfams[query_name].add(pfam)
             else:
-                pfams_queries[pfam] = {query_name}
+                queries_pfams[query_name] = {pfam}
+                
+    # print(f"pfam.py:group:queries_pfams {queries_pfams['1105367.SAMN02673274.CG50_07170']}")
 
     # Re-group Pfams with the same list of queries
     queries_pfams_keys = {}
-    for pfam, queries in pfams_queries.items():
-        pq_key = ",".join(queries)
+    for query, pfams in queries_pfams.items():
+        pq_key = ",".join(pfams)
         if pq_key in queries_pfams_keys:
-            queries_pfams_keys[pq_key]["pfams"].add(pfam)
+            queries_pfams_keys[pq_key]["queries"].add(query)
         else:
-            queries_pfams_keys[pq_key] = {"pfams":{pfam}, "queries":queries}
+            queries_pfams_keys[pq_key] = {"queries":{query}, "pfams":pfams}
+            
+        # if "CG50_09910" in query:
+        #     print(f"pfam.py:group_queries_pfams {queries_pfams_keys[pq_key]}")
 
     # Return tuples of pfams-queries
     return [(x["queries"], x["pfams"]) for x in queries_pfams_keys.values()]
+
+
+##
+# This is deprecated, since given that one query
+# can be processed separatedly for different pfams
+# we cannot process overlaps afterwards.
+# Thus, this function was changed for the one above
+# def group_queries_pfams(all_annotations, PFAM_COL):
+#     queries_pfams_groups = []
+
+#     # Extract list of queries for each pfam
+#     pfams_queries = {}
+#     for annot_columns in all_annotations:
+#         query_name = annot_columns[0]
+#         pfams = annot_columns[PFAM_COL]
+        
+#         if pfams == "-": continue
+        
+#         for pfam in pfams.split(","):
+#             if pfam in pfams_queries:
+#                 pfams_queries[pfam].add(query_name)
+#             else:
+#                 pfams_queries[pfam] = {query_name}
+
+#     # Re-group Pfams with the same list of queries
+#     queries_pfams_keys = {}
+#     for pfam, queries in pfams_queries.items():
+#         pq_key = ",".join(queries)
+#         if pq_key in queries_pfams_keys:
+#             queries_pfams_keys[pq_key]["pfams"].add(pfam)
+#         else:
+#             queries_pfams_keys[pq_key] = {"pfams":{pfam}, "queries":queries}
+
+#     # Return tuples of pfams-queries
+#     return [(x["queries"], x["pfams"]) for x in queries_pfams_keys.values()]
 
 
 def parse_pfam_file(pfam_file):
@@ -213,10 +257,17 @@ def parse_pfam_file(pfam_file):
         for line in pfamf:
             if line.startswith("#"): continue
             query, pfam, evalue, score, qlen, hmmfrom, hmmto, seqfrom, seqto, qcov = map(str.strip, line.split("\t"))
+
+            # if "CG50_07170" in query:
+            #     print(f"pfam.py:parse_pfam_file: {pfam}")
+                
             if query in pfams:
                 pfams[query].add(pfam)
             else:
                 pfams[query] = {pfam}
+                
+            # if "CG50_07170" in query:
+            #     print(f"pfam.py:parse_pfam_file: {pfams}")
 
     return pfams
 

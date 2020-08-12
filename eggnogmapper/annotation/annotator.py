@@ -232,7 +232,7 @@ class Annotator:
                 query_name = annot_columns[0]
                 if query_name in aligned_pfams:
 
-                    # if query_name == "1105367.SAMN02673274.CG50_08330":
+                    # if "CG50_07170" in query_name:
                     #     print(f"annotator.py:annotate {aligned_pfams[query_name]}")
                         
                     annot_columns[PFAM_COL] = ",".join(sorted(aligned_pfams[query_name]))
@@ -418,6 +418,9 @@ def query_pfam_annotate_scan(arguments):
         pfam_aligner.align_whole_pfam(infile, P.name, silent = True)
 
         aligned_pfams = parse_hmmscan_file(P.name)
+
+        # if "1105367.SAMN02673274.CG50_07170" in aligned_pfams:
+        #     print(f"annotator.py:query_pfam_annotate_scan {aligned_pfams}")
 
         # Append contents of output file for this group into pfam_file,
         # which is the file reporting all the pfam hits together

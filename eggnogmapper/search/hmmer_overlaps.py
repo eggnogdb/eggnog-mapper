@@ -76,7 +76,9 @@ def process_overlaps_clans(hits, idmap_idx = None):
                 if hitclan is None:
                     hitclan = clans_dict.get(hitname)
                 phitclan = clans_dict.get(phitname)
-                    
+
+                # print(f"hmmer_overlaps.py: {hitname}-{hitclan} / {phitname}-{phitclan}")
+                
                 if len(overlap) > 0 and best == True and hitclan is not None and hitclan == phitclan:
                     if heval > pheval:
                         best = False
@@ -210,7 +212,7 @@ def process_overlaps_clans_queries(namedhits):
     if not os.path.exists(CLANS_FILE) or not os.path.isfile(CLANS_FILE):
         raise Exception(f"Couldn't find PFAM clans file at path {CLANS_FILE}, or it is not a file.")
 
-    sys.stderr.write("Loading clans data...\n")
+    # sys.stderr.write("Loading clans data...\n")
     
     clans_dict = {}
     with gzip.open(CLANS_FILE, 'rt') as clans_f:
@@ -248,9 +250,9 @@ def process_overlaps_clans_queries(namedhits):
                             hitclan = clans_dict.get(name)
                         phitclan = clans_dict.get(pname)
 
-                        print(name+"\t"+str(hitclan))
-                        print(pname+"\t"+str(phitclan))
-                        print("//")
+                        # print(name+"\t"+str(hitclan))
+                        # print(pname+"\t"+str(phitclan))
+                        # print("//")
                     
                         if len(overlap) > 0 and best == True and hitclan is not None and hitclan == phitclan:
                             if heval > pheval:
