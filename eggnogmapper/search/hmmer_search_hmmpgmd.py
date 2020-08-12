@@ -22,11 +22,6 @@ DB_TYPE_HMM = "hmmdb"
 def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
                   skip=None, cut_ga=False, silent=False):
-
-    if cut_ga == True:
-        cut_ga = " --cut_ga"
-    else:
-        cut_ga = ""
         
     pool = multiprocessing.Pool(cpus)
     for r in pool.imap(iter_seq, ([seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
@@ -53,9 +48,14 @@ def iter_seq(seq):
     if not seq:
         return name, -1, ["NO_SEQ_FOUND"], len(seq), None
 
+    if cut_ga == True:
+        cut_ga_p = " --cut_ga"
+    else:
+        cut_ga_p = ""
+        
     seq = re.sub("-.", "", seq)
-    data = '@--%s 1%s\n>%s\n%s\n//' % (dbtype, cut_ga, name, seq)    
-    etime, hits = scan_hits(data, host, port, evalue_thr=evalue_thr,
+    data = '@--%s 1%s\n>%s\n%s\n//' % (dbtype, cut_ga_p, name, seq)    
+    etime, hits = scan_hits(data, host, port, cut_ga=cut_ga, evalue_thr=evalue_thr,
                             score_thr=score_thr, max_hits=max_hits,
                             fixed_Z=fixed_Z)
 
@@ -66,11 +66,6 @@ def iter_hmm_hits(hmmfile, cpus, servers, dbtype=DB_TYPE_HMM,
                   evalue_thr=None, score_thr=None,
                   max_hits=None, skip=None, maxseqlen=None,
                   fixed_Z=None, cut_ga=False, silent=False):
-
-    if cut_ga == True:
-        cut_ga = " --cut_ga"
-    else:
-        cut_ga = ""
         
     pool = multiprocessing.Pool(cpus)
     for r in pool.imap(iter_hmm, ([hmmnum, hmmer_version, name, leng, model, servers, dbtype, evalue_thr, score_thr,
@@ -124,10 +119,15 @@ def iter_hmm(hmm):
     num_servers = len(servers)
     num_server = hmm_num % num_servers
     host, port = servers[num_server]
+
+    if cut_ga == True:
+        cut_ga_p = " --cut_ga"
+    else:
+        cut_ga_p = ""
         
-    data = f'@--{dbtype} 1 {cut_ga}\n{hmmer_version}\n{model}'    
+    data = f'@--{dbtype} 1 {cut_ga_p}\n{hmmer_version}\n{model}'    
     etime, hits = scan_hits(data, host, port,
-                            evalue_thr=evalue_thr, score_thr=score_thr,
+                            cut_ga=cut_ga, evalue_thr=evalue_thr, score_thr=score_thr,
                             max_hits=max_hits, fixed_Z=fixed_Z)
 
     return name, etime, hits, leng, None
@@ -143,14 +143,15 @@ def get_hits(name, record, address="127.0.0.1", port=51371, dbtype=DB_TYPE_HMM, 
         data = f'@--{dbtype} 1\n{record}\n//'        
     else:
         raise Exception(f"Unrecognized query type {qtype}.")
-    
+
+    cut_ga = False
     etime, hits = scan_hits(data, address=address, port=port,
-                            evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
+                            cut_ga=cut_ga, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits)
     
     return name, etime, hits
 
 
-def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
+def scan_hits(data, address="127.0.0.1", port=51371, cut_ga=False, evalue_thr=None,
               score_thr=None, max_hits=None, fixed_Z=None):
     
     # print(data)
@@ -227,8 +228,8 @@ def scan_hits(data, address="127.0.0.1", port=51371, evalue_thr=None,
                 evalue = hit["evalue"]
                 score = hit["score"]
                 
-                if (evalue_thr is None or evalue <= evalue_thr) and \
-                    (score_thr is None or score >= score_thr) and \
+                if (cut_ga == True or ((evalue_thr is None or evalue <= evalue_thr) and \
+                    (score_thr is None or score >= score_thr))) and \
                     (max_hits is None or len(reported_hits)+1 <= max_hits or lasthitname == hitname) and \
                     is_reported and is_included:
                     
