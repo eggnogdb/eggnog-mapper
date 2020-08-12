@@ -326,6 +326,8 @@ class Annotator:
         except EmapperException:
             raise
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong for pfam alignment in parallel. "+str(e))
         finally:
             pool.terminate()
@@ -374,14 +376,15 @@ def query_pfam_annotate_scan(arguments):
     aligned_pfams = None
 
     fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db)
-
-    # create hmmdb
-    cmd = f"{HMMPRESS} {hmm_file.name}"
-    cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     
     if fasta_file is None or hmm_file is None:
         pass
     else:
+
+        # create hmmdb
+        cmd = f"{HMMPRESS} {hmm_file.name}"
+        cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
         # output file for this group
         P = NamedTemporaryFile(mode='w')
 
