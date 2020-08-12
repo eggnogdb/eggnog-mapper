@@ -228,7 +228,8 @@ def scan_hits(data, address="127.0.0.1", port=51371, cut_ga=False, evalue_thr=No
                 evalue = hit["evalue"]
                 score = hit["score"]
                 
-                if (cut_ga == True or ((evalue_thr is None or evalue <= evalue_thr) and \
+                if (cut_ga == True or \
+                    ((evalue_thr is None or evalue <= evalue_thr) and \
                     (score_thr is None or score >= score_thr))) and \
                     (max_hits is None or len(reported_hits)+1 <= max_hits or lasthitname == hitname) and \
                     is_reported and is_included:
