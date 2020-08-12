@@ -242,10 +242,14 @@ def parse_hmmscan_file(pfam_file):
         for line in pfamf:
             if line.startswith("#"): continue
             query, pfam, evalue, score, qlen, hmmfrom, hmmto, seqfrom, seqto, qcov = map(str.strip, line.split("\t"))
+                
             if query in pfams:
                 pfams[query].add(pfam)
             else:
                 pfams[query] = {pfam}
+
+            # if "CG50_08330" in query:
+            #     print(f"pfam.py:parse_hmm_scan_file: {pfams}")
 
     return pfams
 
