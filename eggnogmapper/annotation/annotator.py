@@ -203,7 +203,7 @@ class Annotator:
             print(colorify("de novo search of PFAM domains", 'green'))
             # filter fasta file to have only annotated queries
             queries = [annot_columns[0] for annot_columns in all_annotations]
-            fasta_file = filter_fasta_file(queries, self.queries_fasta)
+            fasta_file = filter_fasta_file(queries, self.queries_fasta, self.temp_dir)
 
             # align those queries to whole PFAM to carry out a de novo annotation
             pfam_args, infile = get_pfam_args(self.cpu, fasta_file.name, self.translate, self.temp_dir)
@@ -364,13 +364,13 @@ def query_pfam_annotate(arguments):
     
     aligned_pfams = None
 
-    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db)
+    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db, temp_dir)
 
     if fasta_file is None or hmm_file is None:
         pass
     else:
         # output file for this group
-        P = NamedTemporaryFile(mode='w')
+        P = NamedTemporaryFile(mode='w', dir=temp_dir)
 
         # align queries to the new HMM file
         pfam_args, infile = get_hmmsearch_args(cpu, fasta_file.name, hmm_file.name, translate, temp_dir)
@@ -399,7 +399,7 @@ def query_pfam_annotate_scan(arguments):
     
     aligned_pfams = None
 
-    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db)
+    fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db, temp_dir)
     
     if fasta_file is None or hmm_file is None:
         pass
@@ -410,7 +410,7 @@ def query_pfam_annotate_scan(arguments):
         cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
         # output file for this group
-        P = NamedTemporaryFile(mode='w')
+        P = NamedTemporaryFile(mode='w', dir=temp_dir)
 
         # align queries to the new HMM file
         pfam_args, infile = get_hmmscan_args(cpu, fasta_file.name, hmm_file.name, translate, temp_dir)
@@ -439,9 +439,9 @@ def query_pfam_annotate_scan(arguments):
 ##
 # Create a new temp fasta file including only
 # the queries in the list "queries"
-def filter_fasta_file(queries, orig_fasta):
+def filter_fasta_file(queries, orig_fasta, temp_dir):
     
-    Q = NamedTemporaryFile(mode='w')
+    Q = NamedTemporaryFile(mode='w', dir=temp_dir)
     with open(orig_fasta, 'r') as origf:
         found = False
         for line in origf:
@@ -460,7 +460,7 @@ def filter_fasta_file(queries, orig_fasta):
     return Q
 
 ##
-def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm):
+def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
     
     new_fasta = new_hmm = None
     
@@ -468,17 +468,17 @@ def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm):
     pfams = queries_pfams[1]
     
     # Process fasta queries
-    Q = filter_fasta_file(queries, orig_fasta)
+    Q = filter_fasta_file(queries, orig_fasta, temp_dir)
     
     # Process pfams
-    P = NamedTemporaryFile(mode='w')
+    P = NamedTemporaryFile(mode='w', dir=temp_dir)
     for pfam in pfams:
         print(pfam, file=P)
     P.flush()
 
     H = None
     if os.stat(P.name).st_size > 0:
-        H = NamedTemporaryFile(mode='w')
+        H = NamedTemporaryFile(mode='w', dir=temp_dir)
         cmd = f"{HMMFETCH} -f {orig_hmm} {P.name}"
         cp = subprocess.run(cmd, shell=True, stdout=H, stderr=subprocess.DEVNULL)
         if os.stat(H.name).st_size == 0:
