@@ -37,7 +37,7 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
                           no_file_comments = False,
                           maxhits = 0, # unlimited
                           report_no_hits = False,
-                          maxseqlen = 5000,
+                          maxseqlen = None, #5000,
                           cut_ga = True,
                           clean_overlaps = "clans",
                           evalue = 1E-10,
@@ -77,7 +77,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
                           no_file_comments = False,
                           maxhits = 0, # unlimited
                           report_no_hits = False,
-                          maxseqlen = 5000,
+                          maxseqlen = None, #5000,
                           cut_ga = True,
                           clean_overlaps = "hmmsearch_clans",
                           evalue = 1E-10,
@@ -158,7 +158,7 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
                           no_file_comments = False,
                           maxhits = 0, # unlimited
                           report_no_hits = False,
-                          maxseqlen = 5000,
+                          maxseqlen = None, #5000,
                           cut_ga = True,
                           clean_overlaps = clean_overlaps,
                           evalue = 1E-10,
