@@ -400,7 +400,7 @@ def query_pfam_annotate_scan(arguments):
     aligned_pfams = None
 
     fasta_file, hmm_file = filter_fasta_hmm_files(queries_pfams_group, queries_fasta, pfam_db, temp_dir)
-    
+        
     if fasta_file is None or hmm_file is None:
         pass
     else:
@@ -432,6 +432,15 @@ def query_pfam_annotate_scan(arguments):
     if fasta_file is not None:
         fasta_file.close()
     if hmm_file is not None:
+        if os.path.isfile(f"{hmm_file.name}.h3m"):
+            os.remove(f"{hmm_file.name}.h3m")
+        if os.path.isfile(f"{hmm_file.name}.h3p"):
+            os.remove(f"{hmm_file.name}.h3p")
+        if os.path.isfile(f"{hmm_file.name}.h3f"):
+            os.remove(f"{hmm_file.name}.h3f")
+        if os.path.isfile(f"{hmm_file.name}.h3i"):
+            os.remove(f"{hmm_file.name}.h3i")
+            
         hmm_file.close()
 
     return aligned_pfams
@@ -456,7 +465,6 @@ def filter_fasta_file(queries, orig_fasta, temp_dir):
                 if found == True:
                     print(f"{line.strip()}", file=Q)
     Q.flush()
-    
     return Q
 
 ##
@@ -483,6 +491,8 @@ def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
         cp = subprocess.run(cmd, shell=True, stdout=H, stderr=subprocess.DEVNULL)
         if os.stat(H.name).st_size == 0:
             H = None
+            
+    P.close()
     
     return Q, H
     
