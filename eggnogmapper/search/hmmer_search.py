@@ -114,6 +114,9 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     
     tempdir = mkdtemp(prefix='emappertmp_hmmcmd_', dir=base_tempdir)
 
+    Q = None
+    R = None
+    
     ##
     # Translate FASTA nts to aas if needed
     
@@ -121,11 +124,19 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
         if translate:
             if silent == False:
                 print('translating query input file')
-        Q = NamedTemporaryFile(mode='w')
+        Q = NamedTemporaryFile(mode='w', dir=tempdir)
+        has_records = False
         for name, seq in iter_fasta_seqs(fasta_file, translate=translate, silent=silent):
             if maxseqlen is None or len(seq) <= maxseqlen:
+                has_records = True
                 print(f">{name}\n{seq}", file=Q)
                 # Q.write(f">{name}\n{seq}".encode())
+        if has_records == False:
+            sys.stderr.write(f"No records after maxseqlen filtering for file {fasta_file}.\n")
+            shutil.rmtree(tempdir)
+            if Q is not None:
+                Q.close()
+            return
         Q.flush()
         fasta_file = Q.name
 
@@ -135,7 +146,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
             if translate:
                 if silent == False:
                     print('translating target fasta file')
-            R = NamedTemporaryFile(mode='w')
+            R = NamedTemporaryFile(mode='w', dir=tempdir)
             for name, seq in iter_fasta_seqs(hmm_file, translate=translate, silent=silent):
                 if maxseqlen is None or len(seq) <= maxseqlen:
                     print(f">{name}\n{seq}", file=R)
@@ -166,7 +177,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     ##
     # Run command
     
-    OUT = NamedTemporaryFile(dir=tempdir, mode='w+')
+    OUT = NamedTemporaryFile(mode='w+', dir=tempdir)
 
     if cut_ga:
         cut_ga_p = " --cut_ga"
@@ -178,6 +189,19 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     if silent == False:
         print(f'# {cmd}')
     sts = subprocess.call(cmd, shell=True)
+    # if sts != 0:
+    #     print(f"X {cmd}")
+    #     print(f"FASTA: {fasta_file}")
+    #     print(os.stat(fasta_file).st_size)
+    #     print("Printing fasta file")
+    #     with open(fasta_file, 'r') as f:
+    #         for line in f:
+    #             print(f)
+        
+    #     print(f"HMMFILE: {hmm_file}")
+    # else:
+    #     print(f"# {cmd}")        
+        
 
     ##
     # Process output
@@ -255,8 +279,11 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
             queries_with_hits.add(last_query)
 
     OUT.close()
-    if translate:
+    # if translate:
+    if Q is not None:
         Q.close()
+    if R is not None:
+        R.close()
     shutil.rmtree(tempdir)
 
     # if report_no_hits == True:
