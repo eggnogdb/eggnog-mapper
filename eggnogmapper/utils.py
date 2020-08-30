@@ -192,7 +192,7 @@ def ask(string, valid_values=None, default=-1, case_sensitive=False, color='gree
     while v not in valid_values:
         if color:
             string = colorify(string, "yellow")
-        v = eval(input("%s [%s] " % (string,','.join(valid_values) )))
+        v = input("%s [%s] " % (string,','.join(valid_values) ))
         if v == '' and default >= 0:
             v = valid_values[default]
         if not case_sensitive:
