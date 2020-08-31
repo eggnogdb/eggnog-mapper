@@ -38,7 +38,7 @@ def iter_seq(seq):
     num_servers = len(servers)
     num_server = seqnum % num_servers
     host, port = servers[num_server]
-    sys.stderr.write(f"Search seq {seqnum} on server {num_server} at {host}:{port}")
+    sys.stderr.write(f"Search seq {seqnum} on server {num_server} at {host}:{port}\n")
     
     if skip and name in skip:
         return name, -1, ["SKIPPED"], len(seq), None
