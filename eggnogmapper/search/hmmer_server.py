@@ -110,8 +110,8 @@ def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbt
         # ready = False
         if silent == False:
             print(f"Waiting for server to become ready at {host}:{port} ...")
-        for _ in range(TIMEOUT_LOAD_SERVER):
-            time.sleep(1)
+        for attempt in range(TIMEOUT_LOAD_SERVER):
+            time.sleep(attempt)
             if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
                 master_db.terminate()
                 master_db.join()
