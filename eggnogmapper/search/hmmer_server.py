@@ -61,7 +61,7 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
     MAX_CREATE_SERVER_FAILS = 3 # max number of cummulative fails creating servers before aborting creating new ones
     fails = 0
     
-    for num_server, server in enumerate(range(num_servers)):
+    for num_server in range(num_servers):
         if sport >= end_port:
             printf(colorify(f"start port ({sport}) equal or greater than end port ({end_port})", 'red'))
             break
@@ -86,6 +86,8 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
 
     if silent == False:
         print(f"Created {len(servers)} out of {num_servers}")
+    if len(servers) == 0:
+        raise Exception("Could not create hmmpgmd servers")
 
     return dbpath, host, port, servers
 
