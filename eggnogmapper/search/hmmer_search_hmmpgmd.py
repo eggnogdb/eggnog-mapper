@@ -24,6 +24,7 @@ def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   skip=None, cut_ga=False, silent=False):
         
     pool = multiprocessing.Pool(cpus)
+    sys.stderr.write(f"Searching queries with a pool of {cpus} CPUs\n")
     for r in pool.imap(iter_seq, ([seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
                                   for seqnum, (name, seq) in
                                   enumerate(iter_fasta_seqs(src, translate=translate, silent=silent)))):
@@ -38,7 +39,7 @@ def iter_seq(seq):
     num_servers = len(servers)
     num_server = seqnum % num_servers
     host, port = servers[num_server]
-    sys.stderr.write(f"Search seq {seqnum} on server {num_server} at {host}:{port}\n")
+    # sys.stderr.write(f"Search seq {seqnum} on server {num_server} at {host}:{port}\n")
     
     if skip and name in skip:
         return name, -1, ["SKIPPED"], len(seq), None
