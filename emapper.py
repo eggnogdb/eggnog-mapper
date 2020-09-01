@@ -211,7 +211,7 @@ def create_arg_parser():
                           'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
 
-    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'align', 'alignp', 'align_scan', 'denovo'),
+    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'align', 'alignp', 'align_scan', 'denovo', 'denovo_search'),
                           default='transfer',
                           help='Defines how PFAM annotation will be performed. '
                           'transfer = A list of PFAMs, directly transferred from orthologs, will be reported. '
@@ -220,7 +220,8 @@ def create_arg_parser():
                           'alignp = like align but parallel setup of files. '
                           'align_scan = like alignp, but using hmmscan instead of hmmsearch. '
                           'denovo = each query will be realigned to PFAM and '
-                          'a list of PFAMs and their positions on the query will be reported.')
+                          'a list of PFAMs and their positions on the query will be reported. '
+                          'denovo_search = like denovo, but using hmmsearch after creating esl-reformat seq db if needed.')
 
     ##
     pg_out = parser.add_argument_group('Output options')
@@ -419,7 +420,7 @@ def parse_args(parser):
     # PFAM annotation options
     if args.pfam == 'transfer':
         pass
-    elif args.pfam == 'align' or args.pfam == 'alignp' or args.pfam == 'align_scan' or args.pfam == 'denovo':
+    elif args.pfam == 'align' or args.pfam == 'alignp' or args.pfam == 'align_scan' or args.pfam == 'denovo' or args.pfam == 'denovo_search':
         if not args.input:
             parser.error(f'An input fasta file is required (-i) for --pfam {args.pfam}')
     else:
