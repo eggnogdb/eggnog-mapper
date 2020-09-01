@@ -2,12 +2,12 @@
 ## CPCantalapiedra 2020
 
 import os
-
+import subprocess
 from argparse import Namespace
 
 from ..search.hmmer import HmmerSearcher
 from ..search.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
-from ..common import get_pfam_db, get_call_info
+from ..common import get_pfam_db, get_call_info, ESL_REFORMAT
 
 ##
 def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
@@ -90,7 +90,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     return pfam_args, infile
     
 ##
-def get_pfam_args(cpu, fasta_file, translate, temp_dir):
+def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
     
@@ -107,17 +107,31 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
         clean_overlaps = "clans"
 
     elif query_number >= 100 and query_number < 15000:
+        # usemem = True
+        # num_servers = cpu
+        # num_workers = 1
+        # cpus_per_worker = 1
+        # scan_type = SCANTYPE_MEM
+        # db = get_pfam_db()
+        # infile = fasta_file
+        # dbtype = DB_TYPE_HMM
+        # qtype = QUERY_TYPE_SEQ
+        # clean_overlaps = "clans"
+
+        if not mapfile(fasta_file):
+            create_fasta_hmmpgmd_db(fasta_file)
+            print(f"CREATED FASTA FILE DB {fasta_file}")
         usemem = True
         num_servers = cpu
         num_workers = 1
         cpus_per_worker = 1
         scan_type = SCANTYPE_MEM
-        db = get_pfam_db()
-        infile = fasta_file
-        dbtype = DB_TYPE_HMM
-        qtype = QUERY_TYPE_SEQ
-        clean_overlaps = "clans"
-        
+        db = fasta_file
+        infile = get_pfam_db()
+        dbtype = DB_TYPE_SEQ
+        qtype = QUERY_TYPE_HMM
+        clean_overlaps = "hmmsearch_clans"
+                
     else: #elif query_number >= 15000:
         if mapfile(fasta_file):
             usemem = True
@@ -130,17 +144,33 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir):
             dbtype = DB_TYPE_SEQ
             qtype = QUERY_TYPE_HMM
             clean_overlaps = "hmmsearch_clans"
+            
         else:
-            usemem = True
-            num_servers = cpu
-            num_workers = 1
-            cpus_per_worker = 1
-            scan_type = SCANTYPE_MEM
-            db = get_pfam_db()
-            infile = fasta_file
-            dbtype = DB_TYPE_HMM
-            qtype = QUERY_TYPE_SEQ
-            clean_overlaps = "clans"
+            if force_seqdb == True and create_fasta_hmmpgmd_db(fasta_file):
+                usemem = True
+                num_servers = cpu
+                num_workers = 1
+                cpus_per_worker = 1
+                scan_type = SCANTYPE_MEM
+                db = fasta_file
+                infile = get_pfam_db()
+                dbtype = DB_TYPE_SEQ
+                qtype = QUERY_TYPE_HMM
+                clean_overlaps = "hmmsearch_clans"
+
+                print("CREATED ESL_REFORMAT DB. USING HMMSEARCH")
+                
+            else:
+                usemem = True
+                num_servers = cpu
+                num_workers = 1
+                cpus_per_worker = 1
+                scan_type = SCANTYPE_MEM
+                db = get_pfam_db()
+                infile = fasta_file
+                dbtype = DB_TYPE_HMM
+                qtype = QUERY_TYPE_SEQ
+                clean_overlaps = "clans"
     
     pfam_args = Namespace(call_info = get_call_info(),
                           cpu = cpu,
@@ -179,6 +209,13 @@ def mapfile(fasta_file):
     
     return exists
 
+
+def create_fasta_hmmpgmd_db(fasta_file):
+    cmd = f"{ESL_REFORMAT} hmmpgmd {fasta_file} > {fasta_file}.seqdb"
+    cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    # the previous command should create also a f"{fasta_file}.map" file
+    
+    return mapfile(fasta_file)
 
 def group_queries_pfams(all_annotations, PFAM_COL):
     queries_pfams_groups = []
