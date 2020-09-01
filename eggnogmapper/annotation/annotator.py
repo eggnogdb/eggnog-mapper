@@ -200,7 +200,7 @@ class Annotator:
         
         aligned_pfams = None
         if self.pfam == 'denovo':
-            print(colorify("de novo search of PFAM domains", 'green'))
+            print(colorify("de novo scan of PFAM domains", 'green'))
             # filter fasta file to have only annotated queries
             queries = [annot_columns[0] for annot_columns in all_annotations]
             fasta_file = filter_fasta_file(queries, self.queries_fasta, self.temp_dir)
@@ -210,6 +210,33 @@ class Annotator:
             pfam_aligner = PfamAligner(pfam_args)
             pfam_aligner.align_whole_pfam(infile, pfam_file, silent = True)
             aligned_pfams = parse_pfam_file(pfam_file)
+
+            if fasta_file is not None:
+                fasta_file.close()
+                if os.path.isfile(f"{fasta_file.name}.map"):
+                    os.remove(f"{fasta_file.name}.map")
+                if os.path.isfile(f"{fasta_file.name}.seqdb"):
+                    os.remove(f"{fasta_file.name}.seqdb")
+
+        elif self.pfam == 'denovo_search':
+
+            print(colorify("de novo search of PFAM domains", 'green'))
+            # filter fasta file to have only annotated queries
+            queries = [annot_columns[0] for annot_columns in all_annotations]
+            fasta_file = filter_fasta_file(queries, self.queries_fasta, self.temp_dir)
+
+            # align those queries to whole PFAM to carry out a de novo annotation
+            pfam_args, infile = get_pfam_args(self.cpu, fasta_file.name, self.translate, self.temp_dir, force_seqdb = True)
+            pfam_aligner = PfamAligner(pfam_args)
+            pfam_aligner.align_whole_pfam(infile, pfam_file, silent = True)
+            aligned_pfams = parse_hmmsearch_file(pfam_file)
+            
+            if fasta_file is not None:
+                fasta_file.close()
+                if os.path.isfile(f"{fasta_file.name}.map"):
+                    os.remove(f"{fasta_file.name}.map")
+                if os.path.isfile(f"{fasta_file.name}.seqdb"):
+                    os.remove(f"{fasta_file.name}.seqdb")
 
         elif self.pfam == 'align':
             print(colorify("re-aligning PFAM domains from orthologs to queries", 'green'))
@@ -495,8 +522,8 @@ def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
     P.close()
     
     return Q, H
-    
-    
+
+                
 # annotate_hit_line is outside the class because must be pickable
 ##
 def annotate_hit_line(arguments):
