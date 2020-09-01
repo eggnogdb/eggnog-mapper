@@ -94,6 +94,7 @@ HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'bin', 'hmmpgmd')
 PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'bin', 'phmmer')
 HMMFETCH = find_executable('hmmfetch') or pjoin(BASE_PATH, 'bin', 'hmmfetch')
 HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'bin', 'hmmpress')
+ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'bin', 'esl-reformat')
 LOCAL_DIAMOND = pjoin(BASE_PATH, 'bin', 'diamond')
 DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
 
