@@ -14,7 +14,7 @@ from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, \
-    get_version, get_full_version_info, get_citation, get_call_info
+    get_version, get_full_version_info, get_citation, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 
 from eggnogmapper.utils import colorify
 
@@ -43,6 +43,10 @@ def create_arg_parser():
     pg_input.add_argument('-i', dest="input", metavar='FASTA_FILE', type=existing_file,
                           help=f'Input FASTA file containing query sequences (proteins by default; see --translate). Required unless -m {SEARCH_MODE_NO_SEARCH}')
 
+    pg_input.add_argument('--itype', dest="itype", choices = [ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META],
+                          default=ITYPE_PROTS,
+                          help=f'Input type of the data in the file specified in the -i option')
+    
     pg_input.add_argument('--translate', action="store_true",
                           help='Assume input sequences are CDS instead of proteins')
 

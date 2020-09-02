@@ -18,6 +18,11 @@ except ImportError:
     __VERSION__ = 'unknown'
     __DB_VERSION__ = 'unknown'
 
+# Input types
+ITYPE_CDS = "CDS"
+ITYPE_PROTS = "proteins"
+ITYPE_GENOME = "genome"
+ITYPE_META = "metagenome"
 
 # ANNOTATIONS_HEADER = list(map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(',')))
 
@@ -97,6 +102,7 @@ HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'bin', 'hmmpress')
 ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'bin', 'esl-reformat')
 LOCAL_DIAMOND = pjoin(BASE_PATH, 'bin', 'diamond')
 DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
+PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'bin', 'prodigal.linux')
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH

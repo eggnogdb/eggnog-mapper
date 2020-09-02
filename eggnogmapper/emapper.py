@@ -6,9 +6,10 @@ from os.path import exists as pexists
 from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm
+from .common import silent_rm, ITYPE_GENOME, ITYPE_META
 from .emapperException import EmapperException
 
+from .genepred.prodigal import ProdigalPredictor
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH
 from .annotation.annotator import get_annotator
 
@@ -108,9 +109,23 @@ class Emapper:
                        pjoin(self._current_dir, self.pfam_file))
                 
         return
+
+
+    ##
+    def gene_prediction(self, args, infile):
+        if args.itype == ITYPE_GENOME or args.itype == ITYPE_META:
+            predictor = ProdigalPredictor(args)
+            predictor.predict(infile)
+        return
+
     
     ##
     def run(self, args, infile, annotate_hits_table = None):
+
+        ##
+        # Step 0. Gene prediction
+        self.gene_prediction(args, infile)
+        return
         
         ##
         # Step 1. Sequence search
