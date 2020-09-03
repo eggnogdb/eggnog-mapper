@@ -11,14 +11,21 @@ from ..emapperException import EmapperException
 from ..common import DIAMOND, get_eggnog_dmnd_db, get_call_info
 from ..utils import colorify
 
+from .hmmer_seqio import iter_fasta_seqs
+
 class DiamondSearcher:
 
     # Command
-    cpu = tool = dmnd_db = temp_dir = no_file_comments = None
+    cpu = translate = tool = dmnd_db = temp_dir = no_file_comments = None
     matrix = gapopen = gapextend = None
 
     # Filters
     score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
+
+    in_file = None
+
+    # Results
+    queries = hits = no_hits = None
 
     ##
     def __init__(self, args):
@@ -27,6 +34,7 @@ class DiamondSearcher:
             self.tool = 'blastx'
         else:
             self.tool = 'blastp'
+        self.translate = args.translate
 
         self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
 
@@ -52,18 +60,20 @@ class DiamondSearcher:
     def search(self, in_file, seed_orthologs_file, hits_file = None):
         # DiamondSearcher does not use the "hits_file"
         # but we need this wrapper to define the search interface for Emapper
-        self._search(in_file, seed_orthologs_file)
+        return self._search(in_file, seed_orthologs_file)
 
     def _search(self, in_file, seed_orthologs_file):
         if not DIAMOND:
             raise EmapperException("%s command not found in path" % (DIAMOND))
 
+        self.in_file = in_file
+        
         tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=self.temp_dir)
         try:
             output_file = pjoin(tempdir, uuid.uuid4().hex)
             cmd = self.run_diamond(in_file, output_file)
-            parsed = self.parse_diamond(output_file)            
-            self.output_diamond(cmd, parsed, seed_orthologs_file)
+            self.hits = self.parse_diamond(output_file)            
+            self.output_diamond(cmd, self.hits, seed_orthologs_file)
 
         except Exception as e:
             raise e
@@ -71,6 +81,16 @@ class DiamondSearcher:
             shutil.rmtree(tempdir)
             
         return
+
+    ##
+    def get_hits(self):
+        if self.hits is not None:
+            hit_queries = set([x[0] for x in self.hits])
+            sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
+            self.queries = set(sequences.keys())
+            self.no_hits = set(self.queries).difference(hit_queries)
+            
+        return self.hits, self.no_hits
 
     ##
     def run_diamond(self, fasta_file, output_file):
@@ -98,7 +118,7 @@ class DiamondSearcher:
 
     ##
     def parse_diamond(self, raw_dmnd_file):
-        parsed = []
+        hits = []
 
         visited = set()
         with open(raw_dmnd_file, 'r') as raw_f:
@@ -123,19 +143,19 @@ class DiamondSearcher:
 
                 visited.add(query)
 
-                parsed.append([query, hit, evalue, score])
+                hits.append([query, hit, evalue, score])
             
-        return parsed
+        return hits
 
     ##
-    def output_diamond(self, cmd, parsed, out_file):
+    def output_diamond(self, cmd, hits, out_file):
         with open(out_file, 'w') as OUT:
         
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
                 print('#'+cmd, file=OUT)
 
-            for line in parsed:
+            for line in hits:
                 print('\t'.join(map(str, line)), file=OUT)
                 
         return

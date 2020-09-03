@@ -16,6 +16,10 @@ class ProdigalPredictor:
 
     temp_dir = None
     pmode = None
+
+    outdir = None # dir with prodigal out files
+    outgff = outprots = outcds = outorfs = None # prodigal out files
+    
     
     def __init__(self, args):
 
@@ -34,9 +38,9 @@ class ProdigalPredictor:
         if not PRODIGAL:
             raise EmapperException("%s command not found in path" % (PRODIGAL))
 
-        tempdir = mkdtemp(prefix='emappertmp_prod_', dir=self.temp_dir)
+        self.outdir = mkdtemp(prefix='emappertmp_prod_', dir=self.temp_dir)
         try:
-            cmd = self.run_prodigal(in_file, tempdir)
+            cmd = self.run_prodigal(in_file, self.outdir)
 
         except Exception as e:
             raise e
@@ -44,22 +48,25 @@ class ProdigalPredictor:
         #     shutil.rmtree(tempdir)
         return
 
+    def clear(self):
+        shutil.rmtree(self.outdir)
+        return
+
     def run_prodigal(self, in_file, outdir):
-        outfile = pjoin(outdir, "output.gff")
-        outprots = pjoin(outdir, "output.faa")
-        outcds = pjoin(outdir, "output.fna")
-        outorfs = pjoin(outdir, "output.orfs")
+        self.outfile = pjoin(outdir, "output.gff")
+        self.outprots = pjoin(outdir, "output.faa")
+        self.outcds = pjoin(outdir, "output.fna")
+        self.outorfs = pjoin(outdir, "output.orfs")
         cmd = (
             f'{PRODIGAL} -i {in_file} -p {self.pmode} '
-            f'-o {outfile} -f gff '
-            f'-a {outprots} -d {outcds} '
-            f'-s {outorfs}'
+            f'-o {self.outfile} -f gff '
+            f'-a {self.outprots} -d {self.outcds} '
+            f'-s {self.outorfs}'
         )
 
         print(colorify('  '+cmd, 'yellow'))
         try:
             completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
-            # completed_process = subprocess.run(cmd, stdout=subprocess.STDOUT, stderr=subprocess.STDOUT, check=True, shell=True)
         except subprocess.CalledProcessError as cpe:
             raise EmapperException("Error running prodigal: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
 
