@@ -445,7 +445,12 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
 
-        emapper = Emapper(args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
+        if args.itype == ITYPE_GENOME or args.itype == ITYPE_META:
+            gene_pred = True
+        else:
+            gene_pred = False
+
+        emapper = Emapper(gene_pred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table)
 
         print(get_citation([args.mode]))

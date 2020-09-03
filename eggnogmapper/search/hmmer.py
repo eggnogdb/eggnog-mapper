@@ -45,6 +45,9 @@ class HmmerSearcher:
     excluded_taxa = None
 
     temp_dir = None
+
+    # Results
+    queries = hits = no_hits = None
     
     ##
     def __init__(self, args):
@@ -176,6 +179,13 @@ class HmmerSearcher:
         return annot
 
 
+    ##
+    def get_hits(self):
+        if self.hits is not None and self.queries is not None:
+            hit_queries = set([x[0] for x in self.hits])
+            self.no_hits = set(self.queries).difference(hit_queries)
+            
+        return self.hits, self.no_hits
 
     ##
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file, silent = False):
@@ -321,7 +331,10 @@ class HmmerSearcher:
             print('\t'.join(refine_header), file=OUT)
 
         qn = 0 # in case no hits in loop bellow
-        for qn, r in enumerate(self.process_nog_hits_file(hits_file, in_file, og2level,
+        sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
+        self.hits = []
+        self.queries = set(sequences.keys())
+        for qn, r in enumerate(self.process_nog_hits_file(hits_file, sequences, og2level,
                                                      translate=self.translate,
                                                      cpu=self.cpu,
                                                      excluded_taxa=self.excluded_taxa,
@@ -338,6 +351,7 @@ class HmmerSearcher:
             best_hit_score = float(r[3])
             print('\t'.join(map(str, (query_name, best_hit_name,
                                              best_hit_evalue, best_hit_score))), file=OUT)
+            self.hits.append([query_name, best_hit_name, best_hit_evalue, best_hit_score])
             #OUT.flush()
 
         elapsed_time = time.time() - start_time
@@ -351,10 +365,9 @@ class HmmerSearcher:
 
 
     ##
-    def process_nog_hits_file(self, hits_file, query_fasta, og2level, skip_queries=None,
+    def process_nog_hits_file(self, hits_file, sequences, og2level, skip_queries=None,
                               translate=False, cpu=1, excluded_taxa=None, base_tempdir=None):
 
-        sequences = {name: seq for name, seq in iter_fasta_seqs(query_fasta, translate=translate)}
         cmds = []
         visited_queries = set()
 
