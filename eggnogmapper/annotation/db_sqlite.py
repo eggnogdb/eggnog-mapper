@@ -57,6 +57,14 @@ def get_annotations(seq_names):
     s = db.execute(cmd)
     return db.fetchall()
 
+def get_pfam_annotations(seq_names):
+    cmd = """SELECT pfam.pfam
+        FROM pfam
+        WHERE pfam.name in (%s)
+        """ % seq_names
+    
+    s = db.execute(cmd)
+    return db.fetchall()
 
 def get_member_events(member, target_levels):
     

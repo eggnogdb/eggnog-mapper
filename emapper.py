@@ -215,10 +215,14 @@ def create_arg_parser():
                           'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
 
-    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'align', 'alignp', 'align_scan', 'denovo', 'denovo_search'),
+    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'transfer_narrowest', 'transfer_seed', 
+                                                       'align', 'alignp', 'align_scan',
+                                                       'denovo', 'denovo_search'),
                           default='transfer',
                           help='Defines how PFAM annotation will be performed. '
                           'transfer = A list of PFAMs, directly transferred from orthologs, will be reported. '
+                          'transfer_narrowest = A list of PFAMs, directly transferred from narrowest orthologs, will be reported. '
+                          'transfer_seed = A list of PFAMs, directly transferred from seed orthologs, will be reported. '
                           'align = PFAMs from orthologs will be realigned to the query and '
                           'a list of PFAMs and their positions on the query will be reported. '
                           'alignp = like align but parallel setup of files. '
@@ -422,7 +426,7 @@ def parse_args(parser):
         raise ValueError('Invalid --go_evidence value')
 
     # PFAM annotation options
-    if args.pfam == 'transfer':
+    if args.pfam == 'transfer' or args.pfam == 'transfer_narrowest' or args.pfam == 'transfer_seed':
         pass
     elif args.pfam == 'align' or args.pfam == 'alignp' or args.pfam == 'align_scan' or args.pfam == 'denovo' or args.pfam == 'denovo_search':
         if not args.input:

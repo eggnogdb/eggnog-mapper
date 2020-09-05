@@ -1,6 +1,7 @@
 ##
 ## CPCantalapiedra 2019
 
+from collections import Counter
 import sys
 import time
 import multiprocessing
@@ -194,7 +195,7 @@ class Annotator:
 
         ##
         # PFAMs annotation
-        if self.annot == True and self.pfam not in ["transfer"] and all_annotations is not None and len(all_annotations) > 0:
+        if self.annot == True and self.pfam not in ["transfer", "transfer_seed", "transfer_narrowest"] and all_annotations is not None and len(all_annotations) > 0:
             all_annotations = run_pfam_mode(self.pfam, all_annotations, self.queries_fasta, self.translate, self.cpu, self.temp_dir, pfam_file)
             
             elapsed_time = time.time() - start_time
@@ -211,7 +212,7 @@ class Annotator:
             
             yield_tuple = (line, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_id, self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded)
+                           self.go_evidence, self.go_excluded, self.pfam)
             
             yield yield_tuple
             
@@ -228,7 +229,8 @@ def annotate_hit_line(arguments):
     line, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_id, \
         target_taxa, target_orthologs, excluded_taxa, \
-        go_evidence, go_excluded = arguments
+        go_evidence, go_excluded, \
+        pfam_mode = arguments
     
     try:
         if not line.strip() or line.startswith('#'):
@@ -304,6 +306,33 @@ def annotate_hit_line(arguments):
                                                        annotations_fields = ANNOTATIONS_HEADER,
                                                        target_go_ev = go_evidence,
                                                        excluded_go_ev = go_excluded)
+
+            if pfam_mode == "transfer_narrowest":
+                narr_annot_levels = set()
+                narr_annot_levels.add(narr_og_level)
+                narr_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=narr_annot_levels)
+                # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
+                narr_orthologs = sorted(narr_orthologies[target_orthologs])
+                if excluded_taxa:
+                    narr_orthologs = [o for o in narr_orthologs if not o.startswith("%s." % excluded_taxa)]
+                pfam_annotations = db_sqlite.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
+                if pfam_annotations is not None and len(pfam_annotations) > 0:
+                    annotations["PFAMs"] = Counter()
+                    for pfam_annotation in pfam_annotations:
+                        annotations["PFAMs"].update([str(x).strip() for x in pfam_annotation[0].split(",")])
+                else:
+                    annotations["PFAMs"] = Counter()
+                                                    
+            elif pfam_mode == "transfer_seed":
+                pfam_annotations = db_sqlite.get_pfam_annotations('"'+best_hit_name+'"')
+                if pfam_annotations is not None and len(pfam_annotations) > 0:
+                    pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
+                    annotations["PFAMs"] = pfam_annotations
+                else:
+                    annotations["PFAMs"] = Counter()                    
+            else: # pfam_mode == "transfer"
+                pass
+            
         else:
             annotations = {}
 
