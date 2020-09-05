@@ -5,9 +5,9 @@ import os
 import subprocess
 from argparse import Namespace
 
-from ..search.hmmer import HmmerSearcher
-from ..search.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
-from ..common import get_pfam_db, get_call_info, ESL_REFORMAT
+from ...search.hmmer import HmmerSearcher
+from ...search.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
+from ...common import get_pfam_db, get_call_info, ESL_REFORMAT
 
 ##
 def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
@@ -217,74 +217,6 @@ def create_fasta_hmmpgmd_db(fasta_file):
     
     return mapfile(fasta_file)
 
-def group_queries_pfams(all_annotations, PFAM_COL):
-    queries_pfams_groups = []
-
-    # Extract list of pfams for each query
-    queries_pfams = {}
-    for annot_columns in all_annotations:
-        query_name = annot_columns[0]
-        pfams = annot_columns[PFAM_COL]
-
-        if pfams == "-": continue
-
-        for pfam in sorted(pfams.split(",")):
-            if query_name in queries_pfams:
-                queries_pfams[query_name].add(pfam)
-            else:
-                queries_pfams[query_name] = {pfam}
-                
-    # print(f"pfam.py:group:queries_pfams {queries_pfams['1105367.SAMN02673274.CG50_07170']}")
-
-    # Re-group Pfams with the same list of queries
-    queries_pfams_keys = {}
-    for query, pfams in queries_pfams.items():
-        pq_key = ",".join(pfams)
-        if pq_key in queries_pfams_keys:
-            queries_pfams_keys[pq_key]["queries"].add(query)
-        else:
-            queries_pfams_keys[pq_key] = {"queries":{query}, "pfams":pfams}
-            
-        # if "CG50_09910" in query:
-        #     print(f"pfam.py:group_queries_pfams {queries_pfams_keys[pq_key]}")
-
-    # Return tuples of pfams-queries
-    return [(x["queries"], x["pfams"]) for x in queries_pfams_keys.values()]
-
-
-##
-# This is deprecated, since given that one query
-# can be processed separatedly for different pfams
-# we cannot process overlaps afterwards.
-# Thus, this function was changed for the one above
-# def group_queries_pfams(all_annotations, PFAM_COL):
-#     queries_pfams_groups = []
-
-#     # Extract list of queries for each pfam
-#     pfams_queries = {}
-#     for annot_columns in all_annotations:
-#         query_name = annot_columns[0]
-#         pfams = annot_columns[PFAM_COL]
-        
-#         if pfams == "-": continue
-        
-#         for pfam in pfams.split(","):
-#             if pfam in pfams_queries:
-#                 pfams_queries[pfam].add(query_name)
-#             else:
-#                 pfams_queries[pfam] = {query_name}
-
-#     # Re-group Pfams with the same list of queries
-#     queries_pfams_keys = {}
-#     for pfam, queries in pfams_queries.items():
-#         pq_key = ",".join(queries)
-#         if pq_key in queries_pfams_keys:
-#             queries_pfams_keys[pq_key]["pfams"].add(pfam)
-#         else:
-#             queries_pfams_keys[pq_key] = {"pfams":{pfam}, "queries":queries}
-
-#     # Return tuples of pfams-queries
-#     return [(x["queries"], x["pfams"]) for x in queries_pfams_keys.values()]
 
 
 def parse_pfam_file(pfam_file):
