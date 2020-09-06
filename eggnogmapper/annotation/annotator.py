@@ -15,7 +15,7 @@ from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 from . import annota
 from . import db_sqlite
 from . import orthologs as ortho
-from .pfam.pfam_modes import run_pfam_mode
+from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -64,7 +64,7 @@ class Annotator:
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
     go_evidence = go_excluded = None
-    pfam = queries_fasta = translate = temp_dir = None
+    pfam_realign = pfam_transfer = queries_fasta = translate = temp_dir = None
     
     ##
     def __init__(self, args, annot, report_orthologs):
@@ -86,7 +86,9 @@ class Annotator:
         self.go_evidence = args.go_evidence
         self.go_excluded = args.go_excluded
         
-        self.pfam = args.pfam
+        self.pfam_realign = args.pfam_realign
+        self.pfam_transfer = args.pfam_transfer
+        
         self.queries_fasta = args.input
         self.translate = args.translate
         self.temp_dir = args.temp_dir
@@ -195,8 +197,8 @@ class Annotator:
 
         ##
         # PFAMs annotation
-        if self.annot == True and self.pfam not in ["transfer", "transfer_seed", "transfer_narrowest"] and all_annotations is not None and len(all_annotations) > 0:
-            all_annotations = run_pfam_mode(self.pfam, all_annotations, self.queries_fasta, self.translate, self.cpu, self.temp_dir, pfam_file)
+        if self.annot == True and self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and all_annotations is not None and len(all_annotations) > 0:
+            all_annotations = run_pfam_mode(self.pfam_realign, all_annotations, self.queries_fasta, self.translate, self.cpu, self.temp_dir, pfam_file)
             
             elapsed_time = time.time() - start_time
             print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
@@ -212,7 +214,7 @@ class Annotator:
             
             yield_tuple = (line, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_id, self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded, self.pfam)
+                           self.go_evidence, self.go_excluded, self.pfam_transfer)
             
             yield yield_tuple
             
@@ -230,7 +232,7 @@ def annotate_hit_line(arguments):
         tax_scope_mode, tax_scope_id, \
         target_taxa, target_orthologs, excluded_taxa, \
         go_evidence, go_excluded, \
-        pfam_mode = arguments
+        pfam_transfer = arguments
     
     try:
         if not line.strip() or line.startswith('#'):
@@ -307,7 +309,7 @@ def annotate_hit_line(arguments):
                                                        target_go_ev = go_evidence,
                                                        excluded_go_ev = go_excluded)
 
-            if pfam_mode == "transfer_narrowest":
+            if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
                 narr_annot_levels = set()
                 narr_annot_levels.add(narr_og_level)
                 narr_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=narr_annot_levels)
@@ -323,14 +325,14 @@ def annotate_hit_line(arguments):
                 else:
                     annotations["PFAMs"] = Counter()
                                                     
-            elif pfam_mode == "transfer_seed":
+            elif pfam_transfer == PFAM_TRANSFER_SEED_ORTHOLOG:
                 pfam_annotations = db_sqlite.get_pfam_annotations('"'+best_hit_name+'"')
                 if pfam_annotations is not None and len(pfam_annotations) > 0:
                     pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
                     annotations["PFAMs"] = pfam_annotations
                 else:
                     annotations["PFAMs"] = Counter()                    
-            else: # pfam_mode == "transfer"
+            else: # pfam_transfer == PFAM_TRANSFER_BEST_OG
                 pass
             
         else:

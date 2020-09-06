@@ -11,6 +11,8 @@ from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
 from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER
 from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
+from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, \
+    PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, \
@@ -215,21 +217,19 @@ def create_arg_parser():
                           'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
 
-    pg_annot.add_argument('--pfam', type=str, choices=('transfer', 'transfer_narrowest', 'transfer_seed', 
-                                                       'align', 'alignp', 'align_scan',
-                                                       'denovo', 'denovo_search'),
-                          default='transfer',
-                          help='Defines how PFAM annotation will be performed. '
-                          'transfer = A list of PFAMs, directly transferred from orthologs, will be reported. '
-                          'transfer_narrowest = A list of PFAMs, directly transferred from narrowest orthologs, will be reported. '
-                          'transfer_seed = A list of PFAMs, directly transferred from seed orthologs, will be reported. '
-                          'align = PFAMs from orthologs will be realigned to the query and '
-                          'a list of PFAMs and their positions on the query will be reported. '
-                          'alignp = like align but parallel setup of files. '
-                          'align_scan = like alignp, but using hmmscan instead of hmmsearch. '
-                          'denovo = each query will be realigned to PFAM and '
-                          'a list of PFAMs and their positions on the query will be reported. '
-                          'denovo_search = like denovo, but using hmmsearch after creating esl-reformat seq db if needed.')
+    pg_annot.add_argument('--pfam_transfer', type=str, choices=(PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG),
+                          default=PFAM_TRANSFER_BEST_OG,
+                          help='Defines from which orthologs PFAM domains will be transferred. '
+                          f'{PFAM_TRANSFER_BEST_OG} = PFAMs will be transferred from orthologs in the best Orthologous Group (OG). '
+                          f'{PFAM_TRANSFER_NARROWEST_OG} = PFAMs will be transferred from orthologs in the narrowest OG. '
+                          f'{PFAM_TRANSFER_SEED_ORTHOLOG} = PFAMs will be transferred from the seed ortholog. ')
+
+    pg_annot.add_argument('--pfam_realign', type=str, choices=(PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO),
+                          default=PFAM_REALIGN_NONE,
+                          help='Realign the queries to the PFAM domains. '
+                          f'{PFAM_REALIGN_NONE} = no realignment is performed. PFAM annotation will be that transferred as specify in the --pfam_transfer option. '
+                          f'{PFAM_REALIGN_REALIGN} = queries will be realigned to the PFAM domains found according to the --pfam_transfer option. '
+                          f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, ignoring the --pfam_transfer option. ')
 
     ##
     pg_out = parser.add_argument_group('Output options')
@@ -426,13 +426,18 @@ def parse_args(parser):
         raise ValueError('Invalid --go_evidence value')
 
     # PFAM annotation options
-    if args.pfam == 'transfer' or args.pfam == 'transfer_narrowest' or args.pfam == 'transfer_seed':
+    if args.pfam_transfer in [PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG]:
         pass
-    elif args.pfam == 'align' or args.pfam == 'alignp' or args.pfam == 'align_scan' or args.pfam == 'denovo' or args.pfam == 'denovo_search':
-        if not args.input:
-            parser.error(f'An input fasta file is required (-i) for --pfam {args.pfam}')
     else:
-        raise ValueError(f'Invalid --pfam option {args.pfam}')
+        raise ValueError(f'Invalid --pfam_transfer option {args.pfam_transfer}')
+    
+    if args.pfam_realign == PFAM_REALIGN_NONE:
+        pass
+    elif args.pfam_realign == PFAM_REALIGN_REALIGN or args.pfam_realign == PFAM_REALIGN_DENOVO:
+        if not args.input:
+            parser.error(f'An input fasta file is required (-i) for --pfam_realign {args.pfam_realign}')
+    else:
+        raise ValueError(f'Invalid --pfam_realign option {args.pfam_realign}')
     
     return args
 
