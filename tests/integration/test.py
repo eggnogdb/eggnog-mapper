@@ -289,11 +289,11 @@ class Test(unittest.TestCase):
         return
 
     
-    def test_pfam_align(self):
+    def test_pfam_transfer_narrowest_og(self):
         '''
-        Tests --pfam align
+        Tests --pfam_transfer narrowest_og
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam align
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam_transfer narrowest_og
         
         ##
         # Setup test
@@ -306,11 +306,9 @@ class Test(unittest.TestCase):
         # Observed and expected files
         obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
-        obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
         
-        exp_seed_orthologs = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.seed_orthologs')
-        exp_annotations = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.annotations')
-        exp_pfam = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.pfam')
+        exp_seed_orthologs = os.path.join(data_dir, 'pfam_transfer_narrowest_og_output', 'test.emapper.seed_orthologs')
+        exp_annotations = os.path.join(data_dir, 'pfam_transfer_narrowest_og_output', 'test.emapper.annotations')
 
         ##
         # Run test
@@ -320,7 +318,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam align'
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_transfer narrowest_og'
 
         # print(f"\t{cmd}")
 
@@ -337,9 +335,6 @@ class Test(unittest.TestCase):
         
         # Check alignment phase: detection of seed orthologs
         check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-
-        # Check PFAM
-        check_pfam(obs_pfam, exp_pfam)
         
         # Check annotation phase
         check_annotations(obs_annotations, exp_annotations)
@@ -354,11 +349,11 @@ class Test(unittest.TestCase):
         return
 
 
-    def test_pfam_alignp(self):
+    def test_pfam_align_seed(self):
         '''
-        Tests --pfam alignp
+        Tests --pfam_transfer seed_ortholog --pfam_realign realign
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam alignp
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam_transfer seed_ortholog --pfam_realign realign
         
         ##
         # Setup test
@@ -373,9 +368,9 @@ class Test(unittest.TestCase):
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
         obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
         
-        exp_seed_orthologs = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.seed_orthologs')
-        exp_annotations = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.annotations')
-        exp_pfam = os.path.join(data_dir, 'pfam_align_output', 'test.emapper.pfam')
+        exp_seed_orthologs = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.seed_orthologs')
+        exp_annotations = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.annotations')
+        exp_pfam = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.pfam')
 
         ##
         # Run test
@@ -385,72 +380,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam alignp'
-
-        # print(f"\t{cmd}")
-
-        st, out, err = run(cmd)
-        if st != 0:
-            # print(out)
-            # print(err)
-            print(out.decode("utf-8"))
-            print(err.decode("utf-8"))
-        assert st == 0 # check exit status is ok        
-
-        ##
-        # Check test
-        
-        # Check alignment phase: detection of seed orthologs
-        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-
-        # Check PFAM
-        check_pfam(obs_pfam, exp_pfam)
-        
-        # Check annotation phase
-        check_annotations(obs_annotations, exp_annotations)
-
-        ##
-        # Teardown test
-        
-        # Remove the output dir
-        if os.path.isdir(outdir):
-            shutil.rmtree(outdir)
-        
-        return
-
-
-    def test_pfam_align_scan(self):
-        '''
-        Tests --pfam align_scan
-        '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam align_scan
-        
-        ##
-        # Setup test
-        
-        in_file = "tests/fixtures/test_pfam_groups.fa"
-        data_dir = "tests/fixtures"
-        outdir = "tests/integration/out"
-        outprefix = "test"
-
-        # Observed and expected files
-        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
-        obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
-        obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
-        
-        exp_seed_orthologs = os.path.join(data_dir, 'pfam_align_scan_output', 'test.emapper.seed_orthologs')
-        exp_annotations = os.path.join(data_dir, 'pfam_align_scan_output', 'test.emapper.annotations')
-        exp_pfam = os.path.join(data_dir, 'pfam_align_scan_output', 'test.emapper.pfam')
-
-        ##
-        # Run test
-        
-        # Remove (just in case) and recreate the output dir
-        if os.path.isdir(outdir):
-            shutil.rmtree(outdir)
-        os.mkdir(outdir)
-
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam align_scan'
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_transfer seed_ortholog --pfam_realign realign'
 
         # print(f"\t{cmd}")
 
@@ -486,9 +416,9 @@ class Test(unittest.TestCase):
 
     def test_pfam_denovo(self):
         '''
-        Tests --pfam denovo
+        Tests --pfam_realign denovo
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam denovo
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam_realign denovo
         
         ##
         # Setup test
@@ -515,7 +445,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam denovo'
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_realign denovo'
 
         # print(f"\t{cmd}")
 
