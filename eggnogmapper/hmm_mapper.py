@@ -9,7 +9,7 @@ from .utils import colorify
 from .common import silent_rm
 from .emapperException import EmapperException
 
-from .search.hmmer import HmmerSearcher
+from .search.hmmer.hmmer import HmmerSearcher
 
 class HmmMapper:
 

@@ -5,9 +5,10 @@ import os
 import subprocess
 from argparse import Namespace
 
-from ...search.hmmer import HmmerSearcher
-from ...search.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
 from ...common import get_pfam_db, get_call_info, ESL_REFORMAT
+
+from ...search.hmmer.hmmer import HmmerSearcher
+from ...search.hmmer.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
 
 ##
 def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):

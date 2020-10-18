@@ -9,8 +9,9 @@ import multiprocessing
 
 from collections import defaultdict
 
+from ...common import *
+
 from .hmmer_seqio import iter_fasta_seqs
-from ..common import *
 
 QUERY_TYPE_SEQ = "seq"
 QUERY_TYPE_HMM = "hmm"

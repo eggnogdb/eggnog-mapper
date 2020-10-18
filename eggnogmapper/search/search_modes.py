@@ -1,8 +1,8 @@
 ##
 ## CPCantalapiedra 2020
 
-from .diamond import DiamondSearcher
-from .hmmer import HmmerSearcher
+from .diamond.diamond import DiamondSearcher
+from .hmmer.hmmer import HmmerSearcher
 
 SEARCH_MODE_NO_SEARCH = "no_search"
 SEARCH_MODE_DIAMOND = "diamond"

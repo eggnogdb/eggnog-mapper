@@ -11,7 +11,7 @@ from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.common import TIMEOUT_LOAD_SERVER
 from eggnogmapper.utils import colorify
 
-from eggnogmapper.search.hmmer_server import load_worker
+from eggnogmapper.search.hmmer.hmmer_server import load_worker
 
 __description__ = ('A worker for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'

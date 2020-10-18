@@ -10,8 +10,8 @@ import shutil
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, cleanup_og_name, gopen
-from ..utils import colorify
+from ...common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, cleanup_og_name, gopen
+from ...utils import colorify
 
 from .hmmer_server import shutdown_server_by_pid, create_servers, check_servers
 from .hmmer_search import iter_hits, refine_hit

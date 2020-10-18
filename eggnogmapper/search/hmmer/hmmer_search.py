@@ -7,9 +7,10 @@ from tempfile import NamedTemporaryFile, mkdtemp
 import uuid
 from collections import defaultdict
 
+from ...common import *
+
 from .hmmer_seqio import iter_fasta_seqs
 from .hmmer_search_hmmpgmd import iter_seq_hits, iter_hmm_hits, QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
-from ..common import *
 
 
 SCANTYPE_MEM = "mem"

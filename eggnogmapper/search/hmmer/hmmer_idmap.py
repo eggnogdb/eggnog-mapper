@@ -3,8 +3,8 @@
 
 import os
 
-from ..common import HMMSTAT
-from ..utils import colorify
+from ...common import HMMSTAT
+from ...utils import colorify
 
 ##
 def generate_idmap(dbpath):

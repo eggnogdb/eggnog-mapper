@@ -3,7 +3,7 @@
 
 import gzip, os, sys
 
-from ..common import get_pfam_clans_file
+from ...common import get_pfam_clans_file
 
 CLEAN_OVERLAPS_ALL = "all"
 CLEAN_OVERLAPS_CLANS = "clans"
