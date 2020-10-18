@@ -13,7 +13,7 @@ from eggnogmapper.utils import colorify
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.hmm_mapper import HmmMapper
 
-from eggnogmapper.search.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
+from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 
 
 __description__ = ('A program wrapping HMM in-memory searches')

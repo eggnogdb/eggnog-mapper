@@ -5,7 +5,7 @@ import shutil, os, unittest
 from argparse import Namespace
 
 from eggnogmapper.common import DIAMOND
-from eggnogmapper.search.diamond import DiamondSearcher
+from eggnogmapper.search.diamond.diamond import DiamondSearcher
 
 class Test(unittest.TestCase):
     

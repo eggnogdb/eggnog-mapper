@@ -11,9 +11,9 @@ from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.common import TIMEOUT_LOAD_SERVER
 from eggnogmapper.utils import colorify
 
-from eggnogmapper.search.hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
-from eggnogmapper.search.hmmer_setup import setup_custom_db
-from eggnogmapper.search.hmmer_server import load_server, server_functional, create_servers
+from eggnogmapper.search.hmmer.hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
+from eggnogmapper.search.hmmer.hmmer_setup import setup_custom_db
+from eggnogmapper.search.hmmer.hmmer_server import load_server, server_functional, create_servers
 
 __description__ = ('A server for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'

@@ -7,11 +7,11 @@ import subprocess
 from tempfile import mkdtemp
 import uuid
 
-from ..emapperException import EmapperException
-from ..common import DIAMOND, get_eggnog_dmnd_db, get_call_info
-from ..utils import colorify
+from ...emapperException import EmapperException
+from ...common import DIAMOND, get_eggnog_dmnd_db, get_call_info
+from ...utils import colorify
 
-from .hmmer_seqio import iter_fasta_seqs
+from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
 class DiamondSearcher:
 

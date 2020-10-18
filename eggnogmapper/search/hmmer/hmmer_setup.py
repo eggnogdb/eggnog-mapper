@@ -7,8 +7,8 @@ import time
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ..common import EGGNOG_DATABASES, get_db_info, get_data_path
-from ..utils import colorify
+from ...common import EGGNOG_DATABASES, get_db_info, get_data_path
+from ...utils import colorify
 
 # from .hmmer_server import server_functional
 from .hmmer_search import SCANTYPE_MEM, DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ

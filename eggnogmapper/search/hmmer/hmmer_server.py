@@ -9,8 +9,9 @@ from multiprocessing import Process
 import signal
 import traceback
 
-from ..common import HMMPGMD, TIMEOUT_LOAD_SERVER
-from ..utils import colorify
+from ...common import HMMPGMD, TIMEOUT_LOAD_SERVER
+from ...utils import colorify
+
 from .hmmer_search_hmmpgmd import get_hits
 from .hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ, QUERY_TYPE_HMM
 
