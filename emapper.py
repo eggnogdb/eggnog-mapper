@@ -9,13 +9,13 @@ sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
-from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER
+from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2
 from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, \
     PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
-    get_eggnogdb_file, get_eggnog_dmnd_db, \
+    get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
     get_version, get_full_version_info, get_citation, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 
 from eggnogmapper.utils import colorify
@@ -63,15 +63,16 @@ def create_arg_parser():
     pg_search = parser.add_argument_group('Search Options')
 
     pg_search.add_argument('-m', dest='mode', 
-                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH],
+                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_MMSEQS2, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH],
                            default=SEARCH_MODE_DIAMOND,
                            help=(
                                f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond (-i is required). '
+                               f'{SEARCH_MODE_MMSEQS2}: search seed orthologs using MMseqs2 (-i is required). '
                                f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required). '
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required). '
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
-    
+
     ##
     pg_diamond = parser.add_argument_group('Diamond Search Options')
 	
@@ -94,12 +95,27 @@ def create_arg_parser():
     pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
                     help='Gap extend  penalty')
 
-    pg_diamond.add_argument('--query-cover', dest='query_cover', type=float, default=0,
-                    help='Report only alignments above the given percentage of query cover. Default=0')
+    ##
+    pg_mmseqs = parser.add_argument_group('MMseqs2 Search Options')
 
-    pg_diamond.add_argument('--subject-cover', dest='subject_cover', type=float, default=0,
-                    help='Report only alignments above the given percentage of subject cover. Default=0')
+    pg_mmseqs.add_argument('--mmseqs_db', dest="mmseqs_db", metavar='MMSEQS_DB_FILE',
+		    help="Path to MMseqs2-compatible database")
 
+    pg_mmseqs.add_argument('--mmseqs_evalue', dest='mmseqs_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
+                        help="E-value threshold. Default=0.001")
+
+    pg_mmseqs.add_argument('--mmseqs_score', dest='mmseqs_score', default=60, type=float, metavar='MIN_SCORE',
+                        help="Bit score threshold. Default=60")
+
+    ##
+    pg_diamond_mmseqs = parser.add_argument_group('Diamond/MMseqs2 shared Options')
+    
+    pg_diamond_mmseqs.add_argument('--query-cover', dest='query_cover', type=float, default=0,
+                                   help='Report only alignments above the given percentage of query cover. Default=0')
+    
+    pg_diamond_mmseqs.add_argument('--subject-cover', dest='subject_cover', type=float, default=0,
+                                   help='Report only alignments above the given percentage of subject cover. Default=0')
+    
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
 
@@ -246,8 +262,8 @@ def create_arg_parser():
                         ' systems.')
 
     pg_out.add_argument('--resume', action="store_true",
-                        help="Resumes a previous execution skipping reported hits in the output file. "
-                        f"Note that diamond runs (-m {SEARCH_MODE_DIAMOND}) cannot be resumed.")
+                        help="Resumes a previous SEARCH_MODE_HMMER search, skipping reported hits in the output file. "
+                        f"Only SEARCH_MODE_HMMER runs (-m {SEARCH_MODE_HMMER}) can be resumed.")
         
     pg_out.add_argument('--override', action="store_true",
                     help="Overwrites output files if they exist.")
@@ -362,7 +378,28 @@ def parse_args(parser):
         if args.annotate_hits_table is not None:
             print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_DIAMOND}", 'blue'))
             args.annotate_hits_table = None
+            
+    elif args.mode == SEARCH_MODE_MMSEQS2:
+        mmseqs_db = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
+        if not pexists(mmseqs_db):
+            print(colorify('MMseqs2 database %s not present. Use download_eggnog_database.py to fetch it' % mmseqs_db, 'red'))
+            raise EmapperException()
 
+        if not args.input:
+            parser.error('An input fasta file is required (-i)')
+
+        # Output file required
+        if not args.output:
+            parser.error('An output project name is required (-o)')
+
+        if args.resume == True:
+            print(colorify("MMseqs2 jobs cannot be resumed. --resume will be ignored.", 'blue'))
+            args.resume = False
+
+        if args.annotate_hits_table is not None:
+            print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_MMSEQS2}", 'blue'))
+            args.annotate_hits_table = None
+            
     elif args.mode == SEARCH_MODE_HMMER:
 
         if args.usemem == True:

@@ -3,10 +3,12 @@
 
 from .diamond.diamond import DiamondSearcher
 from .hmmer.hmmer import HmmerSearcher
+from .mmseqs.mmseqs import MMseqs2Searcher
 
 SEARCH_MODE_NO_SEARCH = "no_search"
 SEARCH_MODE_DIAMOND = "diamond"
 SEARCH_MODE_HMMER = "hmmer"
+SEARCH_MODE_MMSEQS2 = "mmseqs"
 
 ##
 def get_searcher(args, mode):
@@ -20,6 +22,9 @@ def get_searcher(args, mode):
 
     elif mode == SEARCH_MODE_HMMER:
         searcher = HmmerSearcher(args)
+
+    elif mode == SEARCH_MODE_MMSEQS2:
+        searcher = MMseqs2Searcher(args)
 
     else:
         raise EmapperException("Unknown search mode %s" % mode)
