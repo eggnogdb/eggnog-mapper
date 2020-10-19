@@ -102,6 +102,7 @@ HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'bin', 'hmmpress')
 ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'bin', 'esl-reformat')
 LOCAL_DIAMOND = pjoin(BASE_PATH, 'bin', 'diamond')
 DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
+MMSEQS2 = find_executable('mmseqs') or pjoin(BASE_PATH, 'bin', 'mmseqs')
 PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'bin', 'prodigal.linux')
 
 DATA_PATH = pjoin(BASE_PATH, "data")
@@ -111,6 +112,7 @@ def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmdb_levels")
 def get_eggnogdb_file(): return pjoin(DATA_PATH, "eggnog.db")
 def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 def get_eggnog_dmnd_db(): return pjoin(DATA_PATH, "eggnog_proteins.dmnd")
+def get_eggnog_mmseqs_db(): return pjoin(DATA_PATH, "mmseqs", "mmseqs.db")
 def get_pfam_db(): return pjoin(DATA_PATH, "pfam", "Pfam-A.hmm")
 def get_pfam_clans_file(): return pjoin(DATA_PATH, "pfam", "Pfam-A.clans.tsv.gz")
 

@@ -1,0 +1,10 @@
+# Mon Oct 19 19:31:30 2020
+# emapper-2.0.2-rf1-51-gbe2c2e2
+# ./emapper.py -m mmseqs --report_orthologs -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp_borrar -o test
+#
+#/home/cantalapiedra/mmseqs2/bin/mmseqs createdb /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/test_queries.fa /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/a26187f1eece44fb8dfd256024ff55a3
+#/home/cantalapiedra/mmseqs2/bin/mmseqs search -a true /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/a26187f1eece44fb8dfd256024ff55a3 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/mmseqs/mmseqs.db /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/884f1482b36f450a99600b48caa3d447 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_ --start-sens 3 --sens-steps 3 -s 7 --threads 1
+#/home/cantalapiedra/mmseqs2/bin/mmseqs filterdb /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/884f1482b36f450a99600b48caa3d447 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/d10af5b022d14428b455a0fa2f7eb253 --extract-lines 1 
+#/home/cantalapiedra/mmseqs2/bin/mmseqs convertalis /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/a26187f1eece44fb8dfd256024ff55a3 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/mmseqs/mmseqs.db /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/d10af5b022d14428b455a0fa2f7eb253 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_7mq2yw6_/d10af5b022d14428b455a0fa2f7eb253.m8
+362663.ECP_0061	362663.ECP_0061	0.0	1646.0
+1000565.METUNv1_03812	1000565.METUNv1_03812	6.571e-254	724.0
