@@ -16,7 +16,7 @@ from ..hmmer.hmmer_seqio import iter_fasta_seqs
 class DiamondSearcher:
 
     # Command
-    cpu = translate = tool = dmnd_db = temp_dir = no_file_comments = None
+    cpu = tool = dmnd_db = temp_dir = no_file_comments = None
     matrix = gapopen = gapextend = None
 
     # Filters
@@ -34,7 +34,6 @@ class DiamondSearcher:
             self.tool = 'blastx'
         else:
             self.tool = 'blastp'
-        self.translate = args.translate
 
         self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
 
@@ -86,8 +85,10 @@ class DiamondSearcher:
     def get_hits(self):
         if self.hits is not None:
             hit_queries = set([x[0] for x in self.hits])
-            sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
-            self.queries = set(sequences.keys())
+            # no need to translate, we only need seq identifiers
+            self.queries = set({name for name, seq in iter_fasta_seqs(in_file)})
+            # sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.traslate)}
+            # self.queries = set(sequences.keys())
             self.no_hits = set(self.queries).difference(hit_queries)
             
         return self.hits, self.no_hits
