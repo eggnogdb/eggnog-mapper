@@ -112,6 +112,15 @@ def create_arg_parser():
     pg_mmseqs.add_argument('--mmseqs_score', dest='mmseqs_score', default=60, type=float, metavar='MIN_SCORE',
                         help="Bit score threshold. Default=60")
 
+    pg_mmseqs.add_argument('--start_sens', dest='start_sens', default=3, type=int, metavar='START_SENS',
+                           help="Starting sensitivity. Default=3")
+
+    pg_mmseqs.add_argument('--sens_steps', dest='sens_steps', default=3, type=int, metavar='SENS_STEPS',
+                           help="Number of sensitivity steps. Default=3")
+
+    pg_mmseqs.add_argument('--final_sens', dest='final_sens', default=7, type=int, metavar='FINAL_SENS',
+                           help="Final sensititivy step. Default=7")
+
     ##
     pg_diamond_mmseqs = parser.add_argument_group('Diamond/MMseqs2 shared Options')
     

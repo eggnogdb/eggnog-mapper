@@ -18,6 +18,9 @@ class MMseqs2Searcher:
 
     # Command
     cpu = translate = targetdb = temp_dir = no_file_comments = None
+    start_sens = 3
+    sens_steps = 3
+    final_sens = 7    
 
     # Filters
     score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
@@ -35,6 +38,9 @@ class MMseqs2Searcher:
         self.targetdb = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
 
         self.cpu = args.cpu
+        self.start_sens = args.start_sens
+        self.sens_steps = args.sens_steps
+        self.final_sens = args.final_sens
         
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
@@ -121,12 +127,9 @@ class MMseqs2Searcher:
 
     def search_step(self, querydb, targetdb, resultdb, tempdir):
         # mmseqs search queryDB targetDB resultDB tmp
-        start_sens = 3
-        sens_steps = 3
-        final_sens = 7
         cmd = (
             f'{MMSEQS2} search -a true {querydb} {targetdb} {resultdb} {tempdir} '
-            f'--start-sens {start_sens} --sens-steps {sens_steps} -s {final_sens} '
+            f'--start-sens {self.start_sens} --sens-steps {self.sens_steps} -s {self.final_sens} '
             f'--threads {self.cpu}'
         )
         
