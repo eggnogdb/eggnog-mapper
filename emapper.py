@@ -158,7 +158,7 @@ def create_arg_parser():
 
     pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
                           help="When using --usemem, specify the number of servers to fire up."
-                          " By default, cpus specified with --cpu will be distributed among servers and workers.")
+                          " By default, only 1 server is used. Note that cpus specified with --cpu will be distributed among servers and workers.")
     
     pg_hmmer.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
                           help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
