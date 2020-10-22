@@ -18,6 +18,13 @@ def gunzip_flag():
     return ''
 
 ##
+# Annotation DBs
+def download_annotations():
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz %s' %(get_data_path(), url, gunzip_flag())
+    run(cmd)
+
+##
 # Diamond DBs
 def download_diamond_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
@@ -25,42 +32,44 @@ def download_diamond_db():
     run(cmd)
 
 ##
-# Annotation DBs
-def download_annotations():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz %s' %(get_data_path(), url, gunzip_flag())
+# MMseqs2 DB
+def download_mmseqs_db():
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/mmseqs.tar.gz' %(DATABASE_VERSION)
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O pfam.tar.gz  %s && echo Decompressing... && tar -zxf mmseqs.tar.gz %s && rm mmseqs.tar.gz' %(get_data_path(),  url, gunzip_flag())
     run(cmd)
 
+##
+# PFAM DB
 def download_pfam_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/pfam.tar.gz' %(DATABASE_VERSION)
     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O pfam.tar.gz  %s && echo Decompressing... && tar -zxf pfam.tar.gz %s && rm pfam.tar.gz' %(get_data_path(),  url, gunzip_flag())
     run(cmd)
-
-##
-# HMMER mode DBs
-def download_hmm_database(level):
-    level_base_path = get_level_base_path(level)
-    target_dir = os.path.split(get_db_info(level)[0])[0]
-    if not os.path.exists(target_dir):
-        os.makedirs(target_dir)
-
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/hmmdb_levels/%s/' %(DATABASE_VERSION, level_base_path)
-    if not args.force:
-        flag = '-N'
-    else:
-        flag = ''
-    cmd = 'mkdir -p %s; cd %s; wget %s -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(target_dir, target_dir, flag, url)
-    run(cmd)
     
-def download_groups():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/OG_fasta.tar.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O OG_fasta.tar.gz  %s && echo Decompressing... && tar -zxf OG_fasta.tar.gz && rm OG_fasta.tar.gz' %(get_data_path(),  url)
-    run(cmd)
+# ##
+# # HMMER mode DBs
+# def download_hmm_database(level):
+#     level_base_path = get_level_base_path(level)
+#     target_dir = os.path.split(get_db_info(level)[0])[0]
+#     if not os.path.exists(target_dir):
+#         os.makedirs(target_dir)
+
+#     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/hmmdb_levels/%s/' %(DATABASE_VERSION, level_base_path)
+#     if not args.force:
+#         flag = '-N'
+#     else:
+#         flag = ''
+#     cmd = 'mkdir -p %s; cd %s; wget %s -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(target_dir, target_dir, flag, url)
+#     run(cmd)
     
-def download_og2level():
-    url= 'http://eggnogdb.embl.de/download/emapperdb-%s/og2level.tsv.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -O og2level.tsv.gz %s' %(get_data_path(),  url)
-    run(cmd)
+# def download_groups():
+#     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/OG_fasta.tar.gz' %(DATABASE_VERSION)
+#     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O OG_fasta.tar.gz  %s && echo Decompressing... && tar -zxf OG_fasta.tar.gz && rm OG_fasta.tar.gz' %(get_data_path(),  url)
+#     run(cmd)
+    
+# def download_og2level():
+#     url= 'http://eggnogdb.embl.de/download/emapperdb-%s/og2level.tsv.gz' %(DATABASE_VERSION)
+#     cmd = 'cd %s && wget -O og2level.tsv.gz %s' %(get_data_path(),  url)
+#     run(cmd)
 
 
 ##
@@ -72,6 +81,12 @@ if __name__ == "__main__":
 
     parser.add_argument('-D', action="store_true", dest='skip_diamond',
                         help='Do not install the diamond database')
+
+    parser.add_argument('-P', action="store_true", dest='pfam',
+                        help='Install the Pfam database, required for de novo annotation or realignment')
+
+    parser.add_argument('-M', action="store_true", dest='mmseqs',
+                        help='Install the MMseqs2 database, required for "-m mmseqs"')
 
     parser.add_argument('-y', action="store_true", dest='allyes',
                         help='assume "yes" to all questions')
@@ -142,4 +157,27 @@ if __name__ == "__main__":
     #     else:
     #         print 'Skipping'
 
+    ## PFAM
+    if args.pfam and (args.force or not pexists(pjoin(get_data_path(), 'pfam'))):
+        if args.allyes or ask("Download pfam database (~3GB after decompression)?") == 'y':
+            print(colorify('Downloading Pfam files " at %s/pfam/...' %get_data_path(), 'green'))
+            download_pfam_db()
+        else:
+            print('Skipping')
+    else:
+        if not args.quiet:
+            print(colorify('Skipping Pfam database (or already present). Use -P and -f to force download', 'lblue'))
+
+
+    ## MMseqs
+    if args.mmseqs and (args.force or not pexists(pjoin(get_data_path(), 'mmseqs'))):
+        if args.allyes or ask("Download MMseqs2 database (~10GB after decompression)?") == 'y':
+            print(colorify('Downloading MMseqs2 files " at %s/mmseqs/...' %get_data_path(), 'green'))
+            download_pfam_db()
+        else:
+            print('Skipping')
+    else:
+        if not args.quiet:
+            print(colorify('Skipping MMseqs2 database (or already present). Use -M and -f to force download', 'lblue'))
+            
 ## END
