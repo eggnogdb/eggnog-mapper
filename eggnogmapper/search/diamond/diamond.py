@@ -13,6 +13,15 @@ from ...utils import colorify
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
+SENSMODE_FAST = "fast"
+SENSMODE_MID_SENSITIVE = "mid-sensitive"
+SENSMODE_SENSITIVE = "sensitive"
+SENSMODE_MORE_SENSITIVE = "more-sensitive"
+SENSMODE_VERY_SENSITIVE = "very-sensitive"
+SENSMODE_ULTRA_SENSITIVE = "ultra-sensitive"
+SENSMODES = [SENSMODE_FAST, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE]
+# SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
+
 class DiamondSearcher:
 
     # Command
@@ -38,6 +47,8 @@ class DiamondSearcher:
         self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
 
         self.cpu = args.cpu
+
+        self.sensmode = args.sensmode
         
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
@@ -95,10 +106,17 @@ class DiamondSearcher:
 
     ##
     def run_diamond(self, fasta_file, output_file):
-               
+
+        # if self.sensmode == "fast":
+        #     cmd = (
+        #         f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
+        #         f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
+        #         f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
+        #     )
+        # else:
         cmd = (
             f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
-            f'--more-sensitive --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
+            f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
             f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
         )
 
