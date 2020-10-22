@@ -107,18 +107,18 @@ class DiamondSearcher:
     ##
     def run_diamond(self, fasta_file, output_file):
 
-        # if self.sensmode == "fast":
-        #     cmd = (
-        #         f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
-        #         f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
-        #         f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
-        #     )
-        # else:
-        cmd = (
-            f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
-            f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
-            f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
-        )
+        if self.sensmode == "fast":
+            cmd = (
+                f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
+                f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
+                f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
+            )
+        else:
+            cmd = (
+                f'{DIAMOND} {self.tool} -d {self.dmnd_db} -q {fasta_file} '
+                f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
+                f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
+            )
 
         if self.matrix: cmd += ' --matrix {self.matrix}'
         if self.gapopen: cmd += ' --gapopen {self.gapopen}'
