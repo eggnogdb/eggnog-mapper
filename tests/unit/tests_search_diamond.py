@@ -5,7 +5,7 @@ import shutil, os, unittest
 from argparse import Namespace
 
 from eggnogmapper.common import DIAMOND
-from eggnogmapper.search.diamond.diamond import DiamondSearcher
+from eggnogmapper.search.diamond.diamond import DiamondSearcher, SENSMODE_MORE_SENSITIVE
 
 class Test(unittest.TestCase):
     
@@ -21,6 +21,7 @@ class Test(unittest.TestCase):
         args = Namespace(translate=False,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
+                         sensmode=SENSMODE_MORE_SENSITIVE,
                          query_cover=0,
                          subject_cover=0,
                          matrix=None,
@@ -47,6 +48,7 @@ class Test(unittest.TestCase):
         args = Namespace(translate=True,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
+                         sensmode=SENSMODE_MORE_SENSITIVE,
                          query_cover=0,
                          subject_cover=0,
                          matrix=None,
@@ -74,6 +76,7 @@ class Test(unittest.TestCase):
         args = Namespace(translate=False,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
+                         sensmode=SENSMODE_MORE_SENSITIVE,
                          query_cover=0,
                          subject_cover=0,
                          matrix=None,
