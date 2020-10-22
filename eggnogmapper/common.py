@@ -102,6 +102,7 @@ HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'bin', 'hmmpress')
 ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'bin', 'esl-reformat')
 LOCAL_DIAMOND = pjoin(BASE_PATH, 'bin', 'diamond')
 DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
+LOCAL_MMSEQS2 = pjoin(BASE_PATH, 'bin', 'mmseqs')
 MMSEQS2 = find_executable('mmseqs') or pjoin(BASE_PATH, 'bin', 'mmseqs')
 PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'bin', 'prodigal.linux')
 
@@ -170,6 +171,10 @@ def get_full_version_info():
     dmnd_version = get_diamond_version()
     if dmnd_version is not None:
         version = f"{version} / {dmnd_version}"
+
+    mmseqs_version = get_mmseqs_version()
+    if mmseqs_version is not None:
+        version = f"{version} / {mmseqs_version}"
         
     return version
 
@@ -222,6 +227,19 @@ def get_diamond_version():
         dmnd_version = f"Local diamond version: {completed_process.stdout.decode('utf-8').strip()}"
     
     return dmnd_version
+
+def get_mmseqs_version():
+    mmseqs_version = None
+    cmd = f"{LOCAL_MMSEQS2} version"
+    try:
+        completed_process = run(cmd, capture_output=True, check=True, shell=True)
+    except CalledProcessError as cpe:
+        raise EmapperException("Error running local mmseqs: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
+
+    if completed_process is not None:
+        mmseqs_version = f"Local MMseqs2 version: {completed_process.stdout.decode('utf-8').strip()}"
+
+    return mmseqs_version
 
 
 def get_level_base_path(level):
