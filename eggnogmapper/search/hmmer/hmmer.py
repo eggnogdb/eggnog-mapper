@@ -245,7 +245,8 @@ class HmmerSearcher:
 
             if elapsed == -1:
                 # error occurred. hits should contain a single element with the error msg. e.g. hits = ["ERROR_MSG"]
-                print('\t'.join([name] + hits * (len(hits_header) - 1)), file=OUT)
+                print('\t'.join([name] + hits * (len(hits_header) - 1)), file=sys.stderr)
+                print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             elif not hits and self.report_no_hits == True:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
@@ -383,7 +384,8 @@ class HmmerSearcher:
             fields = list(map(str.strip, line.split('\t')))
             seqname = fields[0]
 
-            if fields[1] == '-' or fields[1] == 'ERROR' or fields[1].startswith("SEQ TOO LARGE"):
+            # if there is no hit (check stderr for possible errors of each specific query)
+            if fields[1] == '-':
                 continue
 
             if seqname in visited_queries:
