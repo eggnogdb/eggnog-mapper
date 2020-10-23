@@ -315,7 +315,7 @@ def get_best_hit(target_seq, target_og, excluded_taxa, tempdir):
         raise ValueError('phmmer not found in path')
 
     tempout = pjoin(tempdir, uuid.uuid4().hex)
-    cmd = "%s --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" %\
+    cmd = "%s --cpu 1 --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" %\
           (PHMMER, tempout, target_seq, target_og)
 
     # print cmd
