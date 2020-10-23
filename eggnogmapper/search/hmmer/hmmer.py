@@ -379,11 +379,11 @@ class HmmerSearcher:
         for line in gopen(hits_file):
             if line.startswith('#'):
                 continue
-
+            
             fields = list(map(str.strip, line.split('\t')))
             seqname = fields[0]
 
-            if fields[1] == '-' or fields[1] == 'ERROR':
+            if fields[1] == '-' or fields[1] == 'ERROR' or fields[1].startswith("SEQ TOO LARGE"):
                 continue
 
             if seqname in visited_queries:
