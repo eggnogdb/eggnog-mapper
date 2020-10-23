@@ -223,9 +223,10 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                 continue
             fields = line.split()
 
-            (hitname, hacc, tlen, qname, qacc, qlen, evalue, score, bias, didx,
+            hitname = str(fields[0])
+            (hacc, tlen, qname, qacc, qlen, evalue, score, bias, didx,
              dnum, c_evalue, i_evalue, d_score, d_bias, hmmfrom, hmmto, seqfrom,
-             seqto, env_from, env_to, acc) = list(map(safe_cast, fields[:22]))
+             seqto, env_from, env_to, acc) = list(map(safe_cast, fields[1:22]))
 
             # if "CG50_09910" in qname:
             #     print(f"hmmer_search.py: {hitname}")
