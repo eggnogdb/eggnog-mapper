@@ -121,7 +121,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     ##
     # Translate FASTA nts to aas if needed
     
-    if translate or maxseqlen:
+    if translate or maxseqlen is not None:
         if translate:
             if silent == False:
                 print('translating query input file')
