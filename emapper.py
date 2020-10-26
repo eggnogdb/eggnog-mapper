@@ -44,7 +44,8 @@ def create_arg_parser():
     pg_input = parser.add_argument_group('Input Data Options')
 
     pg_input.add_argument('-i', dest="input", metavar='FASTA_FILE', type=existing_file,
-                          help=f'Input FASTA file containing query sequences (proteins by default; see --translate). Required unless -m {SEARCH_MODE_NO_SEARCH}')
+                          help=f'Input FASTA file containing query sequences (proteins by default; see --translate). '
+                          f'Required unless -m {SEARCH_MODE_NO_SEARCH} and --annotate_hits_table')
 
     pg_input.add_argument('--itype', dest="itype", choices = [ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META],
                           default=ITYPE_PROTS,
@@ -70,7 +71,7 @@ def create_arg_parser():
                                f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond (-i is required). '
                                f'{SEARCH_MODE_MMSEQS2}: search seed orthologs using MMseqs2 (-i is required). '
                                f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required). '
-                               f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required). '
+                               f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required, unless --no_annot). '
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
 
@@ -449,10 +450,10 @@ def parse_args(parser):
                 args.clean_overlaps = None
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
-        if not args.annotate_hits_table:
+        if args.no_annot == False and not args.annotate_hits_table:
             parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) requires a hits table to annotate (--annotate_hits_table FILE.seed_orthologs)')
-        if args.no_annot == True and args.report_orthologs == False:
-            parser.error(f'Nothing to do if running in no search mode (-m {SEARCH_MODE_NO_SEARCH}), with --no_annot and without --report_orthologs.')
+        # if args.no_annot == True and args.report_orthologs == False:
+        #     parser.error(f'Nothing to do if running in no search mode (-m {SEARCH_MODE_NO_SEARCH}), with --no_annot and without --report_orthologs.')
             
     else:
         parser.error(f'unrecognized search mode (-m {args.mode})')
