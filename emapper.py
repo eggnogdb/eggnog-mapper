@@ -510,6 +510,9 @@ if __name__ == "__main__":
             gene_pred = True
         else:
             gene_pred = False
+            
+        if args.itype == ITYPE_CDS and not args.translate:
+            args.translate = True
 
         emapper = Emapper(gene_pred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table)
