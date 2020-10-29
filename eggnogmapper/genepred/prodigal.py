@@ -16,6 +16,7 @@ class ProdigalPredictor:
 
     temp_dir = None
     pmode = None
+    cpu = None
 
     outdir = None # dir with prodigal out files
     outgff = outprots = outcds = outorfs = None # prodigal out files
@@ -29,6 +30,7 @@ class ProdigalPredictor:
             self.pmode = "meta"
         else:
             raise EmapperException(f"Unsupported input type {args.itype} for ProdigalPredictor")
+        self.cpu = args.cpu
         
         self.temp_dir = args.temp_dir
         

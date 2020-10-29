@@ -44,7 +44,7 @@ class Emapper:
 
         self.gene_pred = gene_pred
         self.mode = mode
-        self.no_hits_recovery = "none"
+        self.no_hits_recovery = "none" # "alt_orfs" # "none"
         self.annot = annot
         self.report_orthologs = report_orthologs
         self.resume = resume
@@ -89,6 +89,34 @@ class Emapper:
             
         return
 
+    
+    ##
+    def gene_prediction(self, args, infile):
+        predictor = ProdigalPredictor(args)
+        predictor.predict(infile)
+        return predictor
+
+
+    ##
+    def recover_no_hits(self):
+        final_prots_file = None
+        if self.no_hits_recovery == "none":
+            pass
+        elif self.no_hits_recovery == "alt_orfs":
+            if self.gene_pred == False:
+                raise EmapperException(f"Hits recovery mode {no_hits_recovery} requires performing the gene prediction step.")
+            else:
+                hits, no_hits = self.searcher.get_hits()
+                alt_orfs = self.predictor.find_alt_orfs(no_hits)
+                alt_orfs_fasta = utils.get_fasta(alt_orfs, infile)
+                self.searcher.search(args, alt_orfs_fasta)
+                hits_2, no_hits_2 = self.searcher.get_hits()
+                final_prots = hits + no_hits + hits_2
+                final_prots_file = utils.get_fasta(final_prots, infile)
+
+        return final_prots_file
+
+    
     ##
     def search(self, args, infile):
         annot = None
@@ -100,6 +128,7 @@ class Emapper:
                              pjoin(self._current_dir, self.hmm_hits_file))
         return s
 
+    
     ##
     def annotate(self, args, annotate_hits_table):
         hits_file = None
@@ -121,31 +150,6 @@ class Emapper:
         return
 
 
-    ##
-    def gene_prediction(self, args, infile):
-        predictor = ProdigalPredictor(args)
-        predictor.predict(infile)
-        return predictor
-
-    ##
-    def recover_no_hits(self):
-        final_prots_file = None
-        if self.no_hits_recovery == "none":
-            pass
-        elif self.no_hits_recovery == "alt_orfs":
-            if self.gene_pred == False:
-                raise EmapperException(f"Hits recovery mode {no_hits_recovery} requires performing the gene prediction step.")
-            else:
-                hits, no_hits = self.searcher.get_hits()
-                alt_orfs = self.predictor.find_alt_orfs(no_hits)
-                alt_orfs_fasta = utils.get_fasta(alt_orfs, infile)
-                self.searcher.search(args, alt_orfs_fasta)
-                hits_2, no_hits_2 = self.searcher.get_hits()
-                final_prots = hits + no_hits + hits_2
-                final_prots_file = utils.get_fasta(final_prots, infile)
-
-        return final_prots_file
-    
     ##
     def run(self, args, infile, annotate_hits_table = None):
 
