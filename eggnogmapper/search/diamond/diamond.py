@@ -99,7 +99,7 @@ class DiamondSearcher:
         if self.hits is not None:
             hit_queries = set([x[0] for x in self.hits])
             # no need to translate, we only need seq identifiers
-            self.queries = set({name for name, seq in iter_fasta_seqs(in_file)})
+            self.queries = set({name for name, seq in iter_fasta_seqs(self.in_file)})
             # sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.traslate)}
             # self.queries = set(sequences.keys())
             self.no_hits = set(self.queries).difference(hit_queries)
