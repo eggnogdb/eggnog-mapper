@@ -1,6 +1,8 @@
 ##
 ## CPCantalapiedra 2020
 
+from ..emapperException import EmapperException
+
 from .diamond.diamond import DiamondSearcher
 from .hmmer.hmmer import HmmerSearcher
 from .mmseqs.mmseqs import MMseqs2Searcher
