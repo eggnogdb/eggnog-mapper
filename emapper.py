@@ -9,6 +9,7 @@ sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
+from eggnogmapper.genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL
 from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2
 from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_FAST
 from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
@@ -60,7 +61,16 @@ def create_arg_parser():
         
     pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
                           help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
-        
+
+    ##
+    pg_genepred = parser.add_argument_group('Gene Prediction Options')
+    pg_genepred.add_argument('--genepred', dest='genepred', type=str, choices = [GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL],
+                              default = GENEPRED_MODE_SEARCH,
+                              help=(
+                                  f'This applied when --itype = {ITYPE_GENOME} or --itype = {ITYPE_META}. '
+                                  f'{GENEPRED_MODE_SEARCH}: gene prediction is inferred from hits obtained from the search step. '
+                                  f'{GENEPRED_MODE_PRODIGAL}: gene prediction is performed from proteins predicted using prodigal. '
+                                  ))
     ##
     pg_search = parser.add_argument_group('Search Options')
 
@@ -505,16 +515,11 @@ if __name__ == "__main__":
         
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
-
-        if args.itype == ITYPE_GENOME or args.itype == ITYPE_META:
-            gene_pred = True
-        else:
-            gene_pred = False
             
-        if args.itype == ITYPE_CDS and not args.translate:
+        if args.itype == ITYPE_CDS:
             args.translate = True
 
-        emapper = Emapper(gene_pred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
+        emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table)
 
         print(get_citation([args.mode]))
