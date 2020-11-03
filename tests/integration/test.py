@@ -5,9 +5,11 @@
 import unittest
 import os, shutil
 
-from .common import run, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs, check_pfam
+from .common import run, check_gff, check_fasta, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs, check_pfam
 
 # General eggnog-mapper settings
+GENEPRED_GFF_SUFFIX = '.emapper.genepred.gff'
+GENEPRED_FASTA_SUFFIX = '.emapper.genepred.fasta'
 HMM_HITS_SUFFIX = '.emapper.hmm_hits'
 SEED_ORTHOLOGS_SUFFIX = '.emapper.seed_orthologs'
 ANNOTATIONS_SUFFIX = '.emapper.annotations'
@@ -541,6 +543,203 @@ class Test(unittest.TestCase):
         
         return
     
+    def test_genepred_prodigal(self):
+        '''
+        Test gene prediction with prodigal
+        '''
+
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/genepred_contig/contig.fna"
+        data_dir = "tests/fixtures/genepred_contig/prodigal_out"
+        dmnd_db = "tests/fixtures/genepred_contig/contig.dmnd"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+        obs_genepred_fasta = os.path.join(outdir, outprefix+GENEPRED_FASTA_SUFFIX)
+        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
+
+        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.genepred.gff')
+        exp_genepred_fasta = os.path.join(data_dir, 'out.emapper.genepred.fasta')
+        exp_seed_orthologs = os.path.join(data_dir, 'out.emapper.seed_orthologs')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome '
+               f'--genepred prodigal -m diamond --sensmode sensitive --no_annot '
+               f'--dmnd_db {dmnd_db} '
+               f'-o {outprefix} --output_dir {outdir}')
+        # print(f"\t{cmd}")
+
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+
+        # Check GFF from gene prediction
+        check_gff(obs_genepred_gff, exp_genepred_gff)
+        
+        # Check FASTA from gene prediction
+        check_fasta(obs_genepred_fasta, exp_genepred_fasta)
+        
+        # Check alignment phase: detection of seed orthologs
+        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+
+    def test_genepred_diamond(self):
+        '''
+        Test gene prediction with diamond
+        '''
+
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/genepred_contig/contig.fna"
+        data_dir = "tests/fixtures/genepred_contig/diamond_out"
+        dmnd_db = "tests/fixtures/genepred_contig/contig.dmnd"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+        obs_genepred_fasta = os.path.join(outdir, outprefix+GENEPRED_FASTA_SUFFIX)
+        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
+
+        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.genepred.gff')
+        exp_genepred_fasta = os.path.join(data_dir, 'out.emapper.genepred.fasta')
+        exp_seed_orthologs = os.path.join(data_dir, 'out.emapper.seed_orthologs')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome '
+               f'--genepred search -m diamond --sensmode sensitive --no_annot '
+               f'--dmnd_db {dmnd_db} '
+               f'-o {outprefix} --output_dir {outdir}')
+        # print(f"\t{cmd}")
+        
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+
+        # Check GFF from gene prediction
+        check_gff(obs_genepred_gff, exp_genepred_gff)
+        
+        # Check FASTA from gene prediction
+        check_fasta(obs_genepred_fasta, exp_genepred_fasta)
+        
+        # Check alignment phase: detection of seed orthologs
+        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+
+    def test_genepred_mmseqs(self):
+        '''
+        Test gene prediction with mmseqs
+        '''
+
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/genepred_contig/contig.fna"
+        data_dir = "tests/fixtures/genepred_contig/mmseqs_out"
+        mmseqs_db = "tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+        obs_genepred_fasta = os.path.join(outdir, outprefix+GENEPRED_FASTA_SUFFIX)
+        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
+
+        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.genepred.gff')
+        exp_genepred_fasta = os.path.join(data_dir, 'out.emapper.genepred.fasta')
+        exp_seed_orthologs = os.path.join(data_dir, 'out.emapper.seed_orthologs')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome '
+               f'--genepred search -m mmseqs --no_annot '
+               f'--mmseqs_db {mmseqs_db} '
+               f'-o {outprefix} --output_dir {outdir}')
+        # print(f"\t{cmd}")
+        
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+
+        # Check GFF from gene prediction
+        check_gff(obs_genepred_gff, exp_genepred_gff)
+        
+        # Check FASTA from gene prediction
+        check_fasta(obs_genepred_fasta, exp_genepred_fasta)
+        
+        # Check alignment phase: detection of seed orthologs
+        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
     
 if __name__ == '__main__':
     unittest.main()

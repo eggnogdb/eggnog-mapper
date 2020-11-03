@@ -1,0 +1,4 @@
+##gff-version 3
+0	emapper-2.0.2-rf1-76-g5db87fe	CDS	337	2796	1626.0	-	0	ID=0_0;score=1626.0;evalue=0.0;eggnog5_target=316407.85674276;sstart=1;send=820;searcher=mmseqs2
+0	emapper-2.0.2-rf1-76-g5db87fe	CDS	2801	3730	638.0	-	0	ID=0_1;score=638.0;evalue=3.462e-217;eggnog5_target=316407.85674277;sstart=1;send=310;searcher=mmseqs2
+0	emapper-2.0.2-rf1-76-g5db87fe	CDS	3734	5017	870.0	-	0	ID=0_2;score=870.0;evalue=5.487e-303;eggnog5_target=316407.21321894;sstart=1;send=428;searcher=mmseqs2

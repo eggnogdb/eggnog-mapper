@@ -48,6 +48,33 @@ def load_pfam(pfam_fn):
     '''
     return _load_commented_file(pfam_fn)
 
+def load_gff(gff_fn):
+    '''
+    Loads the rows from a GFF output, to a list
+    '''
+    return _load_commented_file(gff_fn)
+
+def load_fasta(fasta_fn):
+    '''
+    Loads the rows from a FASTA output, to a list
+    '''
+    _rows = []
+    currseq = None
+    currnts = ""
+    with open(fasta_fn, 'r') as f:
+        for line in f:
+            if line.startswith(">"):
+                if currseq is not None:
+                    _rows.append(f">{currseq}\t{currnts}")
+                currseq = line.strip().split(" ")[0]
+                currnts = ""
+            else:
+                currnts += line.strip()
+
+    if currseq is not None:
+        _rows.append(f">{currseq}\t{currnts}")
+    return _rows    
+
 def load_seed_orthologs(seed_orthologs_fn):
     '''
     Loads the rows from a seed orthologs output, to a list
@@ -97,6 +124,42 @@ def check_hmm_query_hit(obs_out, exp_out):
 
     # compare both files 
     _query_hit_comparison(obs_rows, exp_rows)
+    return
+
+def check_gff(obs_out, exp_out):
+    '''
+    Compares the obtained GFF file with the expected one
+    '''
+    # Check that output file has been created
+    assert os.path.exists(obs_out)
+
+    # Compare expected and observed output
+    # Load test output
+    obs_rows = load_gff(obs_out)
+
+    # Load expected output
+    exp_rows = load_gff(exp_out)
+
+    # compare both files 
+    _basic_rows_comparison(obs_rows, exp_rows)
+    return
+
+def check_fasta(obs_out, exp_out):
+    '''
+    Compares the obtained FASTA file with the expected one
+    '''
+    # Check that output file has been created
+    assert os.path.exists(obs_out)
+
+    # Compare expected and observed output
+    # Load test output
+    obs_rows = load_fasta(obs_out)
+
+    # Load expected output
+    exp_rows = load_fasta(exp_out)
+
+    # compare both files 
+    _basic_rows_comparison(obs_rows, exp_rows)
     return
 
 def check_seed_orthologs(obs_out, exp_out):
