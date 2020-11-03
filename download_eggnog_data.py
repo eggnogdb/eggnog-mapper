@@ -173,7 +173,7 @@ if __name__ == "__main__":
     if args.mmseqs and (args.force or not pexists(pjoin(get_data_path(), 'mmseqs'))):
         if args.allyes or ask("Download MMseqs2 database (~10GB after decompression)?") == 'y':
             print(colorify('Downloading MMseqs2 files " at %s/mmseqs/...' %get_data_path(), 'green'))
-            download_pfam_db()
+            download_mmseqs_db()
         else:
             print('Skipping')
     else:
