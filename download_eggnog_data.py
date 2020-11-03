@@ -35,7 +35,7 @@ def download_diamond_db():
 # MMseqs2 DB
 def download_mmseqs_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/mmseqs.tar.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O pfam.tar.gz  %s && echo Decompressing... && tar -zxf mmseqs.tar.gz %s && rm mmseqs.tar.gz' %(get_data_path(),  url, gunzip_flag())
+    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O mmseqs.tar.gz  %s && echo Decompressing... && tar -zxf mmseqs.tar.gz %s && rm mmseqs.tar.gz' %(get_data_path(),  url, gunzip_flag())
     run(cmd)
 
 ##
