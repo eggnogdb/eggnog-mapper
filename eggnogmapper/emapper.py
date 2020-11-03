@@ -158,7 +158,7 @@ class Emapper:
 
             print("##gff-version 3", file=OUT)
             
-            for hit in hits:
+            for hit in sorted(hits, key=lambda x: (x[0],x[4],x[5],x[3])):
                 query = hit[0]
                 target = hit[1]
                 evalue = hit[2]
