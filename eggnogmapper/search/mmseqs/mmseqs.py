@@ -27,6 +27,9 @@ class MMseqs2Searcher:
     # Filters
     score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
 
+    # MMseqs2 options
+    sub_mat = None
+
     in_file = None
     itype = None
 
@@ -51,6 +54,8 @@ class MMseqs2Searcher:
         self.evalue_thr = args.mmseqs_evalue
         self.score_thr = args.mmseqs_score
         self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+
+        self.sub_mat = args.mmseqs_sub_mat
         
         self.temp_dir = args.temp_dir
         self.no_file_comments = args.no_file_comments
@@ -142,6 +147,9 @@ class MMseqs2Searcher:
             f'--start-sens {self.start_sens} --sens-steps {self.sens_steps} -s {self.final_sens} '
             f'--threads {self.cpu}'
         )
+
+        if self.sub_mat is not None:
+            cmd += f' --sub-mat {self.sub_mat}'
         
         print(colorify('  '+cmd, 'yellow'))
         try:
