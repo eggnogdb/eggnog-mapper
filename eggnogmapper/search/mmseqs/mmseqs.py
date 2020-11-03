@@ -7,7 +7,7 @@ import subprocess
 from tempfile import mkdtemp
 import uuid
 
-from ...common import MMSEQS2, get_eggnog_mmseqs_db, get_call_info
+from ...common import MMSEQS2, get_eggnog_mmseqs_db, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 from ...emapperException import EmapperException
 from ...utils import colorify
 
@@ -17,7 +17,7 @@ from ..hmmer.hmmer_seqio import iter_fasta_seqs
 class MMseqs2Searcher:
 
     # Command
-    cpu = translate = targetdb = temp_dir = no_file_comments = None
+    cpu = targetdb = temp_dir = no_file_comments = None
     start_sens = 3
     sens_steps = 3
     final_sens = 7    
@@ -26,14 +26,15 @@ class MMseqs2Searcher:
     score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
 
     in_file = None
+    itype = None
 
     # Results
     queries = hits = no_hits = None
 
     ##
     def __init__(self, args):
-        
-        self.translate = args.translate
+
+        self.itype = args.itype
 
         self.targetdb = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
 
@@ -56,12 +57,16 @@ class MMseqs2Searcher:
 
     ##
     def get_hits(self):
+        return self.hits
+
+    ##
+    def get_no_hits(self):
         if self.hits is not None:
             hit_queries = set([x[0] for x in self.hits])
-            self.queries = set({name for name, seq in iter_fasta_seqs(in_file)})
+            self.queries = set({name for name, seq in iter_fasta_seqs(self.in_file)})
             self.no_hits = set(self.queries).difference(hit_queries)
             
-        return self.hits, self.no_hits
+        return self.no_hits
     
     
     ##
@@ -85,14 +90,14 @@ class MMseqs2Searcher:
             bestresultdb = pjoin(tempdir, uuid.uuid4().hex)
             print(f'BestResultDB {bestresultdb}')
             
-            cmds = self.run_mmseqs(in_file, tempdir, querydb, self.targetdb, resultdb, bestresultdb)
-            self.hits = self.parse_mmseqs(f'{bestresultdb}.m8')
+            alignmentsdb, cmds = self.run_mmseqs(in_file, tempdir, querydb, self.targetdb, resultdb, bestresultdb)
+            self.hits = self.parse_mmseqs(f'{alignmentsdb}.m8')
             self.output_mmseqs(cmds, self.hits, seed_orthologs_file)
 
         except Exception as e:
             raise e
-        finally:
-            shutil.rmtree(tempdir)
+        # finally:
+        #     shutil.rmtree(tempdir)
             
         return
     
@@ -105,13 +110,16 @@ class MMseqs2Searcher:
         cmd = self.search_step(querydb, targetdb, resultdb, tempdir)
         cmds.append(cmd)
 
-        cmd = self.filterdb_step(resultdb, bestresultdb)
-        cmds.append(cmd)
+        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+            cmd = self.filterdb_step(resultdb, bestresultdb)
+            cmds.append(cmd)
+        else:
+            bestresultdb = resultdb
 
         cmd = self.convertalis_step(querydb, targetdb, bestresultdb)
         cmds.append(cmd)
 
-        return cmds
+        return bestresultdb, cmds
 
     def createdb(self, fasta_file, querydb):
         # mmseqs createdb examples/QUERY.fasta queryDB
@@ -146,8 +154,10 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} filterdb {resultdb} {bestresultdb}'
         )
-        if self.excluded_taxa: cmd += " --extract-lines 25 "
-        else: cmd += " --extract-lines 1 "
+        if self.excluded_taxa:
+            cmd += " --extract-lines 25 "
+        else:
+            cmd += " --extract-lines 1 "
         
         print(colorify('  '+cmd, 'yellow'))
         try:
@@ -173,6 +183,13 @@ class MMseqs2Searcher:
     
     ##
     def parse_mmseqs(self, raw_mmseqs_file):
+        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+            return self._parse_mmseqs(raw_mmseqs_file)
+        else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+            return self._parse_genepred(raw_mmseqs_file)
+    
+    ##
+    def _parse_mmseqs(self, raw_mmseqs_file):
         # From MMseqs2 documentation
         # The file is formatted as a tab-separated list with 12 columns: (1,2) identifiers for query and
         # target sequences/profiles, (3) sequence identity, (4) alignment length, (5) number of mismatches,
@@ -188,6 +205,7 @@ class MMseqs2Searcher:
                     continue
                 
                 fields = list(map(str.strip, line.split('\t')))
+            
                 query = fields[0]
                 hit = fields[1]
                 length = int(fields[3])
@@ -220,7 +238,86 @@ class MMseqs2Searcher:
         return hits
 
     ##
+    def _parse_genepred(self, raw_mmseqs_file):
+        # From MMseqs2 documentation
+        # The file is formatted as a tab-separated list with 12 columns: (1,2) identifiers for query and
+        # target sequences/profiles, (3) sequence identity, (4) alignment length, (5) number of mismatches,
+        # (6) number of gap openings, (7-8, 9-10) domain start and end-position in query and in target,
+        # (11) E-value, and (12) bit score.
+        
+        hits = []
+        
+        with open(raw_mmseqs_file, 'r') as raw_f:
+            for line in raw_f:
+                if not line.strip() or line.startswith('#'):
+                    continue
+                
+                fields = list(map(str.strip, line.split('\t')))
+            
+                query = fields[0]
+                hit = fields[1]
+                length = int(fields[3])
+                qstart = int(fields[6])
+                qend = int(fields[7])
+                sstart = int(fields[8])
+                send = int(fields[9])
+                evalue = float(fields[10])
+                score = float(fields[11])
+
+                if evalue > self.evalue_thr or score < self.score_thr:
+                    continue
+                qcov = qstart - (qend - 1) / length
+                if qcov < self.query_cov:
+                    continue
+                scov = sstart - (send - 1) / length
+                if scov < self.subject_cov:
+                    continue
+                
+                if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
+                    continue
+                
+                hit = [query, hit, evalue, score, qstart, qend, sstart, send]
+
+                if not self._does_overlap(hit, hits):
+                    hits.append(hit)
+                
+        return hits
+    
+    def _does_overlap(self, hit, hits):
+        does_overlap = False
+        
+        hitstart = hit[4]
+        hitend = hit[5]
+
+        for o in hits:
+            ostart = o[4]
+            oend = o[5]
+            overlap = None
+            if hitend <= ostart:
+                overlap = hitend - ostart
+            elif hitstart >= oend:
+                overlap = oend - hitstart
+            else:
+                overlap_start = max(hitstart, ostart)
+                overlap_end = min(hitend, oend)
+                overlap = overlap_end - (overlap_start - 1)
+
+            if overlap > 0:
+                does_overlap = True
+                break
+                
+        return does_overlap
+    
+
+    ##
     def output_mmseqs(self, cmds, hits, out_file):
+        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+            return self._output_mmseqs(cmds, hits, out_file)
+        else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+            return self._output_genepred(cmds, hits, out_file)
+    
+    ##
+    def _output_mmseqs(self, cmds, hits, out_file):
         with open(out_file, 'w') as OUT:
         
             if not self.no_file_comments:
@@ -233,4 +330,30 @@ class MMseqs2Searcher:
                 
         return
 
+    ##
+    def _output_genepred(self, cmds, hits, out_file):
+        queries_suffixes = {}
+        with open(out_file, 'w') as OUT:
+        
+            if not self.no_file_comments:
+                print(get_call_info(), file=OUT)
+                for cmd in cmds:
+                    print('#'+cmd, file=OUT)
+
+            for line in hits:
+                query = line[0]
+                target = line[1]
+                evalue = line[2]
+                score = line[3]
+                if query in queries_suffixes:
+                    queries_suffixes[query] += 1
+                    suffix = queries_suffixes[query]
+                else:
+                    suffix = 0
+                    queries_suffixes[query] = suffix
+                    
+                print('\t'.join(map(str, [f"{query}_{suffix}", target, str(evalue), str(score)])), file=OUT)
+                
+        return
+    
 ## END

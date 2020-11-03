@@ -16,7 +16,7 @@ from .annotation.annotator import get_annotator
 
 class Emapper:
 
-    genepred_prots_file = hmm_hits_file = seed_orthologs_file = None
+    genepred_fasta_file = hmm_hits_file = seed_orthologs_file = None
     annot_file = orthologs_file = pfam_file = None
     _output_files = None
     
@@ -36,7 +36,7 @@ class Emapper:
         self.scratch_dir = scratch_dir
         
         # Output and intermediate files
-        self.genepred_prots_file = f"{prefix}.emapper.genepred.prots.faa"
+        self.genepred_fasta_file = f"{prefix}.emapper.genepred.fasta"
         self.hmm_hits_file = f"{prefix}.emapper.hmm_hits"
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
@@ -54,7 +54,7 @@ class Emapper:
         self._output_files = []
         self.itype = itype
         if itype == ITYPE_GENOME or itype == ITYPE_META:
-            self._output_files.append(self.genepred_prots_file)
+            self._output_files.append(self.genepred_fasta_file)
             
         if mode == SEARCH_MODE_NO_SEARCH:
             self._output_files.extend([self.annot_file, self.pfam_file])
@@ -100,9 +100,9 @@ class Emapper:
             self.predictor.predict(infile)
             queries_file = self.predictor.outprots # Use predicted proteins as input for search
             args.translate = False
-            shutil.move(queries_file, pjoin(self._current_dir, self.genepred_prots_file))
+            shutil.move(queries_file, pjoin(self._current_dir, self.genepred_fasta_file))
             self.predictor.clear()
-            queries_file = self.genepred_prots_file
+            queries_file = self.genepred_fasta_file
         else:
             queries_file = infile # Use user input for search
         
@@ -140,7 +140,7 @@ class Emapper:
             # If gene prediction from the hits obtained in the search step
             # create a fasta file with the inferred proteins
             if (args.itype == ITYPE_GENOME or args.itype == ITYPE_META) and self.genepred == GENEPRED_MODE_SEARCH:
-                self._create_prots_file(infile, searcher.get_hits(), pjoin(self._current_dir, self.genepred_prots_file))
+                self._create_prots_file(infile, searcher.get_hits(), pjoin(self._current_dir, self.genepred_fasta_file))
             
         return searcher
 
