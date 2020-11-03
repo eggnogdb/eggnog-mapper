@@ -26,6 +26,8 @@ SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE
 
 class DiamondSearcher:
 
+    name = "diamond"
+    
     # Command
     cpu = tool = dmnd_db = temp_dir = no_file_comments = None
     matrix = gapopen = gapextend = None

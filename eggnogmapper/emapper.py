@@ -6,7 +6,7 @@ from os.path import exists as pexists
 from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm, ITYPE_GENOME, ITYPE_META
+from .common import silent_rm, get_version, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
@@ -16,7 +16,7 @@ from .annotation.annotator import get_annotator
 
 class Emapper:
 
-    genepred_fasta_file = hmm_hits_file = seed_orthologs_file = None
+    genepred_fasta_file = genepred_gff_file = hmm_hits_file = seed_orthologs_file = None
     annot_file = orthologs_file = pfam_file = None
     _output_files = None
     
@@ -37,6 +37,7 @@ class Emapper:
         
         # Output and intermediate files
         self.genepred_fasta_file = f"{prefix}.emapper.genepred.fasta"
+        self.genepred_gff_file = f"{prefix}.emapper.genepred.gff"
         self.hmm_hits_file = f"{prefix}.emapper.hmm_hits"
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
@@ -45,7 +46,7 @@ class Emapper:
 
         self.genepred = genepred
         self.mode = mode
-        # self.no_hits_recovery = "none" # "alt_orfs" # "none"
+        
         self.annot = annot
         self.report_orthologs = report_orthologs
         self.resume = resume
@@ -55,6 +56,7 @@ class Emapper:
         self.itype = itype
         if itype == ITYPE_GENOME or itype == ITYPE_META:
             self._output_files.append(self.genepred_fasta_file)
+            self._output_files.append(self.genepred_gff_file)
             
         if mode == SEARCH_MODE_NO_SEARCH:
             self._output_files.extend([self.annot_file, self.pfam_file])
@@ -98,35 +100,16 @@ class Emapper:
         self.predictor = get_predictor(args, self.genepred)
         if self.predictor is not None:
             self.predictor.predict(infile)
-            queries_file = self.predictor.outprots # Use predicted proteins as input for search
-            args.translate = False
-            shutil.move(queries_file, pjoin(self._current_dir, self.genepred_fasta_file))
+            shutil.move(self.predictor.outprots, pjoin(self._current_dir, self.genepred_fasta_file))
+            shutil.move(self.predictor.outfile, pjoin(self._current_dir, self.genepred_gff_file))
             self.predictor.clear()
-            queries_file = self.genepred_fasta_file
+            queries_file = pjoin(self._current_dir, self.genepred_fasta_file) # Use predicted proteins as input for search
+            args.translate = False
+            args.itype = ITYPE_PROTS
         else:
             queries_file = infile # Use user input for search
         
         return queries_file
-
-
-    # ##
-    # def recover_no_hits(self):
-    #     final_prots_file = None
-    #     if self.no_hits_recovery == "none":
-    #         pass
-    #     elif self.no_hits_recovery == "alt_orfs":
-    #         if self.genepred == False:
-    #             raise EmapperException(f"Hits recovery mode {no_hits_recovery} requires performing the gene prediction step.")
-    #         else:
-    #             hits, no_hits = self.searcher.get_hits()
-    #             alt_orfs = self.predictor.find_alt_orfs(no_hits)
-    #             alt_orfs_fasta = utils.get_fasta(alt_orfs, infile)
-    #             self.searcher.search(args, alt_orfs_fasta)
-    #             hits_2, no_hits_2 = self.searcher.get_hits()
-    #             final_prots = hits + no_hits + hits_2
-    #             final_prots_file = utils.get_fasta(final_prots, infile)
-
-    #     return final_prots_file
 
     
     ##
@@ -141,6 +124,7 @@ class Emapper:
             # create a fasta file with the inferred proteins
             if (args.itype == ITYPE_GENOME or args.itype == ITYPE_META) and self.genepred == GENEPRED_MODE_SEARCH:
                 self._create_prots_file(infile, searcher.get_hits(), pjoin(self._current_dir, self.genepred_fasta_file))
+                self._create_gff_file(infile, searcher.name, searcher.get_hits(), pjoin(self._current_dir, self.genepred_gff_file))
             
         return searcher
 
@@ -155,8 +139,7 @@ class Emapper:
                 hits_dict[query].append((qstart, qend))
             else:
                 hits_dict[query] = [(qstart, qend)]
-
-        print(outfile)
+                
         with open(outfile, 'w') as OUT:
             from .search.hmmer.hmmer_seqio import iter_fasta_seqs
             suffix = 0
@@ -168,6 +151,46 @@ class Emapper:
         
         return
 
+    ##
+    def _create_gff_file(self, infile, searcher_name, hits, outfile):
+        hits_dict = {}
+        with open(outfile, 'w') as OUT:
+
+            print("##gff-version 3", file=OUT)
+            
+            for hit in hits:
+                query = hit[0]
+                target = hit[1]
+                evalue = hit[2]
+                score = hit[3]
+                qstart = hit[4]
+                qend = hit[5]
+                sstart = hit[6]
+                send = hit[7]
+                if sstart >= send:
+                    strand = "+"
+                else:
+                    strand = "-"
+
+                if sstart % 3 == 1:
+                    frame = "0"
+                elif sstart % 3 == 2:
+                    frame = "1"
+                else: # if sstart % 3 == 0:
+                    frame = "2"
+                    
+                if query in hits_dict:
+                    hits_dict[query] += 1
+                else:
+                    hits_dict[query] = 0
+                suffix = hits_dict[query]
+                
+                print(f"{query}\t{get_version()}\tCDS\t{qstart}\t{qend}\t{score}\t{strand}\t{frame}\t"
+                      f"ID={query}_{suffix};score={score};evalue={evalue};eggnog5_target={target};sstart={sstart};send={send};searcher={searcher_name}",
+                      file=OUT)
+        
+        return
+    
     
     ##
     def annotate(self, args, annotate_hits_table):
