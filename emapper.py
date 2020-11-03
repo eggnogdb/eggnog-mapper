@@ -471,7 +471,7 @@ def parse_args(parser):
         parser.error(f'unrecognized search mode (-m {args.mode})')
     
     # Annotation options
-    if not args.no_annot:
+    if args.no_annot == False or args.report_orthologs == True:
         if not pexists(get_eggnogdb_file()):
             print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
             raise EmapperException()
