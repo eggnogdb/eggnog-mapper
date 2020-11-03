@@ -236,7 +236,6 @@ def check_pfam(obs_out, exp_out):
     _basic_rows_comparison(obs_rows, exp_rows)
     return
 
-
 def _basic_rows_comparison(l1, l2):
     '''
     Performs several basic comparisons between 2 lists
