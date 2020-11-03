@@ -107,7 +107,11 @@ class Annotator:
         if self.report_orthologs:
             ORTHOLOGS = open(orthologs_file, "w")
             for (query_name, orthologs) in all_orthologs:
-                print('\t'.join(map(str, (query_name, ','.join(orthologs)))), file=ORTHOLOGS)
+                if orthologs is None:
+                    orths = "-"
+                else:
+                    orths = ','.join(orthologs)
+                print('\t'.join(map(str, (query_name, orths))), file=ORTHOLOGS)
             ORTHOLOGS.close()
 
         # Output annotations
@@ -237,7 +241,7 @@ def annotate_hit_line(arguments):
     try:
         if not line.strip() or line.startswith('#'):
             return None
-
+        
         ##
         # Split fields of search results
         r = list(map(str.strip, line.split('\t')))
@@ -304,11 +308,12 @@ def annotate_hit_line(arguments):
         ##
         # Retrieve annotations of co-orthologs
         if annot == True and orthologs is not None and len(orthologs) > 0:
+            
             annotations = annota.summarize_annotations(orthologs,
                                                        annotations_fields = ANNOTATIONS_HEADER,
                                                        target_go_ev = go_evidence,
                                                        excluded_go_ev = go_excluded)
-
+            
             if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
                 narr_annot_levels = set()
                 narr_annot_levels.add(narr_og_level)
