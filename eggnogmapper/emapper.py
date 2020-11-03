@@ -157,6 +157,7 @@ class Emapper:
         with open(outfile, 'w') as OUT:
 
             print("##gff-version 3", file=OUT)
+            print(f"# {get_version()}", file=OUT)
             
             for hit in sorted(hits, key=lambda x: (x[0],x[4],x[5],x[3])):
                 query = hit[0]
@@ -185,7 +186,7 @@ class Emapper:
                     hits_dict[query] = 0
                 suffix = hits_dict[query]
                 
-                print(f"{query}\t{get_version()}\tCDS\t{qstart}\t{qend}\t{score}\t{strand}\t{frame}\t"
+                print(f"{query}\teggNOG-mapper\tCDS\t{qstart}\t{qend}\t{score}\t{strand}\t{frame}\t"
                       f"ID={query}_{suffix};score={score};evalue={evalue};eggnog5_target={target};sstart={sstart};send={send};searcher={searcher_name}",
                       file=OUT)
         
