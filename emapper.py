@@ -132,6 +132,8 @@ def create_arg_parser():
     pg_mmseqs.add_argument('--final_sens', dest='final_sens', default=7, type=int, metavar='FINAL_SENS',
                            help="Final sensititivy step. Default=7")
 
+    pg_mmseqs.add_argument('--mmseqs_sub_mat', dest='mmseqs_sub_mat', default=None, type=str, metavar='SUBS_MATRIX',
+                           help="Matrix to be used for --sub-mat MMseqs2 search option.Final sensititivy step. Default=default used by MMseqs2")
     ##
     pg_diamond_mmseqs = parser.add_argument_group('Diamond/MMseqs2 shared Options')
     
