@@ -16,6 +16,8 @@ from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
 class MMseqs2Searcher:
 
+    name = "mmseqs2"
+    
     # Command
     cpu = targetdb = temp_dir = no_file_comments = None
     start_sens = 3
@@ -96,8 +98,8 @@ class MMseqs2Searcher:
 
         except Exception as e:
             raise e
-        # finally:
-        #     shutil.rmtree(tempdir)
+        finally:
+            shutil.rmtree(tempdir)
             
         return
     
