@@ -1,8 +1,8 @@
-# Tue Nov  3 11:57:29 2020
-# emapper-2.0.2-rf1-76-g5db87fe
+# Tue Nov  3 12:42:38 2020
+# emapper-2.0.2-rf1-81-gaf90fdf
 # /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emapper.py -i /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --cpu 10 -m diamond --sensmode sensitive --dmnd_db /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/genepred_contig/contig.dmnd --no_annot -o out --output_dir tmp_diamond_blastx --override
 #
-#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/diamond blastx -d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/genepred_contig/contig.dmnd -q /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/genepred_contig/contig.fna --sensitive --threads 10 -e 0.001 -o /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_dmdn___tlld37/34f663f9b5ea414d9a4e2e7ef3adabc0 --query-cover 0 --subject-cover 0 --max-target-seqs 0 --max-hsps 0 
+#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/diamond blastx -d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/genepred_contig/contig.dmnd -q /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/genepred_contig/contig.fna --sensitive --threads 10 -e 0.001 -o /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_dmdn_mg50v7dp/872b4db4ebd9462aabb3fac0f8491909 --query-cover 0 --subject-cover 0 --max-target-seqs 0 --max-hsps 0 
 0_0	316407.85674276	0.0	1597.8
 0_1	316407.21321894	2e-252	857.4
 0_2	316407.85674277	1.2e-183	629.0
