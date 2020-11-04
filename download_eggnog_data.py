@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import os
 from argparse import ArgumentParser
-from eggnogmapper.common import EGGNOG_DATABASES, get_data_path, get_hmmdb_path, pexists, pjoin, get_level_base_path, set_data_path, existing_dir, get_db_present, get_db_info
+# from eggnogmapper.common import EGGNOG_DATABASES, get_hmmdb_path, get_level_base_path, get_db_present, get_db_info
+from eggnogmapper.common import get_data_path, pexists, pjoin, set_data_path, existing_dir
 from eggnogmapper.utils import ask, colorify
 from eggnogmapper.version import __DB_VERSION__
 
@@ -21,28 +22,50 @@ def gunzip_flag():
 # Annotation DBs
 def download_annotations():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz %s && echo Decompressing... && gunzip eggnog.db.gz %s' %(get_data_path(), url, gunzip_flag())
+    cmd = (
+        f'cd {get_data_path()} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz {url} && '
+        f'echo Decompressing... && '
+        f'gunzip eggnog.db.gz {gunzip_flag()}'
+    )
     run(cmd)
 
 ##
 # Diamond DBs
 def download_diamond_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz  %s && echo Decompressing... && gunzip eggnog_proteins.dmnd.gz %s' %(get_data_path(),  url, gunzip_flag())
+    cmd = (
+        f'cd {get_data_path()} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz {url} && '
+        f'echo Decompressing... && '
+        f'gunzip eggnog_proteins.dmnd.gz {gunzip_flag()}'
+    )
     run(cmd)
 
 ##
 # MMseqs2 DB
 def download_mmseqs_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/mmseqs.tar.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O mmseqs.tar.gz  %s && echo Decompressing... && tar -zxf mmseqs.tar.gz %s && rm mmseqs.tar.gz' %(get_data_path(),  url, gunzip_flag())
+    cmd = (
+        f'cd {get_data_path()} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O mmseqs.tar.gz {url} && '
+        f'echo Decompressing... && '
+        f'tar -zxf mmseqs.tar.gz && '
+        f'rm mmseqs.tar.gz'
+    )
     run(cmd)
 
 ##
 # PFAM DB
 def download_pfam_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/pfam.tar.gz' %(DATABASE_VERSION)
-    cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O pfam.tar.gz  %s && echo Decompressing... && tar -zxf pfam.tar.gz %s && rm pfam.tar.gz' %(get_data_path(),  url, gunzip_flag())
+    cmd = (
+        f'cd {get_data_path()} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O pfam.tar.gz {url} && '
+        f'echo Decompressing... && '
+        f'tar -zxf pfam.tar.gz && '
+        f'rm pfam.tar.gz'
+    )
     run(cmd)
     
 # ##
