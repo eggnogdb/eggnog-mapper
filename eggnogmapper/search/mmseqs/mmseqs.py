@@ -25,7 +25,7 @@ class MMseqs2Searcher:
     final_sens = 7    
 
     # Filters
-    score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
+    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
 
     # MMseqs2 options
     sub_mat = None
@@ -51,6 +51,7 @@ class MMseqs2Searcher:
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
 
+        self.pident_thr = args.pident
         self.evalue_thr = args.mmseqs_evalue
         self.score_thr = args.mmseqs_score
         self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
@@ -217,26 +218,33 @@ class MMseqs2Searcher:
                 fields = list(map(str.strip, line.split('\t')))
             
                 query = fields[0]
-                hit = fields[1]
-                length = int(fields[3])
-                qstart = int(fields[6])
-                qend = int(fields[7])
-                sstart = int(fields[8])
-                send = int(fields[9])
-                evalue = float(fields[10])
-                score = float(fields[11])
 
                 if query in visited:
                     continue
 
-                if evalue > self.evalue_thr or score < self.score_thr:
+                pident = float(fields[2])
+                evalue = float(fields[10])
+                score = float(fields[11])
+                
+                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
                     continue
+
+                length = int(fields[3])
+                qstart = int(fields[6])
+                qend = int(fields[7])
+                
                 qcov = qstart - (qend - 1) / length
                 if qcov < self.query_cov:
                     continue
+
+                sstart = int(fields[8])
+                send = int(fields[9])
+                
                 scov = sstart - (send - 1) / length
                 if scov < self.subject_cov:
                     continue
+
+                hit = fields[1]
                 
                 if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
                     continue
@@ -263,28 +271,35 @@ class MMseqs2Searcher:
                     continue
                 
                 fields = list(map(str.strip, line.split('\t')))
-            
-                query = fields[0]
-                hit = fields[1]
-                length = int(fields[3])
-                qstart = int(fields[6])
-                qend = int(fields[7])
-                sstart = int(fields[8])
-                send = int(fields[9])
+
+                pident = float(fields[2])
                 evalue = float(fields[10])
                 score = float(fields[11])
 
-                if evalue > self.evalue_thr or score < self.score_thr:
+                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
                     continue
+                
+                length = int(fields[3])
+                qstart = int(fields[6])
+                qend = int(fields[7])
+                
                 qcov = qstart - (qend - 1) / length
                 if qcov < self.query_cov:
                     continue
+
+                sstart = int(fields[8])
+                send = int(fields[9])
+                
                 scov = sstart - (send - 1) / length
                 if scov < self.subject_cov:
                     continue
                 
+                hit = fields[1]
+                
                 if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
                     continue
+
+                query = fields[0]
                 
                 hit = [query, hit, evalue, score, qstart, qend, sstart, send]
 

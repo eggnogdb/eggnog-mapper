@@ -136,6 +136,9 @@ def create_arg_parser():
                            help="Matrix to be used for --sub-mat MMseqs2 search option.Final sensititivy step. Default=default used by MMseqs2")
     ##
     pg_diamond_mmseqs = parser.add_argument_group('Diamond/MMseqs2 shared Options')
+
+    pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=0,
+                                   help='Report only alignments above or equal to the given percentage of identity. Default=0')
     
     pg_diamond_mmseqs.add_argument('--query-cover', dest='query_cover', type=float, default=0,
                                    help='Report only alignments above the given percentage of query cover. Default=0')
