@@ -33,7 +33,7 @@ class DiamondSearcher:
     matrix = gapopen = gapextend = None
 
     # Filters
-    score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
+    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
 
     in_file = None
     itype = None
@@ -59,6 +59,7 @@ class DiamondSearcher:
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
 
+        self.pident_thr = args.pident
         self.evalue_thr = args.dmnd_evalue
         self.score_thr = args.dmnd_score
         self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
@@ -168,17 +169,22 @@ class DiamondSearcher:
                     continue
 
                 fields = list(map(str.strip, line.split('\t')))
+                # From diamond docs:
+                # By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
                 query = fields[0]
-                hit = fields[1]
-                evalue = float(fields[10])
-                score = float(fields[11])
 
                 if query in visited:
                     continue
-
-                if evalue > self.evalue_thr or score < self.score_thr:
+                
+                pident = float(fields[2])
+                evalue = float(fields[10])
+                score = float(fields[11])
+                
+                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
                     continue
 
+                hit = fields[1]
+                
                 if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
                     continue
 
@@ -201,20 +207,23 @@ class DiamondSearcher:
                 fields = list(map(str.strip, line.split('\t')))
                 # From diamond docs:
                 # By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
-                query = fields[0]
+                pident = float(fields[2])
+                evalue = float(fields[10])
+                score = float(fields[11])
+                
+                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
+                    continue
+
                 hit = fields[1]
+                if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
+                    continue
+
+                query = fields[0]
                 qstart = int(fields[6])
                 qend = int(fields[7])
                 sstart = int(fields[8])
                 send = int(fields[9])
-                evalue = float(fields[10])
-                score = float(fields[11])
-                if evalue > self.evalue_thr or score < self.score_thr:
-                    continue
-
-                if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                    continue
-
+                
                 hit = [query, hit, evalue, score, qstart, qend, sstart, send]
 
                 if not self._does_overlap(hit, hits):
