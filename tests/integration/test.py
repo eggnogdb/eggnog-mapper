@@ -23,6 +23,7 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m diamond) command
         '''
+        # ./emapper.py -m diamond -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test --report_orthologs
 
         ##
         # Setup test
@@ -86,7 +87,8 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m mmseqs) command
         '''
-
+        # ./emapper.py -m mmseqs -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test --report_orthologs
+        
         ##
         # Setup test
         
@@ -209,7 +211,7 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m hmmer) command against a eggNOG DB
         '''
-        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact --output_dir tests/integration/out -o bact
+        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact --output_dir tmp -o bact
         
         ##
         # Setup test
@@ -358,7 +360,7 @@ class Test(unittest.TestCase):
         '''
         Tests --pfam_transfer narrowest_og
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam_transfer narrowest_og
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_transfer narrowest_og
         
         ##
         # Setup test
@@ -418,7 +420,7 @@ class Test(unittest.TestCase):
         '''
         Tests --pfam_transfer seed_ortholog --pfam_realign realign
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam_transfer seed_ortholog --pfam_realign realign
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_transfer seed_ortholog --pfam_realign realign
         
         ##
         # Setup test
@@ -483,7 +485,7 @@ class Test(unittest.TestCase):
         '''
         Tests --pfam_realign denovo
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tests/integration/out -o test --pfam_realign denovo
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_realign denovo
         
         ##
         # Setup test

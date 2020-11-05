@@ -237,6 +237,7 @@ def create_arg_parser():
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
                                 "particular clade are used for functional transfer. "
                                 "By default ('auto'), it is automatically adjusted for every query sequence, with a predefined list of tax IDs. "
+                                "'auto_broad' is the same, but using a broader list of tax IDs, aiming for more annotations, yet slower than 'auto'. "
                                 "Use 'narrowest' to use the deepest or narrowest taxon among the OGs identified for each hit. "
                                 "Use a comma-separated list of tax IDs to choose an OG among the OGs identified for each hit. "
                                 "The list of tax IDs can be followed by 'narrowest' or 'none', to specify the behaviour when the tax ID is not found among OGs. "
@@ -318,7 +319,7 @@ def __parse_tax_scope(tax_scope):
     tax_scope_mode = tax_scope_fields[0]
 
     # Auto
-    if tax_scope_mode == "auto":
+    if tax_scope_mode in {"auto", "auto_broad"}:
         tax_scope_id = None
 
     # Narrowest
