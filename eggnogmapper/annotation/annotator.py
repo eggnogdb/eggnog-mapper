@@ -7,7 +7,7 @@ import time
 import multiprocessing
     
 from ..emapperException import EmapperException
-from ..common import get_call_info, TAXONOMIC_RESOLUTION
+from ..common import get_call_info, TAX_SCOPE_AUTO, TAX_SCOPE_AUTO_BROAD
 from ..utils import colorify
 from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 
@@ -63,6 +63,7 @@ class Annotator:
 
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
+    TAXONOMIC_RESOLUTION = None
     go_evidence = go_excluded = None
     pfam_realign = pfam_transfer = queries_fasta = translate = temp_dir = None
     
@@ -78,6 +79,14 @@ class Annotator:
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 
         self.tax_scope_mode = args.tax_scope_mode
+        if self.tax_scope_mode == "auto":
+            self.TAXONOMIC_RESOLUTION = TAX_SCOPE_AUTO
+        elif self.tax_scope_mode == "auto_broad":
+            self.TAXONOMIC_RESOLUTION = TAX_SCOPE_AUTO_BROAD
+        else:
+            # self.TAXONOMIC_RESOLUTION = None
+            pass
+        
         self.tax_scope_id = args.tax_scope_id
                 
         self.target_taxa = args.target_taxa
@@ -102,6 +111,7 @@ class Annotator:
         print(colorify("Functional annotation of refined hits starts now", 'green'))
         
         all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file, pfam_file)
+        db_sqlite.close()
 
         # Output orthologs
         if self.report_orthologs:
@@ -147,7 +157,7 @@ class Annotator:
         all_annotations = []
         
         start_time = time.time()
-
+        
         # multiprocessing.set_start_method("spawn")
         pool = multiprocessing.Pool(self.cpu)
 
@@ -155,7 +165,7 @@ class Annotator:
         try:
             for result in pool.imap(annotate_hit_line, self.iter_hit_lines(seed_orthologs_file)):
                 qn += 1
-                if qn and (qn % 500 == 0):
+                if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
                     print(f"{qn} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
                     sys.stderr.flush()
@@ -217,7 +227,8 @@ class Annotator:
                 continue
             
             yield_tuple = (line, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
-                           self.tax_scope_mode, self.tax_scope_id, self.target_taxa, self.target_orthologs, self.excluded_taxa,
+                           self.tax_scope_mode, self.tax_scope_id, self.TAXONOMIC_RESOLUTION,
+                           self.target_taxa, self.target_orthologs, self.excluded_taxa,
                            self.go_evidence, self.go_excluded, self.pfam_transfer)
             
             yield yield_tuple
@@ -233,7 +244,7 @@ def annotate_hit_line(arguments):
     db_sqlite.connect()
     
     line, annot, seed_ortholog_score, seed_ortholog_evalue, \
-        tax_scope_mode, tax_scope_id, \
+        tax_scope_mode, tax_scope_id, tax_resolution, \
         target_taxa, target_orthologs, excluded_taxa, \
         go_evidence, go_excluded, \
         pfam_transfer = arguments
@@ -264,7 +275,7 @@ def annotate_hit_line(arguments):
         
         ##
         # Obtain names of OGs, narrowest OG, and the best OG according to tax_scope
-        match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
+        match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution)
         
         annot_levels = set()
         annot_levels.add(best_og_level)
@@ -275,10 +286,10 @@ def annotate_hit_line(arguments):
             best_og_desc = "-"
         else:
             best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
-            best_og_cat, best_og_desc = get_og_description(best_og_id)
+            best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
 
         narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
-        narr_og_cat, narr_og_desc = get_og_description(narr_og_id)
+        narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level)
 
         ##
         # Normalize target_taxa if any
@@ -304,7 +315,7 @@ def annotate_hit_line(arguments):
             if excluded_taxa:
                 orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
             status = 'OK'
-            
+        
         ##
         # Retrieve annotations of co-orthologs
         if annot == True and orthologs is not None and len(orthologs) > 0:
@@ -358,7 +369,7 @@ def annotate_hit_line(arguments):
 
 
 ##
-def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):        
+def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution):        
     match_nogs_names = []
     best_og_id = None
     best_og_level = None
@@ -392,8 +403,8 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
 
         # Obtain best OG based on tax scope
         if tax_scope_id is None:
-            if tax_scope_mode == "auto":
-                for filter_tax_id in TAXONOMIC_RESOLUTION:
+            if tax_scope_mode in {"auto", "auto_broad"}:
+                for filter_tax_id in tax_resolution:
                     if filter_tax_id == nog_tax_id:
                         best_og_id = nog_id
                         best_og_level = nog_tax_id
@@ -423,10 +434,10 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
             best_og_id = narr_og_id
             best_og_level = narr_og_level
             best_og_depth = narr_og_depth
-        elif tax_scope_mode == "auto":
+        elif tax_scope_mode in {"auto", "auto_broad"}:
             for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
                 nog_tax_id = nog.split("@")[1]
-                for filter_tax_id in TAXONOMIC_RESOLUTION:
+                for filter_tax_id in tax_resolution:
                     if filter_tax_id == nog_tax_id:
                         best_og_id = nog_id
                         best_og_level = nog_tax_id
@@ -487,10 +498,10 @@ def get_member_ogs(name):
     return ogs
 
 
-def get_og_description(og):
+def get_og_description(og, level):
     best = [None, '', '']
     
-    for og, nm, desc, cat in db_sqlite.get_ogs_description(og):
+    for og, nm, desc, cat in db_sqlite.get_ogs_description(og, level):
         desc = desc.strip()
         if desc and desc != 'N/A' and desc != 'NA':
             best = [nm, cat, desc]

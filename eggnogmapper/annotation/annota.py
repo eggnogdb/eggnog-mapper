@@ -22,7 +22,7 @@ def summarize_annotations(seq_names, annotations_fields, target_go_ev, excluded_
             else:
                 values = [str(x).strip() for x in fields[i].split(',')]
                 annotations[h].update(values)
-
+                
     for h in annotations:
         del annotations[h]['']
 
