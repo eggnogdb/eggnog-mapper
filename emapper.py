@@ -95,11 +95,11 @@ def create_arg_parser():
                     choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
                     default=None, help='Scoring matrix')
 
-    pg_diamond.add_argument('--dmnd_evalue', dest='dmnd_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
-                        help="E-value threshold. Default=0.001")
+    # pg_diamond.add_argument('--dmnd_evalue', dest='dmnd_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
+    #                     help="E-value threshold. Default=0.001")
 
-    pg_diamond.add_argument('--dmnd_score', dest='dmnd_score', default=60, type=float, metavar='MIN_SCORE',
-                        help="Bit score threshold. Default=60")
+    # pg_diamond.add_argument('--dmnd_score', dest='dmnd_score', default=60, type=float, metavar='MIN_SCORE',
+    #                     help="Bit score threshold. Default=60")
 
     pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
                     help='Gap open penalty')
@@ -117,11 +117,11 @@ def create_arg_parser():
     pg_mmseqs.add_argument('--mmseqs_db', dest="mmseqs_db", metavar='MMSEQS_DB_FILE',
 		    help="Path to MMseqs2-compatible database")
 
-    pg_mmseqs.add_argument('--mmseqs_evalue', dest='mmseqs_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
-                        help="E-value threshold. Default=0.001")
+    # pg_mmseqs.add_argument('--mmseqs_evalue', dest='mmseqs_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
+    #                     help="E-value threshold. Default=0.001")
 
-    pg_mmseqs.add_argument('--mmseqs_score', dest='mmseqs_score', default=60, type=float, metavar='MIN_SCORE',
-                        help="Bit score threshold. Default=60")
+    # pg_mmseqs.add_argument('--mmseqs_score', dest='mmseqs_score', default=60, type=float, metavar='MIN_SCORE',
+    #                     help="Bit score threshold. Default=60")
 
     pg_mmseqs.add_argument('--start_sens', dest='start_sens', default=3, type=int, metavar='START_SENS',
                            help="Starting sensitivity. Default=3")
@@ -140,11 +140,17 @@ def create_arg_parser():
     pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=0,
                                    help='Report only alignments above or equal to the given percentage of identity. Default=0')
     
-    pg_diamond_mmseqs.add_argument('--query-cover', dest='query_cover', type=float, default=0,
-                                   help='Report only alignments above the given percentage of query cover. Default=0')
+    pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=0,
+                                   help='Report only alignments above or equal the given percentage of query cover. Default=0')
     
-    pg_diamond_mmseqs.add_argument('--subject-cover', dest='subject_cover', type=float, default=0,
-                                   help='Report only alignments above the given percentage of subject cover. Default=0')
+    pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=0,
+                                   help='Report only alignments above or equal the given percentage of subject cover. Default=0')
+
+    pg_diamond_mmseqs.add_argument('--evalue', dest='evalue', type=float, default=0.001,
+                                   help='Report only alignments below or equal the e-value threshold. Default=0.001')
+
+    pg_diamond_mmseqs.add_argument('--score', dest='score', type=float, default=60,
+                                   help='Report only alignments above or equal the score threshold. Default=60')
     
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
@@ -189,14 +195,14 @@ def create_arg_parser():
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
                         help="Ignore query sequences larger than `maxseqlen`. Default=5000")
 
-    pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=None, type=float, metavar='MIN_E-VALUE',
-                          help="E-value threshold. For example, -hmm_evalue 0.001. Default=None")
+    # pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=None, type=float, metavar='MIN_E-VALUE',
+    #                       help="E-value threshold. For example, -hmm_evalue 0.001. Default=None")
 
-    pg_hmmer.add_argument('--hmm_score', dest='score', default=None, type=float, metavar='MIN_SCORE',
-                          help="Bit score threshold. For example, --hmm_score 20. Default=None")
+    # pg_hmmer.add_argument('--hmm_score', dest='score', default=None, type=float, metavar='MIN_SCORE',
+    #                       help="Bit score threshold. For example, --hmm_score 20. Default=None")
 
-    pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='MIN_QCOV',
-                        help="min query coverage (from 0 to 1). Default=(disabled)")
+    # pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='MIN_QCOV',
+    #                     help="min query coverage (from 0 to 1). Default=(disabled)")
 
     pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
                         help='Fixed database size used in phmmer/hmmscan'
@@ -214,11 +220,11 @@ def create_arg_parser():
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
 
+    pg_annot.add_argument('--list_taxa', action="store_true",
+                          help="List taxa available for --tax_scope, --target_taxa, etc. and exit")
+        
     pg_annot.add_argument("--no_annot", action="store_true",
-                        help="Skip functional annotation, reporting only hits")
-
-    pg_annot.add_argument("--report_orthologs", action="store_true",
-                        help="Output the list of orthologs found for each query to a .orthologs file")
+                          help="Skip functional annotation, reporting only hits")
 
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
@@ -229,9 +235,6 @@ def create_arg_parser():
                            help='Min bit score expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated. Default=60')
-
-    pg_annot.add_argument('--list_taxa', action="store_true",
-                          help="List taxa available for --tax_scope, --target_taxa, etc. and exit")
     
     pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
@@ -258,6 +261,9 @@ def create_arg_parser():
     pg_annot.add_argument('--excluded_taxa', type=int, metavar='TAXID',
                           help='(for debugging and benchmark purposes)')
 
+    pg_annot.add_argument("--report_orthologs", action="store_true",
+                        help="Output the list of orthologs found for each query to a .orthologs file")
+    
     pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
                           default='non-electronic',
                           help='Defines what type of GO terms should be used for annotation. '
@@ -464,6 +470,9 @@ def parse_args(parser):
         if args.clean_overlaps is not None:
             if args.clean_overlaps == "none":
                 args.clean_overlaps = None
+
+        if args.subject_cover is not None:
+            print(colorify(f"WARNING: --subject_cover has no effect on -m {SEARCH_MODE_HMMER} results", 'red'))
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if args.no_annot == False and not args.annotate_hits_table:
@@ -473,6 +482,15 @@ def parse_args(parser):
             
     else:
         parser.error(f'unrecognized search mode (-m {args.mode})')
+
+
+    # Search thresholds
+    if args.evalue is not None:
+        args.dmnd_evalue = args.mmseqs_evalue = args.hmm_evalue = args.evalue
+    if args.score is not None:
+        args.dmnd_score = args.mmseqs_score = args_hmm_score = args.score
+    if args.query_cover is not None:
+        args.qcov = args.query_cover
     
     # Annotation options
     if args.no_annot == False or args.report_orthologs == True:
