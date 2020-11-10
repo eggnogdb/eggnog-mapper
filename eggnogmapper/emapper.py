@@ -10,7 +10,6 @@ from .common import silent_rm, get_version, ITYPE_GENOME, ITYPE_META, ITYPE_PROT
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
-# from .genepred.prodigal import ProdigalPredictor
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH
 from .annotation.annotator import get_annotator
 
