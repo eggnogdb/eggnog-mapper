@@ -35,6 +35,9 @@ def create_arg_parser():
     parser.add_argument('-v', '--version', action='store_true',
                         help="show version and exit.")
 
+    parser.add_argument('--list_taxa', action="store_true",
+                        help="List taxa available for --tax_scope, --target_taxa, etc. and exit")
+
     ##
     pg_exec = parser.add_argument_group('Execution Options')
     
@@ -67,7 +70,7 @@ def create_arg_parser():
     pg_genepred.add_argument('--genepred', dest='genepred', type=str, choices = [GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL],
                               default = GENEPRED_MODE_SEARCH,
                               help=(
-                                  f'This applied when --itype = {ITYPE_GENOME} or --itype = {ITYPE_META}. '
+                                  f'This applied when --itype {ITYPE_GENOME} or --itype {ITYPE_META}. '
                                   f'{GENEPRED_MODE_SEARCH}: gene prediction is inferred from hits obtained from the search step. '
                                   f'{GENEPRED_MODE_PRODIGAL}: gene prediction is performed from proteins predicted using prodigal. '
                                   ))
@@ -111,27 +114,27 @@ def create_arg_parser():
     pg_diamond = parser.add_argument_group('Diamond Search Options')
 	
     pg_diamond.add_argument('--dmnd_db', dest="dmnd_db", metavar='DMND_DB_FILE',
-		    help="Path to DIAMOND-compatible database")
-
-    pg_diamond.add_argument('--matrix', dest='matrix', 
-                    choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
-                    default=None, help='Scoring matrix')
-
-    pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
-                    help='Gap open penalty')
-
-    pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
-                    help='Gap extend  penalty')
+		            help="Path to DIAMOND-compatible database")
 
     pg_diamond.add_argument('--sensmode', dest='sensmode', 
-                    choices = SENSMODES, 
-                    default=SENSMODE_FAST, help='Sensitive mode')
+                            choices = SENSMODES, 
+                            default=SENSMODE_FAST, help='Sensitive mode')
+        
+    pg_diamond.add_argument('--matrix', dest='matrix', 
+                            choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
+                            default=None, help='Scoring matrix')
+
+    pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
+                            help='Gap open penalty')
+
+    pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
+                            help='Gap extend  penalty')
     
     ##
     pg_mmseqs = parser.add_argument_group('MMseqs2 Search Options')
 
     pg_mmseqs.add_argument('--mmseqs_db', dest="mmseqs_db", metavar='MMSEQS_DB_FILE',
-		    help="Path to MMseqs2-compatible database")
+		           help="Path to MMseqs2-compatible database")
 
     pg_mmseqs.add_argument('--start_sens', dest='start_sens', default=3, type=int, metavar='START_SENS',
                            help="Starting sensitivity. Default=3")
@@ -149,8 +152,8 @@ def create_arg_parser():
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
 
     pg_hmmer.add_argument('-d', '--database', dest='db', metavar='HMMER_DB_PREFIX',
-                       help=('specify the target database for sequence searches. '
-                             'Choose among: euk,bact,arch, or a database loaded in a server, db.hmm:host:port (see hmm_server.py)'))
+                          help=('specify the target database for sequence searches. '
+                                'Choose among: euk,bact,arch, or a database loaded in a server, db.hmm:host:port (see hmm_server.py)'))
 
     pg_hmmer.add_argument('--servers_list', dest="servers_list", metavar="FILE",
                           help="A FILE with a list of remote hmmpgmd servers. "
@@ -158,18 +161,18 @@ def create_arg_parser():
                                 "If --servers_list is specified, host and port from -d option will be ignored.")
     
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
-                       help="Type of input data (-i). "
+                          help="Type of input data (-i). "
                           f"Default: {QUERY_TYPE_SEQ}")
 
     pg_hmmer.add_argument('--dbtype', dest="dbtype",
-                       choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
-                       help="Type of data in DB (-db). "
+                          choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
+                          help="Type of data in DB (-db). "
                           f"Default: {DB_TYPE_HMM}")
 
     pg_hmmer.add_argument('--usemem', action="store_true",
-                    help='''If a local "hmmpress-ed" database is provided as target using --database,
-                    --usemem will allocate the whole database in memory using hmmpgmd.
-                    Database will be unloaded after execution.''')
+                          help='''If a local "hmmpress-ed" database is provided as target using --database,
+                          --usemem will allocate the whole database in memory using hmmpgmd.
+                          Database will be unloaded after execution.''')
 
     pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
                           help="When using --usemem, specify the number of servers to fire up."
@@ -180,17 +183,17 @@ def create_arg_parser():
                           " By default, cpus specified with --cpu will be distributed among servers and workers.")
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
-                        help="Max number of hits to report (0 to report all). Default=1.")
+                          help="Max number of hits to report (0 to report all). Default=1.")
 
     pg_hmmer.add_argument('--report_no_hits', action="store_true",
-                        help="Whether queries without hits should be included in the output table.")
+                          help="Whether queries without hits should be included in the output table.")
 
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
-                        help="Ignore query sequences larger than `maxseqlen`. Default=5000")
+                          help="Ignore query sequences larger than `maxseqlen`. Default=5000")
 
     pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
-                        help='Fixed database size used in phmmer/hmmscan'
-                        ' (allows comparing e-values among databases). Default=40,000,000')
+                          help='Fixed database size used in phmmer/hmmscan'
+                          ' (allows comparing e-values among databases). Default=40,000,000')
 
     pg_hmmer.add_argument('--cut_ga', action="store_true",
                           help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")
@@ -203,9 +206,6 @@ def create_arg_parser():
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
-
-    pg_annot.add_argument('--list_taxa', action="store_true",
-                          help="List taxa available for --tax_scope, --target_taxa, etc. and exit")
         
     pg_annot.add_argument("--no_annot", action="store_true",
                           help="Skip functional annotation, reporting only hits")
@@ -239,14 +239,14 @@ def create_arg_parser():
                           help='defines what type of orthologs (in relation to the seed ortholog) should be used for functional transfer')
 
     pg_annot.add_argument('--target_taxa', type=str, 
-                            default="all", metavar='TAXID', nargs="+",
-                            help="Broadest taxa which will used to search for orthologs. By default ('all'), all taxa are used.")
+                          default="all", metavar='TAXID', nargs="+",
+                          help="Broadest taxa which will used to search for orthologs. By default ('all'), all taxa are used.")
 
     pg_annot.add_argument('--excluded_taxa', type=int, metavar='TAXID',
                           help='(for debugging and benchmark purposes)')
 
     pg_annot.add_argument("--report_orthologs", action="store_true",
-                        help="Output the list of orthologs found for each query to a .orthologs file")
+                          help="Output the list of orthologs found for each query to a .orthologs file")
     
     pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
                           default='non-electronic',
@@ -287,10 +287,10 @@ def create_arg_parser():
                         f"Only SEARCH_MODE_HMMER runs (-m {SEARCH_MODE_HMMER}) can be resumed.")
         
     pg_out.add_argument('--override', action="store_true",
-                    help="Overwrites output files if they exist.")
+                        help="Overwrites output files if they exist.")
 
     pg_out.add_argument("--temp_dir", default=os.getcwd(), type=existing_dir, metavar='DIR',
-                    help="Where temporary files are created. Better if this is a local disk.")
+                        help="Where temporary files are created. Better if this is a local disk.")
 
     pg_out.add_argument('--no_file_comments', action="store_true",
                         help="No header lines nor stats are included in the output files")
