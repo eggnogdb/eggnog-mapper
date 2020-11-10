@@ -401,8 +401,18 @@ def parse_args(parser):
             print(colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red'))
             raise EmapperException()
 
-        if not args.input:
-            parser.error('An input fasta file is required (-i)')
+        if args.input is not None:
+            if args.annotate_hits_table is not None:
+                print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_DIAMOND}", 'blue'))
+                args.annotate_hits_table = None
+        else:
+            # the default -m is diamond, but we will consider -m no_search as default when
+            # --annotate_hits_table has been provided and -i has not been provided
+            if args.annotate_hits_table is not None:
+                print(colorify(f"Assuming -m {SEARCH_MODE_NO_SEARCH}", 'blue'))
+                args.mode = SEARCH_MODE_NO_SEARCH
+            else:
+                parser.error('An input fasta file is required (-i)')
 
         # Output file required
         if not args.output:
