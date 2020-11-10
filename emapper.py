@@ -86,6 +86,28 @@ def create_arg_parser():
                            ))
 
     ##
+    pg_diamond_mmseqs = parser.add_argument_group('Search filtering common options')
+
+    pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=0,
+                                   help=(
+                                       f'Report only alignments above or equal to the given percentage of identity. Default=0. '
+                                       f'No effect if -m {SEARCH_MODE_HMMER}.'))
+    
+    pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=0,
+                                   help='Report only alignments above or equal the given percentage of query cover. Default=0')
+    
+    pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=0,
+                                   help=(
+                                       f'Report only alignments above or equal the given percentage of subject cover. Default=0. '
+                                       f'No effect if -m {SEARCH_MODE_HMMER}.'))
+
+    pg_diamond_mmseqs.add_argument('--evalue', dest='evalue', type=float, default=0.001,
+                                   help='Report only alignments below or equal the e-value threshold. Default=0.001')
+
+    pg_diamond_mmseqs.add_argument('--score', dest='score', type=float, default=60,
+                                   help='Report only alignments above or equal the score threshold. Default=60')
+
+    ##
     pg_diamond = parser.add_argument_group('Diamond Search Options')
 	
     pg_diamond.add_argument('--dmnd_db', dest="dmnd_db", metavar='DMND_DB_FILE',
@@ -94,12 +116,6 @@ def create_arg_parser():
     pg_diamond.add_argument('--matrix', dest='matrix', 
                     choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
                     default=None, help='Scoring matrix')
-
-    # pg_diamond.add_argument('--dmnd_evalue', dest='dmnd_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
-    #                     help="E-value threshold. Default=0.001")
-
-    # pg_diamond.add_argument('--dmnd_score', dest='dmnd_score', default=60, type=float, metavar='MIN_SCORE',
-    #                     help="Bit score threshold. Default=60")
 
     pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
                     help='Gap open penalty')
@@ -117,12 +133,6 @@ def create_arg_parser():
     pg_mmseqs.add_argument('--mmseqs_db', dest="mmseqs_db", metavar='MMSEQS_DB_FILE',
 		    help="Path to MMseqs2-compatible database")
 
-    # pg_mmseqs.add_argument('--mmseqs_evalue', dest='mmseqs_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
-    #                     help="E-value threshold. Default=0.001")
-
-    # pg_mmseqs.add_argument('--mmseqs_score', dest='mmseqs_score', default=60, type=float, metavar='MIN_SCORE',
-    #                     help="Bit score threshold. Default=60")
-
     pg_mmseqs.add_argument('--start_sens', dest='start_sens', default=3, type=int, metavar='START_SENS',
                            help="Starting sensitivity. Default=3")
 
@@ -134,23 +144,6 @@ def create_arg_parser():
 
     pg_mmseqs.add_argument('--mmseqs_sub_mat', dest='mmseqs_sub_mat', default=None, type=str, metavar='SUBS_MATRIX',
                            help="Matrix to be used for --sub-mat MMseqs2 search option.Final sensititivy step. Default=default used by MMseqs2")
-    ##
-    pg_diamond_mmseqs = parser.add_argument_group('Diamond/MMseqs2 shared Options')
-
-    pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=0,
-                                   help='Report only alignments above or equal to the given percentage of identity. Default=0')
-    
-    pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=0,
-                                   help='Report only alignments above or equal the given percentage of query cover. Default=0')
-    
-    pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=0,
-                                   help='Report only alignments above or equal the given percentage of subject cover. Default=0')
-
-    pg_diamond_mmseqs.add_argument('--evalue', dest='evalue', type=float, default=0.001,
-                                   help='Report only alignments below or equal the e-value threshold. Default=0.001')
-
-    pg_diamond_mmseqs.add_argument('--score', dest='score', type=float, default=60,
-                                   help='Report only alignments above or equal the score threshold. Default=60')
     
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
@@ -194,15 +187,6 @@ def create_arg_parser():
 
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
                         help="Ignore query sequences larger than `maxseqlen`. Default=5000")
-
-    # pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=None, type=float, metavar='MIN_E-VALUE',
-    #                       help="E-value threshold. For example, -hmm_evalue 0.001. Default=None")
-
-    # pg_hmmer.add_argument('--hmm_score', dest='score', default=None, type=float, metavar='MIN_SCORE',
-    #                       help="Bit score threshold. For example, --hmm_score 20. Default=None")
-
-    # pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='MIN_QCOV',
-    #                     help="min query coverage (from 0 to 1). Default=(disabled)")
 
     pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
                         help='Fixed database size used in phmmer/hmmscan'
