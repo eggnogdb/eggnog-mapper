@@ -117,26 +117,25 @@ class Annotator:
         if self.report_orthologs == True:
             ORTHOLOGS = open(orthologs_file, "w")
             for query_name in all_orthologs:
-                for target in all_orthologs[query_name]:
+                query_orthologs = all_orthologs[query_name]
+                
+                if "annot_orthologs" in query_orthologs:
+                    annot_orthologs = query_orthologs["annot_orthologs"]
+                else:
+                    annot_orthologs = set()
+                    
+                for target in query_orthologs:
                     if target == "all": continue
-                    orthologs = all_orthologs[query_name][target]
+                    if target == "annot_orthologs": continue
+                    orthologs = query_orthologs[target]
                     if orthologs is None or len(orthologs) == 0:
                         continue
                         
                     orthologs = sorted(orthologs, key=lambda x: int(x.split(".")[0]))
+                    orthologs = [f"*{orth}" if orth in annot_orthologs else orth for orth in orthologs]                    
                             
                     print('\t'.join([query_name, target, ",".join(orthologs)]), file=ORTHOLOGS)
             ORTHOLOGS.close()
-
-            
-            # ORTHOLOGS = open(orthologs_file, "w")
-            # for (query_name, orthologs) in all_orthologs:
-            #     if orthologs is None:
-            #         orths = "-"
-            #     else:
-            #         orths = ','.join(orthologs)
-            #     print('\t'.join(map(str, (query_name, orths))), file=ORTHOLOGS)
-            # ORTHOLOGS.close()
 
         # Output annotations
         if self.annot:
@@ -190,7 +189,7 @@ class Annotator:
                      annotations, 
                      narr_og_name, narr_og_cat, narr_og_desc,
                      best_og_name, best_og_cat, best_og_desc,                     
-                     match_nogs_names, all_orthologies) = result
+                     match_nogs_names, all_orthologies, annot_orthologs) = result
 
                     if self.report_orthologs == True:
                         # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
@@ -205,11 +204,10 @@ class Annotator:
                                 query_orthologs[target].update(all_orthologies[target])
                             else:
                                 query_orthologs[target] = set(all_orthologies[target])
-                            
-                        # orthologs = sorted(all_orthologies[self.target_orthologs])
-                        # if self.excluded_taxa is not None:
-                        #     orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
-                        # all_orthologs.append((query_name, orthologs))
+                        if "annot_orthologs" in query_orthologs:
+                            query_orthologs["annot_orthologs"].update(annot_orthologs)
+                        else:
+                            query_orthologs["annot_orthologs"] = set(annot_orthologs)
 
                     if self.annot == True:
                         # prepare annotations for printing
@@ -397,7 +395,7 @@ def annotate_hit_line(arguments):
             annotations,
             narr_og_name, narr_og_cat, narr_og_desc,
             best_og_name, best_og_cat, best_og_desc,
-            match_nogs_names, all_orthologies)
+            match_nogs_names, all_orthologies, orthologs)
 
 
 ##
