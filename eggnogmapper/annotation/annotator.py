@@ -114,15 +114,28 @@ class Annotator:
         db_sqlite.close()
 
         # Output orthologs
-        if self.report_orthologs:
+        if self.report_orthologs == True:
             ORTHOLOGS = open(orthologs_file, "w")
-            for (query_name, orthologs) in all_orthologs:
-                if orthologs is None:
-                    orths = "-"
-                else:
-                    orths = ','.join(orthologs)
-                print('\t'.join(map(str, (query_name, orths))), file=ORTHOLOGS)
+            for query_name in all_orthologs:
+                for target in all_orthologs[query_name]:
+                    if target == "all": continue
+                    orthologs = all_orthologs[query_name][target]
+                    if orthologs is None or len(orthologs) == 0:
+                        orthologs = "-"
+                    else:
+                        orthologs = ",".join(orthologs)
+                    print('\t'.join(map(str, (query_name, target, orthologs))), file=ORTHOLOGS)
             ORTHOLOGS.close()
+
+            
+            # ORTHOLOGS = open(orthologs_file, "w")
+            # for (query_name, orthologs) in all_orthologs:
+            #     if orthologs is None:
+            #         orths = "-"
+            #     else:
+            #         orths = ','.join(orthologs)
+            #     print('\t'.join(map(str, (query_name, orths))), file=ORTHOLOGS)
+            # ORTHOLOGS.close()
 
         # Output annotations
         if self.annot:
@@ -153,7 +166,7 @@ class Annotator:
     ##
     def _annotate(self, seed_orthologs_file, pfam_file):
 
-        all_orthologs = []
+        all_orthologs = {}
         all_annotations = []
         
         start_time = time.time()
@@ -176,12 +189,28 @@ class Annotator:
                      annotations, 
                      narr_og_name, narr_og_cat, narr_og_desc,
                      best_og_name, best_og_cat, best_og_desc,                     
-                     match_nogs_names, orthologs) = result
+                     match_nogs_names, all_orthologies) = result
 
-                    if self.report_orthologs:
-                        all_orthologs.append((query_name, orthologs))
+                    if self.report_orthologs == True:
+                        # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
+                        if query_name in all_orthologs:
+                            query_orthologs = all_orthologs[query_name]
+                        else:
+                            query_orthologs = {}
+                            all_orthologs[query_name] = query_orthologs
+                            
+                        for target in all_orthologies:
+                            if target in query_orthologs:
+                                query_orthologs[target].update(all_orthologies[target])
+                            else:
+                                query_orthologs[target] = set(all_orthologies[target])
+                            
+                        # orthologs = sorted(all_orthologies[self.target_orthologs])
+                        # if self.excluded_taxa is not None:
+                        #     orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
+                        # all_orthologs.append((query_name, orthologs))
 
-                    if self.annot:
+                    if self.annot == True:
                         # prepare annotations for printing
                         annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
                                          ",".join(match_nogs_names), 
@@ -202,6 +231,8 @@ class Annotator:
         except EmapperException:
             raise
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
             pool.terminate()
@@ -365,7 +396,7 @@ def annotate_hit_line(arguments):
             annotations,
             narr_og_name, narr_og_cat, narr_og_desc,
             best_og_name, best_og_cat, best_og_desc,
-            match_nogs_names, orthologs)
+            match_nogs_names, all_orthologies)
 
 
 ##
