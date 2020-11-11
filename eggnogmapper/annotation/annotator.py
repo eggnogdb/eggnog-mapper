@@ -121,10 +121,11 @@ class Annotator:
                     if target == "all": continue
                     orthologs = all_orthologs[query_name][target]
                     if orthologs is None or len(orthologs) == 0:
-                        orthologs = "-"
-                    else:
-                        orthologs = ",".join(orthologs)
-                    print('\t'.join(map(str, (query_name, target, orthologs))), file=ORTHOLOGS)
+                        continue
+                        
+                    orthologs = sorted(orthologs, key=lambda x: int(x.split(".")[0]))
+                            
+                    print('\t'.join([query_name, target, ",".join(orthologs)]), file=ORTHOLOGS)
             ORTHOLOGS.close()
 
             
