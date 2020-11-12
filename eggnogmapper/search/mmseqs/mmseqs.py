@@ -25,7 +25,7 @@ class MMseqs2Searcher:
     final_sens = 7    
 
     # Filters
-    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
+    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = None # excluded_taxa = None
 
     # MMseqs2 options
     sub_mat = None
@@ -54,7 +54,7 @@ class MMseqs2Searcher:
         self.pident_thr = args.pident
         self.evalue_thr = args.mmseqs_evalue
         self.score_thr = args.mmseqs_score
-        self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+        # self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
 
         self.sub_mat = args.mmseqs_sub_mat
         
@@ -165,10 +165,10 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} filterdb {resultdb} {bestresultdb}'
         )
-        if self.excluded_taxa:
-            cmd += " --extract-lines 25 "
-        else:
-            cmd += " --extract-lines 1 "
+        # if self.excluded_taxa:
+        #     cmd += " --extract-lines 25 "
+        # else:
+        cmd += " --extract-lines 1 "
         
         print(colorify('  '+cmd, 'yellow'))
         try:
@@ -246,8 +246,8 @@ class MMseqs2Searcher:
 
                 hit = fields[1]
                 
-                if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                    continue
+                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
+                #     continue
 
                 visited.add(query)
 
@@ -296,8 +296,8 @@ class MMseqs2Searcher:
                 
                 hit = fields[1]
                 
-                if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                    continue
+                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
+                #     continue
 
                 query = fields[0]
                 
