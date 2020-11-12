@@ -23,7 +23,7 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m diamond) command
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test --report_orthologs
+        # ./emapper.py -m diamond -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test
 
         ##
         # Setup test
@@ -36,11 +36,9 @@ class Test(unittest.TestCase):
         # Observed and expected files
         obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
-        obs_orthologs = os.path.join(outdir, outprefix+ORTHOLOGS_SUFFIX)
         
         exp_seed_orthologs = os.path.join(data_dir, 'test_output.emapper.seed_orthologs')
         exp_annotations = os.path.join(data_dir, 'test_output.emapper.annotations')
-        exp_orthologs = os.path.join(data_dir, 'test_output.emapper.orthologs')
 
         ##
         # Run test
@@ -50,7 +48,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --report_orthologs'
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix}'
 
         # print(f"\t{cmd}")
 
@@ -67,9 +65,6 @@ class Test(unittest.TestCase):
         
         # Check alignment phase: detection of seed orthologs
         check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-
-        # Check orthologs
-        check_orthologs(obs_orthologs, exp_orthologs)
         
         # Check annotation phase
         check_annotations(obs_annotations, exp_annotations)
@@ -87,7 +82,7 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m mmseqs) command
         '''
-        # ./emapper.py -m mmseqs -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test --report_orthologs
+        # ./emapper.py -m mmseqs -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test
         
         ##
         # Setup test
@@ -100,11 +95,9 @@ class Test(unittest.TestCase):
         # Observed and expected files
         obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
-        obs_orthologs = os.path.join(outdir, outprefix+ORTHOLOGS_SUFFIX)
         
         exp_seed_orthologs = os.path.join(data_dir, 'test_mmseqs.emapper.seed_orthologs')
         exp_annotations = os.path.join(data_dir, 'test_mmseqs.emapper.annotations')
-        exp_orthologs = os.path.join(data_dir, 'test_mmseqs.emapper.orthologs')
 
         ##
         # Run test
@@ -114,7 +107,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m mmseqs -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --report_orthologs'
+        cmd = f'./emapper.py -m mmseqs -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix}'
 
         # print(f"\t{cmd}")
 
@@ -131,9 +124,6 @@ class Test(unittest.TestCase):
         
         # Check alignment phase: detection of seed orthologs
         check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-
-        # Check orthologs
-        check_orthologs(obs_orthologs, exp_orthologs)
         
         # Check annotation phase
         check_annotations(obs_annotations, exp_annotations)
@@ -150,9 +140,11 @@ class Test(unittest.TestCase):
     
     def test_emapper_no_search(self):
         '''
-        Tests annotation (-m no_search) of an existing hits table, and reports orthologs (--report_orthologs)
+        Tests annotation (-m no_search) of an existing hits table, and reports orthologs (--report_orthologs, --target_orthologs, --target_taxa and --excluded_taxa)
         '''
-
+        ('./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_output.emapper.seed_orthologs '
+         '--data_dir tests/fixtures --output_dir tmp -o tmp --report_orthologs --target_orthologs one2one --target_taxa 72274,1123487 --excluded_taxa 205918,1395571')
+        
         ##
         # Setup test
         
@@ -165,8 +157,8 @@ class Test(unittest.TestCase):
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
         obs_orthologs = os.path.join(outdir, outprefix+ORTHOLOGS_SUFFIX)
         
-        exp_annotations = os.path.join(data_dir, 'test_output.emapper.annotations')
-        exp_orthologs = os.path.join(data_dir, 'test_output.emapper.orthologs')
+        exp_annotations = os.path.join(data_dir, 'test_no_search.emapper.annotations')
+        exp_orthologs = os.path.join(data_dir, 'test_no_search.emapper.orthologs')
 
         ##
         # Run test
@@ -176,7 +168,8 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m no_search --annotate_hits_table {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --report_orthologs'
+        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --report_orthologs '
+               f'--target_orthologs one2one --target_taxa 72274,1123487 --excluded_taxa 205918,1395571')
 
         # print(f"\t{cmd}")
 

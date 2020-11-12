@@ -11,11 +11,11 @@ from ..common import get_call_info, TAX_SCOPE_AUTO, TAX_SCOPE_AUTO_BROAD
 from ..utils import colorify
 from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 
-# from ..orthologs.orthology import normalize_target_taxa
 from . import annota
 from . import db_sqlite
 from . import orthologs as ortho
 from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
+from .ncbitaxa.ncbiquery import NCBITaxa
 
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
@@ -104,7 +104,6 @@ class Annotator:
         
         return
 
-    
     ##
     def annotate(self, seed_orthologs_file, annot_file, orthologs_file, pfam_file):
         
@@ -115,52 +114,72 @@ class Annotator:
 
         # Output orthologs
         if self.report_orthologs == True:
-            ORTHOLOGS = open(orthologs_file, "w")
-            for query_name in all_orthologs:
-                query_orthologs = all_orthologs[query_name]
-                
-                if "annot_orthologs" in query_orthologs:
-                    annot_orthologs = query_orthologs["annot_orthologs"]
-                else:
-                    annot_orthologs = set()
-                    
-                for target in query_orthologs:
-                    if target == "all": continue
-                    if target == "annot_orthologs": continue
-                    orthologs = query_orthologs[target]
-                    if orthologs is None or len(orthologs) == 0:
-                        continue
-                        
-                    orthologs = sorted(orthologs, key=lambda x: int(x.split(".")[0]))
-                    orthologs = [f"*{orth}" if orth in annot_orthologs else orth for orth in orthologs]                    
-                            
-                    print('\t'.join([query_name, target, ",".join(orthologs)]), file=ORTHOLOGS)
-            ORTHOLOGS.close()
-
+            self._output_orthologs(orthologs_file, all_orthologs)
+            
         # Output annotations
-        if self.annot:
-            OUT = open(annot_file, "w")
+        if self.annot == True:
+            self._output_annotations(annot_file, all_annotations, qn, elapsed_time)
+            
+        return
+    
+    ##
+    def _output_orthologs(self, orthologs_file, all_orthologs):
+        ncbi = NCBITaxa()
+        ORTHOLOGS = open(orthologs_file, "w")
+        for query_name in all_orthologs:
+            query_orthologs = all_orthologs[query_name]
 
-            if not self.no_file_comments:
-                print(get_call_info(), file=OUT)
-                print('\t'.join(HIT_HEADER), end="\t", file=OUT)
-                
-                # If tax_scope_mode == narrowest there is no need to output best_og colums
-                if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
-                    print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)
-                    
-                print('\t'.join(ANNOTATIONS_HEADER), file=OUT)
+            if "annot_orthologs" in query_orthologs:
+                annot_orthologs = query_orthologs["annot_orthologs"]
+            else:
+                annot_orthologs = set()
 
-            for annot_columns in all_annotations:
-                print('\t'.join(annot_columns), file=OUT)
+            for target in query_orthologs:
+                if target == "all": continue
+                if target == "annot_orthologs": continue
+                query_target_orths = query_orthologs[target]
+                if query_target_orths is None or len(query_target_orths) == 0:
+                    continue
 
-            if not self.no_file_comments:
-                print('# %d queries scanned' % (qn), file=OUT)
-                print('# Total time (seconds):', elapsed_time, file=OUT)
-                print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
+                orthologs_taxids = set([int(x.split(".")[0]) for x in query_target_orths])
+                orthologs_taxnames = sorted(ncbi.get_taxid_translator(orthologs_taxids).items(), key=lambda x: x[1])
 
-            OUT.close()
+                for taxid, taxname in orthologs_taxnames:
+                    orth_names = []
+                    for orth in [x for x in query_target_orths if int(x.split(".")[0]) == taxid]:
+                        orth_name = orth.split(".")[1]
+                        if orth in annot_orthologs:
+                            orth_name = f"*{orth_name}"
+                        orth_names.append(orth_name)
+                    print('\t'.join([query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]), file=ORTHOLOGS)
 
+        ORTHOLOGS.close()
+        
+        return
+
+    def _output_annotations(self, annot_file, all_annotations, qn, elapsed_time):
+        OUT = open(annot_file, "w")
+
+        if not self.no_file_comments:
+            print(get_call_info(), file=OUT)
+            print('\t'.join(HIT_HEADER), end="\t", file=OUT)
+
+            # If tax_scope_mode == narrowest there is no need to output best_og colums
+            if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
+                print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)
+
+            print('\t'.join(ANNOTATIONS_HEADER), file=OUT)
+
+        for annot_columns in all_annotations:
+            print('\t'.join(annot_columns), file=OUT)
+
+        if not self.no_file_comments:
+            print('# %d queries scanned' % (qn), file=OUT)
+            print('# Total time (seconds):', elapsed_time, file=OUT)
+            print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
+
+        OUT.close()
+        
         return
 
     ##
@@ -323,17 +342,22 @@ def annotate_hit_line(arguments):
 
         ##
         # Normalize target_taxa if any
-        if target_taxa != 'all':
+        if target_taxa is not None:
             target_taxa = normalize_target_taxa(target_taxa)
         else:
             target_taxa = None
+            
+        if excluded_taxa is not None:
+            excluded_taxa = normalize_target_taxa(excluded_taxa)
+        else:
+            excluded_taxa = None
             
         ##
         # Retrieve co-orthologs of seed ortholog
         # annot_levels are used to restrict the speciation events retrieved
         # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
         try:
-            all_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=annot_levels)
+            all_orthologies = ortho.get_member_orthologs(best_hit_name, target_levels=annot_levels)
 
         except Exception as e:
             # print(str(e))
@@ -341,9 +365,7 @@ def annotate_hit_line(arguments):
             status = 'Error'
         else:
             # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-            orthologs = sorted(all_orthologies[target_orthologs])
-            if excluded_taxa:
-                orthologs = [o for o in orthologs if not o.startswith("%s." % excluded_taxa)]
+            orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
             status = 'OK'
         
         ##
@@ -358,11 +380,10 @@ def annotate_hit_line(arguments):
             if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
                 narr_annot_levels = set()
                 narr_annot_levels.add(narr_og_level)
-                narr_orthologies = ortho.get_member_orthologs(best_hit_name, target_taxa=target_taxa, target_levels=narr_annot_levels)
+                narr_orthologies = ortho.get_member_orthologs(best_hit_name, target_levels=narr_annot_levels)
                 # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-                narr_orthologs = sorted(narr_orthologies[target_orthologs])
-                if excluded_taxa:
-                    narr_orthologs = [o for o in narr_orthologs if not o.startswith("%s." % excluded_taxa)]
+                narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
+                
                 pfam_annotations = db_sqlite.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
                 if pfam_annotations is not None and len(pfam_annotations) > 0:
                     annotations["PFAMs"] = Counter()
@@ -398,6 +419,14 @@ def annotate_hit_line(arguments):
             match_nogs_names, all_orthologies, orthologs)
 
 
+def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa):
+    orthologs = sorted(all_orthologies[target_orthologs])
+    if excluded_taxa is not None:
+        orthologs = [o for o in orthologs if int(o.split(".")[0]) not in excluded_taxa]
+    if target_taxa is not None:
+        orthologs = [o for o in orthologs if int(o.split(".")[0]) in target_taxa]
+    return orthologs
+            
 ##
 def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution):        
     match_nogs_names = []
@@ -475,7 +504,7 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution):
                         break                
         else:
             raise EmapperException(f"Error. Unrecognized tax scope mode {tax_scope_mode}.")
-        
+    
     # print(match_nogs_names)
     # print(f"Best OG: {best_og_id}-{best_og_level}")
 
@@ -500,10 +529,9 @@ def normalize_target_taxa(target_taxa):
     """
     Receives a list of taxa IDs and/or taxa names and returns a set of expanded taxids numbers
     """
-    from ete3 import NCBITaxa
     ncbi = NCBITaxa()
     expanded_taxa = set()
-
+    
     for taxon in target_taxa:
         taxid = ""
         try:
@@ -513,9 +541,10 @@ def normalize_target_taxa(target_taxa):
         else:
             taxon = ncbi.get_taxid_translator([taxid])[taxid]
 
-        species = ncbi.get_descendant_taxa(taxid, collapse_subspecies=False)
-        for sp in species:
-            expanded_taxa.add(sp)
+        if taxid is not None:
+            species = ncbi.get_descendant_taxa(taxid, intermediate_nodes = True)
+            for sp in species:
+                expanded_taxa.add(sp)
 
     return expanded_taxa
 

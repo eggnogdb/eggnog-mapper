@@ -36,7 +36,7 @@ def create_arg_parser():
                         help="show version and exit.")
 
     parser.add_argument('--list_taxa', action="store_true",
-                        help="List taxa available for --tax_scope, --target_taxa, etc. and exit")
+                        help="List taxa available for --tax_scope, and exit")
 
     ##
     pg_exec = parser.add_argument_group('Execution Options')
@@ -239,11 +239,12 @@ def create_arg_parser():
                           help='defines what type of orthologs (in relation to the seed ortholog) should be used for functional transfer')
 
     pg_annot.add_argument('--target_taxa', type=str, 
-                          default="all", metavar='TAXID', nargs="+",
-                          help="Broadest taxa which will used to search for orthologs. By default ('all'), all taxa are used.")
+                          default=None,
+                          help="Only orthologs from the specified taxa and all its descendants will be used for annotation transference. By default, all taxa are used.")
 
-    pg_annot.add_argument('--excluded_taxa', type=int, metavar='TAXID',
-                          help='(for debugging and benchmark purposes)')
+    pg_annot.add_argument('--excluded_taxa', type=str,
+                          default=None, 
+                          help='Orthologs from the specified taxa and all its descendants will not be used for annotation transference. By default, no taxa is excluded.')
 
     pg_annot.add_argument("--report_orthologs", action="store_true",
                           help="Output the list of orthologs found for each query to a .orthologs file")
@@ -493,6 +494,10 @@ def parse_args(parser):
             raise EmapperException()
 
         args.tax_scope_mode, args.tax_scope_id = __parse_tax_scope(args.tax_scope)
+        if args.target_taxa is not None:
+            args.target_taxa = args.target_taxa.split(",")
+        if args.excluded_taxa is not None:
+            args.excluded_taxa = args.excluded_taxa.split(",")
         
     # Sets GO evidence bases
     if args.go_evidence == 'experimental':
