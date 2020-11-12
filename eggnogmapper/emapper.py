@@ -61,7 +61,7 @@ class Emapper:
         if mode == SEARCH_MODE_NO_SEARCH:
             self._output_files.extend([self.annot_file, self.pfam_file])
         elif mode == SEARCH_MODE_CACHE:
-            self._output_files.extend([self.annot_file, self.no_annot_file, self.pfam_file])            
+            self._output_files.extend([self.annot_file, self.no_annot_file])            
         elif not annot:
             self._output_files.extend([self.hmm_hits_file, self.seed_orthologs_file])
         else:
@@ -196,21 +196,18 @@ class Emapper:
     
     
     ##
-    def annotate(self, args, annotate_hits_table, cache_dir):
+    def annotate(self, args, annotate_hits_table, cache_file):
         if self.annot == True or self.report_orthologs:
             hits_file = None
 
-            if cache_dir is not None:
-                if not pexists(cache_dir):
-                    raise EmaperException(f"Could not find cache directory: {cache_dir}")
-                annot_in = cache_dir
-                annotator = get_cache_annotator(args, self.annot, self.report_orthologs)
-                if annot_in is not None and annotator is not None:
-                    annotator.annotate(annot_in,
+            if cache_file is not None:
+                if not pexists(cache_file):
+                    raise EmaperException(f"Could not find cache file: {cache_file}")
+                annotator = get_cache_annotator(args)
+                if annotator is not None:
+                    annotator.annotate(cache_file,
                                        pjoin(self._current_dir, self.annot_file),
-                                       pjoin(self._current_dir, self.no_annot_file),
-                                       pjoin(self._current_dir, self.orthologs_file),
-                                       pjoin(self._current_dir, self.pfam_file))
+                                       pjoin(self._current_dir, self.no_annot_file))
             else:            
                 if annotate_hits_table is not None:
                     if not pexists(annotate_hits_table):
