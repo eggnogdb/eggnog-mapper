@@ -1,65 +1,35 @@
 ##
-## CPCantalapiedra 2019
+# CPCantalapiedra 2020
 
-from collections import Counter
-import sys
-import time
-import multiprocessing
-    
+from os.path import exists as pexists
+from os.path import join as pjoin
+
+from ..common import get_call_info
 from ..emapperException import EmapperException
-from ..common import get_call_info, TAX_SCOPE_AUTO, TAX_SCOPE_AUTO_BROAD
 from ..utils import colorify
-from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
-from . import annota
-from . import db_sqlite
-from . import orthologs as ortho
-from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
-from .ncbitaxa.ncbiquery import NCBITaxa
-
-HIT_HEADER = ["#query_name",
-              "seed_eggNOG_ortholog",
-              "seed_ortholog_evalue",
-              "seed_ortholog_score",
-              "eggNOG OGs",
-              "narr_og_name",
-              "narr_og_cat",
-              "narr_og_desc"]
-
-BEST_OG_HEADER = ["best_og_name",
-                  "best_og_cat",
-                  "best_og_desc"]
-
-ANNOTATIONS_HEADER = ['Preferred_name',
-                      'GOs',
-                      'EC',
-                      'KEGG_ko',
-                      'KEGG_Pathway',
-                      'KEGG_Module',
-                      'KEGG_Reaction',
-                      'KEGG_rclass',
-                      'BRITE',
-                      'KEGG_TC',
-                      'CAZy',
-                      'BiGG_Reaction',
-                      'PFAMs']
-
-PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 
 ##
-class Annotator:
+def md5_seqs_dict(fasta_file):
+    from hashlib import md5
+    md5_queries = {}
+
+    for name, seq in iter_fasta_seqs(fasta_file):
+        md5_seq = md5(seq.encode('utf-8')).hexdigest()
+        md5_queries[md5_seq] = {"name":name, "seq":seq, "found":0}
+
+    return md5_queries
+
+##
+class CacheAnnotator:
 
     annot = report_orthologs = None
 
     no_file_comments = cpu = None
-
-    seed_ortholog_score = seed_ortholog_evalue = None
-    tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
-    TAXONOMIC_RESOLUTION = None
-    go_evidence = go_excluded = None
-    pfam_realign = pfam_transfer = queries_fasta = translate = temp_dir = None
-    md5 = None
+    
+    queries_fasta = None
+    temp_dir = None
     
     ##
     def __init__(self, args, annot, report_orthologs):
@@ -69,60 +39,53 @@ class Annotator:
         
         self.no_file_comments = args.no_file_comments
         self.cpu = args.cpu
-        self.seed_ortholog_score = args.seed_ortholog_score
-        self.seed_ortholog_evalue = args.seed_ortholog_evalue
-
-        self.tax_scope_mode = args.tax_scope_mode
-        if self.tax_scope_mode == "auto":
-            self.TAXONOMIC_RESOLUTION = TAX_SCOPE_AUTO
-        elif self.tax_scope_mode == "auto_broad":
-            self.TAXONOMIC_RESOLUTION = TAX_SCOPE_AUTO_BROAD
-        else:
-            # self.TAXONOMIC_RESOLUTION = None
-            pass
-        
-        self.tax_scope_id = args.tax_scope_id
-                
-        self.target_taxa = args.target_taxa
-        self.target_orthologs = args.target_orthologs
-        self.excluded_taxa = args.excluded_taxa
-        self.go_evidence = args.go_evidence
-        self.go_excluded = args.go_excluded
-        
-        self.pfam_realign = args.pfam_realign
-        self.pfam_transfer = args.pfam_transfer
         
         self.queries_fasta = args.input
-        self.translate = args.translate
         self.temp_dir = args.temp_dir
-        
-        self.md5 = args.md5
         
         return
 
-
-
-        
     ##
-    def annotate(self, seed_orthologs_file, annot_file, orthologs_file, pfam_file):
+    def annotate(self, cache_dir, annot_file, no_annot_file, orthologs_file, pfam_file):
         
-        print(colorify("Functional annotation of refined hits starts now", 'green'))
-        
-        all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file, pfam_file)
-        db_sqlite.close()
+        print(colorify("Functional annotation from cached files starts now", 'green'))
 
-        if self.md5 == True:
-            md5_queries = md5_seqs(self.queries_fasta)
-        else:
-            md5_queries = None
+        md5_queries = md5_seqs_dict(self.queries_fasta)
 
-        # Output orthologs
-        if self.report_orthologs == True:
-            self._output_orthologs(orthologs_file, all_orthologs, qn, elapsed_time, md5_queries)
-            
-        # Output annotations
         if self.annot == True:
-            self._output_annotations(annot_file, all_annotations, qn, elapsed_time, md5_queries)
+            cached_annot_fn = pjoin(cache_dir, "annotations")
+            if pexists(cached_annot_fn):
+                OUT = open(annot_file, "w")
+                if not self.no_file_comments:
+                    print(get_call_info(), file=OUT)
+                    
+                with open(cached_annot_fn, 'r') as cached_annot:
+                    for line in cached_annot:
+                        if line.startswith("#query"):
+                            data = line.strip().split("\t")
+                            cached_md5 = data[-1]
+                            if cached_md5 != "md5":
+                                print(colorify("WARNING: last column of cached annotations file should contain the md5 field. The last column name in header is not called 'md5'", 'red'))
+                            print(line, file=OUT)
+
+                        if line.startswith("#"): continue
+                        data = line.strip().split("\t")
+                        cached_md5 = data[-1]
+                        if cached_md5 in md5_queries:
+                            md5_queries[cached_md5]["found"] = 1
+                            print(line, file=OUT)
+                OUT.close()
+            else:
+                print(colorify(f"Skipping cached annotation. {cached_annot_fn} file not found", 'orange'))
+
+        OUT = open(no_annot_file, "w")        
+        for name, seq in [(md5_queries[md5]["name"], md5_queries[md5]["seq"]) for md5 in md5_queries if md5_queries[md5]["found"] == 0]:
+            print(f">{name}", file=OUT)
+            print(seq, file=OUT)
+        OUT.close()
+
+        if self.report_orthologs == True:
+            pass
             
         return
     
@@ -606,16 +569,5 @@ def get_og_description(og, level):
             break
     
     return best[1], best[2]
-
-
-def md5_seqs(fasta_file):
-    from hashlib import md5
-    md5_queries = {}
-        
-    for name, seq in iter_fasta_seqs(fasta_file):
-        md5_seq = md5(seq.encode('utf-8')).hexdigest()
-        md5_queries[name] = md5_seq
-            
-    return md5_queries
 
 ## END

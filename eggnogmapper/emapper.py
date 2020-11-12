@@ -10,8 +10,8 @@ from .common import silent_rm, get_version, ITYPE_GENOME, ITYPE_META, ITYPE_PROT
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
-from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH
-from .annotation.annotator import get_annotator
+from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE
+from .annotation.annotators import get_annotator, get_cache_annotator
 
 class Emapper:
 
@@ -40,6 +40,7 @@ class Emapper:
         self.hmm_hits_file = f"{prefix}.emapper.hmm_hits"
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
+        self.no_annot_file = f"{prefix}.emapper.no_annotations.fasta"
         self.orthologs_file = f"{prefix}.emapper.orthologs"
         self.pfam_file = f"{prefix}.emapper.pfam"
 
@@ -59,6 +60,8 @@ class Emapper:
             
         if mode == SEARCH_MODE_NO_SEARCH:
             self._output_files.extend([self.annot_file, self.pfam_file])
+        elif mode == SEARCH_MODE_CACHE:
+            self._output_files.extend([self.annot_file, self.no_annot_file, self.pfam_file])            
         elif not annot:
             self._output_files.extend([self.hmm_hits_file, self.seed_orthologs_file])
         else:
@@ -193,29 +196,42 @@ class Emapper:
     
     
     ##
-    def annotate(self, args, annotate_hits_table):
+    def annotate(self, args, annotate_hits_table, cache_dir):
         if self.annot == True or self.report_orthologs:
             hits_file = None
-            if annotate_hits_table:
-                if not pexists(annotate_hits_table):
-                    raise EmapperException("Could not find hits table to annotate: %s" % (annotate_hits_table))
 
-                hits_file = annotate_hits_table
-            else:
-                hits_file = pjoin(self._current_dir, self.seed_orthologs_file)
+            if cache_dir is not None:
+                if not pexists(cache_dir):
+                    raise EmaperException(f"Could not find cache directory: {cache_dir}")
+                annot_in = cache_dir
+                annotator = get_cache_annotator(args, self.annot, self.report_orthologs)
+                if annot_in is not None and annotator is not None:
+                    annotator.annotate(annot_in,
+                                       pjoin(self._current_dir, self.annot_file),
+                                       pjoin(self._current_dir, self.no_annot_file),
+                                       pjoin(self._current_dir, self.orthologs_file),
+                                       pjoin(self._current_dir, self.pfam_file))
+            else:            
+                if annotate_hits_table is not None:
+                    if not pexists(annotate_hits_table):
+                        raise EmapperException("Could not find hits table to annotate: %s" % (annotate_hits_table))
+                    annot_in = annotate_hits_table
+                    annotator = get_annotator(args, self.annot, self.report_orthologs)
+                else:
+                    annot_in = pjoin(self._current_dir, self.seed_orthologs_file)
+                    annotator = get_annotator(args, self.annot, self.report_orthologs)
 
-            if hits_file:
-                a = get_annotator(args, self.annot, self.report_orthologs)
-                a.annotate(hits_file,
-                           pjoin(self._current_dir, self.annot_file),
-                           pjoin(self._current_dir, self.orthologs_file),
-                           pjoin(self._current_dir, self.pfam_file))
+                if annot_in is not None and annotator is not None:
+                    annotator.annotate(annot_in,
+                                       pjoin(self._current_dir, self.annot_file),
+                                       pjoin(self._current_dir, self.orthologs_file),
+                                       pjoin(self._current_dir, self.pfam_file))
                 
         return
 
 
     ##
-    def run(self, args, infile, annotate_hits_table = None):
+    def run(self, args, infile, annotate_hits_table = None, cache_dir = None):
 
         ##
         # Step 0. Gene prediction
@@ -228,7 +244,7 @@ class Emapper:
             
         ##
         # Step 2. Annotation
-        self.annotate(args, annotate_hits_table)
+        self.annotate(args, annotate_hits_table, cache_dir)
         
         ##
         # If running in scratch, move files to real output dir and clean up

@@ -8,6 +8,7 @@ from .hmmer.hmmer import HmmerSearcher
 from .mmseqs.mmseqs import MMseqs2Searcher
 
 SEARCH_MODE_NO_SEARCH = "no_search"
+SEARCH_MODE_CACHE = "cache"
 SEARCH_MODE_DIAMOND = "diamond"
 SEARCH_MODE_HMMER = "hmmer"
 SEARCH_MODE_MMSEQS2 = "mmseqs"
@@ -16,7 +17,7 @@ SEARCH_MODE_MMSEQS2 = "mmseqs"
 def get_searcher(args, mode):
     searcher = None
     
-    if mode == SEARCH_MODE_NO_SEARCH:
+    if mode in [SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE]:
         searcher = None
 
     elif mode == SEARCH_MODE_DIAMOND:

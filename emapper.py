@@ -10,7 +10,7 @@ sys.path.insert(0, SCRIPT_PATH)
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
 from eggnogmapper.genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL
-from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2
+from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2, SEARCH_MODE_CACHE
 from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_FAST
 from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, \
@@ -61,6 +61,10 @@ def create_arg_parser():
     pg_input.add_argument('--annotate_hits_table', type=str, metavar='SEED_ORTHOLOGS_FILE',
                           help=f'Annotate TSV formatted table with 4 fields:'
                           f' query, hit, evalue, score. Requires -m {SEARCH_MODE_NO_SEARCH}.')
+
+    pg_input.add_argument('-c', dest="cache_dir", metavar='DIR', type=existing_dir,
+                          help=f'Directory containing annotations file (and optional orthologs file) with md5 of queries. '
+                          f'Required if -m {SEARCH_MODE_CACHE}')
         
     pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
                           help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
@@ -78,13 +82,14 @@ def create_arg_parser():
     pg_search = parser.add_argument_group('Search Options')
 
     pg_search.add_argument('-m', dest='mode', 
-                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_MMSEQS2, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH],
+                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_MMSEQS2, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE],
                            default=SEARCH_MODE_DIAMOND,
                            help=(
                                f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond (-i is required). '
                                f'{SEARCH_MODE_MMSEQS2}: search seed orthologs using MMseqs2 (-i is required). '
                                f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required). '
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required, unless --no_annot). '
+                               f'{SEARCH_MODE_CACHE}: skip seed orthologs search and annotate based on cached results (-i and -c are required). '
                                f'Default:{SEARCH_MODE_DIAMOND}'
                            ))
 
@@ -208,7 +213,7 @@ def create_arg_parser():
     pg_annot = parser.add_argument_group('Annotation Options')
         
     pg_annot.add_argument("--no_annot", action="store_true",
-                          help="Skip functional annotation, reporting only hits")
+                          help="Skip functional annotation, reporting only hits.")
 
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
@@ -270,7 +275,7 @@ def create_arg_parser():
                           f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, ignoring the --pfam_transfer option. ')
 
     pg_annot.add_argument("--md5", action="store_true",
-                          help="Adds the md5 hash of each query as an additional field in annotations output file (also orthologs file if --report_orthologs.")
+                          help="Adds the md5 hash of each query as an additional field in seed_orthologs, annotations and orthologs output files.")
 
     ##
     pg_out = parser.add_argument_group('Output options')
@@ -471,10 +476,19 @@ def parse_args(parser):
 
         if args.subject_cover is not None:
             print(colorify(f"WARNING: --subject_cover has no effect on -m {SEARCH_MODE_HMMER} results", 'red'))
+
+    elif args.mode == SEARCH_MODE_CACHE:
+        if args.cache_dir is None:
+                parser.error('A directory with annotations file (and optional orthologs file) is required (-c DIR)')
+                
+        if args.no_annot == True and args.report_orthologs == False:
+            parser.error(f'Cache mode (-m {SEARCH_MODE_CACHE}) should be used either to annotate or to report orthologs or both.')
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if args.no_annot == False and not args.annotate_hits_table:
             parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) requires a hits table to annotate (--annotate_hits_table FILE.seed_orthologs)')
+        if args.md5 == True and args.input is None:
+            parser.error(f'--md5 requires an input FASTA file (-i FASTA).')            
         # if args.no_annot == True and args.report_orthologs == False:
         #     parser.error(f'Nothing to do if running in no search mode (-m {SEARCH_MODE_NO_SEARCH}), with --no_annot and without --report_orthologs.')
             
@@ -546,7 +560,7 @@ if __name__ == "__main__":
             args.translate = True
             
         emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
-        emapper.run(args, args.input, args.annotate_hits_table)
+        emapper.run(args, args.input, args.annotate_hits_table, args.cache_dir)
 
         print(get_citation([args.mode]))
         print('Total time: %g secs' % (time.time()-_total_time))
