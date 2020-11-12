@@ -1,0 +1,10 @@
+# Thu Nov 12 15:26:42 2020
+# emapper-2.0.2-rf1-101-gee69c24
+# ./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_output.emapper.seed_orthologs --data_dir tests/fixtures --output_dir tmp -o test --report_orthologs --target_orthologs one2one --target_taxa 72274,1123487 --excluded_taxa 205918,1395571
+#
+#query_name	seed_eggNOG_ortholog	seed_ortholog_evalue	seed_ortholog_score	eggNOG OGs	narr_og_name	narr_og_cat	narr_og_desc	best_og_name	best_og_cat	best_og_desc	Preferred_name	GOs	EC	KEGG_ko	KEGG_Pathway	KEGG_Module	KEGG_Reaction	KEGG_rclass	BRITE	KEGG_TC	CAZy	BiGG_Reaction	PFAMs
+1000565.METUNv1_03812	1000565.METUNv1_03812	9.6e-207	714.5	COG0012@1|root,COG0012@2|Bacteria,1MVM4@1224|Proteobacteria,2VJ1W@28216|Betaproteobacteria,2KUD2@206389|Rhodocyclales	2KUD2@206389|Rhodocyclales	J	ATPase that binds to both the 70S ribosome and the 50S ribosomal subunit in a nucleotide-independent manner	2KUD2@206389|Rhodocyclales	J	ATPase that binds to both the 70S ribosome and the 50S ribosomal subunit in a nucleotide-independent manner		-	-	-	-	-	-	-	-	-	-	-	FeoB_N,MMR_HSR1,YchF-GTPase_C
+362663.ECP_0061	362663.ECP_0061	0.0	1624.8	COG0417@1|root,COG0417@2|Bacteria,1MVY9@1224|Proteobacteria,1RMQ1@1236|Gammaproteobacteria,3XPER@561|Escherichia	3XPER@561|Escherichia	L	DNA polymerase	1RMQ1@1236|Gammaproteobacteria	L	DNA polymerase	polB	-	2.7.7.7	ko:K02336	-	-	-	-	ko00000,ko01000,ko03400	-	-	-	DNA_pol_B,DNA_pol_B_exo1
+# 2 queries scanned
+# Total time (seconds): 1.113072156906128
+# Rate: 1.80 q/s
