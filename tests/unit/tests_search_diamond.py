@@ -30,7 +30,6 @@ class Test(unittest.TestCase):
                          pident=0,
                          dmnd_evalue=0.001,
                          dmnd_score=60,
-                         excluded_taxa=None,
                          temp_dir=os.getcwd(),
                          no_file_comments=None)
         
@@ -58,7 +57,6 @@ class Test(unittest.TestCase):
                          pident=0,
                          dmnd_evalue=0.001,
                          dmnd_score=60,
-                         excluded_taxa=None,
                          temp_dir=os.getcwd(),
                          no_file_comments=None)
         
@@ -87,7 +85,6 @@ class Test(unittest.TestCase):
                          pident=0,
                          dmnd_evalue=0.001,
                          dmnd_score=60,
-                         excluded_taxa=None,
                          temp_dir=os.getcwd(),
                          no_file_comments=None)
         

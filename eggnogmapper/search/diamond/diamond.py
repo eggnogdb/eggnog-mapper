@@ -33,7 +33,7 @@ class DiamondSearcher:
     matrix = gapopen = gapextend = None
 
     # Filters
-    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = excluded_taxa = None
+    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = None # excluded_taxa = None
 
     in_file = None
     itype = None
@@ -62,7 +62,7 @@ class DiamondSearcher:
         self.pident_thr = args.pident
         self.evalue_thr = args.dmnd_evalue
         self.score_thr = args.dmnd_score
-        self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+        # self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
         
         self.temp_dir = args.temp_dir
         self.no_file_comments = args.no_file_comments
@@ -135,10 +135,10 @@ class DiamondSearcher:
         if self.gapextend: cmd += ' --gapextend {self.gapextend}'
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            if self.excluded_taxa:
-                cmd += " --max-target-seqs 25 "
-            else:
-                cmd += " --top 3 "
+            # if self.excluded_taxa:
+            #     cmd += " --max-target-seqs 25 "
+            # else:
+            cmd += " --top 3 "
         else: # self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             cmd += " --max-target-seqs 0 --max-hsps 0 "
 
@@ -185,8 +185,8 @@ class DiamondSearcher:
 
                 hit = fields[1]
                 
-                if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                    continue
+                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
+                #     continue
 
                 visited.add(query)
 
@@ -215,8 +215,8 @@ class DiamondSearcher:
                     continue
 
                 hit = fields[1]
-                if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                    continue
+                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
+                #     continue
 
                 query = fields[0]
                 qstart = int(fields[6])
