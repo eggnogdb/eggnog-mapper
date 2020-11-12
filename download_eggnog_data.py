@@ -31,6 +31,19 @@ def download_annotations():
     run(cmd)
 
 ##
+# Taxa DBs
+def download_taxa():
+    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.taxa.tar.gz' %(DATABASE_VERSION)
+    cmd = (
+        f'cd {get_data_path()} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.taxa.tar.gz {url} && '
+        f'echo Decompressing... && '
+        f'tar -zxf eggnog.taxa.tar.gz && '
+        f'rm eggnog.taxa.tar.gz'
+    )
+    run(cmd)
+    
+##
 # Diamond DBs
 def download_diamond_db():
     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
@@ -145,11 +158,21 @@ if __name__ == "__main__":
             download_annotations()
         else:
             print('Skipping')
-
     else:
         if not args.quiet:
             print(colorify('Skipping eggnog.db database (already present). Use -f to force download', 'lblue'))
 
+            
+    if args.force or not pexists(pjoin(get_data_path(), 'eggnog.taxa.db')):
+        if args.allyes or ask("Download taxa database?") == 'y':
+            print(colorify('Downloading "eggnog.taxa.db" at %s...' %get_data_path(), 'green'))
+            download_taxa()
+        else:
+            print('Skipping')
+    else:
+        if not args.quiet:
+            print(colorify('Skipping eggnog.taxa.db database (already present). Use -f to force download', 'lblue'))
+            
     # if args.force or not pexists(pjoin(get_data_path(), 'OG_fasta')):
     #     if args.allyes or ask("Download OG fasta files for annotation refinement (~20GB after decompression)?") == 'y':
     #         print colorify('Downloading fasta files " at %s/OG_fasta...' %get_data_path(), 'green')
