@@ -62,8 +62,8 @@ def create_arg_parser():
                           help=f'Annotate TSV formatted table with 4 fields:'
                           f' query, hit, evalue, score. Requires -m {SEARCH_MODE_NO_SEARCH}.')
 
-    pg_input.add_argument('-c', dest="cache_dir", metavar='DIR', type=existing_dir,
-                          help=f'Directory containing annotations file (and optional orthologs file) with md5 of queries. '
+    pg_input.add_argument('-c', '--cache', dest="cache_file", metavar='FILE', type=existing_file,
+                          help=f'File containing annotations and md5 hashes of queries, to be used as cache. '
                           f'Required if -m {SEARCH_MODE_CACHE}')
         
     pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
@@ -275,7 +275,7 @@ def create_arg_parser():
                           f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, ignoring the --pfam_transfer option. ')
 
     pg_annot.add_argument("--md5", action="store_true",
-                          help="Adds the md5 hash of each query as an additional field in seed_orthologs, annotations and orthologs output files.")
+                          help="Adds the md5 hash of each query as an additional field in annotations output files.")
 
     ##
     pg_out = parser.add_argument_group('Output options')
@@ -478,11 +478,11 @@ def parse_args(parser):
             print(colorify(f"WARNING: --subject_cover has no effect on -m {SEARCH_MODE_HMMER} results", 'red'))
 
     elif args.mode == SEARCH_MODE_CACHE:
-        if args.cache_dir is None:
-                parser.error('A directory with annotations file (and optional orthologs file) is required (-c DIR)')
+        if args.cache_file is None:
+                parser.error('A file with annotations and md5 of queries is required (-c FILE)')
                 
-        if args.no_annot == True and args.report_orthologs == False:
-            parser.error(f'Cache mode (-m {SEARCH_MODE_CACHE}) should be used either to annotate or to report orthologs or both.')
+        if args.no_annot == True:
+            parser.error(f'Cache mode (-m {SEARCH_MODE_CACHE}) should be used to annotate.')
             
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if args.no_annot == False and not args.annotate_hits_table:
@@ -560,7 +560,7 @@ if __name__ == "__main__":
             args.translate = True
             
         emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
-        emapper.run(args, args.input, args.annotate_hits_table, args.cache_dir)
+        emapper.run(args, args.input, args.annotate_hits_table, args.cache_file)
 
         print(get_citation([args.mode]))
         print('Total time: %g secs' % (time.time()-_total_time))

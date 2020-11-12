@@ -118,7 +118,7 @@ class Annotator:
 
         # Output orthologs
         if self.report_orthologs == True:
-            self._output_orthologs(orthologs_file, all_orthologs, qn, elapsed_time, md5_queries)
+            self._output_orthologs(orthologs_file, all_orthologs, qn, elapsed_time)
             
         # Output annotations
         if self.annot == True:
@@ -127,7 +127,7 @@ class Annotator:
         return
     
     ##
-    def _output_orthologs(self, orthologs_file, all_orthologs, qn, elapsed_time, md5_queries):
+    def _output_orthologs(self, orthologs_file, all_orthologs, qn, elapsed_time):
         ncbi = NCBITaxa()
         ORTHOLOGS = open(orthologs_file, "w")
         
@@ -137,8 +137,6 @@ class Annotator:
 
         # Header
         header = ["#query", "orth_type", "species", "orthologs"]
-        if self.md5 == True and md5_queries is not None:
-            header.append("md5")        
         print('\t'.join(header), file=ORTHOLOGS)
         
         # Rows
@@ -169,11 +167,6 @@ class Annotator:
                         orth_names.append(orth_name)
                         
                     row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
-                    if self.md5 == True and md5_queries is not None:
-                        if query_name in md5_queries:
-                            row.append(md5_queries[query_name])
-                        else:
-                            row.append("-")
                     print('\t'.join(row), file=ORTHOLOGS)
 
         # Timings

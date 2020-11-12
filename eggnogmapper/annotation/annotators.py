@@ -5,10 +5,10 @@ from .cache_annotator import CacheAnnotator
 from .annotator import Annotator
 
 ##
-def get_cache_annotator(args, annot, report_orthologs):
+def get_cache_annotator(args):
     annotator = None
 
-    annotator = CacheAnnotator(args, annot, report_orthologs)
+    annotator = CacheAnnotator(args)
     
     return annotator
 
