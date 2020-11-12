@@ -11,8 +11,6 @@ import sqlite3
 from ...emapperException import EmapperException
 from ...common import get_ncbitaxadb_file
 
-TQFILE = open("test_queries.out", 'w')
-
 class NCBITaxa(object):
     """
     Provides a local transparent connector to the NCBI taxonomy database.
