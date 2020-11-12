@@ -269,6 +269,9 @@ def create_arg_parser():
                           f'{PFAM_REALIGN_REALIGN} = queries will be realigned to the PFAM domains found according to the --pfam_transfer option. '
                           f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, ignoring the --pfam_transfer option. ')
 
+    pg_annot.add_argument("--md5", action="store_true",
+                          help="Adds the md5 hash of each query as an additional field in annotations output file (also orthologs file if --report_orthologs.")
+
     ##
     pg_out = parser.add_argument_group('Output options')
 
@@ -541,7 +544,7 @@ if __name__ == "__main__":
             
         if args.itype == ITYPE_CDS:
             args.translate = True
-
+            
         emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table)
 

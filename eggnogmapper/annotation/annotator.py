@@ -17,6 +17,8 @@ from . import orthologs as ortho
 from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 from .ncbitaxa.ncbiquery import NCBITaxa
 
+from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
+
 HIT_HEADER = ["#query_name",
               "seed_eggNOG_ortholog",
               "seed_ortholog_evalue",
@@ -66,6 +68,7 @@ class Annotator:
     TAXONOMIC_RESOLUTION = None
     go_evidence = go_excluded = None
     pfam_realign = pfam_transfer = queries_fasta = translate = temp_dir = None
+    md5 = None
     
     ##
     def __init__(self, args, annot, report_orthologs):
@@ -102,8 +105,21 @@ class Annotator:
         self.translate = args.translate
         self.temp_dir = args.temp_dir
         
+        self.md5 = args.md5
+        
         return
 
+
+    def md5_seqs(self, fasta_file):
+        from hashlib import md5
+        md5_queries = {}
+        
+        for name, seq in iter_fasta_seqs(fasta_file):
+            md5_seq = md5(seq.encode('utf-8')).hexdigest()
+            md5_queries[name] = md5_seq
+            
+        return md5_queries
+        
     ##
     def annotate(self, seed_orthologs_file, annot_file, orthologs_file, pfam_file):
         
@@ -112,20 +128,37 @@ class Annotator:
         all_orthologs, all_annotations, qn, elapsed_time = self._annotate(seed_orthologs_file, pfam_file)
         db_sqlite.close()
 
+        if self.md5 == True:
+            md5_queries = self.md5_seqs(self.queries_fasta)
+        else:
+            md5_queries = None
+
         # Output orthologs
         if self.report_orthologs == True:
-            self._output_orthologs(orthologs_file, all_orthologs)
+            self._output_orthologs(orthologs_file, all_orthologs, qn, elapsed_time, md5_queries)
             
         # Output annotations
         if self.annot == True:
-            self._output_annotations(annot_file, all_annotations, qn, elapsed_time)
+            self._output_annotations(annot_file, all_annotations, qn, elapsed_time, md5_queries)
             
         return
     
     ##
-    def _output_orthologs(self, orthologs_file, all_orthologs):
+    def _output_orthologs(self, orthologs_file, all_orthologs, qn, elapsed_time, md5_queries):
         ncbi = NCBITaxa()
         ORTHOLOGS = open(orthologs_file, "w")
+        
+        if not self.no_file_comments:        
+            # Call info
+            print(get_call_info(), file=ORTHOLOGS)
+
+        # Header
+        header = ["#query", "orth_type", "species", "orthologs"]
+        if self.md5 == True and md5_queries is not None:
+            header.append("md5")        
+        print('\t'.join(header), file=ORTHOLOGS)
+        
+        # Rows
         for query_name in all_orthologs:
             query_orthologs = all_orthologs[query_name]
 
@@ -151,26 +184,49 @@ class Annotator:
                         if orth in annot_orthologs:
                             orth_name = f"*{orth_name}"
                         orth_names.append(orth_name)
-                    print('\t'.join([query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]), file=ORTHOLOGS)
+                        
+                    row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+                    if self.md5 == True and md5_queries is not None:
+                        if query_name in md5_queries:
+                            row.append(md5_queries[query_name])
+                        else:
+                            row.append("-")
+                    print('\t'.join(row), file=ORTHOLOGS)
 
+        # Timings
+        if not self.no_file_comments:
+            print('# %d queries scanned' % (qn), file=ORTHOLOGS)
+            print('# Total time (seconds):', elapsed_time, file=ORTHOLOGS)
+            print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=ORTHOLOGS)
+            
         ORTHOLOGS.close()
         
         return
 
-    def _output_annotations(self, annot_file, all_annotations, qn, elapsed_time):
+    def _output_annotations(self, annot_file, all_annotations, qn, elapsed_time, md5_queries):
         OUT = open(annot_file, "w")
 
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
+            
             print('\t'.join(HIT_HEADER), end="\t", file=OUT)
 
             # If tax_scope_mode == narrowest there is no need to output best_og colums
             if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
                 print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)
 
-            print('\t'.join(ANNOTATIONS_HEADER), file=OUT)
+            annot_header = ANNOTATIONS_HEADER
+            if self.md5 == True and md5_queries is not None:
+                annot_header.append("md5")
+            print('\t'.join(annot_header), file=OUT)
 
         for annot_columns in all_annotations:
+            if self.md5 == True and md5_queries is not None:
+                query_name = annot_columns[0]
+                if query_name in md5_queries:
+                    annot_columns.append(md5_queries[query_name])
+                else:
+                    annot_columns.append("-")
             print('\t'.join(annot_columns), file=OUT)
 
         if not self.no_file_comments:
