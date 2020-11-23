@@ -419,7 +419,7 @@ def annotate_hit_line(arguments):
                 else:
                     narr_annot_levels = set()
                     narr_annot_levels.add(narr_og_level)
-                    narr_orthologies = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names)
+                    narr_orthologies, _ = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names)
                 
                 # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
                 narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
