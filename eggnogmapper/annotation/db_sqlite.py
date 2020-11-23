@@ -2,7 +2,7 @@
 
 import sqlite3
 
-from ..common import get_eggnogdb_file
+from ..common import get_eggnogdb_file, existing_file
 
 conn = None
 db = None
@@ -11,6 +11,7 @@ db = None
 def connect():
     global conn, db
     if not conn:
+        existing_file(get_eggnogdb_file())
         conn = sqlite3.connect(get_eggnogdb_file())
         db = conn.cursor()
         db.execute("PRAGMA synchronous=OFF;")

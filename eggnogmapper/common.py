@@ -168,13 +168,15 @@ def get_full_version_info():
     try:
         db_version = get_db_version()
     except Exception as e:
+        print(colorify(f"There was an error retrieving eggnog-mapper DB data: {e}", 'red'))
+        print(colorify("Maybe you need to run download_eggnog_data.py", 'white'))
         db_version = "unknown"
         
     if db_version is not None:
         version = f"{version} / Installed eggNOG DB version: {db_version}"
 
     if exp_db_version is not None and db_version is not None:
-        if exp_db_version != db_version:
+        if exp_db_version != db_version and db_version != "unknown":
             print(colorify(f"Warning: expected DB version ({exp_db_version}) is different than the one found ({db_version}).", 'red'))
 
     dmnd_version = get_diamond_version()
