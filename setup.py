@@ -2,8 +2,8 @@
 import os, sys
 from setuptools import setup, find_packages
 
-if sys.version_info < (3,8):
-    sys.exit('Sorry, Python < 3.8 is not supported')
+if sys.version_info < (3,7):
+    sys.exit('Sorry, Python < 3.7 is not supported')
     
 #HERE = os.path.abspath(os.path.split(os.path.realpath(__file__))[0])
 
@@ -16,7 +16,7 @@ CLASSIFIERS= [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.7",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Software Development :: Libraries :: Python Modules",
     ]
