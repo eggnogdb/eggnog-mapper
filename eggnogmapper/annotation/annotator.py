@@ -185,16 +185,16 @@ class Annotator:
         if not self.no_file_comments:
             print(get_call_info(), file=OUT)
             
-            print('\t'.join(HIT_HEADER), end="\t", file=OUT)
+        print('\t'.join(HIT_HEADER), end="\t", file=OUT)
 
-            # If tax_scope_mode == narrowest there is no need to output best_og colums
-            if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
-                print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)
+        # If tax_scope_mode == narrowest there is no need to output best_og colums
+        if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
+            print('\t'.join(BEST_OG_HEADER), end="\t", file=OUT)
 
-            annot_header = ANNOTATIONS_HEADER
-            if self.md5 == True and md5_queries is not None:
-                annot_header.append("md5")
-            print('\t'.join(annot_header), file=OUT)
+        annot_header = ANNOTATIONS_HEADER
+        if self.md5 == True and md5_queries is not None:
+            annot_header.append("md5")
+        print('\t'.join(annot_header), file=OUT)
 
         for annot_columns in all_annotations:
             if self.md5 == True and md5_queries is not None:
@@ -281,8 +281,8 @@ class Annotator:
         except EmapperException:
             raise
         except Exception as e:
-            import traceback
-            traceback.print_exc()
+            # import traceback
+            # traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
             pool.terminate()
@@ -353,11 +353,11 @@ def annotate_hit_line(arguments):
         match_nogs = get_member_ogs(best_hit_name)
         if not match_nogs:
             return None
-        
+            
         ##
         # Obtain names of OGs, narrowest OG, and the best OG according to tax_scope
         match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution)
-        
+            
         annot_levels = set()
         annot_levels.add(best_og_level)
         
@@ -389,16 +389,20 @@ def annotate_hit_line(arguments):
         # annot_levels are used to restrict the speciation events retrieved
         # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
         try:
-            all_orthologies = ortho.get_member_orthologs(best_hit_name, target_levels=annot_levels)
+            all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names)
+            if best_OG is not None:
+                best_og_name = best_OG
+                best_og_id = best_OG.split("|")[0].split("@")[0]
+                best_og_level = best_OG.split("|")[0].split("@")[1]
+                best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
 
         except Exception as e:
-            # print(str(e))
-            orthologs = None
-            status = 'Error'
+            # import traceback
+            # traceback.print_exc()
+            raise e
         else:
             # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
             orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
-            status = 'OK'
         
         ##
         # Retrieve annotations of co-orthologs
@@ -410,9 +414,13 @@ def annotate_hit_line(arguments):
                                                        excluded_go_ev = go_excluded)
             
             if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
-                narr_annot_levels = set()
-                narr_annot_levels.add(narr_og_level)
-                narr_orthologies = ortho.get_member_orthologs(best_hit_name, target_levels=narr_annot_levels)
+                if best_og_level == narr_og_level:
+                    narr_orthologies = all_orthologies
+                else:
+                    narr_annot_levels = set()
+                    narr_annot_levels.add(narr_og_level)
+                    narr_orthologies = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names)
+                
                 # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
                 narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
                 

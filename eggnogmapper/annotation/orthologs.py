@@ -1,45 +1,80 @@
 ##
 
+# from ..utils import colorify
+
 from . import db_sqlite as db_sqlite
 
-def get_member_orthologs(member, target_levels=None):
+def get_member_orthologs(member, target_levels, all_nogs):
+    
+    # Try to setup orthology using best OG
+    
+    orthology = __setup_orthology(member, target_levels)
+    if orthology is not None and len(orthology) > 0:
+        all_orthologs = __load_orthology(orthology)
+        best_OG = None
+    else:
+        
+        # If no orthology from best OG, try using other NOGs from narrowest to widest
 
+        for nog in reversed(all_nogs):
+            nog_level = nog.split("|")[0].split("@")[1]
+            orthology = __setup_orthology(member, [nog_level])
+            
+            if orthology is not None and len(orthology) > 0:
+                # print(colorify(f"Warning: we found no orthologs for auto best OG for {member}. Using OG {nog} for annotation.", 'orange'))
+                all_orthologs = __load_orthology(orthology)
+                best_OG = nog
+                break
+
+        # If no orthology found, use seed ortholog for annotation
+        
+        if orthology is None or len(orthology) == 0:
+            # print(colorify(f"Warning: we found no orthologs for {member}. Using seed ortholog for annotation.", 'orange'))
+            all_orthologs = {
+                "one2one": {member},
+                "one2many": set(),
+                "many2many": set(),
+                "many2one": set(),
+                "all": {member},
+            }
+            best_OG = None
+
+    return all_orthologs, best_OG
+
+
+def __load_orthology(orthology):
     all_orthologs = {
         "one2one": set(),
         "one2many": set(),
         "many2many": set(),
         "many2one": set(),
         "all": set(),
-    }
-    # each set contains a list of taxa.sequence items
+    } # each set contains a list of taxa.sequence items
     
-    orthology = __setup_orthology(member, target_levels)
-
     # k: (species, list_of_co-orthologs_species)
     # v: set of species with orthologs:  set((species1, list_orths), (species2, list_orths), ...)
     for k, v in orthology.items():
 
         all_orthologs['all'].update(k[1])
-        
+
         if len(k[1]) == 1:
             otype_prefix = "one2"
         else:
             otype_prefix = "many2"
-        
+
         for t2, co2 in v:
 
             all_orthologs['all'].update(co2)
-            
+
             if len(co2) == 1:
                 otype = otype_prefix + "one"
             else:
                 otype = otype_prefix + "many"
-                
+
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
-
+            
     return all_orthologs
-
 
 def __setup_orthology(member, target_levels):
     orthology = {}
