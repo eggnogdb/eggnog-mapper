@@ -123,22 +123,26 @@ def get_pfam_annotations(seq_names):
 
 def get_member_events(member, target_levels):
     db.execute('SELECT orthoindex FROM orthologs WHERE name == ?', (member.strip(),))
-    event_indexes = str(db.fetchone()[0])
-    
-    # if target_levels is not None and len(target_levels) > 0:
-    #     levels = ",".join([f'"{x}"' for x in target_levels])
-    #     db.execute(f'SELECT level, side1, side2 FROM event WHERE i IN ({event_indexes}) AND level IN ({levels})')
-    # else:
-    #     db.execute(f'SELECT level, side1, side2 FROM event WHERE i IN ({event_indexes})')
-    
-    # return db.fetchall()
+    event_indexes = db.fetchone()
+    if event_indexes is not None and len(event_indexes) > 0:
+        event_indexes = str(event_indexes[0])
 
-    # this one looks like faster than the code above
-    all_queries = [(int(x),y) for x in event_indexes.split(",") for y in target_levels]
-    for query in all_queries:
-        db.execute('SELECT level, side1, side2 FROM event WHERE i == ? AND level == ?', query)
-        for level, _side1, _side2 in db.fetchall():
-            yield level, _side1, _side2
+        # if target_levels is not None and len(target_levels) > 0:
+        #     levels = ",".join([f'"{x}"' for x in target_levels])
+        #     db.execute(f'SELECT level, side1, side2 FROM event WHERE i IN ({event_indexes}) AND level IN ({levels})')
+        # else:
+        #     db.execute(f'SELECT level, side1, side2 FROM event WHERE i IN ({event_indexes})')
+
+        # return db.fetchall()
+
+        # this one looks like faster than the code above
+        all_queries = [(int(x),y) for x in event_indexes.split(",") for y in target_levels]
+            
+        for query in all_queries:
+            db.execute('SELECT level, side1, side2 FROM event WHERE i == ? AND level == ?', query)
+            all_levels = db.fetchall()
+            for level, _side1, _side2 in all_levels:
+                yield level, _side1, _side2
 
     return
 
