@@ -11,6 +11,8 @@ import shutil
 import errno
 from subprocess import Popen, PIPE, run, CalledProcessError
 
+from .utils import colorify
+
 try:
     from .version import __VERSION__
     from .version import __DB_VERSION__
