@@ -3,6 +3,9 @@
 import os, sys, time, traceback
 import argparse, multiprocessing
 
+if sys.version_info < (3,8):
+    sys.exit('Sorry, Python < 3.8 is not supported')
+    
 # get the path of this script and add it to the "pythonpath"
 SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
