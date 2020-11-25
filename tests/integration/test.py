@@ -608,7 +608,8 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with diamond
         '''
-
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o test --output_dir tmp_borrar
+        
         ##
         # Setup test
         
@@ -675,6 +676,8 @@ class Test(unittest.TestCase):
         Test gene prediction with mmseqs
         '''
 
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search -m mmseqs --no_annot --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o test --output_dir tmp_borrar
+        
         ##
         # Setup test
         

@@ -170,17 +170,14 @@ class Emapper:
                 qend = hit[5]
                 sstart = hit[6]
                 send = hit[7]
-                if sstart >= send:
+                if qstart <= qend:
                     strand = "+"
                 else:
                     strand = "-"
+                    qend = hit[4]
+                    qstart = hit[5]
 
-                if sstart % 3 == 1:
-                    frame = "0"
-                elif sstart % 3 == 2:
-                    frame = "1"
-                else: # if sstart % 3 == 0:
-                    frame = "2"
+                frame = "-" # we cannot know the frame as we align against proteins
                     
                 if query in hits_dict:
                     hits_dict[query] += 1

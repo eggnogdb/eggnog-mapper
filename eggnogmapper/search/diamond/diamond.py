@@ -147,7 +147,7 @@ class DiamondSearcher:
             completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
         except subprocess.CalledProcessError as cpe:
             raise EmapperException("Error running diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
-
+        
         return cmd
 
 
@@ -197,7 +197,7 @@ class DiamondSearcher:
         ##
     def _parse_genepred(self, raw_dmnd_file):
         hits = []
-
+        
         visited = set()
         with open(raw_dmnd_file, 'r') as raw_f:
             for line in raw_f:
@@ -228,7 +228,8 @@ class DiamondSearcher:
 
                 if not self._does_overlap(hit, hits):
                     hits.append(hit)
-            
+                # hits.append(hit)
+        
         return hits
 
     def _does_overlap(self, hit, hits):
@@ -236,19 +237,44 @@ class DiamondSearcher:
         
         hitstart = hit[4]
         hitend = hit[5]
+        if hitstart > hitend:
+            hitend = hit[4]
+            hitstart = hit[5]
 
         for o in hits:
             ostart = o[4]
             oend = o[5]
+            if ostart > oend:
+                oend = o[4]
+                ostart = o[5]
+                
             overlap = None
+            OVERLAP_TOLERANCE = oend - (ostart - 1) / 3
+            
+            # no overlap
             if hitend <= ostart:
                 overlap = hitend - ostart
+                
+            # no overlap
             elif hitstart >= oend:
                 overlap = oend - hitstart
-            else:
+                
+            # envelopes
+            elif (hitstart >= ostart and hitend <= oend) or (ostart >= hitstart and oend <= hitend):
                 overlap_start = max(hitstart, ostart)
                 overlap_end = min(hitend, oend)
                 overlap = overlap_end - (overlap_start - 1)
+                
+            # overlap, no envelope
+            else:
+                hang_left = abs(hitstart - ostart)
+                hang_right = abs(hitend - oend)
+                if hang_left > OVERLAP_TOLERANCE or hang_right > OVERLAP_TOLERANCE:
+                    overlap = -1
+                else:
+                    overlap_start = max(hitstart, ostart)
+                    overlap_end = min(hitend, oend)
+                    overlap = overlap_end - (overlap_start - 1)
 
             if overlap > 0:
                 does_overlap = True
