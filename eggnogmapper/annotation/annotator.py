@@ -598,7 +598,7 @@ def get_member_ogs(name):
 
 
 def get_og_description(og, level):
-    best = [None, '', '']
+    best = ['-', '-', '-']
     
     for og, nm, desc, cat in db_sqlite.get_ogs_description(og, level):
         desc = desc.strip()
