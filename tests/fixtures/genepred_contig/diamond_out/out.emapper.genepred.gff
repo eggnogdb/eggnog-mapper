@@ -1,5 +1,5 @@
 ##gff-version 3
-# emapper-2.0.2-rf1-82-g15f21bf
-0	eggNOG-mapper	CDS	337	2796	1597.8	-	0	ID=0_0;score=1597.8;evalue=0.0;eggnog5_target=316407.85674276;sstart=1;send=820;searcher=diamond
-0	eggNOG-mapper	CDS	2801	3730	629.0	-	0	ID=0_1;score=629.0;evalue=1.2e-183;eggnog5_target=316407.85674277;sstart=1;send=310;searcher=diamond
-0	eggNOG-mapper	CDS	3734	5017	857.4	-	0	ID=0_2;score=857.4;evalue=2e-252;eggnog5_target=316407.21321894;sstart=1;send=428;searcher=diamond
+# emapper-2.0.2-rf1-115-gc0e02f9
+0	eggNOG-mapper	CDS	337	2796	1597.8	+	-	ID=0_0;score=1597.8;evalue=0.0;eggnog5_target=316407.85674276;sstart=1;send=820;searcher=diamond
+0	eggNOG-mapper	CDS	2801	3730	629.0	+	-	ID=0_1;score=629.0;evalue=1.2e-183;eggnog5_target=316407.85674277;sstart=1;send=310;searcher=diamond
+0	eggNOG-mapper	CDS	3734	5017	857.4	+	-	ID=0_2;score=857.4;evalue=2e-252;eggnog5_target=316407.21321894;sstart=1;send=428;searcher=diamond
