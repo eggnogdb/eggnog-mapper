@@ -12,6 +12,7 @@ from ...emapperException import EmapperException
 from ...utils import colorify
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
+from ..diamond.diamond import hit_does_overlap
 
 
 class MMseqs2Searcher:
@@ -303,35 +304,10 @@ class MMseqs2Searcher:
                 
                 hit = [query, hit, evalue, score, qstart, qend, sstart, send]
 
-                if not self._does_overlap(hit, hits):
+                if not hit_does_overlap(hit, hits):
                     hits.append(hit)
                 
         return hits
-    
-    def _does_overlap(self, hit, hits):
-        does_overlap = False
-        
-        hitstart = hit[4]
-        hitend = hit[5]
-
-        for o in hits:
-            ostart = o[4]
-            oend = o[5]
-            overlap = None
-            if hitend <= ostart:
-                overlap = hitend - ostart
-            elif hitstart >= oend:
-                overlap = oend - hitstart
-            else:
-                overlap_start = max(hitstart, ostart)
-                overlap_end = min(hitend, oend)
-                overlap = overlap_end - (overlap_start - 1)
-
-            if overlap > 0:
-                does_overlap = True
-                break
-                
-        return does_overlap
     
 
     ##

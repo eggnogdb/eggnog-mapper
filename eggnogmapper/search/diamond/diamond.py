@@ -24,6 +24,8 @@ SENSMODE_ULTRA_SENSITIVE = "ultra-sensitive"
 # sens modes in diamond 2.0.4
 SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
 
+OVERLAP_TOL_FRACTION = 1/3
+
 class DiamondSearcher:
 
     name = "diamond"
@@ -226,62 +228,11 @@ class DiamondSearcher:
                 
                 hit = [query, hit, evalue, score, qstart, qend, sstart, send]
 
-                if not self._does_overlap(hit, hits):
+                if not hit_does_overlap(hit, hits):
                     hits.append(hit)
                 # hits.append(hit)
         
         return hits
-
-    def _does_overlap(self, hit, hits):
-        does_overlap = False
-        
-        hitstart = hit[4]
-        hitend = hit[5]
-        if hitstart > hitend:
-            hitend = hit[4]
-            hitstart = hit[5]
-
-        for o in hits:
-            ostart = o[4]
-            oend = o[5]
-            if ostart > oend:
-                oend = o[4]
-                ostart = o[5]
-                
-            overlap = None
-            OVERLAP_TOLERANCE = oend - (ostart - 1) / 3
-            
-            # no overlap
-            if hitend <= ostart:
-                overlap = hitend - ostart
-                
-            # no overlap
-            elif hitstart >= oend:
-                overlap = oend - hitstart
-                
-            # envelopes
-            elif (hitstart >= ostart and hitend <= oend) or (ostart >= hitstart and oend <= hitend):
-                overlap_start = max(hitstart, ostart)
-                overlap_end = min(hitend, oend)
-                overlap = overlap_end - (overlap_start - 1)
-                
-            # overlap, no envelope
-            else:
-                hang_left = abs(hitstart - ostart)
-                hang_right = abs(hitend - oend)
-                if hang_left > OVERLAP_TOLERANCE or hang_right > OVERLAP_TOLERANCE:
-                    overlap = -1
-                else:
-                    overlap_start = max(hitstart, ostart)
-                    overlap_end = min(hitend, oend)
-                    overlap = overlap_end - (overlap_start - 1)
-
-            if overlap > 0:
-                does_overlap = True
-                break
-                
-        return does_overlap
-
 
     ##
     def output_diamond(self, cmd, hits, out_file):
@@ -327,5 +278,71 @@ class DiamondSearcher:
                 print('\t'.join(map(str, [f"{query}_{suffix}", target, str(evalue), str(score)])), file=OUT)
                 
         return
+
+def hit_does_overlap(hit, hits):
+    does_overlap = False
+
+    hitstart = hit[4]
+    hitend = hit[5]
+    if hitstart > hitend:
+        hitend = hit[4]
+        hitstart = hit[5]
+
+    for o in hits:
+        ostart = o[4]
+        oend = o[5]
+        if ostart > oend:
+            oend = o[4]
+            ostart = o[5]
+
+        overlap = get_overlap(hitstart, hitend, ostart, oend)
+
+        if overlap is not None and overlap > 0:
+            does_overlap = True
+            break
+
+    return does_overlap
+
+
+def get_overlap(hitstart, hitend, ostart, oend):
+    overlap = None
+
+    # no overlap
+    if hitend <= ostart:
+        overlap = hitend - ostart
+
+    # no overlap
+    elif hitstart >= oend:
+        overlap = oend - hitstart
+
+    # envelopes
+    elif (hitstart >= ostart and hitend <= oend) or (ostart >= hitstart and oend <= hitend):
+        overlap_start = max(hitstart, ostart)
+        overlap_end = min(hitend, oend)
+        overlap = overlap_end - (overlap_start - 1)
+
+    # overlap, no envelope
+    else:
+        hittol = (hitend - (hitstart - 1)) * OVERLAP_TOL_FRACTION
+        otol = (oend - (ostart - 1)) * OVERLAP_TOL_FRACTION
+        # the tolerance to apply to each end
+        # depends on which sequence overhangs on that specific end
+        if hitstart < ostart:
+            tol1 = hittol
+            tol2 = otol
+        else:
+            tol1 = otol
+            tol2 = hittol
+
+        hang_left = abs(hitstart - ostart)
+        hang_right = abs(hitend - oend)
+
+        if hang_left > tol1 and hang_right > tol2:
+            overlap = -1 # consider as no overlapping
+        else:
+            overlap_start = max(hitstart, ostart)
+            overlap_end = min(hitend, oend)
+            overlap = overlap_end - (overlap_start - 1)
+    return overlap
 
 ## END
