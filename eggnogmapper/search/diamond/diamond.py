@@ -304,45 +304,49 @@ def hit_does_overlap(hit, hits):
     return does_overlap
 
 
-def get_overlap(hitstart, hitend, ostart, oend):
+def get_overlap(hitstart, hitend, ostart, oend, allow_diff_frame = False):
     overlap = None
 
-    # no overlap
-    if hitend <= ostart:
-        overlap = hitend - ostart
+    if abs(hitstart - ostart) % 3 != 0 and allow_diff_frame == False:
+        overlap = None
+    else:        
+        # no overlap
+        if hitend <= ostart:
+            overlap = hitend - ostart
 
-    # no overlap
-    elif hitstart >= oend:
-        overlap = oend - hitstart
+        # no overlap
+        elif hitstart >= oend:
+            overlap = oend - hitstart
 
-    # envelopes
-    elif (hitstart >= ostart and hitend <= oend) or (ostart >= hitstart and oend <= hitend):
-        overlap_start = max(hitstart, ostart)
-        overlap_end = min(hitend, oend)
-        overlap = overlap_end - (overlap_start - 1)
-
-    # overlap, no envelope
-    else:
-        hittol = (hitend - (hitstart - 1)) * OVERLAP_TOL_FRACTION
-        otol = (oend - (ostart - 1)) * OVERLAP_TOL_FRACTION
-        # the tolerance to apply to each end
-        # depends on which sequence overhangs on that specific end
-        if hitstart < ostart:
-            tol1 = hittol
-            tol2 = otol
-        else:
-            tol1 = otol
-            tol2 = hittol
-
-        hang_left = abs(hitstart - ostart)
-        hang_right = abs(hitend - oend)
-
-        if hang_left > tol1 and hang_right > tol2:
-            overlap = -1 # consider as no overlapping
-        else:
+        # envelopes
+        elif (hitstart >= ostart and hitend <= oend) or (ostart >= hitstart and oend <= hitend):
             overlap_start = max(hitstart, ostart)
             overlap_end = min(hitend, oend)
             overlap = overlap_end - (overlap_start - 1)
+
+        # overlap, no envelope
+        else:
+            hittol = (hitend - (hitstart - 1)) * OVERLAP_TOL_FRACTION
+            otol = (oend - (ostart - 1)) * OVERLAP_TOL_FRACTION
+            # the tolerance to apply to each end
+            # depends on which sequence overhangs on that specific end
+            if hitstart < ostart:
+                tol1 = hittol
+                tol2 = otol
+            else:
+                tol1 = otol
+                tol2 = hittol
+
+            hang_left = abs(hitstart - ostart)
+            hang_right = abs(hitend - oend)
+
+            if hang_left > tol1 and hang_right > tol2:
+                overlap = -1 # consider as no overlapping
+            else:
+                overlap_start = max(hitstart, ostart)
+                overlap_end = min(hitend, oend)
+                overlap = overlap_end - (overlap_start - 1)
+            
     return overlap
 
 ## END
