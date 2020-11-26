@@ -144,13 +144,13 @@ def create_arg_parser():
     pg_mmseqs.add_argument('--mmseqs_db', dest="mmseqs_db", metavar='MMSEQS_DB_FILE',
 		           help="Path to MMseqs2-compatible database")
 
-    pg_mmseqs.add_argument('--start_sens', dest='start_sens', default=3, type=int, metavar='START_SENS',
+    pg_mmseqs.add_argument('--start_sens', dest='start_sens', default=3, type=float, metavar='START_SENS',
                            help="Starting sensitivity. Default=3")
 
     pg_mmseqs.add_argument('--sens_steps', dest='sens_steps', default=3, type=int, metavar='SENS_STEPS',
                            help="Number of sensitivity steps. Default=3")
 
-    pg_mmseqs.add_argument('--final_sens', dest='final_sens', default=7, type=int, metavar='FINAL_SENS',
+    pg_mmseqs.add_argument('--final_sens', dest='final_sens', default=7, type=float, metavar='FINAL_SENS',
                            help="Final sensititivy step. Default=7")
 
     pg_mmseqs.add_argument('--mmseqs_sub_mat', dest='mmseqs_sub_mat', default=None, type=str, metavar='SUBS_MATRIX',
