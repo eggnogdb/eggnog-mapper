@@ -142,6 +142,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    print("CHANGEDDDDDDDDDDDDDD")
+
     if args.data_dir:
         set_data_path(args.data_dir)
 
