@@ -196,9 +196,11 @@ class DiamondSearcher:
             
         return hits
 
-        ##
+    ##
     def _parse_genepred(self, raw_dmnd_file):
         hits = []
+        curr_query_hits = []
+        prev_query = None
         
         visited = set()
         with open(raw_dmnd_file, 'r') as raw_f:
@@ -228,9 +230,15 @@ class DiamondSearcher:
                 
                 hit = [query, hit, evalue, score, qstart, qend, sstart, send]
 
-                if not hit_does_overlap(hit, hits):
+                if query == prev_query:
+                    if not hit_does_overlap(hit, curr_query_hits):
+                        hits.append(hit)
+                        curr_query_hits.append(hit)
+                else:
                     hits.append(hit)
-                # hits.append(hit)
+                    curr_query_hits = [hit]
+                    
+                prev_query = query
         
         return hits
 
@@ -307,6 +315,9 @@ def hit_does_overlap(hit, hits):
 def get_overlap(hitstart, hitend, ostart, oend, allow_diff_frame = False):
     overlap = None
 
+    # if different frame and not allow different frame to compute overlap
+    # return overlap None
+    # If allow different frame is True, overlap will be computed
     if abs(hitstart - ostart) % 3 != 0 and allow_diff_frame == False:
         overlap = None
     else:        
