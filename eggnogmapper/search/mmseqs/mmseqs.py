@@ -265,6 +265,9 @@ class MMseqs2Searcher:
         # (11) E-value, and (12) bit score.
         
         hits = []
+        curr_query_hits = []
+        prev_query = None
+        
         
         with open(raw_mmseqs_file, 'r') as raw_f:
             for line in raw_f:
@@ -304,8 +307,16 @@ class MMseqs2Searcher:
                 
                 hit = [query, hit, evalue, score, qstart, qend, sstart, send]
 
-                if not hit_does_overlap(hit, hits):
+                if query == prev_query:
+                    if not hit_does_overlap(hit, curr_query_hits):
+                        hits.append(hit)
+                        curr_query_hits.append(hit)
+                else:
                     hits.append(hit)
+                    curr_query_hits = [hit]
+                    
+                prev_query = query
+                    
                 
         return hits
     
