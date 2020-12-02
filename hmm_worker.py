@@ -12,6 +12,7 @@ from eggnogmapper.common import TIMEOUT_LOAD_SERVER
 from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer.hmmer_server import load_worker
+from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT
 
 __description__ = ('A worker for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
@@ -36,7 +37,7 @@ def create_arg_parser():
     pg_master.add_argument('-@', '--host', dest='host', metavar='HOST',
                        help=('IP address or hostname of HMM master server'))
 
-    pg_master.add_argument('-p', '--port', type=int, dest='port', default=53001, metavar='PORT',
+    pg_master.add_argument('-p', '--port', type=int, dest='port', default=DEFAULT_PORT, metavar='PORT',
                           help=('Port used to connect to the HMM master server'))
         
     return parser

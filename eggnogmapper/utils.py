@@ -182,7 +182,7 @@ def ask_filename(text):
         fname = eval(input(text))
     return fname
 
-def ask(string, valid_values=None, default=-1, case_sensitive=False, color='green'):    
+def ask(string, valid_values=None, default=-1, case_sensitive=False, color='yellow'):    
     """ Asks for a keyborad answer """
     if not valid_values:
         valid_values = ['y', 'n']
@@ -191,12 +191,21 @@ def ask(string, valid_values=None, default=-1, case_sensitive=False, color='gree
         valid_values = [value.lower() for value in valid_values]
     while v not in valid_values:
         if color:
-            string = colorify(string, "yellow")
+            string = colorify(string, color)
         v = input("%s [%s] " % (string,','.join(valid_values) ))
         if v == '' and default >= 0:
             v = valid_values[default]
         if not case_sensitive:
             v = v.lower()
+    return v
+
+def ask_name(string, default=-1):
+    """ Asks for a keyborad answer """
+    v = None
+    # while v is None or v.strip() == "":
+    v = input(colorify(f"{string} [default:{default}]: ", "yellow"))
+    if v is None or v.strip() == "":
+        v = default
     return v
 
 def timeit(f):

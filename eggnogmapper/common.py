@@ -116,15 +116,24 @@ PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'bin', 'prodigal.linu
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
-def get_fasta_path(): return pjoin(DATA_PATH, "OG_fasta")
-def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmdb_levels")
 def get_eggnogdb_file(): return pjoin(DATA_PATH, "eggnog.db")
 def get_ncbitaxadb_file(): return pjoin(DATA_PATH, "eggnog.taxa.db")
-def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 def get_eggnog_dmnd_db(): return pjoin(DATA_PATH, "eggnog_proteins.dmnd")
+def get_eggnog_mmseqs_dbpath(): return pjoin(DATA_PATH, "mmseqs")
 def get_eggnog_mmseqs_db(): return pjoin(DATA_PATH, "mmseqs", "mmseqs.db")
+def get_pfam_dbpath(): return pjoin(DATA_PATH, "pfam")
 def get_pfam_db(): return pjoin(DATA_PATH, "pfam", "Pfam-A.hmm")
 def get_pfam_clans_file(): return pjoin(DATA_PATH, "pfam", "Pfam-A.clans.tsv.gz")
+def get_hmmer_dbpath(dbname): return pjoin(DATA_PATH, 'hmmer', dbname, dbname+".hmm")
+def get_hmmer_base_dbpath(dbname): return pjoin(DATA_PATH, 'hmmer', dbname)
+def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmer")
+def get_OG_fasta_path(dbname, og): return pjoin(DATA_PATH, 'hmmer', dbname, f"{og}.fa")
+def get_hmmer_databases(): return os.listdir(get_hmmdb_path())
+
+# def get_fasta_path(): return pjoin(DATA_PATH, "OG_fasta")
+# def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmdb_levels")
+
+def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 
 def set_data_path(data_path):
     global DATA_PATH
@@ -253,26 +262,19 @@ def get_mmseqs_version():
     return mmseqs_version
 
 
-def get_level_base_path(level):
-    if level == 'euk':
-        level = 'euk_500'
-    elif level == 'bact':
-        level = 'bact_50'
-    elif level == 'arch':
-        level = 'arch_1'
-    else:
-        level = level+"_hmm"
-    return level
+# def get_level_base_path(level):
+#     if level == 'euk':
+#         level = 'euk_500'
+#     elif level == 'bact':
+#         level = 'bact_50'
+#     elif level == 'arch':
+#         level = 'arch_1'
+#     else:
+#         level = level+"_hmm"
+#     return level
 
 def get_db_info(level):
-    if level == 'euk':
-        return (pjoin(get_hmmdb_path(),"euk_500/euk_500.hmm"), EGGNOG_DATABASES[level])
-    elif level == 'bact':
-        return (pjoin(get_hmmdb_path(),"bact_50/bact_50.hmm"), EGGNOG_DATABASES[level])
-    elif level == 'arch':
-        return (pjoin(get_hmmdb_path(),"arch_1/arch_1.hmm"), EGGNOG_DATABASES[level])
-    else:
-        return (pjoin(get_hmmdb_path(), level+"_hmm", level + "_hmm.all_hmm"), EGGNOG_DATABASES[level])
+    return (get_hmmer_dbpath(level), EGGNOG_DATABASES[level])
 
 def get_db_present(level):
     dbpath, port = get_db_info(level)
