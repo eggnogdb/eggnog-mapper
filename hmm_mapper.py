@@ -14,6 +14,7 @@ from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.hmm_mapper import HmmMapper
 
 from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
+from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 
 
 __description__ = ('A program wrapping HMM in-memory searches')
@@ -69,6 +70,12 @@ def create_arg_parser():
                     If --dbtype hmm, the database must be a hmmpress-ed database.
                     If --dbtype seqdb, the database must be a HMMER-format database created with esl-reformat.
                     Database will be unloaded after execution.''')
+
+    pg_hmmer.add_argument('-p', '--port', dest='port', type=int, default=DEFAULT_PORT, metavar='PORT',
+                          help=('Port used to setup HMM server, when --usemem'))
+    
+    pg_hmmer.add_argument('--end_port', dest='end_port', type=int, default=DEFAULT_END_PORT, metavar='PORT',
+                          help=('Last port to be used to setup HMM server, when --usemem'))
 
     pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
                           help="When using --usemem, specify the number of servers to fire up."

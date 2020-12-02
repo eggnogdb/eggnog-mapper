@@ -9,6 +9,7 @@ from ...common import get_pfam_db, get_call_info, ESL_REFORMAT
 
 from ...search.hmmer.hmmer import HmmerSearcher
 from ...search.hmmer.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
+from ...search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 
 ##
 def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
@@ -25,6 +26,8 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     pfam_args = Namespace(call_info = get_call_info(),
                           cpu = cpu,
                           usemem = usemem,
+                          port = DEFAULT_PORT,
+                          end_port = DEFAULT_END_PORT,
                           num_servers = num_servers,
                           num_workers = num_workers,
                           cpus_per_worker = cpus_per_worker,
@@ -65,6 +68,8 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     pfam_args = Namespace(call_info = get_call_info(),
                           cpu = cpu,
                           usemem = usemem,
+                          port = DEFAULT_PORT,
+                          end_port = DEFAULT_END_PORT,
                           num_servers = num_servers,
                           num_workers = num_workers,
                           cpus_per_worker = cpus_per_worker,
@@ -94,9 +99,12 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
 def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
-    
+
+    # If query number < 100, use hmmscan
     if query_number < 100:
         usemem = False
+        port = DEFAULT_PORT,
+        end_port = DEFAULT_END_PORT,
         num_servers = cpu
         num_workers = 1
         cpus_per_worker = 1
@@ -107,22 +115,15 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
         qtype = QUERY_TYPE_SEQ
         clean_overlaps = "clans"
 
+    # if query number between 100 and 15000, use hmmpgmd (hmmsearch)
     elif query_number >= 100 and query_number < 15000:
-        # usemem = True
-        # num_servers = cpu
-        # num_workers = 1
-        # cpus_per_worker = 1
-        # scan_type = SCANTYPE_MEM
-        # db = get_pfam_db()
-        # infile = fasta_file
-        # dbtype = DB_TYPE_HMM
-        # qtype = QUERY_TYPE_SEQ
-        # clean_overlaps = "clans"
 
         if not mapfile(fasta_file):
             create_fasta_hmmpgmd_db(fasta_file)
             print(f"CREATED FASTA FILE DB {fasta_file}")
         usemem = True
+        port = DEFAULT_PORT,
+        end_port = DEFAULT_END_PORT,
         num_servers = cpu
         num_workers = 1
         cpus_per_worker = 1
@@ -136,6 +137,8 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
     else: #elif query_number >= 15000:
         if mapfile(fasta_file):
             usemem = True
+            port = DEFAULT_PORT,
+            end_port = DEFAULT_END_PORT,
             num_servers = cpu
             num_workers = 1
             cpus_per_worker = 1
@@ -149,6 +152,8 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
         else:
             if force_seqdb == True and create_fasta_hmmpgmd_db(fasta_file):
                 usemem = True
+                port = DEFAULT_PORT,
+                end_port = DEFAULT_END_PORT,
                 num_servers = cpu
                 num_workers = 1
                 cpus_per_worker = 1
@@ -163,6 +168,8 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
                 
             else:
                 usemem = True
+                port = DEFAULT_PORT,
+                end_port = DEFAULT_END_PORT,
                 num_servers = cpu
                 num_workers = 1
                 cpus_per_worker = 1
@@ -176,6 +183,8 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
     pfam_args = Namespace(call_info = get_call_info(),
                           cpu = cpu,
                           usemem = usemem,
+                          port = port,
+                          end_port = end_port,
                           num_servers = num_servers,
                           num_workers = num_workers,
                           cpus_per_worker = cpus_per_worker,

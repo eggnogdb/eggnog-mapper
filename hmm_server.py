@@ -12,7 +12,7 @@ from eggnogmapper.common import TIMEOUT_LOAD_SERVER
 from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer.hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
-from eggnogmapper.search.hmmer.hmmer_setup import setup_custom_db
+from eggnogmapper.search.hmmer.hmmer_setup import setup_custom_db, DEFAULT_PORT, DEFAULT_END_PORT
 from eggnogmapper.search.hmmer.hmmer_server import load_server, server_functional, create_servers
 
 __description__ = ('A server for HMMER3 in-memory searches')
@@ -45,8 +45,11 @@ def create_arg_parser():
                        help="Type of data in DB (-db). "
                           f"Default: {DB_TYPE_HMM}")
 
-    pg_server.add_argument('-p', '--port', dest='port', type=int, default=53000, metavar='PORT',
+    pg_server.add_argument('-p', '--port', dest='port', type=int, default=DEFAULT_PORT, metavar='PORT',
                           help=('Port used by clients to connect to this HMM master server'))
+
+    pg_server.add_argument('--end_port', dest='end_port', type=int, default=DEFAULT_END_PORT, metavar='PORT',
+                          help=('Last port to be used to setup HMM server, when --usemem'))
 
     pg_server.add_argument('-w', '--wport', dest='wport', type=int, default=53001, metavar='PORT',
                           help=('Port used by workers to connect to this HMM master server'))
@@ -114,10 +117,11 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# hmm_server.py ', ' '.join(sys.argv[1:]))
 
-        dbname, dbpath, host, port, end_port, idmap_file = setup_custom_db(args.db, scantype = SCANTYPE_MEM, dbtype = args.dbtype)
+        dbpath, host, idmap_file = setup_custom_db(args.db, scantype = SCANTYPE_MEM, dbtype = args.dbtype)
 
         host = 'localhost'
         port = args.port
+        end_port = args.end_port
         wport = args.wport
 
         dbpath, host, port, servers = create_servers(args.dbtype, dbpath, host, port, end_port,

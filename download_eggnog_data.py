@@ -2,7 +2,7 @@
 
 import os
 from argparse import ArgumentParser
-from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_dbpath
+from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_base_dbpath
 from eggnogmapper.common import pexists, set_data_path, existing_dir, HMMPRESS
 from eggnogmapper.utils import ask, ask_name, colorify
 from eggnogmapper.version import __DB_VERSION__
@@ -100,19 +100,41 @@ def download_hmm_database(level, dbname, dbpath):
     else:
         flag = ''
 
-    # Download HMM and FASTA files
+    # # Download HMM and FASTA files
+    # cmd = (
+    #     f'cd {dbpath}; '
+
+
+    # )
+    
+    # run(cmd)
+
+    # Create HMMER database
     cmd = (
         f'cd {dbpath}; '
+        f'echo Downloading HMMs... && '
         f'wget {flag} -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off {hmmsurl} && '
         f'echo Decompressing HMMs... && '
         f'tar zxf {level}_hmms.tar.gz && '
-        f'mv {level}/* ./ && rm -r {level} && '
+        f'echo {level}/* | xargs mv -t ./ && rm -r {level} && '
         f'rm {level}_hmms.tar.gz; '
-        f'wget {flag} -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off {seqsurl} && '
-        f'echo Decompressing FASTAs... && '
-        f'tar xf {level}_raw_algs.tar && '
-        f'mv {level}/* ./ && rm -r {level} && '
-        f'rm {level}_raw_algs.tar; '
+        'numf=$(find ./ | grep -c ".hmm$"); '
+        'curr=0; '
+        f'cat /dev/null > {dbname}.hmm_tmp; '
+        'for file in $(find ./ | grep ".hmm$"); do '
+        'curr=$((curr+1)); '
+        'echo "merging HMMs... ${file} (${curr}/${numf})"; '
+        f'cat "${{file}}" | sed "s/.faa.final_tree.fa//" >> {dbname}.hmm_tmp; '
+        'rm "${file}"; '
+        'done; '
+        f'mv {dbname}.hmm_tmp {dbname}.hmm; '
+        f'(if [ -f {dbname}.hmm.h3i ]; then rm {dbname}.hmm.h3*; fi) && '
+        'echo "hmmpress-ing HMMs... " && '
+        f'{HMMPRESS} {dbname}.hmm && '
+        'echo "generating idmap file... " && '
+        f'cat {dbname}.hmm | grep "^NAME" | sed -e "s/^NAME *//" | awk \'{{print NR"\t"$0}}\' > {dbname}.hmm.idmap && '
+        'echo "removing single OG hmm files... " && '
+        f'echo ./*hmm | xargs rm; '
     )
     
     run(cmd)
@@ -120,25 +142,21 @@ def download_hmm_database(level, dbname, dbpath):
     # Transform alignment files to fasta files
     cmd = (
         f'cd {dbpath}; '
-        'echo processing FASTAs... && '
-        'for file in *.faa.gz; do '
+        f'echo Downloading FASTAs... && '
+        f'wget {flag} -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off {seqsurl} && '
+        f'echo Decompressing FASTAs... && '
+        f'tar xf {level}_raw_algs.tar && '
+        f'echo {level}/* | xargs mv -t ./ && rm -r {level} && '
+        f'rm {level}_raw_algs.tar; '
+        'numf=$(find ./ | grep -c ".faa.gz$"); '
+        'curr=0; '
+        'for file in $(find ./ | grep ".faa.gz$"); do '
+        'curr=$((curr+1)); '
+        'echo "processing FASTAs...  ${file} (${curr}/${numf})"; '
         'outf=$(echo "$file" | sed "s/\.raw_alg\.faa\.gz/\.fa/"); '
         'zcat "$file" | awk \'/^>/{print; next}{gsub("-", ""); print}\' > "$outf" && '
         'rm "$file"; '
         'done'
-    )
-    
-    run(cmd)
-
-    # Create HMMER database
-    cmd = (
-        f'cd {dbpath}; '
-        'echo processing HMMs... && '
-        f'cat ./*hmm > {dbname}.hmm && '
-        f'(if [ -f {dbname}.hmm.h3i ]; then rm {dbname}.hmm.h3*; fi) && '
-        f'{HMMPRESS} {dbname}.hmm && '
-        f'cat {dbname}.hmm | grep "^NAME" | sed -e "s/^NAME *//" -e "s/.faa.final_tree.fa//" | awk \'{{print NR"\t"$0}}\' > {dbname}.idmap && '
-        f'rm ./*hmm; '
     )
     
     run(cmd)
@@ -261,9 +279,10 @@ if __name__ == "__main__":
             
             dbname = args.hmmer_dbs if args.allyes == True else ask_name('Please, specify a non-empty name for the database (e.g. Bacteria)', args.hmmer_dbs)
 
-            dbspath = get_hmmer_dbpath(dbname)
+            dbspath = get_hmmer_base_dbpath(dbname)
             if args.force or not pexists(dbspath):                    
                 print(colorify(f'Downloading HMMER database of tax ID {args.hmmer_dbs} as "{dbname}" to {dbspath}', 'green'))
+                print(colorify(f'Note that this can take a long time for large taxonomic levels', 'red'))
                 download_hmm_database(args.hmmer_dbs, dbname, dbspath)
             else:
                 if not args.quiet:
