@@ -394,7 +394,11 @@ def annotate_hit_line(arguments):
                 best_og_name = best_OG
                 best_og_id = best_OG.split("|")[0].split("@")[0]
                 best_og_level = best_OG.split("|")[0].split("@")[1]
-                best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
+                if best_og_id == "seed_ortholog":
+                    best_og_cat = "-"
+                    best_og_desc = "-"
+                else:
+                    best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
 
         except Exception as e:
             # import traceback

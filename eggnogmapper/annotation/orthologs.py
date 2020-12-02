@@ -37,7 +37,9 @@ def get_member_orthologs(member, target_levels, all_nogs):
                 "many2one": set(),
                 "all": {member},
             }
-            best_OG = None
+            best_OG = f"seed_ortholog@{member}|-"
+            print("Annotation from seed ortholog")
+            print(best_OG)
 
     return all_orthologs, best_OG
 
