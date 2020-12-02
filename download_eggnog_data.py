@@ -124,7 +124,7 @@ def download_hmm_database(level, dbname, dbpath):
         'for file in $(find ./ | grep ".hmm$"); do '
         'curr=$((curr+1)); '
         'echo "merging HMMs... ${file} (${curr}/${numf})"; '
-        f'cat "${{file}}" | sed "s/.faa.final_tree.fa//" >> {dbname}.hmm_tmp; '
+        f'cat "${{file}}" | sed -e "s/.faa.final_tree.fa//" -e "s/.faa.final_tree//" >> {dbname}.hmm_tmp; '
         'rm "${file}"; '
         'done; '
         f'mv {dbname}.hmm_tmp {dbname}.hmm; '
