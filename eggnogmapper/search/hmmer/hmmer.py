@@ -10,7 +10,7 @@ import shutil
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ...common import EGGNOG_DATABASES, get_oglevels_file, get_fasta_path, cleanup_og_name, gopen
+from ...common import get_oglevels_file, get_OG_fasta_path, cleanup_og_name, gopen, get_hmmer_databases
 from ...utils import colorify
 
 from .hmmer_server import shutdown_server_by_pid, create_servers, check_servers
@@ -27,6 +27,8 @@ class HmmerSearcher:
     call_info = None
     cpu = None
     usemem = None
+    port = None
+    end_port = None
     num_servers = None
     num_workers = None
     cpus_per_worker = None
@@ -56,6 +58,8 @@ class HmmerSearcher:
         self.cpu = args.cpu
         
         self.usemem = args.usemem
+        self.port = args.port
+        self.end_port = args.end_port
         self.num_servers = args.num_servers
         self.num_workers = args.num_workers
         self.cpus_per_worker = args.cpus_per_worker
@@ -104,7 +108,8 @@ class HmmerSearcher:
         annot = None
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype, self.servers_list, silent)
+        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype,
+                                                                                        self.port, self.end_port, self.servers_list, silent)
 
         servers = None
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
@@ -136,9 +141,14 @@ class HmmerSearcher:
     def search(self, in_file, seed_orthologs_file, hmm_hits_file):
 
         annot = None
+
+        print(f"hmmer.py:search DB: {self.db}")
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype, self.servers_list)
+        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype,
+                                                                                        self.port, self.end_port, self.servers_list)
+
+        print(f"hmmer.py:search DB: {self.db}, name {dbname}, path {dbpath}, host {host}, port {port}, endport {end_port}, idmap {idmap_file}")
 
         servers = None
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
@@ -163,12 +173,12 @@ class HmmerSearcher:
             print('Skipping seed ortholog detection in "viruses" database')
             annot = False
 
-        elif dbname in EGGNOG_DATABASES:
+        elif dbname in get_hmmer_databases():
             if not pexists(seed_orthologs_file):
-                self.refine_matches(in_file, seed_orthologs_file, hmm_hits_file)
+                self.refine_matches(dbname, in_file, seed_orthologs_file, hmm_hits_file)
 
         else:
-            print(f'Could not find {dbname} among eggnog databases.')
+            print(f'Could not find {dbname} among eggnog databases. Skipping seed ortholog detection.')
             annot = False
 
         # Shutdown server, If a temp local server was set up
@@ -316,30 +326,32 @@ class HmmerSearcher:
 
 
     ##
-    def refine_matches(self, in_file, refine_file, hits_file):
+    def refine_matches(self, dbname, in_file, refine_file, hits_file):
         refine_header = map(str.strip, '''#query_name, best_hit_eggNOG_ortholog,
                             best_hit_evalue, best_hit_score'''.split(','))
 
         print(colorify("Hit refinement starts now", 'green'))
         start_time = time.time()
-        print(get_oglevels_file())
-        og2level = dict([tuple(map(str.strip, line.split('\t')))
-                         for line in gopen(get_oglevels_file())])
+        
+        # print(get_oglevels_file())
+        # og2level = dict([tuple(map(str.strip, line.split('\t')))
+        #                  for line in gopen(get_oglevels_file())])
+        
         OUT = open(refine_file, "w")
 
         if not self.no_file_comments:
             print(self.get_call_info(), file=OUT)
             print('\t'.join(refine_header), file=OUT)
 
-        qn = 0 # in case no hits in loop bellow
+        qn = -1 # in case no hits in loop bellow
         sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
         self.hits = []
         self.queries = set(sequences.keys())
-        for qn, r in enumerate(self.process_nog_hits_file(hits_file, sequences, og2level,
-                                                     translate=self.translate,
-                                                     cpu=self.cpu,
-                                                     excluded_taxa=self.excluded_taxa,
-                                                     base_tempdir=self.temp_dir)):
+        for qn, r in enumerate(self.process_nog_hits_file(dbname, hits_file, sequences,
+                                                          translate=self.translate,
+                                                          cpu=self.cpu,
+                                                          excluded_taxa=self.excluded_taxa,
+                                                          base_tempdir=self.temp_dir)):
             if qn and (qn % 25 == 0):
                 total_time = time.time() - start_time
                 print(str(qn + 1)+" "+str(total_time)+" %0.2f q/s (refinement)" % ((float(qn + 1) / total_time)), file=sys.stderr)
@@ -366,7 +378,7 @@ class HmmerSearcher:
 
 
     ##
-    def process_nog_hits_file(self, hits_file, sequences, og2level, skip_queries=None,
+    def process_nog_hits_file(self, dbname, hits_file, sequences, skip_queries=None,
                               translate=False, cpu=1, excluded_taxa=None, base_tempdir=None):
 
         cmds = []
@@ -392,20 +404,24 @@ class HmmerSearcher:
                 continue
 
             hitname = cleanup_og_name(fields[1])
-            level = og2level[hitname]
+            # level = og2level[hitname]
 
             seq = sequences[seqname]
             visited_queries.add(seqname)
-            target_fasta = pjoin(get_fasta_path(), level, "%s.fa" % hitname)
+            target_fasta = get_OG_fasta_path(dbname, hitname)
+            print(f"hmmer.py:process_nog_hits_file Target FASTA: {target_fasta}")
+            # target_fasta = pjoin(get_fasta_path(), level, "%s.fa" % hitname)
             
             cmds.append([seqname, seq, target_fasta, excluded_taxa, tempdir])
 
-        if cmds:
+        if cmds is not None and len(cmds) > 0:
             pool = multiprocessing.Pool(cpu)
             for r in pool.imap(refine_hit, cmds):
                 yield r
             pool.terminate()
 
         shutil.rmtree(tempdir)
+
+        return
     
 ## END

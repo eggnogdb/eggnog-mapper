@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
+
 import os
 from argparse import ArgumentParser
-# from eggnogmapper.common import EGGNOG_DATABASES, get_hmmdb_path, get_level_base_path, get_db_present, get_db_info
-from eggnogmapper.common import get_data_path, pexists, pjoin, set_data_path, existing_dir
-from eggnogmapper.utils import ask, colorify
+from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_base_dbpath
+from eggnogmapper.common import pexists, set_data_path, existing_dir, HMMPRESS
+from eggnogmapper.utils import ask, ask_name, colorify
 from eggnogmapper.version import __DB_VERSION__
 
 DATABASE_VERSION = __DB_VERSION__
+BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
+EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
+EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
 
 def run(cmd):
     print(colorify(cmd, 'cyan'))
@@ -20,10 +24,10 @@ def gunzip_flag():
 
 ##
 # Annotation DBs
-def download_annotations():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.db.gz' %(DATABASE_VERSION)
+def download_annotations(data_path):
+    url = BASE_URL + '/eggnog.db.gz'
     cmd = (
-        f'cd {get_data_path()} && '
+        f'cd {data_path} && '
         f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.db.gz {url} && '
         f'echo Decompressing... && '
         f'gunzip eggnog.db.gz {gunzip_flag()}'
@@ -32,10 +36,10 @@ def download_annotations():
 
 ##
 # Taxa DBs
-def download_taxa():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog.taxa.tar.gz' %(DATABASE_VERSION)
+def download_taxa(data_path):
+    url = BASE_URL + '/eggnog.taxa.tar.gz'
     cmd = (
-        f'cd {get_data_path()} && '
+        f'cd {data_path} && '
         f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog.taxa.tar.gz {url} && '
         f'echo Decompressing... && '
         f'tar -zxf eggnog.taxa.tar.gz && '
@@ -45,10 +49,10 @@ def download_taxa():
     
 ##
 # Diamond DBs
-def download_diamond_db():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/eggnog_proteins.dmnd.gz' %(DATABASE_VERSION)
+def download_diamond_db(data_path):
+    url = BASE_URL + '/eggnog_proteins.dmnd.gz'
     cmd = (
-        f'cd {get_data_path()} && '
+        f'cd {data_path} && '
         f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz {url} && '
         f'echo Decompressing... && '
         f'gunzip eggnog_proteins.dmnd.gz {gunzip_flag()}'
@@ -57,10 +61,10 @@ def download_diamond_db():
 
 ##
 # MMseqs2 DB
-def download_mmseqs_db():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/mmseqs.tar.gz' %(DATABASE_VERSION)
+def download_mmseqs_db(data_path):
+    url = BASE_URL + '/mmseqs.tar.gz'
     cmd = (
-        f'cd {get_data_path()} && '
+        f'cd {data_path} && '
         f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O mmseqs.tar.gz {url} && '
         f'echo Decompressing... && '
         f'tar -zxf mmseqs.tar.gz && '
@@ -70,10 +74,10 @@ def download_mmseqs_db():
 
 ##
 # PFAM DB
-def download_pfam_db():
-    url = 'http://eggnogdb.embl.de/download/emapperdb-%s/pfam.tar.gz' %(DATABASE_VERSION)
+def download_pfam_db(data_path):
+    url = BASE_URL + '/pfam.tar.gz'
     cmd = (
-        f'cd {get_data_path()} && '
+        f'cd {data_path} && '
         f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O pfam.tar.gz {url} && '
         f'echo Decompressing... && '
         f'tar -zxf pfam.tar.gz && '
@@ -81,39 +85,89 @@ def download_pfam_db():
     )
     run(cmd)
     
-# ##
-# # HMMER mode DBs
-# def download_hmm_database(level):
-#     level_base_path = get_level_base_path(level)
-#     target_dir = os.path.split(get_db_info(level)[0])[0]
-#     if not os.path.exists(target_dir):
-#         os.makedirs(target_dir)
+##
+# HMMER mode DBs
+def download_hmm_database(level, dbname, dbpath):
+    if not os.path.exists(dbpath):
+        os.makedirs(dbpath)
 
-#     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/hmmdb_levels/%s/' %(DATABASE_VERSION, level_base_path)
-#     if not args.force:
-#         flag = '-N'
-#     else:
-#         flag = ''
-#     cmd = 'mkdir -p %s; cd %s; wget %s -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off %s' %(target_dir, target_dir, flag, url)
-#     run(cmd)
+    baseurl = f'{EGGNOG_URL}/{level}/'
+    hmmsurl = f'{baseurl}/{level}_hmms.tar.gz'
+    seqsurl = f'{baseurl}/{level}_raw_algs.tar'
     
-# def download_groups():
-#     url = 'http://eggnogdb.embl.de/download/emapperdb-%s/OG_fasta.tar.gz' %(DATABASE_VERSION)
-#     cmd = 'cd %s && wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O OG_fasta.tar.gz  %s && echo Decompressing... && tar -zxf OG_fasta.tar.gz && rm OG_fasta.tar.gz' %(get_data_path(),  url)
-#     run(cmd)
+    if not args.force:
+        flag = '-N'
+    else:
+        flag = ''
+
+    # # Download HMM and FASTA files
+    # cmd = (
+    #     f'cd {dbpath}; '
+
+
+    # )
     
-# def download_og2level():
-#     url= 'http://eggnogdb.embl.de/download/emapperdb-%s/og2level.tsv.gz' %(DATABASE_VERSION)
-#     cmd = 'cd %s && wget -O og2level.tsv.gz %s' %(get_data_path(),  url)
-#     run(cmd)
+    # run(cmd)
+
+    # Create HMMER database
+    cmd = (
+        f'cd {dbpath}; '
+        f'echo Downloading HMMs... && '
+        f'wget {flag} -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off {hmmsurl} && '
+        f'echo Decompressing HMMs... && '
+        f'tar zxf {level}_hmms.tar.gz && '
+        f'echo {level}/* | xargs mv -t ./ && rm -r {level} && '
+        f'rm {level}_hmms.tar.gz; '
+        'numf=$(find ./ | grep -c ".hmm$"); '
+        'curr=0; '
+        f'cat /dev/null > {dbname}.hmm_tmp; '
+        'for file in $(find ./ | grep ".hmm$"); do '
+        'curr=$((curr+1)); '
+        'echo "merging HMMs... ${file} (${curr}/${numf})"; '
+        f'cat "${{file}}" | sed "s/.faa.final_tree.fa//" >> {dbname}.hmm_tmp; '
+        'rm "${file}"; '
+        'done; '
+        f'mv {dbname}.hmm_tmp {dbname}.hmm; '
+        f'(if [ -f {dbname}.hmm.h3i ]; then rm {dbname}.hmm.h3*; fi) && '
+        'echo "hmmpress-ing HMMs... " && '
+        f'{HMMPRESS} {dbname}.hmm && '
+        'echo "generating idmap file... " && '
+        f'cat {dbname}.hmm | grep "^NAME" | sed -e "s/^NAME *//" | awk \'{{print NR"\t"$0}}\' > {dbname}.hmm.idmap && '
+        'echo "removing single OG hmm files... " && '
+        f'echo ./*hmm | xargs rm; '
+    )
+    
+    run(cmd)
+
+    # Transform alignment files to fasta files
+    cmd = (
+        f'cd {dbpath}; '
+        f'echo Downloading FASTAs... && '
+        f'wget {flag} -nH --user-agent=Mozilla/5.0 --relative -r --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off {seqsurl} && '
+        f'echo Decompressing FASTAs... && '
+        f'tar xf {level}_raw_algs.tar && '
+        f'echo {level}/* | xargs mv -t ./ && rm -r {level} && '
+        f'rm {level}_raw_algs.tar; '
+        'numf=$(find ./ | grep -c ".faa.gz$"); '
+        'curr=0; '
+        'for file in $(find ./ | grep ".faa.gz$"); do '
+        'curr=$((curr+1)); '
+        'echo "processing FASTAs...  ${file} (${curr}/${numf})"; '
+        'outf=$(echo "$file" | sed "s/\.raw_alg\.faa\.gz/\.fa/"); '
+        'zcat "$file" | awk \'/^>/{print; next}{gsub("-", ""); print}\' > "$outf" && '
+        'rm "$file"; '
+        'done'
+    )
+    
+    run(cmd)
+    
+    return
 
 
 ##
 # MAIN
 if __name__ == "__main__":
     parser = ArgumentParser()
-    # parser.add_argument('dbs', metavar='dbs', nargs='+', choices=sorted(EGGNOG_DATABASES.keys()+['all', 'none']),
-    #                     help='list of eggNOG HMM databases to download. Choose "none" if only diamond will be used')
 
     parser.add_argument('-D', action="store_true", dest='skip_diamond',
                         help='Do not install the diamond database')
@@ -122,8 +176,17 @@ if __name__ == "__main__":
                         help='Install the Pfam database, required for de novo annotation or realignment')
 
     parser.add_argument('-M', action="store_true", dest='mmseqs',
-                        help='Install the MMseqs2 database, required for "-m mmseqs"')
+                        help='Install the MMseqs2 database, required for "emapper.py -m mmseqs"')
 
+    parser.add_argument('-H', action="store_true", dest='hmmer',
+                        help='Install the HMMER database specified with "-d TAXID". Required for "emapper.py -m hmmer -d TAXID"')
+
+    parser.add_argument('-d', type=str, dest="hmmer_dbs",
+                        help=(
+                            f'Tax ID of eggNOG HMM database to download. e.g. "-H -d 2" for Bacteria. Required if "-H". '
+                            'Available tax IDs can be found at {EGGNOG_DOWNLOADS_URL}.'
+                        ))
+    
     parser.add_argument('-y', action="store_true", dest='allyes',
                         help='assume "yes" to all questions')
 
@@ -139,75 +202,59 @@ if __name__ == "__main__":
     parser.add_argument("--data_dir", metavar='', type=existing_dir,
                         help='Directory to use for DATA_PATH.')
 
-
     args = parser.parse_args()
 
     if args.data_dir:
         set_data_path(args.data_dir)
 
-    # if args.force or not pexists(pjoin(get_data_path(), 'og2level.tsv.gz')):
-    #     print colorify('Downloading "og2level.tsv.gz" at %s' %get_data_path(), 'green')
-    #     download_og2level()
+    data_path = args.data_dir
 
-    # if 'all' in args.dbs:
-    #     args.dbs = EGGNOG_DATABASES
-
-    if args.force or not pexists(pjoin(get_data_path(), 'eggnog.db')):
+    ##
+    # Annotation DB
+    
+    if args.force or not pexists(get_eggnogdb_file()):
         if args.allyes or ask("Download main annotation database?") == 'y':
-            print(colorify('Downloading "eggnog.db" at %s...' %get_data_path(), 'green'))
-            download_annotations()
+            print(colorify(f'Downloading "eggnog.db" at {data_path}...', 'green'))
+            download_annotations(data_path)
         else:
             print('Skipping')
     else:
         if not args.quiet:
             print(colorify('Skipping eggnog.db database (already present). Use -f to force download', 'lblue'))
 
-            
-    if args.force or not pexists(pjoin(get_data_path(), 'eggnog.taxa.db')):
+    ##
+    # NCBI taxa
+    
+    if args.force or not pexists(get_ncbitaxadb_file()):
         if args.allyes or ask("Download taxa database?") == 'y':
-            print(colorify('Downloading "eggnog.taxa.db" at %s...' %get_data_path(), 'green'))
-            download_taxa()
+            print(colorify(f'Downloading "eggnog.taxa.db" at {data_path}...', 'green'))
+            download_taxa(data_path)
         else:
             print('Skipping')
     else:
         if not args.quiet:
             print(colorify('Skipping eggnog.taxa.db database (already present). Use -f to force download', 'lblue'))
             
-    # if args.force or not pexists(pjoin(get_data_path(), 'OG_fasta')):
-    #     if args.allyes or ask("Download OG fasta files for annotation refinement (~20GB after decompression)?") == 'y':
-    #         print colorify('Downloading fasta files " at %s/OG_fasta...' %get_data_path(), 'green')
-    #         download_groups()
-    #     else:
-    #         print 'Skipping'
 
-    # else:
-    #     if not args.quiet:
-    #         print colorify('Skipping OG_fasta/ database (already present). Use -f to force download', 'lblue')
-
-    if not args.skip_diamond and (args.force or not pexists(pjoin(get_data_path(), 'eggnog_proteins.dmnd'))):
+    ##
+    # Diamond DB
+    
+    if not args.skip_diamond and (args.force or not pexists(get_eggnog_dmnd_db())):
         if args.allyes or ask("Download diamond database (~4GB after decompression)?") == 'y':
-            print(colorify('Downloading fasta files " at %s/eggnog_proteins.dmnd...' %get_data_path(), 'green'))
-            download_diamond_db()
+            print(colorify(f'Downloading fasta files " at {data_path}...', 'green'))
+            download_diamond_db(data_path)
         else:
             print('Skipping')
     else:
         if not args.quiet:
             print(colorify('Skipping diamond database (or already present). Use -f to force download', 'lblue'))
 
-    # if set(args.dbs) != set(['none']):
-    #     if args.allyes or ask("Download %d HMM database(s): %s?"%(len(args.dbs), ','.join(args.dbs))) == 'y':
-    #         for db in args.dbs:
-    #             if args.force or not get_db_present(db):
-    #                 print colorify('Downloading %s HMM database " at %s/%s\_hmm ...' %(db, get_hmmdb_path(), db), 'green')
-    #                 download_hmm_database(db)
-    #     else:
-    #         print 'Skipping'
 
     ## PFAM
-    if args.pfam and (args.force or not pexists(pjoin(get_data_path(), 'pfam'))):
+    if args.pfam and (args.force or not pexists(get_pfam_dbpath())):
         if args.allyes or ask("Download pfam database (~3GB after decompression)?") == 'y':
-            print(colorify('Downloading Pfam files " at %s/pfam/...' %get_data_path(), 'green'))
-            download_pfam_db()
+            print(colorify(f'Downloading Pfam files " at {data_path}...', 'green'))
+            download_pfam_db(data_path)
         else:
             print('Skipping')
     else:
@@ -216,14 +263,35 @@ if __name__ == "__main__":
 
 
     ## MMseqs
-    if args.mmseqs and (args.force or not pexists(pjoin(get_data_path(), 'mmseqs'))):
+    if args.mmseqs and (args.force or not pexists(get_eggnog_mmseqs_dbpath())):
         if args.allyes or ask("Download MMseqs2 database (~10GB after decompression)?") == 'y':
-            print(colorify('Downloading MMseqs2 files " at %s/mmseqs/...' %get_data_path(), 'green'))
-            download_mmseqs_db()
+            print(colorify(f'Downloading MMseqs2 files " at {data_path}...', 'green'))
+            download_mmseqs_db(data_path)
         else:
             print('Skipping')
     else:
         if not args.quiet:
             print(colorify('Skipping MMseqs2 database (or already present). Use -M and -f to force download', 'lblue'))
+
+    ## HMMER
+    if args.hmmer == True:
+        if args.allyes or ask(f"Download HMMER database of tax ID {args.hmmer_dbs}?") == 'y':
             
+            dbname = args.hmmer_dbs if args.allyes == True else ask_name('Please, specify a non-empty name for the database (e.g. Bacteria)', args.hmmer_dbs)
+
+            dbspath = get_hmmer_base_dbpath(dbname)
+            if args.force or not pexists(dbspath):                    
+                print(colorify(f'Downloading HMMER database of tax ID {args.hmmer_dbs} as "{dbname}" to {dbspath}', 'green'))
+                print(colorify(f'Note that this can take a long time for large taxonomic levels', 'red'))
+                download_hmm_database(args.hmmer_dbs, dbname, dbspath)
+            else:
+                if not args.quiet:
+                    print(colorify(f'HMMER database {dbname} already present at {dbspath}. Use "-f" to force download', 'lblue'))                    
+        else:
+            print(colorify(f'Skipping HMMER database', 'lblue'))
+    else:
+        print(colorify('No HMMER database requested. Use "-H -d taxid" to download the hmmer database for taxid', 'lblue'))
+
+    print(colorify("Finished.", "green"))
+    
 ## END
