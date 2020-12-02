@@ -38,8 +38,6 @@ def get_member_orthologs(member, target_levels, all_nogs):
                 "all": {member},
             }
             best_OG = f"seed_ortholog@{member}|-"
-            print("Annotation from seed ortholog")
-            print(best_OG)
 
     return all_orthologs, best_OG
 
