@@ -18,12 +18,16 @@ PFAM_REALIGN_NONE = 'none'
 PFAM_REALIGN_REALIGN = 'realign'
 PFAM_REALIGN_DENOVO = 'denovo'
 
-def run_pfam_mode(pfam_search_mode, all_annotations, queries_fasta, translate, cpu, temp_dir, pfam_file):
+def run_pfam_mode(pfam_search_mode, all_annotations, queries_fasta, translate,
+                  cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
+                  temp_dir, pfam_file):
     aligned_pfams = None
     if pfam_search_mode == PFAM_REALIGN_DENOVO:
         print(colorify("de novo scan of PFAM domains", 'green'))
 
-        aligned_pfams = pfam_align_denovo(all_annotations, queries_fasta, translate, cpu, temp_dir, pfam_file)
+        aligned_pfams = pfam_align_denovo(all_annotations, queries_fasta, translate,
+                                          cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
+                                          temp_dir, pfam_file)
 
     # elif pfam_search_mode == 'denovo_search':
 

@@ -14,23 +14,22 @@ from ...search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 ##
 def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     usemem = False
-    num_servers = cpu
-    num_workers = 1
-    cpus_per_worker = 1
     scan_type = SCANTYPE_DISK
     db = hmm_file
     infile = fasta_file
     dbtype = DB_TYPE_HMM
     qtype = QUERY_TYPE_SEQ
 
+    # port, end_port, num_servers, num_workers, cpus_per_worker are not really used
+    # for SCANTYPE_DISK
     pfam_args = Namespace(call_info = get_call_info(),
                           cpu = cpu,
                           usemem = usemem,
-                          port = DEFAULT_PORT,
-                          end_port = DEFAULT_END_PORT,
-                          num_servers = num_servers,
-                          num_workers = num_workers,
-                          cpus_per_worker = cpus_per_worker,
+                          port = -1,
+                          end_port = -1,
+                          num_servers = -1,
+                          num_workers = -1,
+                          cpus_per_worker = -1,
                           scan_type = scan_type,
                           db = db,
                           servers_list = None,
@@ -56,23 +55,22 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
 ##
 def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     usemem = False
-    num_servers = cpu
-    num_workers = 1
-    cpus_per_worker = 1
     scan_type = SCANTYPE_DISK
     db = fasta_file
     infile = hmm_file
     dbtype = DB_TYPE_SEQ
     qtype = QUERY_TYPE_HMM
 
+    # port, end_port, num_servers, num_workers, cpus_per_worker are not really used
+    # for SCANTYPE_DISK
     pfam_args = Namespace(call_info = get_call_info(),
                           cpu = cpu,
                           usemem = usemem,
-                          port = DEFAULT_PORT,
-                          end_port = DEFAULT_END_PORT,
-                          num_servers = num_servers,
-                          num_workers = num_workers,
-                          cpus_per_worker = cpus_per_worker,
+                          port = -1,
+                          end_port = -1,
+                          num_servers = -1,
+                          num_workers = -1,
+                          cpus_per_worker = -1,
                           scan_type = scan_type,
                           db = db,
                           servers_list = None,
@@ -96,18 +94,21 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     return pfam_args, infile
     
 ##
-def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
+def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port, fasta_file, translate, temp_dir, force_seqdb = False):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
 
+    # port, end_port, num_servers, num_workers, cpus_per_worker are not really used
+    # for SCANTYPE_DISK, only for SCANTYPE_MEM
+    port = port
+    end_port = end_port
+    num_servers = num_servers
+    num_workers = num_workers
+    cpus_per_worker = cpus_per_worker
+    
     # If query number < 100, use hmmscan
     if query_number < 100:
         usemem = False
-        port = DEFAULT_PORT,
-        end_port = DEFAULT_END_PORT,
-        num_servers = cpu
-        num_workers = 1
-        cpus_per_worker = 1
         scan_type = SCANTYPE_DISK
         db = get_pfam_db()
         infile = fasta_file
@@ -122,11 +123,6 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
             create_fasta_hmmpgmd_db(fasta_file)
             print(f"CREATED FASTA FILE DB {fasta_file}")
         usemem = True
-        port = DEFAULT_PORT,
-        end_port = DEFAULT_END_PORT,
-        num_servers = cpu
-        num_workers = 1
-        cpus_per_worker = 1
         scan_type = SCANTYPE_MEM
         db = fasta_file
         infile = get_pfam_db()
@@ -137,11 +133,6 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
     else: #elif query_number >= 15000:
         if mapfile(fasta_file):
             usemem = True
-            port = DEFAULT_PORT,
-            end_port = DEFAULT_END_PORT,
-            num_servers = cpu
-            num_workers = 1
-            cpus_per_worker = 1
             scan_type = SCANTYPE_MEM
             db = fasta_file
             infile = get_pfam_db()
@@ -152,11 +143,6 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
         else:
             if force_seqdb == True and create_fasta_hmmpgmd_db(fasta_file):
                 usemem = True
-                port = DEFAULT_PORT,
-                end_port = DEFAULT_END_PORT,
-                num_servers = cpu
-                num_workers = 1
-                cpus_per_worker = 1
                 scan_type = SCANTYPE_MEM
                 db = fasta_file
                 infile = get_pfam_db()
@@ -168,11 +154,6 @@ def get_pfam_args(cpu, fasta_file, translate, temp_dir, force_seqdb = False):
                 
             else:
                 usemem = True
-                port = DEFAULT_PORT,
-                end_port = DEFAULT_END_PORT,
-                num_servers = cpu
-                num_workers = 1
-                cpus_per_worker = 1
                 scan_type = SCANTYPE_MEM
                 db = get_pfam_db()
                 infile = fasta_file

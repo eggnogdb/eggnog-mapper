@@ -54,6 +54,9 @@ class Annotator:
 
     no_file_comments = cpu = None
 
+    # options for pfam hmmpgmd searches
+    num_servers = num_workers = cpus_per_worker = port = end_port = None
+
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
     TAXONOMIC_RESOLUTION = None
@@ -293,7 +296,9 @@ class Annotator:
         ##
         # PFAMs annotation
         if self.annot == True and self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and all_annotations is not None and len(all_annotations) > 0:
-            all_annotations = run_pfam_mode(self.pfam_realign, all_annotations, self.queries_fasta, self.translate, self.cpu, self.temp_dir, pfam_file)
+            all_annotations = run_pfam_mode(self.pfam_realign, all_annotations, self.queries_fasta, self.translate,
+                                            self.cpu, self.num_servers, self.num_workers, self.cpus_per_worker, self.port, self.end_port,
+                                            self.temp_dir, pfam_file)
             
             elapsed_time = time.time() - start_time
             print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))

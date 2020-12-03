@@ -185,18 +185,20 @@ def create_arg_parser():
                           Database will be unloaded after execution.''')
 
     pg_hmmer.add_argument('-p', '--port', dest='port', type=int, default=DEFAULT_PORT, metavar='PORT',
-                          help=('Port used to setup HMM server, when --usemem'))
+                          help=('Port used to setup HMM server, when --usemem. Also used for --pfam_realign modes.'))
     
     pg_hmmer.add_argument('--end_port', dest='end_port', type=int, default=DEFAULT_END_PORT, metavar='PORT',
-                          help=('Last port to be used to setup HMM server, when --usemem'))
+                          help=('Last port to be used to setup HMM server, when --usemem. Also used for --pfam_realign modes.'))
 
     pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
                           help="When using --usemem, specify the number of servers to fire up."
-                          " By default, only 1 server is used. Note that cpus specified with --cpu will be distributed among servers and workers.")
+                          " By default, only 1 server is used. Note that cpus specified with --cpu will be distributed among servers and workers."
+                          " Also used for --pfam_realign modes.")
     
     pg_hmmer.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
                           help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
-                          " By default, cpus specified with --cpu will be distributed among servers and workers.")
+                          " By default, cpus specified with --cpu will be distributed among servers and workers."
+                          " Also used for --pfam_realign modes.")
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                           help="Max number of hits to report (0 to report all). Default=1.")
@@ -283,7 +285,8 @@ def create_arg_parser():
                           help='Realign the queries to the PFAM domains. '
                           f'{PFAM_REALIGN_NONE} = no realignment is performed. PFAM annotation will be that transferred as specify in the --pfam_transfer option. '
                           f'{PFAM_REALIGN_REALIGN} = queries will be realigned to the PFAM domains found according to the --pfam_transfer option. '
-                          f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, ignoring the --pfam_transfer option. ')
+                          f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, ignoring the --pfam_transfer option. '
+                          f'Check hmmer options (--num_servers, --num_workers, --port, --end_port) to change how the hmmpgmd server is run. ')
 
     pg_annot.add_argument("--md5", action="store_true",
                           help="Adds the md5 hash of each query as an additional field in annotations output files.")
