@@ -72,6 +72,11 @@ class Annotator:
         
         self.no_file_comments = args.no_file_comments
         self.cpu = args.cpu
+        self.num_servers = args.num_servers
+        self.num_workers = args.num_workers
+        self.cpus_per_worker = args.cpus_per_worker
+        self.port = args.port
+        self.end_port = args.end_port
         self.seed_ortholog_score = args.seed_ortholog_score
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 

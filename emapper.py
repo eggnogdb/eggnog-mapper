@@ -456,17 +456,17 @@ def parse_args(parser):
             
     elif args.mode == SEARCH_MODE_HMMER:
 
-        if args.usemem == True:
-            total_workers = args.num_workers * args.num_servers
-            if args.cpu < total_workers:
-                parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
-            if args.cpu % total_workers != 0:
-                parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
+        # if args.usemem == True:
+        #     total_workers = args.num_workers * args.num_servers
+        #     if args.cpu < total_workers:
+        #         parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
+        #     if args.cpu % total_workers != 0:
+        #         parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
 
-            args.cpus_per_worker = int(args.cpu / total_workers)
-            sys.stderr.write(f"CPUs per worker: {args.cpus_per_worker}\n")
-        else:
-            args.cpus_per_worker = args.cpu
+        #     args.cpus_per_worker = int(args.cpu / total_workers)
+        #     sys.stderr.write(f"CPUs per worker: {args.cpus_per_worker}\n")
+        # else:
+        #     args.cpus_per_worker = args.cpu
         
         if not args.input:
             parser.error('An input file is required (-i)')
@@ -551,6 +551,14 @@ def parse_args(parser):
             parser.error(f'An input fasta file is required (-i) for --pfam_realign {args.pfam_realign}')
     else:
         raise ValueError(f'Invalid --pfam_realign option {args.pfam_realign}')
+
+    total_workers = args.num_workers * args.num_servers
+    if args.cpu < total_workers:
+        parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
+    if args.cpu % total_workers != 0:
+        parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
+
+    args.cpus_per_worker = int(args.cpu / total_workers)
     
     return args
 
