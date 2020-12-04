@@ -119,16 +119,25 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
     # if query number between 100 and 15000, use hmmpgmd (hmmsearch)
     elif query_number >= 100 and query_number < 15000:
 
-        if not mapfile(fasta_file):
-            create_fasta_hmmpgmd_db(fasta_file)
-            print(f"CREATED FASTA FILE DB {fasta_file}")
+        # if not mapfile(fasta_file):
+        #     create_fasta_hmmpgmd_db(fasta_file)
+        #     print(f"CREATED FASTA FILE DB {fasta_file}")
+        # usemem = True
+        # scan_type = SCANTYPE_MEM
+        # db = fasta_file
+        # infile = get_pfam_db()
+        # dbtype = DB_TYPE_SEQ
+        # qtype = QUERY_TYPE_HMM
+        # clean_overlaps = "hmmsearch_clans"
+
         usemem = True
         scan_type = SCANTYPE_MEM
-        db = fasta_file
-        infile = get_pfam_db()
-        dbtype = DB_TYPE_SEQ
-        qtype = QUERY_TYPE_HMM
-        clean_overlaps = "hmmsearch_clans"
+        db = get_pfam_db()
+        infile = fasta_file
+        dbtype = DB_TYPE_HMM
+        qtype = QUERY_TYPE_SEQ
+        clean_overlaps = "clans"
+        
                 
     else: #elif query_number >= 15000:
         if mapfile(fasta_file):
