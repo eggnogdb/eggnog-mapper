@@ -211,7 +211,7 @@ class Annotator:
                     annot_columns.append(md5_queries[query_name])
                 else:
                     annot_columns.append("-")
-            print('\t'.join(annot_columns), file=OUT)
+            print('\t'.join([x if x is not None and x.strip() != "" else "-" for x in annot_columns]), file=OUT)
 
         if not self.no_file_comments:
             print('# %d queries scanned' % (qn), file=OUT)
