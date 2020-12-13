@@ -267,7 +267,7 @@ def create_arg_parser():
     pg_annot.add_argument("--report_orthologs", action="store_true",
                           help="Output the list of orthologs found for each query to a .orthologs file")
     
-    pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic'),
+    pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic', 'all'),
                           default='non-electronic',
                           help='Defines what type of GO terms should be used for annotation. '
                           'experimental = Use only terms inferred from experimental evidence. '
@@ -535,6 +535,11 @@ def parse_args(parser):
     elif args.go_evidence == 'non-electronic':
         args.go_evidence = None
         args.go_excluded = set(["ND", "IEA"])
+
+    elif args.go_evidence == 'all':
+        args.go_evidence = None
+        args.go_excluded = None
+        
     else:
         raise ValueError('Invalid --go_evidence value')
 
