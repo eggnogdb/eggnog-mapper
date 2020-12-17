@@ -51,6 +51,8 @@ PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 class Annotator:
 
     annot = report_orthologs = None
+    
+    dbmem = None
 
     no_file_comments = cpu = None
 
@@ -69,6 +71,8 @@ class Annotator:
 
         self.annot = annot
         self.report_orthologs = report_orthologs
+
+        self.dbmem = args.dbmem
         
         self.no_file_comments = args.no_file_comments
         self.cpu = args.cpu
@@ -109,8 +113,6 @@ class Annotator:
         return
 
 
-
-        
     ##
     def annotate(self, seed_orthologs_file, annot_file, orthologs_file, pfam_file):
         
@@ -222,8 +224,65 @@ class Annotator:
         
         return
 
+
     ##
     def _annotate(self, seed_orthologs_file, pfam_file):
+        if self.dbmem == True:
+            all_orthologs, all_annotations, qn, elapsed_time = self._annotate_dbmem(seed_orthologs_file, pfam_file)
+        else:
+            all_orthologs, all_annotations, qn, elapsed_time = self._annotate_ondisk(seed_orthologs_file, pfam_file)
+
+        ##
+        # PFAMs annotation
+        if self.annot == True and self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and all_annotations is not None and len(all_annotations) > 0:
+            all_annotations = run_pfam_mode(self.pfam_realign, all_annotations, self.queries_fasta, self.translate,
+                                            self.cpu, self.num_servers, self.num_workers, self.cpus_per_worker, self.port, self.end_port,
+                                            self.temp_dir, pfam_file)
+            
+            elapsed_time = time.time() - start_time
+            print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
+            
+        return all_orthologs, all_annotations, qn, elapsed_time
+
+
+    ##
+    def _annotate_dbmem(self, seed_orthologs_file, pfam_file):
+        all_orthologs = {}
+        all_annotations = []
+
+        db_sqlite.connect(usemem = True)
+        
+        start_time = time.time()
+        
+        qn = 0
+        try:
+            for result in map(annotate_hit_line, self.iter_hit_lines(seed_orthologs_file)):
+                qn += 1
+                if qn and (qn % 100 == 0):
+                    total_time = time.time() - start_time
+                    print(f"{qn} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
+                    sys.stderr.flush()
+
+                if result:
+                    self._process_annot_result(result, all_orthologs, all_annotations)
+
+        except EmapperException:
+            raise
+        except Exception as e:
+            # import traceback
+            # traceback.print_exc()
+            raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
+        finally:
+            db_sqlite.close()
+
+        elapsed_time = time.time() - start_time
+        print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
+                    
+        return all_orthologs, all_annotations, qn, elapsed_time
+
+    
+    ##
+    def _annotate_ondisk(self, seed_orthologs_file, pfam_file):
 
         all_orthologs = {}
         all_annotations = []
@@ -235,7 +294,7 @@ class Annotator:
 
         qn = 0
         try:
-            for result in pool.imap(annotate_hit_line, self.iter_hit_lines(seed_orthologs_file)):
+            for result in pool.imap(annotate_hit_line_process, self.iter_hit_lines(seed_orthologs_file)):
                 qn += 1
                 if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
@@ -243,48 +302,7 @@ class Annotator:
                     sys.stderr.flush()
 
                 if result:
-                    
-                    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-                     annotations, 
-                     narr_og_name, narr_og_cat, narr_og_desc,
-                     best_og_name, best_og_cat, best_og_desc,                     
-                     match_nogs_names, all_orthologies, annot_orthologs) = result
-
-                    if self.report_orthologs == True:
-                        # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-                        if query_name in all_orthologs:
-                            query_orthologs = all_orthologs[query_name]
-                        else:
-                            query_orthologs = {}
-                            all_orthologs[query_name] = query_orthologs
-                            
-                        for target in all_orthologies:
-                            if target in query_orthologs:
-                                query_orthologs[target].update(all_orthologies[target])
-                            else:
-                                query_orthologs[target] = set(all_orthologies[target])
-                        if "annot_orthologs" in query_orthologs:
-                            query_orthologs["annot_orthologs"].update(annot_orthologs)
-                        else:
-                            query_orthologs["annot_orthologs"] = set(annot_orthologs)
-
-                    if self.annot == True:
-                        # prepare annotations for printing
-                        annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
-                                         ",".join(match_nogs_names), 
-                                         narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
-
-                        # If tax_scope_mode == narrowest there is no need to output best_og colums
-                        if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
-                            annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
-
-                        for h in ANNOTATIONS_HEADER:
-                            if h in annotations:
-                                annot_columns.append(','.join(sorted(annotations[h])))
-                            else:
-                                annot_columns.append('-')
-
-                        all_annotations.append(annot_columns)
+                    self._process_annot_result(result, all_orthologs, all_annotations)      
 
         except EmapperException:
             raise
@@ -297,18 +315,56 @@ class Annotator:
 
         elapsed_time = time.time() - start_time
         print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
-
-        ##
-        # PFAMs annotation
-        if self.annot == True and self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and all_annotations is not None and len(all_annotations) > 0:
-            all_annotations = run_pfam_mode(self.pfam_realign, all_annotations, self.queries_fasta, self.translate,
-                                            self.cpu, self.num_servers, self.num_workers, self.cpus_per_worker, self.port, self.end_port,
-                                            self.temp_dir, pfam_file)
-            
-            elapsed_time = time.time() - start_time
-            print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
                     
         return all_orthologs, all_annotations, qn, elapsed_time
+
+    
+    ##
+    def _process_annot_result(self, result, all_orthologs, all_annotations):
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations, 
+         narr_og_name, narr_og_cat, narr_og_desc,
+         best_og_name, best_og_cat, best_og_desc,                     
+         match_nogs_names, all_orthologies, annot_orthologs) = result
+
+        if self.report_orthologs == True:
+            # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
+            if query_name in all_orthologs:
+                query_orthologs = all_orthologs[query_name]
+            else:
+                query_orthologs = {}
+                all_orthologs[query_name] = query_orthologs
+
+            for target in all_orthologies:
+                if target in query_orthologs:
+                    query_orthologs[target].update(all_orthologies[target])
+                else:
+                    query_orthologs[target] = set(all_orthologies[target])
+            if "annot_orthologs" in query_orthologs:
+                query_orthologs["annot_orthologs"].update(annot_orthologs)
+            else:
+                query_orthologs["annot_orthologs"] = set(annot_orthologs)
+
+        if self.annot == True:
+            # prepare annotations for printing
+            annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
+                             ",".join(match_nogs_names), 
+                             narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
+
+            # If tax_scope_mode == narrowest there is no need to output best_og colums
+            if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
+                annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
+
+            for h in ANNOTATIONS_HEADER:
+                if h in annotations:
+                    annot_columns.append(','.join(sorted(annotations[h])))
+                else:
+                    annot_columns.append('-')
+
+            all_annotations.append(annot_columns)
+
+        return
+    
     
     ##
     def iter_hit_lines(self, filename):
@@ -326,13 +382,18 @@ class Annotator:
             
         return
 
-                
-# annotate_hit_line is outside the class because must be pickable
+
 ##
-def annotate_hit_line(arguments):
+def annotate_hit_line_process(arguments):
     # should connect also if no previous connection
     # exists in this Pool process (worker)
     db_sqlite.connect()
+
+    return annotate_hit_line(arguments)
+
+# annotate_hit_line is outside the class because must be pickable
+##
+def annotate_hit_line(arguments):
     
     line, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_id, tax_resolution, \

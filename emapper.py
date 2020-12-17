@@ -228,6 +228,11 @@ def create_arg_parser():
     pg_annot.add_argument("--no_annot", action="store_true",
                           help="Skip functional annotation, reporting only hits.")
 
+    pg_annot.add_argument('--dbmem', action="store_true",
+                          help='''Use this option to allocate the whole eggnog.db DB in memory.
+                          Database will be unloaded after execution.''')
+    
+
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
