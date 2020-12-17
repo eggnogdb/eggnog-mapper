@@ -259,7 +259,7 @@ class Annotator:
         start_time = time.time() # do not take into account time to load the db into memory
         db_sqlite.connect(usemem = True)
         total_time = time.time() - start_time
-        print(f"Time to load the DB into memory: {total_time}", file=sys.stderr)
+        print(colorify(f"Time to load the DB into memory: {total_time}", "lblue"), file=sys.stderr)
         sys.stderr.flush()        
 
         start_time = time.time() # do not take into account time to load the db into memory
@@ -284,6 +284,9 @@ class Annotator:
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
             db_sqlite.close()
+
+        elapsed_time = time.time() - start_time
+        print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
                     
         return all_orthologs, all_annotations, qn
 
@@ -319,7 +322,10 @@ class Annotator:
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
             pool.terminate()
-                    
+
+        elapsed_time = time.time() - start_time
+        print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
+            
         return all_orthologs, all_annotations, qn
 
     
