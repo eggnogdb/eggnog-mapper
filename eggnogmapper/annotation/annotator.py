@@ -256,7 +256,11 @@ class Annotator:
         all_orthologs = {}
         all_annotations = []
 
+        start_time = time.time() # do not take into account time to load the db into memory
         db_sqlite.connect(usemem = True)
+        total_time = time.time() - start_time
+        print(f"Time to load the DB into memory: {total_time}", file=sys.stderr)
+        sys.stderr.flush()        
 
         start_time = time.time() # do not take into account time to load the db into memory
         
