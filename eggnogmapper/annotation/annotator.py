@@ -252,11 +252,13 @@ class Annotator:
 
 
     ##
-    def _annotate_dbmem(self, seed_orthologs_file, pfam_file, start_time = time.time()):
+    def _annotate_dbmem(self, seed_orthologs_file, pfam_file):
         all_orthologs = {}
         all_annotations = []
 
         db_sqlite.connect(usemem = True)
+
+        start_time = time.time() # do not take into account time to load the db into memory
         
         qn = 0
         try:
@@ -283,7 +285,7 @@ class Annotator:
 
     
     ##
-    def _annotate_ondisk(self, seed_orthologs_file, pfam_file, start_time = time.time()):
+    def _annotate_ondisk(self, seed_orthologs_file, pfam_file):
 
         all_orthologs = {}
         all_annotations = []
@@ -291,6 +293,8 @@ class Annotator:
         # multiprocessing.set_start_method("spawn")
         pool = multiprocessing.Pool(self.cpu)
 
+        start_time = time.time() # do not take into account time to load the pool of processes
+        
         qn = 0
         try:
             for result in pool.imap(annotate_hit_line_process, self.iter_hit_lines(seed_orthologs_file)):
