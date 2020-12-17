@@ -227,11 +227,17 @@ class Annotator:
 
     ##
     def _annotate(self, seed_orthologs_file, pfam_file):
+        
+        start_time = time.time()
+        
         if self.dbmem == True:
-            all_orthologs, all_annotations, qn, elapsed_time = self._annotate_dbmem(seed_orthologs_file, pfam_file)
+            all_orthologs, all_annotations, qn = self._annotate_dbmem(seed_orthologs_file, pfam_file)
         else:
-            all_orthologs, all_annotations, qn, elapsed_time = self._annotate_ondisk(seed_orthologs_file, pfam_file)
+            all_orthologs, all_annotations, qn = self._annotate_ondisk(seed_orthologs_file, pfam_file)
 
+        elapsed_time = time.time() - start_time
+        print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
+            
         ##
         # PFAMs annotation
         if self.annot == True and self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and all_annotations is not None and len(all_annotations) > 0:
@@ -246,13 +252,11 @@ class Annotator:
 
 
     ##
-    def _annotate_dbmem(self, seed_orthologs_file, pfam_file):
+    def _annotate_dbmem(self, seed_orthologs_file, pfam_file, start_time = time.time()):
         all_orthologs = {}
         all_annotations = []
 
         db_sqlite.connect(usemem = True)
-        
-        start_time = time.time()
         
         qn = 0
         try:
@@ -274,20 +278,15 @@ class Annotator:
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
             db_sqlite.close()
-
-        elapsed_time = time.time() - start_time
-        print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
                     
-        return all_orthologs, all_annotations, qn, elapsed_time
+        return all_orthologs, all_annotations, qn
 
     
     ##
-    def _annotate_ondisk(self, seed_orthologs_file, pfam_file):
+    def _annotate_ondisk(self, seed_orthologs_file, pfam_file, start_time = time.time()):
 
         all_orthologs = {}
         all_annotations = []
-        
-        start_time = time.time()
         
         # multiprocessing.set_start_method("spawn")
         pool = multiprocessing.Pool(self.cpu)
@@ -312,11 +311,8 @@ class Annotator:
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
             pool.terminate()
-
-        elapsed_time = time.time() - start_time
-        print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
                     
-        return all_orthologs, all_annotations, qn, elapsed_time
+        return all_orthologs, all_annotations, qn
 
     
     ##
