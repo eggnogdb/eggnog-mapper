@@ -7,12 +7,24 @@ from ..common import get_eggnogdb_file, existing_file
 conn = None
 db = None
 
-
-def connect():
+def connect(usemem = False):
     global conn, db
     if not conn:
-        existing_file(get_eggnogdb_file())
-        conn = sqlite3.connect(get_eggnogdb_file())
+        eggnogdb_file = get_eggnogdb_file()
+        existing_file(eggnogdb_file)
+        
+        if usemem == True:
+            print("Loading source DB...")
+            source = sqlite3.connect(eggnogdb_file)
+            print("Connecting to memory...")
+            conn = sqlite3.connect(':memory:')
+            print("Loading source DB into memory...")
+            source.backup(conn)
+            source.close()
+        else:
+            existing_file(eggnogdb_file)
+            conn = sqlite3.connect(eggnogdb_file)
+
         db = conn.cursor()
         db.execute("PRAGMA synchronous=OFF;")
         db.execute("PRAGMA journal_mode=OFF;")
