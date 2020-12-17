@@ -3,6 +3,7 @@
 import sqlite3
 
 from ..common import get_eggnogdb_file, existing_file
+from ..utils import colorify
 
 conn = None
 db = None
@@ -15,10 +16,10 @@ def connect(usemem = False):
         
         if usemem == True:
             print("Loading source DB...")
+            print(colorify("Warning: this can take a few minutes and load up to 45GB to RAM. "
+                           "Using --dbmem is recommended to annotate a large number of sequences.", "red"))
             source = sqlite3.connect(eggnogdb_file)
-            print("Connecting to memory...")
             conn = sqlite3.connect(':memory:')
-            print("Loading source DB into memory...")
             source.backup(conn)
             source.close()
         else:
