@@ -155,7 +155,7 @@ def create_arg_parser():
                            help="Final sensititivy step. Default=7")
 
     pg_mmseqs.add_argument('--mmseqs_sub_mat', dest='mmseqs_sub_mat', default=None, type=str, metavar='SUBS_MATRIX',
-                           help="Matrix to be used for --sub-mat MMseqs2 search option.Final sensititivy step. Default=default used by MMseqs2")
+                           help="Matrix to be used for --sub-mat MMseqs2 search option. Default=default used by MMseqs2")
     
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
@@ -220,7 +220,7 @@ def create_arg_parser():
                           help='Removes those hits which overlap, keeping only the one with best evalue. '
                           'Use the "all" and "clans" options when performing a hmmscan type search (i.e. domains are in the database). '
                           'Use the "hmmsearch_all" and "hmmsearch_clans" options when using a hmmsearch type search (i.e. domains are the queries from -i file). '
-                          'The "clans" and "hmmsearch_clans" and options will only have effecto for hits to/from Pfam.')
+                          'The "clans" and "hmmsearch_clans" and options will only have effect for hits to/from Pfam.')
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
