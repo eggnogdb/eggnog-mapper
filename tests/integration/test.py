@@ -542,7 +542,9 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with prodigal
         '''
-
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal -m diamond --sensmode sensitive --no_annot
+        # --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o test --output_dir tmp
+        
         ##
         # Setup test
         
