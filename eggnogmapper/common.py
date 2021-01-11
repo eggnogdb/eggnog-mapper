@@ -282,6 +282,11 @@ def get_db_present(level):
     return db_present
 
 def get_citation(addons=['hmmer']):
+    EXAMPLE = """
+e.g. Functional annotation was performed using %s [1]
+ based on eggNOG orthology data [2]. Sequence searches were performed using [3].
+"""%get_version()
+    
     CITATION = """
 ================================================================================
 CITATION:
@@ -302,23 +307,35 @@ If you use this software, please cite:
 
     if 'hmmer' in addons:
         CITATION += """
-[3] Accelerated Profile HMM Searches. PLoS Comput. Biol. 7:e1002195. Eddy SR.
-       2011.
+
+[3] Accelerated Profile HMM Searches. 
+       Eddy SR. 2011. PLoS Comput. Biol. 7:e1002195. 
 """
     elif 'diamond' in addons:
         CITATION += """
+
 [3] Fast and Sensitive Protein Alignment using DIAMOND. Buchfink B, Xie C,
-       Huson DH. 2015. Nat. Methods [Internet] 12.
+       Huson DH. 2015. Nat. Methods 12, 59–60. https://doi.org/10.1038/nmeth.3176
+"""
+    elif 'mmseqs' in addons:
+        CITATION += """
+
+[3] MMseqs2 enables sensitive protein sequence searching for the analysis of massive data sets.
+       Steinegger M & Söding J. 2017. Nat. Biotech. 35, 1026–1028. https://doi.org/10.1038/nbt.3988
 """
 
+    if 'prodigal' in addons:
+        CITATION += """
+[4] Prodigal: prokaryotic gene recognition and translation initiation site identification.
+       Hyatt et al. 2010. BMC Bioinformatics 11, 119. https://doi.org/10.1186/1471-2105-11-119.
+"""
+        EXAMPLE += " Gene prediction was performed using [4]."
+
+    CITATION += EXAMPLE
     CITATION += """
 
-(e.g. Functional annotation was performed using %s [1]
- based on eggNOG orthology data [2]. Sequence searches were performed
- using [3].)
-
 ================================================================================
-""" %get_version()
+"""
 
     return CITATION
 

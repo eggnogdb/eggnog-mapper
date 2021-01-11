@@ -591,7 +591,7 @@ if __name__ == "__main__":
         emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table, args.cache_file)
 
-        print(get_citation([args.mode]))
+        print(get_citation([args.mode, args.genepred]))
         print('Total time: %g secs' % (time.time()-_total_time))
         
     except EmapperException as ee:
