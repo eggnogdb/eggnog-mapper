@@ -7,7 +7,6 @@ from eggnogmapper.common import pexists, set_data_path, existing_dir, HMMPRESS
 from eggnogmapper.utils import ask, ask_name, colorify
 from eggnogmapper.version import __DB_VERSION__
 
-DATABASE_VERSION = __DB_VERSION__
 BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
 EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
 EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
