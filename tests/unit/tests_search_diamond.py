@@ -19,6 +19,7 @@ class Test(unittest.TestCase):
     # Tests
     def test_run_diamond_blastp(self):
         args = Namespace(itype=ITYPE_PROTS,
+                         translate=False,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
@@ -34,10 +35,11 @@ class Test(unittest.TestCase):
                          no_file_comments=None)
         
         fasta_file = "tests/fixtures/test_queries.fa"
+        tempdir = "tests/unit/out/"
         output_file = "tests/unit/out/test_run_diamond_blastp.seed_orthologs"
                 
         searcher = DiamondSearcher(args)
-        cmd = searcher.run_diamond(fasta_file, output_file)
+        cmd = searcher.run_diamond(fasta_file, tempdir, output_file)
         
         self.assertIsNotNone(cmd)
         self.assertTrue(cmd.startswith(DIAMOND))
@@ -46,6 +48,7 @@ class Test(unittest.TestCase):
 
     def test_run_diamond_blastx(self):
         args = Namespace(itype=ITYPE_CDS,
+                         translate=False,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
@@ -61,11 +64,12 @@ class Test(unittest.TestCase):
                          no_file_comments=None)
         
         fasta_file = "tests/fixtures/test_queries.fna"
+        tempdir = "tests/unit/out/"
         output_file = "tests/unit/out/test_run_diamond_blastx.seed_orthologs"
                 
         searcher = DiamondSearcher(args)
         
-        cmd = searcher.run_diamond(fasta_file, output_file)
+        cmd = searcher.run_diamond(fasta_file, tempdir, output_file)
         
         self.assertIsNotNone(cmd)
         self.assertTrue(cmd.startswith(DIAMOND))
@@ -74,6 +78,7 @@ class Test(unittest.TestCase):
 
     def test_parse_diamond(self):
         args = Namespace(itype=ITYPE_PROTS,
+                         translate=False,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
