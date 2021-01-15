@@ -406,6 +406,11 @@ def parse_args(parser):
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
 
+
+    # translate
+    if args.itype in [ITYPE_GENOME, ITYPE_META, ITYPE_PROTS] and args.translate == True:
+        parser.error('"--translate" only can be used with "--itype CDS"')
+    
     # Search modes
     if args.mode == SEARCH_MODE_DIAMOND:
         dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
@@ -484,6 +489,12 @@ def parse_args(parser):
         # NOTE: hmmer database format, name and checking if exists is done within hmmer module
         if not args.db:
             parser.error('HMMER mode requires a target database (-d, --database).')
+
+        if args.itype == ITYPE_CDS:
+            args.translate = True
+
+        if (args.itype == ITYPE_GENOME or args.itype == ITYPE_META) and args.genepred == GENEPRED_MODE_SEARCH:
+            parser.error('HMMER mode is not compatible with "--genepred search" option.')            
 
         if args.annotate_hits_table is not None:
             print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_HMMER}", 'blue'))
@@ -584,9 +595,6 @@ if __name__ == "__main__":
         
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
-            
-        if args.itype == ITYPE_CDS:
-            args.translate = True
             
         emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table, args.cache_file)
