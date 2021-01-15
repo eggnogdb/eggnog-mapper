@@ -4,12 +4,12 @@
 from os.path import join as pjoin
 import shutil
 import subprocess
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 import uuid
 
 from ...emapperException import EmapperException
 from ...common import DIAMOND, get_eggnog_dmnd_db, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
-from ...utils import colorify
+from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
@@ -39,6 +39,7 @@ class DiamondSearcher:
 
     in_file = None
     itype = None
+    translate = None
 
     # Results
     queries = hits = no_hits = None
@@ -47,6 +48,7 @@ class DiamondSearcher:
     def __init__(self, args):
         
         self.itype = args.itype
+        self.translate = args.translate
 
         self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
 
@@ -86,7 +88,7 @@ class DiamondSearcher:
         tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=self.temp_dir)
         try:
             output_file = pjoin(tempdir, uuid.uuid4().hex)
-            cmd = self.run_diamond(in_file, output_file)
+            cmd = self.run_diamond(in_file, tempdir, output_file)
             self.hits = self.parse_diamond(output_file)            
             self.output_diamond(cmd, self.hits, seed_orthologs_file)
 
@@ -111,23 +113,29 @@ class DiamondSearcher:
         return self.no_hits
 
     ##
-    def run_diamond(self, fasta_file, output_file):
-        if self.itype == ITYPE_CDS or self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+    def run_diamond(self, fasta_file, tempdir, output_file):
+        if self.itype == ITYPE_CDS and self.translate == True:
+            tool = 'blastp'
+            handle, query_file = mkstemp(dir = tempdir, text = True)
+            translate_cds_to_prots(fasta_file, query_file)
+        elif self.itype == ITYPE_CDS or self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             tool = 'blastx'
+            query_file = fasta_file
         elif self.itype == ITYPE_PROTS:
             tool = 'blastp'
+            query_file = fasta_file
         else:
             raise EmapperException(f"Unrecognized --itype {self.itype}.")
         
         if self.sensmode == SENSMODE_FAST:
             cmd = (
-                f'{DIAMOND} {tool} -d {self.dmnd_db} -q {fasta_file} '
+                f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
                 f'--threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
                 f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
             )
         else:
             cmd = (
-                f'{DIAMOND} {tool} -d {self.dmnd_db} -q {fasta_file} '
+                f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
                 f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
                 f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
             )
@@ -137,9 +145,6 @@ class DiamondSearcher:
         if self.gapextend: cmd += ' --gapextend {self.gapextend}'
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            # if self.excluded_taxa:
-            #     cmd += " --max-target-seqs 25 "
-            # else:
             cmd += " --top 3 "
         else: # self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             cmd += " --max-target-seqs 0 --max-hsps 0 "

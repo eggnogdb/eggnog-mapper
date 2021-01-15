@@ -4,12 +4,12 @@
 from os.path import join as pjoin
 import shutil
 import subprocess
-from tempfile import mkdtemp
+from tempfile import mkdtemp, mkstemp
 import uuid
 
 from ...common import MMSEQS2, get_eggnog_mmseqs_db, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 from ...emapperException import EmapperException
-from ...utils import colorify
+from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 from ..diamond.diamond import hit_does_overlap
@@ -33,6 +33,7 @@ class MMseqs2Searcher:
 
     in_file = None
     itype = None
+    translate = None
 
     # Results
     queries = hits = no_hits = None
@@ -41,6 +42,7 @@ class MMseqs2Searcher:
     def __init__(self, args):
 
         self.itype = args.itype
+        self.translate = args.translate
 
         self.targetdb = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
 
@@ -112,8 +114,14 @@ class MMseqs2Searcher:
     
     def run_mmseqs(self, fasta_file, tempdir, querydb, targetdb, resultdb, bestresultdb):
         cmds = []
-        
-        cmd = self.createdb(fasta_file, querydb)
+
+        if self.itype == ITYPE_CDS and self.translate == True:
+            handle, query_file = mkstemp(dir = tempdir, text = True)
+            translate_cds_to_prots(fasta_file, query_file)
+        else:
+            query_file = fasta_file
+            
+        cmd = self.createdb(query_file, querydb)
         cmds.append(cmd)
 
         cmd = self.search_step(querydb, targetdb, resultdb, tempdir)
@@ -135,6 +143,11 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} createdb {fasta_file} {querydb}'
         )
+        if self.itype == ITYPE_PROTS or self.translate == True:
+            cmd += ' --dbtype 1' # aas queries (proteins)
+        else:
+            cmd += ' --dbtype 2' # nts queries (CDS, contig, ...)
+            
         print(colorify('  '+cmd, 'yellow'))
         try:
             completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
@@ -166,9 +179,6 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} filterdb {resultdb} {bestresultdb}'
         )
-        # if self.excluded_taxa:
-        #     cmd += " --extract-lines 25 "
-        # else:
         cmd += " --extract-lines 1 "
         
         print(colorify('  '+cmd, 'yellow'))

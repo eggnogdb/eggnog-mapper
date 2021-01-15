@@ -216,3 +216,34 @@ def timeit(f):
         return r
     return a_wrapper_accepting_arguments
 
+##
+# Function to translate a fasta file with CDS to a fasta file with prots,
+# stored in a temp file within a specified tempdir
+# CPCantalapiedra 2021
+def translate_cds_to_prots(source, outfile):
+    import gzip
+    from pathlib import Path
+    from Bio import SeqIO
+    from Bio.SeqRecord import SeqRecord
+    
+    if os.path.isfile(source) or Path(source).is_file():
+        if source.endswith('.gz'):
+            _source = gzip.open(source, "rt")
+        else:
+            _source = open(source, "rU")
+    else:
+        _source = iter(source.split("\n"))
+
+    proteins = (
+        SeqRecord(seq = nuc_rec.seq.translate(to_stop=True),
+                  id=nuc_rec.id,
+                  description="translation of CDS, using default table")
+        for nuc_rec in SeqIO.parse(_source, "fasta")
+    )
+        
+    SeqIO.write(proteins, outfile, "fasta")
+
+    if os.path.isfile(source) or Path(source).is_file():
+        _source.close()
+    
+    return
