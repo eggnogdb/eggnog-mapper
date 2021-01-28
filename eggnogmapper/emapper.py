@@ -10,6 +10,7 @@ from .common import silent_rm, get_version, ITYPE_GENOME, ITYPE_META, ITYPE_PROT
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
+from .genepred.util import create_prots_file, create_gff_file
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE
 from .annotation.annotators import get_annotator, get_cache_annotator
 
@@ -125,71 +126,15 @@ class Emapper:
             # If gene prediction from the hits obtained in the search step
             # create a fasta file with the inferred proteins
             if (args.itype == ITYPE_GENOME or args.itype == ITYPE_META) and self.genepred == GENEPRED_MODE_SEARCH:
-                self._create_prots_file(infile, searcher.get_hits(), pjoin(self._current_dir, self.genepred_fasta_file))
-                self._create_gff_file(infile, searcher.name, searcher.get_hits(), pjoin(self._current_dir, self.genepred_gff_file))
+                hits = searcher.get_hits()
+                
+                fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
+                create_prots_file(infile, hits, fasta_file)
+                
+                gff_file = pjoin(self._current_dir, self.genepred_gff_file)
+                create_gff_file(infile, searcher.name, get_version(), hits, gff_file)
             
         return searcher
-
-    ##
-    def _create_prots_file(self, infile, hits, outfile):
-        hits_dict = {}
-        for hit in hits:
-            query = hit[0]
-            qstart = hit[4]
-            qend = hit[5]
-            if query in hits_dict:
-                hits_dict[query].append((qstart, qend))
-            else:
-                hits_dict[query] = [(qstart, qend)]
-                
-        with open(outfile, 'w') as OUT:
-            from .search.hmmer.hmmer_seqio import iter_fasta_seqs
-            suffix = 0
-            for name, seq in iter_fasta_seqs(infile):
-                if name in hits_dict:
-                    for qstart, qend in hits_dict[name]:
-                        print(f">{name}_{suffix}\n{seq[qstart-1:qend]}", file=OUT)
-                        suffix += 1
-        
-        return
-
-    ##
-    def _create_gff_file(self, infile, searcher_name, hits, outfile):
-        hits_dict = {}
-        with open(outfile, 'w') as OUT:
-
-            print("##gff-version 3", file=OUT)
-            print(f"# {get_version()}", file=OUT)
-            
-            for hit in sorted(hits, key=lambda x: (x[0],x[4],x[5],x[3])):
-                query = hit[0]
-                target = hit[1]
-                evalue = hit[2]
-                score = hit[3]
-                qstart = hit[4]
-                qend = hit[5]
-                sstart = hit[6]
-                send = hit[7]
-                if qstart <= qend:
-                    strand = "+"
-                else:
-                    strand = "-"
-                    qend = hit[4]
-                    qstart = hit[5]
-
-                frame = "-" # we cannot know the frame as we align against proteins
-                    
-                if query in hits_dict:
-                    hits_dict[query] += 1
-                else:
-                    hits_dict[query] = 0
-                suffix = hits_dict[query]
-                
-                print(f"{query}\teggNOG-mapper\tCDS\t{qstart}\t{qend}\t{score}\t{strand}\t{frame}\t"
-                      f"ID={query}_{suffix};score={score};evalue={evalue};eggnog5_target={target};sstart={sstart};send={send};searcher={searcher_name}",
-                      file=OUT)
-        
-        return
     
     
     ##
