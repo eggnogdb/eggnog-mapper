@@ -222,15 +222,26 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                 continue
             fields = line.split()
 
-            hitname = str(fields[0])
-            (hacc, tlen, qname, qacc, qlen, evalue, score, bias, didx,
-             dnum, c_evalue, i_evalue, d_score, d_bias, hmmfrom, hmmto, seqfrom,
-             seqto, env_from, env_to, acc) = list(map(safe_cast, fields[1:22]))
-
-            # if "CG50_09910" in qname:
-            #     print(f"hmmer_search.py: {hitname}")
-            #     print(f"hmmer_search.py: {list(map(safe_cast, fields[:22]))}")
-
+            # This is the list of fields from 0 to 21
+            # The code was problematic with string values similar to int or floats
+            # so I will be not used anymore, but the list is useful to keep track
+            # of the available fields
+            #
+            # (hitname, hacc, tlen, qname, qacc, qlen, evalue, score, bias, didx,
+            #  dnum, c_evalue, i_evalue, d_score, d_bias, hmmfrom, hmmto, seqfrom,
+            #  seqto, env_from, env_to, acc) = list(map(safe_cast, fields[:22]))
+            
+            hitname = str(fields[0]).strip()
+            qname = str(fields[3]).strip()
+            qlen = int(fields[5])
+            evalue = float(fields[6])
+            score = float(fields[7])
+            d_score = float(fields[13])
+            hmmfrom = int(fields[15])
+            hmmto = int(fields[16])
+            seqfrom = int(fields[17])
+            seqto = int(fields[18])
+            
             # If a new query is being processed,
             # report the results of the previous one
             if last_query and qname != last_query:
