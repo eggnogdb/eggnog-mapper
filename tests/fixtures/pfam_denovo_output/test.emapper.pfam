@@ -1,0 +1,15 @@
+# Thu Nov  5 19:00:45 2020
+# emapper-2.0.2-rf1-91-gbdc03c4
+# ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_realign denovo
+#
+# #query_name	hit	evalue	sum_score	query_length	hmmfrom	hmmto	seqfrom	seqto	query_coverage
+1000565.METUNv1_03812	YchF-GTPase_C	1.2e-42	133.4	363	1	84	279	362	0.22865013774104684
+1000565.METUNv1_03812	MMR_HSR1	5.3e-26	80.3	363	2	95	5	123	0.325068870523416
+1000565.METUNv1_03812_2	YchF-GTPase_C	1.2e-42	133.4	363	1	84	279	362	0.22865013774104684
+1000565.METUNv1_03812_2	MMR_HSR1	5.3e-26	80.3	363	2	95	5	123	0.325068870523416
+362663.ECP_0061	DNA_pol_B	5.9e-46	146.2	783	30	415	382	735	0.4508301404853129
+362663.ECP_0061	DNA_pol_B_exo1	1.2e-16	50.0	783	65	173	74	164	0.11494252873563218
+362663.ECP_0061	DNA_pol_B_exo1	1.2e-16	50.0	783	241	337	204	296	0.11749680715197956
+# 3 queries scanned
+# Total time (seconds): 0.14539504051208496
+# Rate: 20.63 q/s

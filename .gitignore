@@ -8,3 +8,4 @@ emappertmp*
 data/*
 !.gitkeep
 *_old
+*old*

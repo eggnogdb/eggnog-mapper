@@ -1,0 +1,6 @@
+##gff-version  3
+# Sequence Data: seqnum=1;seqlen=5040;seqhdr="0"
+# Model Data: version=Prodigal.v2.6.3;run_type=Metagenomic;model="20|Escherichia_coli_UMN026|B|50.7|11|1";gc_cont=50.70;transl_table=11;uses_sd=1
+0	Prodigal_v2.6.3	CDS	337	2799	334.6	+	0	ID=1_1;partial=00;start_type=ATG;rbs_motif=GGAG/GAGG;rbs_spacer=5-10bp;gc_cont=0.531;conf=99.99;score=334.57;cscore=318.03;sscore=16.53;rscore=11.19;uscore=1.40;tscore=3.95;
+0	Prodigal_v2.6.3	CDS	2801	3733	116.0	+	0	ID=1_2;partial=00;start_type=ATG;rbs_motif=AGGAG;rbs_spacer=5-10bp;gc_cont=0.563;conf=100.00;score=117.25;cscore=96.89;sscore=20.36;rscore=14.84;uscore=0.31;tscore=3.95;
+0	Prodigal_v2.6.3	CDS	3734	5020	190.0	+	0	ID=1_3;partial=00;start_type=ATG;rbs_motif=GGA/GAG/AGG;rbs_spacer=5-10bp;gc_cont=0.528;conf=99.99;score=191.23;cscore=186.77;sscore=4.47;rscore=2.79;uscore=-3.55;tscore=3.95;

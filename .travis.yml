@@ -1,7 +1,7 @@
 language: python
 python:
-  - "2.7"
+  - "3.8"
 install:
   - pip install -r requirements.txt
 script:
-  - python -m unittest tests.test
+  - python -m unittest discover -v -b

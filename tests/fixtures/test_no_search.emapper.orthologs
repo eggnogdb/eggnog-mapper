@@ -1,0 +1,402 @@
+# Sun Dec 13 20:06:16 2020
+# emapper-2.0.2-rf1-133-g1a10a1c
+# ./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_output.emapper.seed_orthologs --data_dir tests/fixtures --output_dir tmp_no_search -o tmp --report_orthologs --target_orthologs one2one --target_taxa 72274,1123487 --excluded_taxa 205918,1395571
+#
+#query	orth_type	species	orthologs
+1000565.METUNv1_03812	one2one	Aromatoleum aromaticum EbN1(76114)	ebA4139
+1000565.METUNv1_03812	one2one	Azoarcus sp. BH72(62928)	azo0752
+1000565.METUNv1_03812	one2one	Azoarcus sp. KH32C(748247)	AZKH_0690
+1000565.METUNv1_03812	one2one	Azovibrio restrictus DSM 23866(1121035)	AUCH01000015_gene2548
+1000565.METUNv1_03812	one2one	Dechloromonas agitata is5(1304883)	KI912532_gene1239
+1000565.METUNv1_03812	one2one	Dechloromonas aromatica RCB(159087)	Daro_3733
+1000565.METUNv1_03812	one2one	Dechlorosoma suillum PS(640081)	Dsui_1039
+1000565.METUNv1_03812	one2one	Methyloversatilis universalis FAM5(1000565)	METUNv1_03812
+1000565.METUNv1_03812	one2one	Thauera linaloolentis 47Lol = DSM 12138(1123367)	C666_07595
+1000565.METUNv1_03812	one2one	Thauera sp. 27(305700)	B447_07764
+1000565.METUNv1_03812	one2one	Thauera sp. 63(497321)	C664_16088
+1000565.METUNv1_03812	one2one	Thauera sp. MZ1T(85643)	Tmz1t_3631
+1000565.METUNv1_03812	one2one	Thauera terpenica 58Eu(1348657)	M622_06940
+1000565.METUNv1_03812	one2one	Uliginosibacterium gangwonense DSM 18521(1123487)	*KB892857_gene2312
+362663.ECP_0061	one2one	Aeromonas diversa 2478-85(1268237)	G114_12253
+362663.ECP_0061	one2one	Aeromonas hydrophila YL17(1448139)	AI20_07565
+362663.ECP_0061	one2one	Aeromonas hydrophila subsp. hydrophila ATCC 7966(380703)	AHA_2107
+362663.ECP_0061	one2one	Aeromonas salmonicida subsp. salmonicida A449(382245)	ASA_2190
+362663.ECP_0061	one2one	Aeromonas sp. AE122(558884)	JRGM01000153_gene949
+362663.ECP_0061	one2one	Aeromonas veronii B565(998088)	B565_1731
+362663.ECP_0061	one2one	Aestuariibacter salexigens DSM 15300(1120953)	AUBH01000004_gene3192
+362663.ECP_0061	one2one	Algicola sagamiensis DSM 14643(1120963)	KB894506_gene3814
+362663.ECP_0061	one2one	Aliagarivorans taiwanensis DSM 22990(1120970)	AUBZ01000052_gene2919
+362663.ECP_0061	one2one	Aliivibrio salmonicida LFI1238(316275)	VSAL_I2142
+362663.ECP_0061	one2one	Alteromonas australica(589873)	EP13_15875
+362663.ECP_0061	one2one	Alteromonas macleodii str. 'Black Sea 11'(1004785)	AMBLS11_15500
+362663.ECP_0061	one2one	Alteromonas macleodii str. 'Deep ecotype'(314275)	MADE_1016665
+362663.ECP_0061	one2one	Alteromonas sp. ALT199(1298865)	H978DRAFT_0156
+362663.ECP_0061	one2one	Alteromonas sp. LOR(1537994)	JQFW01000056_gene934
+362663.ECP_0061	one2one	Alteromonas sp. SN2(715451)	ambt_00830
+362663.ECP_0061	one2one	Amphritea japonica ATCC BAA-1530(1278309)	KB907099_gene2467
+362663.ECP_0061	one2one	Brenneria sp. EniD312(598467)	BrE312_0653
+362663.ECP_0061	one2one	Budvicia aquatica DSM 5075 = ATCC 35567(1111728)	ATYS01000002_gene2032
+362663.ECP_0061	one2one	Buttiauxella agrestis ATCC 33320(1006004)	GBAG_3457
+362663.ECP_0061	one2one	Catenovulum agarivorans DS-2(1328313)	DS2_18293
+362663.ECP_0061	one2one	Cedecea neteri(158822)	LH89_15865
+362663.ECP_0061	one2one	Cellvibrio japonicus Ueda107(498211)	*CJA_2886
+362663.ECP_0061	one2one	Cellvibrio mixtus subsp. mixtus J3-8(1209072)	*ALBT01000065_gene1128
+362663.ECP_0061	one2one	Cellvibrio sp. BR(1134474)	*O59_003286
+362663.ECP_0061	one2one	Citrobacter amalonaticus(35703)	DQ02_16995
+362663.ECP_0061	one2one	Citrobacter farmeri GTC 1319(1114922)	CIFAM_14_00570
+362663.ECP_0061	one2one	Citrobacter rodentium ICC168(637910)	ROD_00651
+362663.ECP_0061	one2one	Citrobacter sedlakii NBRC 105722(1218086)	BBNB01000010_gene760
+362663.ECP_0061	one2one	Citrobacter sp. 30_2(469595)	CSAG_03356
+362663.ECP_0061	one2one	Citrobacter sp. S-77(1080067)	BAZH01000004_gene4111
+362663.ECP_0061	one2one	Citrobacter youngae ATCC 29220(500640)	CIT292_09418
+362663.ECP_0061	one2one	Cobetia crustatorum(553385)	JEMF01000001_gene570
+362663.ECP_0061	one2one	Cobetia marina(28258)	KP05_04835
+362663.ECP_0061	one2one	Colwellia piezophila ATCC BAA-637(1265503)	KB905165_gene1170
+362663.ECP_0061	one2one	Colwellia psychrerythraea(28229)	ND2E_3600
+362663.ECP_0061	one2one	Cronobacter condimenti 1330(1073999)	BN137_3094
+362663.ECP_0061	one2one	Dasania marina DSM 21967(1121374)	*KB891591_gene3511
+362663.ECP_0061	one2one	Dickeya dadantii 3937(198628)	Dda3937_01373
+362663.ECP_0061	one2one	Dickeya dadantii Ech586(590409)	Dd586_3566
+362663.ECP_0061	one2one	Dickeya dadantii Ech703(579405)	Dd703_0609
+362663.ECP_0061	one2one	Dickeya sp. 2B12(1577887)	JSYG01000001_gene667
+362663.ECP_0061	one2one	Dickeya sp. DW 0440(1225785)	CM001983_gene2995
+362663.ECP_0061	one2one	Dickeya sp. NCPPB 569(568768)	CM001975_gene3021
+362663.ECP_0061	one2one	Dickeya zeae Ech1591(561229)	Dd1591_0570
+362663.ECP_0061	one2one	Edwardsiella hoshinae NBRC 105699 = ATCC 33379(1216966)	BAUC01000023_gene1579
+362663.ECP_0061	one2one	Edwardsiella tarda ATCC 15947 = NBRC 105688(667121)	ET1_10_00490
+362663.ECP_0061	one2one	Endozoicomonas elysicola(305900)	GV64_17865
+362663.ECP_0061	one2one	Endozoicomonas numazuensis(1137799)	GZ78_23460
+362663.ECP_0061	one2one	Enterobacter aerogenes KCTC 2190(1028307)	EAE_11080
+362663.ECP_0061	one2one	Enterobacter asburiae LF7a(640513)	Entas_0660
+362663.ECP_0061	one2one	Enterobacter cloacae EcWSU1(1045856)	EcWSU1_00673
+362663.ECP_0061	one2one	Enterobacter cloacae JD6301(1399774)	JDWH01000001_gene2409
+362663.ECP_0061	one2one	Enterobacter cloacae subsp. cloacae ATCC 13047(716541)	ECL_00856
+362663.ECP_0061	one2one	Enterobacter lignolyticus SCF1(701347)	Entcl_3665
+362663.ECP_0061	one2one	Enterobacter sp. 638(399742)	Ent638_0607
+362663.ECP_0061	one2one	Enterobacter sp. R4-368(1166130)	H650_19135
+362663.ECP_0061	one2one	Enterobacteriaceae bacterium B14(1214065)	BAGV01000052_gene1889
+362663.ECP_0061	one2one	Enterobacteriaceae bacterium LSJC7(1224136)	AMFN01000004_gene1724
+362663.ECP_0061	one2one	Enterobacteriaceae bacterium strain FGI 57(693444)	D782_3810
+362663.ECP_0061	one2one	Enterovibrio calviensis 1F-211(1190606)	AJYG01000064_gene1318
+362663.ECP_0061	one2one	Enterovibrio norvegicus FF-33(1190603)	AJYD01000005_gene4046
+362663.ECP_0061	one2one	Erwinia amylovora CFBP1430(665029)	EAMY_2919
+362663.ECP_0061	one2one	Erwinia billingiae Eb661(634500)	EbC_06980
+362663.ECP_0061	one2one	Erwinia pyrifoliae Ep1/96(634499)	EpC_07180
+362663.ECP_0061	one2one	Erwinia tasmaniensis Et1/99(465817)	ETA_07310
+362663.ECP_0061	one2one	Erwinia typographi(371042)	NG99_21800
+362663.ECP_0061	one2one	Escherichia albertii KF1(1440052)	EAKF1_ch1361
+362663.ECP_0061	one2one	Escherichia albertii TW07627(502347)	ESCAB7627_3201
+362663.ECP_0061	one2one	Escherichia coli 536(362663)	ECP_0061
+362663.ECP_0061	one2one	Escherichia coli ATCC 8739(481805)	EcolC_3597
+362663.ECP_0061	one2one	Escherichia coli BL21(DE3)(469008)	B21_00061
+362663.ECP_0061	one2one	Escherichia coli CFT073(199310)	c0071
+362663.ECP_0061	one2one	Escherichia coli O157:H7 str. EDL933(155864)	EDL933_0062
+362663.ECP_0061	one2one	Escherichia coli str. K-12 substr. MG1655(511145)	b0060
+362663.ECP_0061	one2one	Escherichia coli str. K-12 substr. W3110(316407)	85674307
+362663.ECP_0061	one2one	Escherichia hermannii NBRC 105704(1115512)	EH105704_02_03110
+362663.ECP_0061	one2one	Escherichia sp. TW09308(754331)	AEME01000001_gene2079
+362663.ECP_0061	one2one	Escherichia vulneris NBRC 102420(1115515)	EV102420_08_02570
+362663.ECP_0061	one2one	Ewingella americana ATCC 33852(910964)	GEAM_0249
+362663.ECP_0061	one2one	Ferrimonas balearica DSM 9799(550540)	Fbal_1160
+362663.ECP_0061	one2one	Ferrimonas futtsuensis DSM 18154(1121878)	AUGL01000024_gene3733
+362663.ECP_0061	one2one	Gallaecimonas xiamenensis 3-C-1(745411)	B3C1_16722
+362663.ECP_0061	one2one	Gammaproteobacteria bacterium MFB021(1492922)	GY26_06990
+362663.ECP_0061	one2one	Gayadomonas joobiniege G7(1046714)	AMRX01000001_gene1551
+362663.ECP_0061	one2one	Gilvimarinus chinensis DSM 19667(1121921)	KB898710_gene523
+362663.ECP_0061	one2one	Glaciecola arctica BSs20135(493475)	GARC_4665
+362663.ECP_0061	one2one	Glaciecola lipolytica E3(1127673)	GLIP_3806
+362663.ECP_0061	one2one	Glaciecola mesophila KMM 241(1128912)	GMES_0635
+362663.ECP_0061	one2one	Glaciecola nitratireducens FR1064(1085623)	GNIT_0082
+362663.ECP_0061	one2one	Glaciecola psychrophila 170(1129794)	C427_0719
+362663.ECP_0061	one2one	Glaciecola sp. 4H-3-7+YE-5(983545)	Glaag_3623
+362663.ECP_0061	one2one	Grimontia hollisae CIP 101886(675812)	VHA_002685
+362663.ECP_0061	one2one	Grimontia indica(1056512)	D515_04005
+362663.ECP_0061	one2one	Hafnia alvei FB1(1453496)	AT03_18325
+362663.ECP_0061	one2one	Hahella chejuensis KCTC 2396(349521)	HCH_01557
+362663.ECP_0061	one2one	Hahella ganghwensis DSM 17046(1121935)	AQXX01000142_gene2202
+362663.ECP_0061	one2one	Haliea salexigens DSM 19537(1121937)	AUHJ01000011_gene2966
+362663.ECP_0061	one2one	Halomonas anticariensis FP35 = DSM 16096(1121939)	L861_00110
+362663.ECP_0061	one2one	Halomonas lutea DSM 23508(1121943)	KB899993_gene35
+362663.ECP_0061	one2one	Halomonas salina(42565)	FP66_08165
+362663.ECP_0061	one2one	Halomonas xinjiangensis(1166948)	JPZL01000001_gene2228
+362663.ECP_0061	one2one	Klebsiella oxytoca(571)	MC52_12495
+362663.ECP_0061	one2one	Klebsiella pneumoniae(573)	JG24_29705
+362663.ECP_0061	one2one	Kluyvera ascorbata ATCC 33433(1006000)	GKAS_03113
+362663.ECP_0061	one2one	Leclercia adecarboxylata ATCC 23216 = NBRC 102595(911008)	GLAD_03089
+362663.ECP_0061	one2one	Leminorella grimontii ATCC 33999 = DSM 5078(1005999)	GLGR_2221
+362663.ECP_0061	one2one	Leucothrix mucor DSM 2157(998674)	ATTE01000001_gene309
+362663.ECP_0061	one2one	Lonsdalea quercina subsp. quercina(1082705)	JIBP01000020_gene1660
+362663.ECP_0061	one2one	Luteibacter sp. 9135(1500893)	JQNB01000001_gene1060
+362663.ECP_0061	one2one	Luteibacter sp. 9143(1500890)	JQNL01000001_gene2109
+362663.ECP_0061	one2one	Mangrovibacter sp. MFB070(1224318)	DT73_07600
+362663.ECP_0061	one2one	Marinobacterium litorale DSM 23545(1122201)	AUAZ01000003_gene1977
+362663.ECP_0061	one2one	Marinobacterium sp. AK27(1232683)	ADIMK_2705
+362663.ECP_0061	one2one	Marinomonas mediterranea MMB-1(717774)	Marme_2143
+362663.ECP_0061	one2one	Marinomonas posidonica IVIA-Po-181(491952)	Mar181_1745
+362663.ECP_0061	one2one	Marinomonas sp. D104(1208321)	D104_17215
+362663.ECP_0061	one2one	Marinomonas sp. MWYL1(400668)	Mmwyl1_2210
+362663.ECP_0061	one2one	Marinomonas ushuaiensis DSM 15871(1122207)	MUS1_09280
+362663.ECP_0061	one2one	Microbulbifer agarilyticus S89(1042377)	AFPJ01000007_gene1879
+362663.ECP_0061	one2one	Microbulbifer sp. HZ11(1453501)	JELR01000001_gene2440
+362663.ECP_0061	one2one	Morganella morganii subsp. morganii KT(1124991)	MU9_896
+362663.ECP_0061	one2one	Moritella dasanensis ArB 0140(1201293)	AKXQ01000005_gene187
+362663.ECP_0061	one2one	Moritella marina ATCC 15381(1202962)	KB907152_gene1129
+362663.ECP_0061	one2one	Neptuniibacter caesariensis(207954)	MED92_02394
+362663.ECP_0061	one2one	Neptunomonas japonica DSM 18939(1122599)	AUGR01000012_gene874
+362663.ECP_0061	one2one	Oceanimonas smirnovii ATCC BAA-899(1279015)	KB908456_gene1623
+362663.ECP_0061	one2one	Oceanimonas sp. GK1(511062)	GU3_08445
+362663.ECP_0061	one2one	Pantoea agglomerans(549)	BW31_03194
+362663.ECP_0061	one2one	Pantoea ananatis AJ13355(932677)	PAJ_0037
+362663.ECP_0061	one2one	Pantoea ananatis LMG 20103(706191)	PANA_0690
+362663.ECP_0061	one2one	Pantoea rwandensis(1076550)	LH22_19005
+362663.ECP_0061	one2one	Pantoea sp. A4(1225184)	ALXE01000004_gene139
+362663.ECP_0061	one2one	Pantoea sp. At-9b(592316)	Pat9b_0640
+362663.ECP_0061	one2one	Pantoea sp. IMH(1267600)	JFGT01000005_gene2743
+362663.ECP_0061	one2one	Pantoea sp. PSNIH1(1484158)	PSNIH1_08275
+362663.ECP_0061	one2one	Pantoea sp. PSNIH2(1484157)	PSNIH2_14570
+362663.ECP_0061	one2one	Pantoea sp. Sc1(593105)	S7A_15715
+362663.ECP_0061	one2one	Pantoea sp. aB(517433)	PanABDRAFT_1681
+362663.ECP_0061	one2one	Pantoea stewartii(66269)	NL54_08390
+362663.ECP_0061	one2one	Pantoea vagans C9-1(712898)	Pvag_0098
+362663.ECP_0061	one2one	Pectobacterium atrosepticum SCRI1043(218491)	ECA3852
+362663.ECP_0061	one2one	Pectobacterium betavasculorum(55207)	KP22_11025
+362663.ECP_0061	one2one	Pectobacterium carotovorum subsp. carotovorum PC1(561230)	PC1_3628
+362663.ECP_0061	one2one	Pectobacterium carotovorum subsp. odoriferum(78398)	KS43_07875
+362663.ECP_0061	one2one	Pectobacterium sp. SCC3193(1166016)	W5S_3969
+362663.ECP_0061	one2one	Pectobacterium wasabiae WPP163(561231)	Pecwa_3819
+362663.ECP_0061	one2one	Photobacterium angustum S14(314292)	VAS14_03703
+362663.ECP_0061	one2one	Photobacterium damselae subsp. damselae CIP 102761(675817)	VDA_002186
+362663.ECP_0061	one2one	Photobacterium leiognathi lrivu.4.1(1248232)	BANQ01000035_gene3916
+362663.ECP_0061	one2one	Photobacterium leiognathi subsp. mandapamensis svers.1.1.(1001530)	BACE01000011_gene2341
+362663.ECP_0061	one2one	Photobacterium phosphoreum ANT220(1454202)	PPBDW_130199___1
+362663.ECP_0061	one2one	Photobacterium profundum SS9(298386)	PBPRA1531
+362663.ECP_0061	one2one	Pluralibacter gergoviae(61647)	LG71_24775
+362663.ECP_0061	one2one	Proteus mirabilis HI4320(529507)	PMI2327
+362663.ECP_0061	one2one	Proteus vulgaris(585)	DR95_2445
+362663.ECP_0061	one2one	Providencia alcalifaciens DSM 30120(520999)	PROVALCAL_02276
+362663.ECP_0061	one2one	Providencia burhodogranariea DSM 19968(1141662)	OOA_13757
+362663.ECP_0061	one2one	Providencia rettgeri DSM 1131(521000)	PROVRETT_06774
+362663.ECP_0061	one2one	Providencia rettgeri Dmel1(1141663)	OOC_06427
+362663.ECP_0061	one2one	Providencia rustigianii DSM 4541(500637)	PROVRUST_06038
+362663.ECP_0061	one2one	Providencia stuartii ATCC 25827(471874)	PROSTU_01143
+362663.ECP_0061	one2one	Pseudoalteromonas agarivorans S816(1307437)	J139_01197
+362663.ECP_0061	one2one	Pseudoalteromonas atlantica T6c(342610)	Patl_3630
+362663.ECP_0061	one2one	Pseudoalteromonas citrea NCIMB 1889(1117314)	PCIT_16365
+362663.ECP_0061	one2one	Pseudoalteromonas haloplanktis ANT/505(722419)	PH505_ad00150
+362663.ECP_0061	one2one	Pseudoalteromonas haloplanktis ATCC 14393(1117315)	AHCA01000002_gene3366
+362663.ECP_0061	one2one	Pseudoalteromonas haloplanktis TAC125(326442)	PSHAa1990
+362663.ECP_0061	one2one	Pseudoalteromonas haloplanktis TB64(1333507)	AUTQ01000175_gene1502
+362663.ECP_0061	one2one	Pseudoalteromonas luteoviolacea B = ATCC 29581(1268239)	PALB_26410
+362663.ECP_0061	one2one	Pseudoalteromonas rubra ATCC 29570(1117318)	PRUB_20823
+362663.ECP_0061	one2one	Pseudoalteromonas ruthenica CP76(1216007)	AOPM01000111_gene322
+362663.ECP_0061	one2one	Pseudoalteromonas sp. Bsw20308(283699)	D172_3177
+362663.ECP_0061	one2one	Pseudoalteromonas sp. OCN003(1348114)	OM33_12680
+362663.ECP_0061	one2one	Pseudoalteromonas sp. SM9913(234831)	PSM_A2035
+362663.ECP_0061	one2one	Pseudoalteromonas spongiae UST010723-006(1117319)	PSPO_10129
+362663.ECP_0061	one2one	Pseudoalteromonas tunicata D2(87626)	PTD2_10919
+362663.ECP_0061	one2one	Pseudomonas aeruginosa(287)	*DR97_5961
+362663.ECP_0061	one2one	Pseudomonas alcaligenes NBRC 14159(1215092)	*PA6_033_00130
+362663.ECP_0061	one2one	Pseudomonas alkylphenolia(237609)	*PSAKL28_32080
+362663.ECP_0061	one2one	Pseudomonas brassicacearum(930166)	*CD58_19980
+362663.ECP_0061	one2one	Pseudomonas chlororaphis(587753)	*EY04_11270
+362663.ECP_0061	one2one	Pseudomonas cichorii JBC1(1441629)	*PCH70_24170
+362663.ECP_0061	one2one	Pseudomonas corrugata CFBP 5454(1316927)	*ATKI01000146_gene923
+362663.ECP_0061	one2one	Pseudomonas cremoricolorata(157783)	*LK03_16860
+362663.ECP_0061	one2one	Pseudomonas denitrificans ATCC 13867(1294143)	*H681_11200
+362663.ECP_0061	one2one	Pseudomonas entomophila L48(384676)	*PSEEN3365
+362663.ECP_0061	one2one	Pseudomonas extremaustralis 14-3 substr. 14-3b(1117958)	*PE143B_0119780
+362663.ECP_0061	one2one	Pseudomonas flectens ATCC 12775(1336237)	JAEE01000001_gene1943
+362663.ECP_0061	one2one	Pseudomonas fluorescens F113(1114970)	*PSF113_3842
+362663.ECP_0061	one2one	Pseudomonas fluorescens HK44(1042209)	*HK44_015680
+362663.ECP_0061	one2one	Pseudomonas fluorescens NCIMB 11764(1221522)	*B723_22150
+362663.ECP_0061	one2one	Pseudomonas fluorescens Pf0-1(205922)	*Pfl01_3734
+362663.ECP_0061	one2one	Pseudomonas fluorescens Q2-87(1038922)	*PflQ2_3424
+362663.ECP_0061	one2one	Pseudomonas fluorescens SBW25(216595)	*PFLU_2067
+362663.ECP_0061	one2one	Pseudomonas fragi B25(1136138)	*JH604622_gene2217
+362663.ECP_0061	one2one	Pseudomonas fulva 12-X(743720)	*Psefu_4133
+362663.ECP_0061	one2one	Pseudomonas knackmussii B13(1301098)	*PKB_1141
+362663.ECP_0061	one2one	Pseudomonas mandelii 36MFCvi1.1(1151127)	*KB906326_gene533
+362663.ECP_0061	one2one	Pseudomonas mandelii PD30(1419583)	*V466_14160
+362663.ECP_0061	one2one	Pseudomonas mendocina EGD-AQ5(1390370)	*O203_23445
+362663.ECP_0061	one2one	Pseudomonas mendocina NK-01(1001585)	*MDS_3838
+362663.ECP_0061	one2one	Pseudomonas mendocina ymp(399739)	*Pmen_3572
+362663.ECP_0061	one2one	Pseudomonas moraviensis R28-S(1395516)	*PMO01_16945
+362663.ECP_0061	one2one	Pseudomonas mosselii SJ10(1388763)	*O165_013170
+362663.ECP_0061	one2one	Pseudomonas nitroreducens TX1(1226994)	*AMZB01000058_gene5029
+362663.ECP_0061	one2one	Pseudomonas oleovorans(301)	*JNHE01000034_gene4200
+362663.ECP_0061	one2one	Pseudomonas parafulva NBRC 16636(1215114)	*BBIU01000009_gene1489
+362663.ECP_0061	one2one	Pseudomonas poae RE*1-1-14(1282356)	*H045_05955
+362663.ECP_0061	one2one	Pseudomonas protegens CHA0(1124983)	*PFLCHA0_c25450
+362663.ECP_0061	one2one	Pseudomonas protegens Pf-5(220664)	*PFL_2480
+362663.ECP_0061	one2one	Pseudomonas pseudoalcaligenes AD6(1453503)	*AU05_13350
+362663.ECP_0061	one2one	Pseudomonas pseudoalcaligenes CECT 5344(1182590)	*BN5_03028
+362663.ECP_0061	one2one	Pseudomonas pseudoalcaligenes KF707(1149133)	*ppKF707_3157
+362663.ECP_0061	one2one	Pseudomonas psychrophila HA-4(1211112)	*ALJC01000025_gene3695
+362663.ECP_0061	one2one	Pseudomonas psychrotolerans L19(1112217)	*PPL19_23878
+362663.ECP_0061	one2one	Pseudomonas putida CSV86(1005395)	*CSV86_15315
+362663.ECP_0061	one2one	Pseudomonas putida F1(351746)	*Pput_3302
+362663.ECP_0061	one2one	Pseudomonas putida GB-1(76869)	*PputGB1_1999
+362663.ECP_0061	one2one	Pseudomonas putida KT2440(160488)	*PP_2393
+362663.ECP_0061	one2one	Pseudomonas putida MTCC 5279(1240350)	*AMZE01000004_gene2404
+362663.ECP_0061	one2one	Pseudomonas putida NBRC 14164(1211579)	*PP4_34220
+362663.ECP_0061	one2one	Pseudomonas putida S16(1042876)	*PPS_1981
+362663.ECP_0061	one2one	Pseudomonas putida W619(390235)	*PputW619_1903
+362663.ECP_0061	one2one	Pseudomonas resinovorans DSM 21078(1123020)	*AUIE01000047_gene1779
+362663.ECP_0061	one2one	Pseudomonas resinovorans NBRC 106553(1245471)	*PCA10_33960
+362663.ECP_0061	one2one	Pseudomonas rhizosphaerae(216142)	*LT40_12375
+362663.ECP_0061	one2one	Pseudomonas simiae(321846)	*PS417_09565
+362663.ECP_0061	one2one	Pseudomonas sp. 20_BN(1499686)	*BN1079_00467
+362663.ECP_0061	one2one	Pseudomonas sp. Ant30-3(1488328)	*JMCL01000179_gene3609
+362663.ECP_0061	one2one	Pseudomonas sp. BAY1663(1439940)	*BAY1663_04623
+362663.ECP_0061	one2one	Pseudomonas sp. CF149(911239)	*CF149_11719
+362663.ECP_0061	one2one	Pseudomonas sp. Chol1(440512)	*C211_04698
+362663.ECP_0061	one2one	Pseudomonas sp. G5(2012)(1268068)	*PG5_19750
+362663.ECP_0061	one2one	Pseudomonas sp. GM21(1144325)	*PMI22_02075
+362663.ECP_0061	one2one	Pseudomonas sp. H2(658612)	*MD26_00790
+362663.ECP_0061	one2one	Pseudomonas sp. Lz4W(1206777)	*B195_15802
+362663.ECP_0061	one2one	Pseudomonas sp. M1(95619)	*PM1_0216955
+362663.ECP_0061	one2one	Pseudomonas sp. M47T1(1179778)	*PMM47T1_15041
+362663.ECP_0061	one2one	Pseudomonas sp. ML96(1523503)	*JPMY01000010_gene2641
+362663.ECP_0061	one2one	Pseudomonas sp. RIT357(1470593)	*BW43_03461
+362663.ECP_0061	one2one	Pseudomonas sp. TKP(1415630)	*U771_10760
+362663.ECP_0061	one2one	Pseudomonas sp. URMO17WK12:I8(1265490)	*JHVY01000003_gene3179
+362663.ECP_0061	one2one	Pseudomonas sp. UW4(1207075)	*PputUW4_01630
+362663.ECP_0061	one2one	Pseudomonas sp. VLB120(69328)	*PVLB_14735
+362663.ECP_0061	one2one	Pseudomonas stutzeri A1501(379731)	*PST_2786
+362663.ECP_0061	one2one	Pseudomonas stutzeri ATCC 14405 = CCUG 16156(32042)	*PstZobell_08221
+362663.ECP_0061	one2one	Pseudomonas stutzeri CCUG 29243(1196835)	*A458_14590
+362663.ECP_0061	one2one	Pseudomonas stutzeri DSM 10701(1123519)	*PSJM300_10125
+362663.ECP_0061	one2one	Pseudomonas stutzeri KOS6(1218352)	*B597_008110
+362663.ECP_0061	one2one	Pseudomonas stutzeri MF28(1333856)	*L686_02350
+362663.ECP_0061	one2one	Pseudomonas stutzeri NF13(1212548)	*B381_10908
+362663.ECP_0061	one2one	Pseudomonas stutzeri RCH2(644801)	*Psest_1519
+362663.ECP_0061	one2one	Pseudomonas stutzeri TS44(477228)	*YO5_10215
+362663.ECP_0061	one2one	Pseudomonas syringae CC1417(1357272)	*AVEO02000138_gene691
+362663.ECP_0061	one2one	Pseudomonas syringae CC1513(1357275)	*AVEL02000076_gene2015
+362663.ECP_0061	one2one	Pseudomonas syringae CC1557(1357279)	*N018_15585
+362663.ECP_0061	one2one	Pseudomonas syringae pv. maculicola str. ES4326(629265)	*PMA4326_20105
+362663.ECP_0061	one2one	Pseudomonas syringae pv. phaseolicola 1448A(264730)	*PSPPH_2495
+362663.ECP_0061	one2one	Pseudomonas syringae pv. syringae B728a(205918)	Psyr_2361
+362663.ECP_0061	one2one	Pseudomonas syringae pv. tomato str. DC3000(223283)	*PSPTO_2621
+362663.ECP_0061	one2one	Pseudomonas taeanensis MS-3(1395571)	TMS3_0100805
+362663.ECP_0061	one2one	Psychromonas ingrahamii 37(357804)	Ping_1857
+362663.ECP_0061	one2one	Psychromonas ossibalaenae ATCC BAA-1528(1278307)	KB906974_gene1764
+362663.ECP_0061	one2one	Psychromonas sp. CNPT3(314282)	PCNPT3_06855
+362663.ECP_0061	one2one	Rahnella aquatilis CIP 78.65 = ATCC 33071(745277)	GRAQ_02860
+362663.ECP_0061	one2one	Rahnella aquatilis HX2(1151116)	Q7S_19140
+362663.ECP_0061	one2one	Rahnella sp. Y9602(741091)	Rahaq_3758
+362663.ECP_0061	one2one	Raoultella ornithinolytica B6(1286170)	RORB6_14920
+362663.ECP_0061	one2one	Saccharophagus degradans 2-40(203122)	Sde_1511
+362663.ECP_0061	one2one	Saccharospirillum impatiens DSM 12546(1123228)	AUIH01000013_gene228
+362663.ECP_0061	one2one	Salinimonas chungwhensis DSM 16280(1123236)	KB899382_gene2208
+362663.ECP_0061	one2one	Salmonella bongori NCTC 12419(218493)	SBG_0085
+362663.ECP_0061	one2one	Salmonella enterica subsp. enterica serovar Typhi str. CT18(220341)	16501382
+362663.ECP_0061	one2one	Salmonella enterica subsp. enterica serovar Typhimurium(90371)	CY43_00480
+362663.ECP_0061	one2one	Serratia fonticola RB-25(1441930)	Z042_17410
+362663.ECP_0061	one2one	Serratia grimesii(82995)	CR62_04670
+362663.ECP_0061	one2one	Serratia marcescens FGI94(1249634)	D781_0685
+362663.ECP_0061	one2one	Serratia marcescens subsp. marcescens Db11(273526)	SMDB11_0043
+362663.ECP_0061	one2one	Serratia plymuthica(82996)	sch_03475
+362663.ECP_0061	one2one	Serratia proteamaculans 568(399741)	Spro_0731
+362663.ECP_0061	one2one	Serratia sp. ATCC 39006(104623)	Ser39006_03906
+362663.ECP_0061	one2one	Serratia sp. Ag1(1524467)	IV04_00325
+362663.ECP_0061	one2one	Serratia sp. DD3(1410619)	SRDD_35890
+362663.ECP_0061	one2one	Serratia sp. H1n(1397284)	AYMN01000025_gene4216
+362663.ECP_0061	one2one	Serratia sp. M24T3(932213)	SPM24T3_00530
+362663.ECP_0061	one2one	Shewanella amazonensis SB2B(326297)	Sama_1250
+362663.ECP_0061	one2one	Shewanella denitrificans OS217(318161)	Sden_2428
+362663.ECP_0061	one2one	Shewanella frigidimarina NCIMB 400(318167)	Sfri_2629
+362663.ECP_0061	one2one	Shewanella halifaxensis HAW-EB4(458817)	Shal_2729
+362663.ECP_0061	one2one	Shewanella haliotis JCM 14758(1236541)	BALL01000005_gene907
+362663.ECP_0061	one2one	Shewanella loihica PV-4(323850)	Shew_2482
+362663.ECP_0061	one2one	Shewanella marina JCM 15074(1236542)	BALM01000018_gene1511
+362663.ECP_0061	one2one	Shewanella oneidensis MR-1(211586)	SO_1820
+362663.ECP_0061	one2one	Shewanella pealeana ATCC 700345(398579)	Spea_2655
+362663.ECP_0061	one2one	Shewanella piezotolerans WP3(225849)	swp_3211
+362663.ECP_0061	one2one	Shewanella putrefaciens CN-32(319224)	Sputcn32_1514
+362663.ECP_0061	one2one	Shewanella sediminis HAW-EB3(425104)	Ssed_1567
+362663.ECP_0061	one2one	Shewanella sp. ANA-3(94122)	Shewana3_2629
+362663.ECP_0061	one2one	Shewanella sp. ECSMB14101(1565129)	JSFF01000001_gene1169
+362663.ECP_0061	one2one	Shewanella sp. YQH10(1515746)	HR45_05935
+362663.ECP_0061	one2one	Shewanella violacea DSS12(637905)	SVI_2972
+362663.ECP_0061	one2one	Shewanella waksmanii ATCC BAA-643(1336233)	JAEH01000026_gene973
+362663.ECP_0061	one2one	Shewanella woodyi ATCC 51908(392500)	Swoo_3085
+362663.ECP_0061	one2one	Shigella flexneri 2a str. 301(198214)	SF0055
+362663.ECP_0061	one2one	Shimwellia blattae DSM 4481 = NBRC 105725(630626)	EBL_c32930
+362663.ECP_0061	one2one	Simiduia agarivorans SA1 = DSM 21679(1117647)	M5M_09500
+362663.ECP_0061	one2one	Tatumella morbirosei(642227)	HA49_19235
+362663.ECP_0061	one2one	Tatumella ptyseos ATCC 33301(1005995)	GTPT_1156
+362663.ECP_0061	one2one	Tatumella sp. NML 06-3099(1344012)	ATMI01000002_gene1472
+362663.ECP_0061	one2one	Thalassolituus oleivorans MIL-1(1298593)	TOL_2986
+362663.ECP_0061	one2one	Thalassotalea sp. ND16A(1535422)	ND16A_0750
+362663.ECP_0061	one2one	Thioalkalivibrio sp. HK1(1469245)	JFBG01000054_gene2118
+362663.ECP_0061	one2one	Tolumonas auensis DSM 9187(595494)	Tola_2147
+362663.ECP_0061	one2one	Tolumonas sp. BRL6-1(1283284)	AZUK01000001_gene515
+362663.ECP_0061	one2one	Trabulsiella guamensis ATCC 49490(1005994)	GTGU_01680
+362663.ECP_0061	one2one	Vibrio alginolyticus NBRC 15630 = ATCC 17749(1219076)	N646_1029
+362663.ECP_0061	one2one	Vibrio anguillarum(55601)	VANGNB10_cI1556
+362663.ECP_0061	one2one	Vibrio azureus NBRC 104587(1219077)	VAZ01S_024_00390
+362663.ECP_0061	one2one	Vibrio brasiliensis LMG 20546(945543)	VIBR0546_10799
+362663.ECP_0061	one2one	Vibrio breoganii 1C10(1205908)	AKXW01000045_gene3571
+362663.ECP_0061	one2one	Vibrio caribbeanicus ATCC BAA-2122(796620)	VIBC2010_15254
+362663.ECP_0061	one2one	Vibrio cholerae O1 biovar El Tor str. N16961(243277)	VC_1212
+362663.ECP_0061	one2one	Vibrio cholerae O395(345073)	VC395_1331
+362663.ECP_0061	one2one	Vibrio coralliilyticus ATCC BAA-450(675814)	VIC_004442
+362663.ECP_0061	one2one	Vibrio cyclitrophicus FF75(1136163)	M565_ctg1P0716
+362663.ECP_0061	one2one	Vibrio diazotrophicus NBRC 103148(1348635)	BBJY01000017_gene4157
+362663.ECP_0061	one2one	Vibrio ezurae NBRC 102218(1219080)	VEZ01S_14_00060
+362663.ECP_0061	one2one	Vibrio fischeri ES114(312309)	VF_1628
+362663.ECP_0061	one2one	Vibrio genomosp. F10 str. ZF-129(1187848)	AJYQ01000080_gene1281
+362663.ECP_0061	one2one	Vibrio halioticoli NBRC 102217(1219072)	VHA01S_049_00040
+362663.ECP_0061	one2one	Vibrio jasicida MWB 21(1280001)	BAOA01000128_gene1213
+362663.ECP_0061	one2one	Vibrio kanaloae 5S-149(1191299)	AJYX01000010_gene534
+362663.ECP_0061	one2one	Vibrio metschnikovii CIP 69.14(675813)	VIB_001445
+362663.ECP_0061	one2one	Vibrio mimicus MB451(675806)	VII_002578
+362663.ECP_0061	one2one	Vibrio navarrensis(29495)	EA26_06645
+362663.ECP_0061	one2one	Vibrio nigripulchritudo SOn1(1238450)	VIBNISOn1_1710005
+362663.ECP_0061	one2one	Vibrio orientalis CIP 102891 = ATCC 33934(675816)	VIA_002663
+362663.ECP_0061	one2one	Vibrio parahaemolyticus RIMD 2210633(223926)	28806938
+362663.ECP_0061	one2one	Vibrio proteolyticus NBRC 13287(1219065)	VPR01S_08_00960
+362663.ECP_0061	one2one	Vibrio rumoiensis 1S-45(1188252)	AJYK01000104_gene18
+362663.ECP_0061	one2one	Vibrio scophthalmi LMG 19158(870967)	VIS19158_15604
+362663.ECP_0061	one2one	Vibrio sinaloensis DSM 21326(945550)	VISI1226_06239
+362663.ECP_0061	one2one	Vibrio sp. EJY3(1116375)	VEJY3_10210
+362663.ECP_0061	one2one	Vibrio sp. ER1A(1517681)	HW45_07820
+362663.ECP_0061	one2one	Vibrio sp. N418(701176)	VIBRN418_07876
+362663.ECP_0061	one2one	Vibrio sp. RC586(675815)	VOA_000407
+362663.ECP_0061	one2one	Vibrio splendidus ZS-139(617140)	AJZE01000124_gene2547
+362663.ECP_0061	one2one	Vibrio tasmaniensis LGP32(575788)	VS_1957
+362663.ECP_0061	one2one	Vibrio tubiashii ATCC 19109(1051646)	VITU9109_20279
+362663.ECP_0061	one2one	Vibrio vulnificus(672)	VV93_v1c11490
+362663.ECP_0061	one2one	Xenorhabdus bovienii SS-2004(406818)	XBJ1_1795
+362663.ECP_0061	one2one	Xenorhabdus nematophila ATCC 19061(406817)	XNC1_4058
+362663.ECP_0061	one2one	Yersinia aldovae ATCC 35236(527002)	yaldo0001_28460
+362663.ECP_0061	one2one	Yersinia enterocolitica subsp. enterocolitica 8081(393305)	YE0637
+362663.ECP_0061	one2one	Yersinia frederiksenii ATCC 33641(349966)	DJ58_1292
+362663.ECP_0061	one2one	Yersinia kristensenii(28152)	DJ57_2731
+362663.ECP_0061	one2one	Yersinia massiliensis CCUG 53443(1205683)	CAKR01000014_gene261
+362663.ECP_0061	one2one	Yersinia pestis CO92(214092)	YPO0518
+362663.ECP_0061	one2one	Yersinia pseudotuberculosis(633)	DJ40_1710
+362663.ECP_0061	one2one	Yersinia ruckeri(29486)	NJ56_03155
+362663.ECP_0061	one2one	gamma proteobacterium WG36(1229485)	AMYV01000161_gene1756
+362663.ECP_0061	one2one	marine gamma proteobacterium HTCC2143(247633)	GP2143_14671
+362663.ECP_0061	one2one	marine gamma proteobacterium HTCC2148(247634)	GPB2148_2486
+362663.ECP_0061	one2many	Alteromonadales bacterium TW-7(156578)	ATW7_09016,ATW7_09021
+362663.ECP_0061	one2many	Endozoicomonas montiporae(1027273)	GZ77_06950,GZ77_06975
+362663.ECP_0061	one2many	Escherichia coli 536(362663)	ECP_0061
+362663.ECP_0061	one2many	Marinobacterium stanieri S30(1042375)	AFPL01000045_gene1053,AFPL01000051_gene192
+362663.ECP_0061	one2many	Photobacterium aphoticum(754436)	JCM19237_4567,JCM19237_4568,JCM19237_4569
+362663.ECP_0061	one2many	Plautia stali symbiont(891974)	E05_44490,E05_44500,E05_44510
+362663.ECP_0061	one2many	Proteus penneri ATCC 35198(471881)	PROPEN_00979,PROPEN_00980,PROPEN_00981
+362663.ECP_0061	one2many	Pseudomonas fluorescens NZ007(690597)	JH730923_gene1694,JH730923_gene1695
+362663.ECP_0061	one2many	Pseudomonas luteola XLDN4-9(1207076)	ALAT01000047_gene3451,ALAT01000076_gene1696
+362663.ECP_0061	one2many	Pseudomonas nitroreducens HBP1(1437882)	AZRU01000027_gene839,AZRU01000027_gene840
+362663.ECP_0061	one2many	Pseudomonas sp. HYS(1163398)	AJJP01000153_gene3010,AJJP01000154_gene2728
+362663.ECP_0061	one2many	Pseudomonas stutzeri SDM-LAC(1109445)	AGSX01000022_gene1619,AGSX01000023_gene1794
+362663.ECP_0061	one2many	Salmonella bongori N268-08(1197719)	A464_88,A464_89
+362663.ECP_0061	one2many	Vibrio alginolyticus 40B(674977)	VMC_25520,VMC_25530
+362663.ECP_0061	one2many	Yersinia enterocolitica LC20(1443113)	LC20_04540,LC20_04541
+362663.ECP_0061	one2many	Yersinia intermedia ATCC 29909(349965)	yinte0001_42170,yinte0001_42180
+# 2 queries scanned
+# Total time (seconds): 1.1213064193725586
+# Rate: 1.78 q/s
