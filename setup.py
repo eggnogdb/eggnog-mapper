@@ -23,7 +23,7 @@ CLASSIFIERS= [
 
 
 MOD_NAME = "eggnogmapper"
-VERSION = '1.0'
+VERSION = '2.0.5'
 LONG_DESCRIPTION="""
 Fast functional annotation of novel sequences using eggNOG orthology assignments.
 """
@@ -34,7 +34,7 @@ try:
 
         name = MOD_NAME,
         version = VERSION,
-        packages = ['eggnogmapper'],
+        packages = find_packages(),#['eggnogmapper'],
 
         # Project uses reStructuredText, so ensure that the docutils get
         # installed or upgraded on the target machine
@@ -59,6 +59,7 @@ try:
         provides = [MOD_NAME],
         keywords = "functional annotation, orthology, eggNOG",
         url = "http://eggnogdb.embl.de",
+        python_requires='>=3.7',
     )
 
 except:
