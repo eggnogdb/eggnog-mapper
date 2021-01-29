@@ -22,7 +22,7 @@ CLASSIFIERS= [
     ]
 
 
-MOD_NAME = "eggnogmapper"
+MOD_NAME = "eggnog-mapper"
 VERSION = '2.0.5'
 LONG_DESCRIPTION="""
 Fast functional annotation of novel sequences using eggNOG orthology assignments.
@@ -34,7 +34,7 @@ try:
 
         name = MOD_NAME,
         version = VERSION,
-        packages = find_packages(),#['eggnogmapper'],
+        packages = find_packages(),
 
         # Project uses reStructuredText, so ensure that the docutils get
         # installed or upgraded on the target machine
