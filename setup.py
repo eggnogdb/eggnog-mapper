@@ -56,7 +56,6 @@ try:
         description = "Fast functional annotation of novel sequences using eggNOG orthology assignments.",
         long_description = LONG_DESCRIPTION,
         classifiers = CLASSIFIERS,
-        provides = [MOD_NAME],
         keywords = "functional annotation, orthology, eggNOG",
         url = "http://eggnogdb.embl.de",
         python_requires='>=3.7',
