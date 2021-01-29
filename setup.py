@@ -23,7 +23,7 @@ CLASSIFIERS= [
 
 
 MOD_NAME = "eggnog-mapper"
-VERSION = '2.0.5-1'
+VERSION = '2.0.5-2'
 LONG_DESCRIPTION="""
 Fast functional annotation of novel sequences using eggNOG orthology assignments.
 """
