@@ -12,6 +12,7 @@ import errno
 from subprocess import Popen, PIPE, run, CalledProcessError
 
 from .utils import colorify
+from .emapperException import EmapperException
 
 try:
     from .version import __VERSION__
