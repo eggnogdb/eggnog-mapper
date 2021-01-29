@@ -1,1 +1,2 @@
-biopython==1.74
+biopython==1.76
+psutil==5.7.0

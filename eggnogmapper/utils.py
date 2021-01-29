@@ -20,8 +20,8 @@
 ## More info at http://etetoolkit.org. Contact: huerta@embl.de
 ##
 # #END_LICENSE#############################################################
-from __future__ import absolute_import
-from __future__ import print_function
+
+
 
 import sys
 import os
@@ -179,10 +179,10 @@ def print_table(items, header=None, wrap=True, max_col_width=20,
 def ask_filename(text):
     fname = ""
     while not os.path.exists(fname):
-        fname = input(text)
+        fname = eval(input(text))
     return fname
 
-def ask(string, valid_values=None, default=-1, case_sensitive=False, color='green'):    
+def ask(string, valid_values=None, default=-1, case_sensitive=False, color='yellow'):    
     """ Asks for a keyborad answer """
     if not valid_values:
         valid_values = ['y', 'n']
@@ -191,12 +191,21 @@ def ask(string, valid_values=None, default=-1, case_sensitive=False, color='gree
         valid_values = [value.lower() for value in valid_values]
     while v not in valid_values:
         if color:
-            string = colorify(string, "yellow")
+            string = colorify(string, color)
         v = input("%s [%s] " % (string,','.join(valid_values) ))
         if v == '' and default >= 0:
             v = valid_values[default]
         if not case_sensitive:
             v = v.lower()
+    return v
+
+def ask_name(string, default=-1):
+    """ Asks for a keyborad answer """
+    v = None
+    # while v is None or v.strip() == "":
+    v = input(colorify(f"{string} [default:{default}]: ", "yellow"))
+    if v is None or v.strip() == "":
+        v = default
     return v
 
 def timeit(f):
@@ -207,3 +216,34 @@ def timeit(f):
         return r
     return a_wrapper_accepting_arguments
 
+##
+# Function to translate a fasta file with CDS to a fasta file with prots,
+# stored in a temp file within a specified tempdir
+# CPCantalapiedra 2021
+def translate_cds_to_prots(source, outfile):
+    import gzip
+    from pathlib import Path
+    from Bio import SeqIO
+    from Bio.SeqRecord import SeqRecord
+    
+    if os.path.isfile(source) or Path(source).is_file():
+        if source.endswith('.gz'):
+            _source = gzip.open(source, "rt")
+        else:
+            _source = open(source, "rU")
+    else:
+        _source = iter(source.split("\n"))
+
+    proteins = (
+        SeqRecord(seq = nuc_rec.seq.translate(to_stop=True),
+                  id=nuc_rec.id,
+                  description="translation of CDS, using default table")
+        for nuc_rec in SeqIO.parse(_source, "fasta")
+    )
+        
+    SeqIO.write(proteins, outfile, "fasta")
+
+    if os.path.isfile(source) or Path(source).is_file():
+        _source.close()
+    
+    return

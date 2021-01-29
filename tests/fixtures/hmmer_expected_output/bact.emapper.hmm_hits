@@ -1,0 +1,10 @@
+# Thu Nov  5 18:55:19 2020
+# emapper-2.0.2-rf1-91-gbdc03c4
+# ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact --output_dir tmp -o bact
+#
+# #query_name	hit	evalue	sum_score	query_length	hmmfrom	hmmto	seqfrom	seqto	query_coverage
+1000565.METUNv1_03812	COG0012.faa.final_tree.fa	2.6e-175	571.6	363	1	352	1	363	0.9972451790633609
+362663.ECP_0061	COG0417.faa.final_tree.fa	1.6e-210	688.2	783	3	616	10	775	0.9770114942528736
+# 2 queries scanned
+# Total time (seconds): 0.05892205238342285
+# Rate: 33.94 q/s

@@ -1,6 +1,9 @@
-#!/usr/bin/env python2
-import os
+#!/usr/bin/env python3
+import os, sys
 from setuptools import setup, find_packages
+
+if sys.version_info < (3,7):
+    sys.exit('Sorry, Python < 3.7 is not supported')
     
 #HERE = os.path.abspath(os.path.split(os.path.realpath(__file__))[0])
 
@@ -13,7 +16,7 @@ CLASSIFIERS= [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 2.7",
+    "Programming Language :: Python :: 3.7",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Software Development :: Libraries :: Python Modules",
     ]
@@ -41,7 +44,7 @@ try:
 
         },
         data_files = [],
-        scripts=['download_eggnog_data.py', 'emapper.py'],
+        scripts=['download_eggnog_data.py', 'emapper.py', 'hmm_mapper.py', 'hmm_server.py', 'hmm_worker.py'],
 
         # metadata for upload to PyPI
         author = "Jaime Huerta-Cepas",
