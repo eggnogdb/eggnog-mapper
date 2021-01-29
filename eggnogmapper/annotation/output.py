@@ -113,18 +113,6 @@ def output_annotations_header(out, no_file_comments, md5_field):
     return
 
 ##
-# def output_annotations_rows(out, rows, md5_field, md5_queries):
-#     for annot_columns in rows:
-#         if md5_field == True:
-#             query_name = annot_columns[0]
-#             if query_name in md5_queries:
-#                 annot_columns.append(md5_queries[query_name])
-#             else:
-#                 annot_columns.append("-")
-#         print('\t'.join([x if x is not None and x.strip() != "" else "-" for x in annot_columns]), file=out)
-        
-#     return
-
 def output_annotations_closure(out, md5_field, md5_queries):
     def output_annotations_rows(rows):
         for annot_columns in rows:
@@ -148,4 +136,5 @@ def output_annotations_footer(out, no_file_comments, qn, elapsed_time):
         print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=out)
 
     return
+
 ## END

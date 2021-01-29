@@ -284,9 +284,9 @@ class Annotator:
                              ",".join(match_nogs_names), 
                              narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
 
-            # If tax_scope_mode == narrowest there is no need to output best_og colums
-            if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
-                annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
+            # # If tax_scope_mode == narrowest there is no need to output best_og colums
+            # if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
+            annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
 
             for h in ANNOTATIONS_HEADER:
                 if h in annotations:
