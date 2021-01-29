@@ -388,7 +388,12 @@ def parse_args(parser):
         set_data_path(args.data_dir)
         
     if args.version:
-        print(get_full_version_info())
+        version = ""
+        try:
+            version = get_full_version_info()
+        except Exception:
+            version = get_version()
+        print(version)
         sys.exit(0)
 
     args.call_info = get_call_info()

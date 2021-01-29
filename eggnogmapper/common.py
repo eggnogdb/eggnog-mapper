@@ -224,7 +224,7 @@ def get_version():
 
             if p.returncode == 0:
                 _version += "-{}".format(bytes.decode(out).rstrip())
-    if _version:
+    if _version != '':
         version = 'emapper' + _version
     else:
         version = 'emapper-'+ __VERSION__
