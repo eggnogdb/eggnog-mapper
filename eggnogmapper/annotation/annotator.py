@@ -92,51 +92,53 @@ class Annotator:
     ##
     def annotate(self, seed_orthologs_file, annot_file, orthologs_file, pfam_file):
 
-        ##
-        # md5 hashes
-        print(colorify("Creating md5 hashes of input sequences", 'green'))
+        if self.report_orthologs == True or self.annot == True:            
+            ##
+            # md5 hashes
+            if self.md5 == True:
+                print(colorify("Creating md5 hashes of input sequences", 'green'))
+                md5_queries = md5_seqs(self.queries_fasta)
+            else:
+                md5_queries = None
 
-        if self.md5 == True:
-            md5_queries = md5_seqs(self.queries_fasta)
-        else:
-            md5_queries = None
-            
-        md5_field = (self.md5 == True and md5_queries is not None)
-        
-        ##
-        # Annotations
-        print(colorify("Functional annotation of refined hits starts now", 'green'))
+            md5_field = (self.md5 == True and md5_queries is not None)
 
-        #
-        # Prepare output files and print headers and call info
-        ORTHOLOGS_OUT = None
-        if self.report_orthologs == True:
-            ORTHOLOGS_OUT = open(orthologs_file, "w")            
-            output.output_orthologs_header(ORTHOLOGS_OUT, self.no_file_comments)
+            ##
+            # Annotations
+            print(colorify("Functional annotation of refined hits starts now", 'green'))
 
-        ANNOTATIONS_OUT = None
-        if self.annot == True:
-            ANNOTATIONS_OUT = open(annot_file, "w")
-            output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
+            #
+            # Prepare output files and print headers and call info
+            ORTHOLOGS_OUT = None
+            if self.report_orthologs == True:
+                ORTHOLOGS_OUT = open(orthologs_file, "w")            
+                output.output_orthologs_header(ORTHOLOGS_OUT, self.no_file_comments)
 
-        # closures to generate output
-        output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, NCBITaxa())
-        output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
-        
-        ##
-        # Obtain annotations
-        qn, elapsed_time = self._annotate(seed_orthologs_file, pfam_file, output_orthologs_f, output_annotations_f)
-        db_sqlite.close()
+            ANNOTATIONS_OUT = None
+            if self.annot == True:
+                ANNOTATIONS_OUT = open(annot_file, "w")
+                output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
 
-        ##
-        # Output footer and close files
-        if self.report_orthologs == True:
-            output.output_orthologs_footer(ORTHOLOGS_OUT, self.no_file_comments, qn, elapsed_time)
-            ORTHOLOGS_OUT.close()
-            
-        if self.annot == True:
-            output.output_annotations_footer(ANNOTATIONS_OUT, self.no_file_comments, qn, elapsed_time)
-            ANNOTATIONS_OUT.close()
+            # closures to generate output
+            output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, NCBITaxa())
+            output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
+
+            ##
+            # Obtain annotations
+            qn, elapsed_time = self._annotate(seed_orthologs_file, pfam_file, output_orthologs_f, output_annotations_f)
+            db_sqlite.close()
+
+            ##
+            # Output footer and close files
+            if self.report_orthologs == True:
+                output.output_orthologs_footer(ORTHOLOGS_OUT, self.no_file_comments, qn, elapsed_time)
+                ORTHOLOGS_OUT.close()
+
+            if self.annot == True:
+                output.output_annotations_footer(ANNOTATIONS_OUT, self.no_file_comments, qn, elapsed_time)
+                ANNOTATIONS_OUT.close()
+
+            print(colorify("Functional annotation of refined hits starts now", 'green'))
             
         return
 
