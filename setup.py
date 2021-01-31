@@ -23,7 +23,7 @@ CLASSIFIERS= [
 
 
 MOD_NAME = "eggnog-mapper"
-VERSION = '2.0.5-3'
+VERSION = '2.0.5-4'
 LONG_DESCRIPTION="""
 Fast functional annotation of novel sequences using eggNOG orthology assignments.
 """
@@ -33,7 +33,7 @@ try:
         name = MOD_NAME,
         version = VERSION,
         packages = find_packages(),
-        install_requires = [],
+        install_requires = ["biopython==1.76", "psutil==5.7.0"],
         package_data = {
             "bin":["*"],
         },
