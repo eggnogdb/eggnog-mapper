@@ -23,26 +23,21 @@ CLASSIFIERS= [
 
 
 MOD_NAME = "eggnog-mapper"
-VERSION = '2.0.5-2'
+VERSION = '2.0.5-3'
 LONG_DESCRIPTION="""
 Fast functional annotation of novel sequences using eggNOG orthology assignments.
 """
 
 try:
     _s = setup(
-        include_package_data = False,
-
         name = MOD_NAME,
         version = VERSION,
         packages = find_packages(),
-
-        # Project uses reStructuredText, so ensure that the docutils get
-        # installed or upgraded on the target machine
-        install_requires = [
-            ],
+        install_requires = [],
         package_data = {
-
+            "bin":["*"],
         },
+        include_package_data = False,
         data_files = [],
         scripts=['download_eggnog_data.py', 'emapper.py', 'hmm_mapper.py', 'hmm_server.py', 'hmm_worker.py'],
 
