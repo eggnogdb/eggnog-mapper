@@ -1,0 +1,12 @@
+# Include the .toml file
+include pyproject.toml
+
+# Include the README
+include README.md
+
+# Include the license file
+include LICENSE.txt
+
+# Include setup.py
+include setup.py
+include setup.cfg
