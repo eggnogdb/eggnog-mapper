@@ -1,4 +1,4 @@
-
+##
 
 import sys
 import os
@@ -101,19 +101,19 @@ TAX_SCOPE_AUTO_BROAD = ["10239", # viruses
 
 BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0] + '/..')
 
-HMMSEARCH = find_executable('hmmsearch') or pjoin(BASE_PATH, 'bin', 'hmmsearch')
-HMMSCAN = find_executable('hmmscan') or pjoin(BASE_PATH, 'bin', 'hmmscan')
-HMMSTAT = find_executable('hmmstat') or pjoin(BASE_PATH, 'bin', 'hmmstat')
-HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'bin', 'hmmpgmd')
-PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'bin', 'phmmer')
-HMMFETCH = find_executable('hmmfetch') or pjoin(BASE_PATH, 'bin', 'hmmfetch')
-HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'bin', 'hmmpress')
-ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'bin', 'esl-reformat')
-LOCAL_DIAMOND = pjoin(BASE_PATH, 'bin', 'diamond')
+HMMSEARCH = find_executable('hmmsearch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmsearch')
+HMMSCAN = find_executable('hmmscan') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmscan')
+HMMSTAT = find_executable('hmmstat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmstat')
+HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpgmd')
+PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'phmmer')
+HMMFETCH = find_executable('hmmfetch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmfetch')
+HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpress')
+ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'esl-reformat')
+LOCAL_DIAMOND = pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'diamond')
 DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
-LOCAL_MMSEQS2 = pjoin(BASE_PATH, 'bin', 'mmseqs')
-MMSEQS2 = find_executable('mmseqs') or pjoin(BASE_PATH, 'bin', 'mmseqs')
-PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'bin', 'prodigal.linux')
+LOCAL_MMSEQS2 = pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'mmseqs')
+MMSEQS2 = find_executable('mmseqs') or LOCAL_MMSEQS2
+PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'prodigal.linux')
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
@@ -130,9 +130,6 @@ def get_hmmer_base_dbpath(dbname): return pjoin(DATA_PATH, 'hmmer', dbname)
 def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmer")
 def get_OG_fasta_path(dbname, og): return pjoin(DATA_PATH, 'hmmer', dbname, f"{og}.fa")
 def get_hmmer_databases(): return os.listdir(get_hmmdb_path()) if os.path.isdir(os.path.realpath(get_hmmdb_path())) else []
-
-# def get_fasta_path(): return pjoin(DATA_PATH, "OG_fasta")
-# def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmdb_levels")
 
 def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 
@@ -263,17 +260,6 @@ def get_mmseqs_version():
     return mmseqs_version
 
 
-# def get_level_base_path(level):
-#     if level == 'euk':
-#         level = 'euk_500'
-#     elif level == 'bact':
-#         level = 'bact_50'
-#     elif level == 'arch':
-#         level = 'arch_1'
-#     else:
-#         level = level+"_hmm"
-#     return level
-
 def get_db_info(level):
     return (get_hmmer_dbpath(level), EGGNOG_DATABASES[level])
 
@@ -391,3 +377,5 @@ def existing_dir(dname):
         return dname
     else:
         raise TypeError('not a valid directory "%s"' %dname)
+
+## END
