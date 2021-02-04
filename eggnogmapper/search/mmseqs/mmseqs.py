@@ -14,6 +14,30 @@ from ...utils import colorify, translate_cds_to_prots
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 from ..diamond.diamond import hit_does_overlap
 
+def create_mmseqs_db(dbprefix, in_fasta):
+    cmd = (
+        f'{MMSEQS2} createdb {in_fasta} {dbprefix}'
+    )
+
+    print(colorify('  '+cmd, 'yellow'))
+    try:
+        completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
+    except subprocess.CalledProcessError as cpe:
+        raise EmapperException("Error running mmseqs: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
+        
+    return
+
+def create_mmseqs_index(dbprefix, tmp_dir):
+    cmd = (
+        f'{MMSEQS2} createindex {dbprefix} {tmp_dir}'
+    )
+
+    print(colorify('  '+cmd, 'yellow'))
+    try:
+        completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
+    except subprocess.CalledProcessError as cpe:
+        raise EmapperException("Error running mmseqs: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
+    return
 
 class MMseqs2Searcher:
 

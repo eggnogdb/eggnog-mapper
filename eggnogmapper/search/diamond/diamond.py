@@ -26,6 +26,19 @@ SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE
 
 OVERLAP_TOL_FRACTION = 1/3
 
+def create_diamond_db(dbprefix, in_fasta):
+    cmd = (
+        f'{DIAMOND} makedb --in {in_fasta} --db {dbprefix}'
+    )
+
+    print(colorify('  '+cmd, 'yellow'))
+    try:
+        completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
+    except subprocess.CalledProcessError as cpe:
+        raise EmapperException("Error running diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
+        
+    return
+
 class DiamondSearcher:
 
     name = "diamond"
