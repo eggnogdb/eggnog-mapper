@@ -3,7 +3,7 @@
 import os
 from argparse import ArgumentParser
 from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_base_dbpath
-from eggnogmapper.common import pexists, set_data_path, existing_dir, HMMPRESS
+from eggnogmapper.common import pexists, set_data_path, get_data_path, existing_dir, HMMPRESS
 from eggnogmapper.utils import ask, ask_name, colorify
 from eggnogmapper.version import __DB_VERSION__
 
@@ -209,7 +209,7 @@ if __name__ == "__main__":
     if args.data_dir:
         set_data_path(args.data_dir)
 
-    data_path = args.data_dir
+    data_path = get_data_path()
 
     ##
     # Annotation DB
