@@ -46,9 +46,10 @@ class DiamondSearcher:
     # Command
     cpu = tool = dmnd_db = temp_dir = no_file_comments = None
     matrix = gapopen = gapextend = None
+    block_size = index_chunks = None
 
     # Filters
-    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = None # excluded_taxa = None
+    pident_thr = score_thr = evalue_thr = query_cov = subject_cov = None
 
     in_file = None
     itype = None
@@ -75,6 +76,8 @@ class DiamondSearcher:
         self.matrix = args.matrix
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
+        self.block_size = args.block_size
+        self.index_chunks = args.index_chunks
 
         self.pident_thr = args.pident
         self.evalue_thr = args.dmnd_evalue
@@ -156,6 +159,8 @@ class DiamondSearcher:
         if self.matrix: cmd += ' --matrix {self.matrix}'
         if self.gapopen: cmd += ' --gapopen {self.gapopen}'
         if self.gapextend: cmd += ' --gapextend {self.gapextend}'
+        if self.block_size: cmd += ' --block-size {self.block_size}'
+        if self.index_chunks: cmd += ' --index-chunks {self.index_chunks}'
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
             cmd += " --top 3 "

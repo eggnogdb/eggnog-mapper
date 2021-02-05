@@ -138,6 +138,12 @@ def create_arg_parser():
 
     pg_diamond.add_argument('--gapextend', dest='gapextend', type=int, default=None, 
                             help='Gap extend  penalty')
+
+    pg_diamond.add_argument('--block_size', dest='dmnd_block_size', type=float, default=None, metavar='BLOCK_SIZE',
+                           help="Diamond -b/--block-size option. Default is the diamond's default.")
+
+    pg_diamond.add_argument('--index_chunks', dest='dmnd_index_chunks', type=int, default=None, metavar='CHUNKS',
+                           help="Diamond -c/--index-chunks option. Default is the diamond's default.")
     
     ##
     pg_mmseqs = parser.add_argument_group('MMseqs2 Search Options')
