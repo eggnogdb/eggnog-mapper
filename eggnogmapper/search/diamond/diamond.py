@@ -156,11 +156,11 @@ class DiamondSearcher:
                 f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
             )
 
-        if self.matrix: cmd += ' --matrix {self.matrix}'
-        if self.gapopen: cmd += ' --gapopen {self.gapopen}'
-        if self.gapextend: cmd += ' --gapextend {self.gapextend}'
-        if self.block_size: cmd += ' --block-size {self.block_size}'
-        if self.index_chunks: cmd += ' --index-chunks {self.index_chunks}'
+        if self.matrix: cmd += f' --matrix {self.matrix}'
+        if self.gapopen: cmd += f' --gapopen {self.gapopen}'
+        if self.gapextend: cmd += f' --gapextend {self.gapextend}'
+        if self.block_size: cmd += f' --block-size {self.block_size}'
+        if self.index_chunks: cmd += f' --index-chunks {self.index_chunks}'
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
             cmd += " --top 3 "
