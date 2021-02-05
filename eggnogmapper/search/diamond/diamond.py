@@ -76,8 +76,8 @@ class DiamondSearcher:
         self.matrix = args.matrix
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
-        self.block_size = args.block_size
-        self.index_chunks = args.index_chunks
+        self.block_size = args.dmnd_block_size
+        self.index_chunks = args.dmnd_index_chunks
 
         self.pident_thr = args.pident
         self.evalue_thr = args.dmnd_evalue
