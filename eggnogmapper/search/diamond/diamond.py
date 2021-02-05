@@ -160,7 +160,7 @@ class DiamondSearcher:
         if self.gapopen: cmd += f' --gapopen {self.gapopen}'
         if self.gapextend: cmd += f' --gapextend {self.gapextend}'
         if self.block_size: cmd += f' --block-size {self.block_size}'
-        if self.index_chunks: cmd += f' --index-chunks {self.index_chunks}'
+        if self.index_chunks: cmd += f' -c {self.index_chunks}'
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
             cmd += " --top 3 "
