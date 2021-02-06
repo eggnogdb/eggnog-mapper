@@ -81,7 +81,27 @@ def create_arg_parser():
                                   f'This applied when --itype {ITYPE_GENOME} or --itype {ITYPE_META}. '
                                   f'{GENEPRED_MODE_SEARCH}: gene prediction is inferred from hits obtained from the search step. '
                                   f'{GENEPRED_MODE_PRODIGAL}: gene prediction is performed from proteins predicted using prodigal. '
-                                  ))
+                              ))
+
+    pg_genepred.add_argument('--trans_table', dest='trans_table', type=str, metavar='TRANS_TABLE_CODE',
+                             help=f"Prodigal -g/--trans_table option. Default is the Prodigal's default. Only used if --genepred {GENEPRED_MODE_PRODIGAL}")
+
+    pg_genepred.add_argument('--training_genome', dest='training_genome', type=existing_file, metavar='FILE',
+                             help=(
+                                 "A genome to run Prodigal in training mode. "
+                                 "If this parameter is used, Prodigal will run in two steps: "
+                                 "firstly in training mode, and secondly using the training to analize the emapper input data. "
+                                 "See Prodigal documentation about Traning mode for more info. "
+                                 f"Only used if --genepred {GENEPRED_MODE_PRODIGAL}."
+                             ))
+
+    pg_genepred.add_argument('--training_file', dest='training_file', type=existing_file, metavar='FILE',
+                             help=(
+                                 "A training file from Prodigal training mode. "
+                                 "If this parameter is used, Prodigal will run using this training file to analyze the emapper input data. "
+                                 f"Only used if --genepred {GENEPRED_MODE_PRODIGAL}."
+                             ))
+                             
     ##
     pg_search = parser.add_argument_group('Search Options')
 
