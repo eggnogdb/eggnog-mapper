@@ -95,7 +95,7 @@ def create_arg_parser():
                                  f"Only used if --genepred {GENEPRED_MODE_PRODIGAL}."
                              ))
 
-    pg_genepred.add_argument('--training_file', dest='training_file', type=existing_file, metavar='FILE',
+    pg_genepred.add_argument('--training_file', dest='training_file', type=str, metavar='FILE',
                              help=(
                                  "A training file from Prodigal training mode. "
                                  "If this parameter is used, Prodigal will run using this training file to analyze the emapper input data. "
@@ -444,6 +444,14 @@ def parse_args(parser):
     # translate
     if args.itype in [ITYPE_GENOME, ITYPE_META, ITYPE_PROTS] and args.translate == True:
         parser.error('"--translate" only can be used with "--itype CDS"')
+
+    # Gene prediction
+    if args.training_genome is not None and args.training_file is None:
+        parser.error('"--training_genome requires --training_file"')
+
+    if args.training_genome is None and args.training_file is not None:
+        if not os.path.isfile(args.training_file):
+            parser.error('"--training_file must point to an existing file, if no --training_genome is provided."')
     
     # Search modes
     if args.mode == SEARCH_MODE_DIAMOND:
