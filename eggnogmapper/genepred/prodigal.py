@@ -18,19 +18,26 @@ class ProdigalPredictor:
     pmode = None
     cpu = None
 
+    trans_table = None
+    
     outdir = None # dir with prodigal out files
     outgff = outprots = outcds = outorfs = None # prodigal out files
+
+    PMODE_SINGLE = "single"
+    PMODE_META = "meta"
     
     
     def __init__(self, args):
 
         if args.itype == ITYPE_GENOME:
-            self.pmode = "single" # or self.pmode = ""
+            self.pmode = self.PMODE_SINGLE # or self.pmode = ""
         elif args.itype == ITYPE_META:
-            self.pmode = "meta"
+            self.pmode = self.PMODE_META
         else:
             raise EmapperException(f"Unsupported input type {args.itype} for ProdigalPredictor")
         self.cpu = args.cpu
+
+        self.trans_table = args.trans_table
         
         self.temp_dir = args.temp_dir
         
@@ -65,6 +72,12 @@ class ProdigalPredictor:
             f'-a {self.outprots} -d {self.outcds} '
             f'-s {self.outorfs}'
         )
+
+        if self.trans_table is not None:
+            if self.pmode == self.PMODE_META:
+                print(colorify(f'Warning: --trans_table (-g Prodigal option) '
+                               f'is ignored by Prodigal when using -p {self.PMODE_META}', 'red'))                
+            cmd += f' -g {self.trans_table}'
 
         print(colorify('  '+cmd, 'yellow'))
         try:
