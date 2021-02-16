@@ -280,7 +280,7 @@ class Annotator:
             else:
                 query_orthologs["annot_orthologs"] = set(annot_orthologs)
 
-        if self.annot == True:
+        if self.annot == True and annotations is not None:
             # prepare annotations for printing
             annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
                              ",".join(match_nogs_names), 
@@ -289,16 +289,12 @@ class Annotator:
             # # If tax_scope_mode == narrowest there is no need to output best_og colums
             # if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
             annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
-
-            if annotations is not None:
-                for h in ANNOTATIONS_HEADER:
-                    if h in annotations:
-                        annot_columns.append(','.join(sorted(annotations[h])))
-                    else:
-                        annot_columns.append('-')
-            else:
-                for h in ANNOTATIONS_HEADER:
-                    annot_columns.append('-')                    
+            
+            for h in ANNOTATIONS_HEADER:
+                if h in annotations:
+                    annot_columns.append(','.join(sorted(annotations[h])))
+                else:
+                    annot_columns.append('-')
 
             all_annotations.append(annot_columns)
 
@@ -378,8 +374,9 @@ def annotate_hit_line(arguments):
             best_og_name = "-"
             best_og_cat = "-"
             best_og_desc = "-"
-            narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
-            narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level)
+            narr_og_name = "-"
+            narr_og_cat = "-"
+            narr_og_desc = "-"
             
         else:
             best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
