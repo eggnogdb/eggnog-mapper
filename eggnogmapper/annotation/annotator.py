@@ -262,7 +262,7 @@ class Annotator:
          best_og_name, best_og_cat, best_og_desc,                     
          match_nogs_names, all_orthologies, annot_orthologs) = result
 
-        if self.report_orthologs == True:
+        if self.report_orthologs == True and all_orthologies is not None and annot_orthologs is not None:
             # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
             if query_name in all_orthologs:
                 query_orthologs = all_orthologs[query_name]
@@ -290,11 +290,15 @@ class Annotator:
             # if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
             annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
 
-            for h in ANNOTATIONS_HEADER:
-                if h in annotations:
-                    annot_columns.append(','.join(sorted(annotations[h])))
-                else:
-                    annot_columns.append('-')
+            if annotations is not None:
+                for h in ANNOTATIONS_HEADER:
+                    if h in annotations:
+                        annot_columns.append(','.join(sorted(annotations[h])))
+                    else:
+                        annot_columns.append('-')
+            else:
+                for h in ANNOTATIONS_HEADER:
+                    annot_columns.append('-')                    
 
             all_annotations.append(annot_columns)
 
@@ -368,92 +372,98 @@ def annotate_hit_line(arguments):
         annot_levels.add(best_og_level)
         
         if best_og_id is None:
+            annotations = None
+            all_orthologies = None
+            orthologs = None
             best_og_name = "-"
             best_og_cat = "-"
             best_og_desc = "-"
+            narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
+            narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level)
+            
         else:
             best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
             best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
+            
+            narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
+            narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level)
 
-        narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
-        narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level)
+            ##
+            # Normalize target_taxa if any
+            if target_taxa is not None:
+                target_taxa = normalize_target_taxa(target_taxa)
+            else:
+                target_taxa = None
 
-        ##
-        # Normalize target_taxa if any
-        if target_taxa is not None:
-            target_taxa = normalize_target_taxa(target_taxa)
-        else:
-            target_taxa = None
-            
-        if excluded_taxa is not None:
-            excluded_taxa = normalize_target_taxa(excluded_taxa)
-        else:
-            excluded_taxa = None
-            
-        ##
-        # Retrieve co-orthologs of seed ortholog
-        # annot_levels are used to restrict the speciation events retrieved
-        # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
-        try:
-            all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names)
-            if best_OG is not None:
-                best_og_name = best_OG
-                best_og_id = best_OG.split("|")[0].split("@")[0]
-                best_og_level = best_OG.split("|")[0].split("@")[1]
-                if best_og_id == "seed_ortholog":
-                    best_og_cat = "-"
-                    best_og_desc = "-"
-                else:
-                    best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
+            if excluded_taxa is not None:
+                excluded_taxa = normalize_target_taxa(excluded_taxa)
+            else:
+                excluded_taxa = None
 
-        except Exception as e:
-            # import traceback
-            # traceback.print_exc()
-            raise e
-        else:
-            # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-            orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
-        
-        ##
-        # Retrieve annotations of co-orthologs
-        if annot == True and orthologs is not None and len(orthologs) > 0:
-            
-            annotations = annota.summarize_annotations(orthologs,
-                                                       annotations_fields = ANNOTATIONS_HEADER,
-                                                       target_go_ev = go_evidence,
-                                                       excluded_go_ev = go_excluded)
-            
-            if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
-                if best_og_level == narr_og_level:
-                    narr_orthologies = all_orthologies
-                else:
-                    narr_annot_levels = set()
-                    narr_annot_levels.add(narr_og_level)
-                    narr_orthologies, _ = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names)
-                
+            ##
+            # Retrieve co-orthologs of seed ortholog
+            # annot_levels are used to restrict the speciation events retrieved
+            # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
+            try:
+                all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names)
+                if best_OG is not None:
+                    best_og_name = best_OG
+                    best_og_id = best_OG.split("|")[0].split("@")[0]
+                    best_og_level = best_OG.split("|")[0].split("@")[1]
+                    if best_og_id == "seed_ortholog":
+                        best_og_cat = "-"
+                        best_og_desc = "-"
+                    else:
+                        best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
+
+            except Exception as e:
+                # import traceback
+                # traceback.print_exc()
+                raise e
+            else:
                 # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-                narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
-                
-                pfam_annotations = db_sqlite.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
-                if pfam_annotations is not None and len(pfam_annotations) > 0:
-                    annotations["PFAMs"] = Counter()
-                    for pfam_annotation in pfam_annotations:
-                        annotations["PFAMs"].update([str(x).strip() for x in pfam_annotation[0].split(",")])
-                else:
-                    annotations["PFAMs"] = Counter()
-                                                    
-            elif pfam_transfer == PFAM_TRANSFER_SEED_ORTHOLOG:
-                pfam_annotations = db_sqlite.get_pfam_annotations('"'+best_hit_name+'"')
-                if pfam_annotations is not None and len(pfam_annotations) > 0:
-                    pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
-                    annotations["PFAMs"] = pfam_annotations
-                else:
-                    annotations["PFAMs"] = Counter()                    
-            else: # pfam_transfer == PFAM_TRANSFER_BEST_OG
-                pass
-            
-        else:
-            annotations = {}
+                orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
+
+            ##
+            # Retrieve annotations of co-orthologs
+            if annot == True and orthologs is not None and len(orthologs) > 0:
+
+                annotations = annota.summarize_annotations(orthologs,
+                                                           annotations_fields = ANNOTATIONS_HEADER,
+                                                           target_go_ev = go_evidence,
+                                                           excluded_go_ev = go_excluded)
+
+                if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
+                    if best_og_level == narr_og_level:
+                        narr_orthologies = all_orthologies
+                    else:
+                        narr_annot_levels = set()
+                        narr_annot_levels.add(narr_og_level)
+                        narr_orthologies, _ = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names)
+
+                    # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
+                    narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
+
+                    pfam_annotations = db_sqlite.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
+                    if pfam_annotations is not None and len(pfam_annotations) > 0:
+                        annotations["PFAMs"] = Counter()
+                        for pfam_annotation in pfam_annotations:
+                            annotations["PFAMs"].update([str(x).strip() for x in pfam_annotation[0].split(",")])
+                    else:
+                        annotations["PFAMs"] = Counter()
+
+                elif pfam_transfer == PFAM_TRANSFER_SEED_ORTHOLOG:
+                    pfam_annotations = db_sqlite.get_pfam_annotations('"'+best_hit_name+'"')
+                    if pfam_annotations is not None and len(pfam_annotations) > 0:
+                        pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
+                        annotations["PFAMs"] = pfam_annotations
+                    else:
+                        annotations["PFAMs"] = Counter()                    
+                else: # pfam_transfer == PFAM_TRANSFER_BEST_OG
+                    pass
+
+            else:
+                annotations = {}
 
     except Exception as e:
         raise EmapperException(f"Error: annotation went wrong for line \"{line.strip()}\". "+str(e))
