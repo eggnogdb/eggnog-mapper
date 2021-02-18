@@ -1,10 +1,2 @@
-# Tue May 26 12:55:58 2020
-# emapper-2.0.1-114-g9814724
-# ./hmm_mapper.py --qtype hmm -i tests/fixtures/hmmer_custom_dbs/bact.hmm --dbtype seqdb -d tests/fixtures/test_queries.fa -o dummy --output_dir tmp_borrar
-#
-# #query_name	hit	evalue	sum_score	query_length	hmmfrom	hmmto	seqfrom	seqto	query_coverage
 COG0012.faa.final_tree.fa	1000565.METUNv1_03812	2.6e-175	571.6	705	1	352	1	363	0.5134751773049645
 COG0417.faa.final_tree.fa	362663.ECP_0061	1.6e-210	688.2	619	3	616	10	775	1.235864297253635
-# 2 queries scanned
-# Total time (seconds): 0.062271833419799805
-# Rate: 32.12 q/s

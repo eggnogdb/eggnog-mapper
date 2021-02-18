@@ -1,8 +1,3 @@
-# Sun Dec 13 20:06:16 2020
-# emapper-2.0.2-rf1-133-g1a10a1c
-# ./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_output.emapper.seed_orthologs --data_dir tests/fixtures --output_dir tmp_no_search -o tmp --report_orthologs --target_orthologs one2one --target_taxa 72274,1123487 --excluded_taxa 205918,1395571
-#
-#query	orth_type	species	orthologs
 1000565.METUNv1_03812	one2one	Aromatoleum aromaticum EbN1(76114)	ebA4139
 1000565.METUNv1_03812	one2one	Azoarcus sp. BH72(62928)	azo0752
 1000565.METUNv1_03812	one2one	Azoarcus sp. KH32C(748247)	AZKH_0690
@@ -397,6 +392,3 @@
 362663.ECP_0061	one2many	Vibrio alginolyticus 40B(674977)	VMC_25520,VMC_25530
 362663.ECP_0061	one2many	Yersinia enterocolitica LC20(1443113)	LC20_04540,LC20_04541
 362663.ECP_0061	one2many	Yersinia intermedia ATCC 29909(349965)	yinte0001_42170,yinte0001_42180
-# 2 queries scanned
-# Total time (seconds): 1.1213064193725586
-# Rate: 1.78 q/s

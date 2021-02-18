@@ -1,10 +1,2 @@
-# Thu Nov  5 18:57:47 2020
-# emapper-2.0.2-rf1-91-gbdc03c4
-# ./emapper.py -m mmseqs -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test --report_orthologs
-#
-#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/mmseqs createdb /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/test_queries.fa /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/4f0efbc6cfad4f52ab89c3aa9c3adb79
-#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/mmseqs search -a true /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/4f0efbc6cfad4f52ab89c3aa9c3adb79 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/mmseqs/mmseqs.db /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/1f1c72c5e0f1406396cfeaa91943275d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8 --start-sens 3 --sens-steps 3 -s 7 --threads 1
-#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/mmseqs filterdb /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/1f1c72c5e0f1406396cfeaa91943275d /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/b0482d6e8d14404385f8dc19acf327c0 --extract-lines 1 
-#/data/vboxshared/Dropbox/Proyectos/eggnog-mapper/bin/mmseqs convertalis /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/4f0efbc6cfad4f52ab89c3aa9c3adb79 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/tests/fixtures/mmseqs/mmseqs.db /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/b0482d6e8d14404385f8dc19acf327c0 /data/vboxshared/Dropbox/Proyectos/eggnog-mapper/emappertmp_mmseqs_amlprcw8/b0482d6e8d14404385f8dc19acf327c0.m8
 1000565.METUNv1_03812	1000565.METUNv1_03812	5.777e-254	724.0
 362663.ECP_0061	362663.ECP_0061	0.0	1646.0

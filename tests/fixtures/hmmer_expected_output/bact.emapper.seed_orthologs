@@ -1,10 +1,2 @@
-# Thu Nov  5 18:55:19 2020
-# emapper-2.0.2-rf1-91-gbdc03c4
-# ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact --output_dir tmp -o bact
-#
-#query_name	best_hit_eggNOG_ortholog	best_hit_evalue	best_hit_score
 1000565.METUNv1_03812	1000565.METUNv1_03812	5e-242	800.0
 362663.ECP_0061	362663.ECP_0061	0.0	1848.0
-# 2 queries scanned
-# Total time (seconds): 14.356005668640137
-# Rate: 0.14 q/s
