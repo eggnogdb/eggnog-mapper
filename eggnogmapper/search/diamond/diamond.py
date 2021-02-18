@@ -51,6 +51,9 @@ class DiamondSearcher:
     # Filters
     pident_thr = score_thr = evalue_thr = query_cov = subject_cov = None
 
+    # Output format from diamond
+    outfmt_short = False
+
     in_file = None
     itype = None
     translate = None
@@ -130,6 +133,8 @@ class DiamondSearcher:
 
     ##
     def run_diamond(self, fasta_file, tempdir, output_file):
+        ##
+        # search type
         if self.itype == ITYPE_CDS and self.translate == True:
             tool = 'blastp'
             handle, query_file = mkstemp(dir = tempdir, text = True)
@@ -142,7 +147,9 @@ class DiamondSearcher:
             query_file = fasta_file
         else:
             raise EmapperException(f"Unrecognized --itype {self.itype}.")
-        
+
+        ##
+        #prepare command
         cmd = (
             f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
             f'--threads {self.cpu} -o {output_file} '
@@ -164,12 +171,29 @@ class DiamondSearcher:
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
             cmd += " --top 3 "
-        else: # self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+        else: # self.itype == ITYPE_GENOME or self.itype == ITYPE_META: i.e. gene prediction
             cmd += " --max-target-seqs 0 --max-hsps 0 "
 
+        ##
         # output format
-        cmd += " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"
+        OUTFMT_SHORT = " --outfmt 6 qseqid sseqid evalue bitscore"
+        OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
+        if self.itype == ITYPE_GENOME or self.itype == ITYPE_META: # i.e. gene prediction
+            cmd += OUTFMT_LONG
+        else:
+            if self.outfmt_short == True:
+                cmd += OUTFMT_SHORT
+            else:
+                cmd += OUTFMT_LONG
 
+        # NOTE about short output format:
+        # diamond should run faster if no pident, qcov, scov values are used either as filter or to be output
+        # This is because it needs to compute them, whereas using only evalue and score does not need to recompute.
+        # Therefore, the fastest way to obtain diamond alignments is using the OUTFMT_SHORT format and
+        # not using --id, --query-cover, --subject-cover thresholds. Of course, does not always fit our needs.
+
+        ##
+        # run command
         print(colorify('  '+cmd, 'yellow'))
         try:
             completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
@@ -197,21 +221,34 @@ class DiamondSearcher:
                     continue
 
                 fields = list(map(str.strip, line.split('\t')))
-                # From diamond docs:
-                # By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+                # fields are defined in run_diamond
+                # OUTFMT_SHORT = " --outfmt 6 qseqid sseqid evalue bitscore"
+                # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
+                
                 query = fields[0]
 
+                # only one result per query
                 if query in visited:
                     continue
-
-                hit = fields[1]
-                pident = float(fields[2])
-                evalue = float(fields[10])
-                score = float(fields[11])
-                
                 visited.add(query)
+                
+                hit = fields[1]
 
-                hits.append([query, hit, evalue, score])
+                if self.outfmt_short == True:
+                    evalue = float(fields[2])
+                    score = float(fields[3])
+                    hits.append([query, hit, evalue, score])
+                else:
+                    pident = float(fields[2])
+                    qstart = int(fields[6])
+                    qend = int(fields[7])
+                    sstart = int(fields[8])
+                    send = int(fields[9])
+                    evalue = float(fields[10])
+                    score = float(fields[11])
+                    qcov = float(fields[12])
+                    scov = float(fields[13])
+                    hits.append([query, hit, evalue, score, qstart, qend, sstart, send, qcov, scov])
             
         return hits
 
@@ -228,8 +265,8 @@ class DiamondSearcher:
                     continue
 
                 fields = list(map(str.strip, line.split('\t')))
-                # From diamond docs:
-                # By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+                # fields are defined in run_diamond
+                # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
 
                 hit = fields[1]
                 pident = float(fields[2])
@@ -241,8 +278,10 @@ class DiamondSearcher:
                 qend = int(fields[7])
                 sstart = int(fields[8])
                 send = int(fields[9])
+                qcov = float(fields[12])
+                scov = float(fields[13])
                 
-                hit = [query, hit, evalue, score, qstart, qend, sstart, send]
+                hit = [query, hit, evalue, score, qstart, qend, sstart, send, qcov, scov]
 
                 if query == prev_query:
                     if not hit_does_overlap(hit, curr_query_hits):
@@ -287,9 +326,6 @@ class DiamondSearcher:
 
             for line in hits:
                 query = line[0]
-                target = line[1]
-                evalue = line[2]
-                score = line[3]
                 if query in queries_suffixes:
                     queries_suffixes[query] += 1
                     suffix = queries_suffixes[query]
@@ -297,7 +333,7 @@ class DiamondSearcher:
                     suffix = 0
                     queries_suffixes[query] = suffix
                     
-                print('\t'.join(map(str, [f"{query}_{suffix}", target, str(evalue), str(score)])), file=OUT)
+                print('\t'.join(map(str, [f"{query}_{suffix}"] + line[1:])), file=OUT)
                 
         return
 
