@@ -162,10 +162,17 @@ def create_arg_parser():
                             help='Gap extend  penalty')
 
     pg_diamond.add_argument('--block_size', dest='dmnd_block_size', type=float, default=None, metavar='BLOCK_SIZE',
-                           help="Diamond -b/--block-size option. Default is the diamond's default.")
+                            help="Diamond -b/--block-size option. Default is the diamond's default.")
 
     pg_diamond.add_argument('--index_chunks', dest='dmnd_index_chunks', type=int, default=None, metavar='CHUNKS',
-                           help="Diamond -c/--index-chunks option. Default is the diamond's default.")
+                            help="Diamond -c/--index-chunks option. Default is the diamond's default.")
+
+    pg_diamond.add_argument('--outfmt_short', action="store_true",
+                            help=(
+                                "Diamond output will include only qseqid sseqid evalue and score. "
+                                "This could help obtain better performance, if also no --pident, --query_cover or --subject_cover thresholds are used. "
+                                "This option is ignored when the diamond search is run in blastx mode for gene prediction (see --genepred)."
+                            ))
     
     ##
     pg_mmseqs = parser.add_argument_group('MMseqs2 Search Options')
