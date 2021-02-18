@@ -69,7 +69,6 @@ class MMseqs2Searcher:
         self.translate = args.translate
 
         self.targetdb = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
-
         self.cpu = args.cpu
         self.start_sens = args.start_sens
         self.sens_steps = args.sens_steps
@@ -201,7 +200,7 @@ class MMseqs2Searcher:
     def filterdb_step(self, resultdb, bestresultdb):
         # mmseqs filterdb resultDB bestResultDB --extract-lines 1
         cmd = (
-            f'{MMSEQS2} filterdb {resultdb} {bestresultdb}'
+            f'{MMSEQS2} filterdb {resultdb} {bestresultdb} --threads {self.cpu}'
         )
         cmd += " --extract-lines 1 "
         
@@ -217,7 +216,7 @@ class MMseqs2Searcher:
     def convertalis_step(self, querydb, targetdb, resultdb):
         # mmseqs convertalis queryDB targetDB resultDB resultDB.m8
         cmd = (
-            f'{MMSEQS2} convertalis {querydb} {targetdb} {resultdb} {resultdb}.m8'
+            f'{MMSEQS2} convertalis {querydb} {targetdb} {resultdb} {resultdb}.m8 --threads {self.cpu}'
         )
         print(colorify('  '+cmd, 'yellow'))
         try:
@@ -261,7 +260,9 @@ class MMseqs2Searcher:
                 evalue = float(fields[10])
                 score = float(fields[11])
                 
-                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
+                if ((self.pident_thr is not None and pident < self.pident_thr) or 
+                    (self.evalue_thr is not None and evalue > self.evalue_thr) or
+                    (self.score_thr is not None and score < self.score_thr)):
                     continue
 
                 length = int(fields[3])
@@ -269,14 +270,14 @@ class MMseqs2Searcher:
                 qend = int(fields[7])
                 
                 qcov = qstart - (qend - 1) / length
-                if qcov < self.query_cov:
+                if self.query_cov is not None and qcov < self.query_cov:
                     continue
 
                 sstart = int(fields[8])
                 send = int(fields[9])
                 
                 scov = sstart - (send - 1) / length
-                if scov < self.subject_cov:
+                if self.subject_cov is not None and scov < self.subject_cov:
                     continue
 
                 hit = fields[1]
@@ -314,7 +315,9 @@ class MMseqs2Searcher:
                 evalue = float(fields[10])
                 score = float(fields[11])
 
-                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
+                if ((self.pident_thr is not None and pident < self.pident_thr) or 
+                    (self.evalue_thr is not None and evalue > self.evalue_thr) or
+                    (self.score_thr is not None and score < self.score_thr)):
                     continue
                 
                 length = int(fields[3])
@@ -322,14 +325,14 @@ class MMseqs2Searcher:
                 qend = int(fields[7])
                 
                 qcov = qstart - (qend - 1) / length
-                if qcov < self.query_cov:
+                if self.query_cov is not None and qcov < self.query_cov:
                     continue
 
                 sstart = int(fields[8])
                 send = int(fields[9])
                 
                 scov = sstart - (send - 1) / length
-                if scov < self.subject_cov:
+                if self.subject_cov is not None and scov < self.subject_cov:
                     continue
                 
                 hit = fields[1]

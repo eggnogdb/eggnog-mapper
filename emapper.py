@@ -120,24 +120,24 @@ def create_arg_parser():
     ##
     pg_diamond_mmseqs = parser.add_argument_group('Search filtering common options')
 
-    pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=0,
+    pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal to the given percentage of identity. Default=0. '
+                                       f'Report only alignments above or equal to the given percentage of identity. Default=(not used). '
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
-    pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=0,
-                                   help='Report only alignments above or equal the given percentage of query cover. Default=0')
+    pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=None,
+                                   help='Report only alignments above or equal the given percentage of query cover. Default=(not used)')
     
-    pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=0,
+    pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal the given percentage of subject cover. Default=0. '
+                                       f'Report only alignments above or equal the given percentage of subject cover. Default=(not used). '
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
 
     pg_diamond_mmseqs.add_argument('--evalue', dest='evalue', type=float, default=0.001,
                                    help='Report only alignments below or equal the e-value threshold. Default=0.001')
 
-    pg_diamond_mmseqs.add_argument('--score', dest='score', type=float, default=60,
-                                   help='Report only alignments above or equal the score threshold. Default=60')
+    pg_diamond_mmseqs.add_argument('--score', dest='score', type=float, default=None,
+                                   help='Report only alignments above or equal the score threshold. Default=(not used)')
 
     ##
     pg_diamond = parser.add_argument_group('Diamond Search Options')
@@ -566,12 +566,9 @@ def parse_args(parser):
 
 
     # Search thresholds
-    if args.evalue is not None:
-        args.dmnd_evalue = args.mmseqs_evalue = args.hmm_evalue = args.evalue
-    if args.score is not None:
-        args.dmnd_score = args.mmseqs_score = args_hmm_score = args.score
-    if args.query_cover is not None:
-        args.qcov = args.query_cover
+    args.dmnd_evalue = args.mmseqs_evalue = args.hmm_evalue = args.evalue
+    args.dmnd_score = args.mmseqs_score = args_hmm_score = args.score
+    args.qcov = args.query_cover
     
     # Annotation options
     if args.no_annot == False or args.report_orthologs == True:
