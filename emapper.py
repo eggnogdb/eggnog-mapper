@@ -14,7 +14,7 @@ from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
 from eggnogmapper.genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL
 from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2, SEARCH_MODE_CACHE
-from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_FAST
+from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_SENSITIVE
 from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, \
@@ -147,7 +147,7 @@ def create_arg_parser():
 
     pg_diamond.add_argument('--sensmode', dest='sensmode', 
                             choices = SENSMODES, 
-                            default=SENSMODE_FAST, help='Sensitive mode')
+                            default=SENSMODE_SENSITIVE, help='Sensitive mode')
         
     pg_diamond.add_argument('--matrix', dest='matrix', 
                             choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
