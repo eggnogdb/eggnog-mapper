@@ -119,11 +119,11 @@ class MMseqs2Searcher:
         tempdir = mkdtemp(prefix='emappertmp_mmseqs_', dir=self.temp_dir)
         try:
             querydb = pjoin(tempdir, uuid.uuid4().hex)
-            print(f'Querydb {querydb}')
+            # print(f'Querydb {querydb}')
             resultdb = pjoin(tempdir, uuid.uuid4().hex)
-            print(f'ResultDB {resultdb}')
+            # print(f'ResultDB {resultdb}')
             bestresultdb = pjoin(tempdir, uuid.uuid4().hex)
-            print(f'BestResultDB {bestresultdb}')
+            # print(f'BestResultDB {bestresultdb}')
             
             alignmentsdb, cmds = self.run_mmseqs(in_file, tempdir, querydb, self.targetdb, resultdb, bestresultdb)
             self.hits = self.parse_mmseqs(f'{alignmentsdb}.m8')
