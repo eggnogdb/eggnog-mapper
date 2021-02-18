@@ -86,6 +86,8 @@ class DiamondSearcher:
         self.evalue_thr = args.dmnd_evalue
         self.score_thr = args.dmnd_score
         # self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
+
+        self.outfmt_short = args.outfmt_short
         
         self.temp_dir = args.temp_dir
         self.no_file_comments = args.no_file_comments
@@ -305,11 +307,19 @@ class DiamondSearcher:
     ##
     def _output_diamond(self, cmd, hits, out_file):
         with open(out_file, 'w') as OUT:
-        
+
+            # comments
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
                 print('#'+cmd, file=OUT)
 
+            # header
+            if self.outfmt_short == True:
+                print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
+            else:
+                print('#'+"\t".join("qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp".split(" ")), file=OUT)
+
+            # rows
             for line in hits:
                 print('\t'.join(map(str, line)), file=OUT)
                 
@@ -319,11 +329,16 @@ class DiamondSearcher:
     def _output_genepred(self, cmd, hits, out_file):
         queries_suffixes = {}
         with open(out_file, 'w') as OUT:
-        
+
+            # comments
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
                 print('#'+cmd, file=OUT)
 
+            # header
+            print('#'+"\t".join("qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp".split(" ")), file=OUT)
+
+            # rows
             for line in hits:
                 query = line[0]
                 if query in queries_suffixes:
