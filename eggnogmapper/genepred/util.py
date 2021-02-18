@@ -42,6 +42,7 @@ def create_gff_file(infile, searcher_name, version, hits, outfile):
             qend = hit[5]
             sstart = hit[6]
             send = hit[7]
+            scov = hit[9]
             if qstart <= qend:
                 strand = "+"
             else:
@@ -58,7 +59,8 @@ def create_gff_file(infile, searcher_name, version, hits, outfile):
             suffix = hits_dict[query]
 
             print(f"{query}\teggNOG-mapper\tCDS\t{qstart}\t{qend}\t{score}\t{strand}\t{frame}\t"
-                  f"ID={query}_{suffix};score={score};evalue={evalue};eggnog5_target={target};sstart={sstart};send={send};searcher={searcher_name}",
+                  f"ID={query}_{suffix};score={score};evalue={evalue};eggNOG_target={target};target_cov={scov};"
+                  f"sstart={sstart};send={send};searcher={searcher_name}",
                   file=OUT)
 
     return
