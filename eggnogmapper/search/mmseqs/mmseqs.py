@@ -218,6 +218,8 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} convertalis {querydb} {targetdb} {resultdb} {resultdb}.m8 --threads {self.cpu}'
         )
+        if self.sub_mat is not None:
+            cmd += f' --sub-mat {self.sub_mat}'
         print(colorify('  '+cmd, 'yellow'))
         try:
             completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
