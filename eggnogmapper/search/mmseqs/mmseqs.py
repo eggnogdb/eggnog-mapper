@@ -263,8 +263,8 @@ class MMseqs2Searcher:
                 pident = float(fields[2])
                 evalue = float(fields[8])
                 score = float(fields[9])
-                qcov = float(fields[10])
-                scov = float(fields[11])
+                qcov = float(fields[10]) * 100 # mmseqs uses 0-1 values
+                scov = float(fields[11]) * 100 # mmseqs uses 0-1 values
 
                 # note: this could be done with mmmseqs filterdb, but I dont know how to do it in a single step
                 if ((self.pident_thr is not None and pident < self.pident_thr) or 
@@ -273,7 +273,7 @@ class MMseqs2Searcher:
                     (self.query_cov is not None and qcov < self.query_cov) or
                     (self.subject_cov is not None and scov < self.subject_cov)):
                     continue
-
+                
                 hit = fields[1]
                 length = int(fields[3])
                 qstart = int(fields[4])
@@ -304,8 +304,8 @@ class MMseqs2Searcher:
                 pident = float(fields[2])
                 evalue = float(fields[8])
                 score = float(fields[9])
-                qcov = float(fields[10])
-                scov = float(fields[11])
+                qcov = float(fields[10]) * 100 # mmseqs uses 0-1 values
+                scov = float(fields[11]) * 100 # mmseqs uses 0-1 values
 
                 # note: this could be done with mmmseqs filterdb, but I dont know how to do it in a single step
                 if ((self.pident_thr is not None and pident < self.pident_thr) or 

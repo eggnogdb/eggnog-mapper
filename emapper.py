@@ -128,19 +128,19 @@ def create_arg_parser():
 
     pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal to the given percentage of identity. Default=(not used). '
+                                       f'Report only alignments above or equal to the given percentage of identity (0-100). Default=(not used). '
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
     pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal the given percentage of query cover. Default=(not used). '
+                                       f'Report only alignments above or equal the given percentage of query cover (0-100). Default=(not used). '
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
     pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal the given percentage of subject cover. Default=(not used). '
+                                       f'Report only alignments above or equal the given percentage of subject cover (0-100). Default=(not used). '
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
-
+    
     pg_diamond_mmseqs.add_argument('--evalue', dest='evalue', type=float, default=0.001,
                                    help='Report only alignments below or equal the e-value threshold. Default=0.001')
 
