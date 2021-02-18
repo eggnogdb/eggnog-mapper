@@ -220,6 +220,9 @@ class MMseqs2Searcher:
         )
         if self.sub_mat is not None:
             cmd += f' --sub-mat {self.sub_mat}'
+
+        # outfmt
+        cmd += f' --format-output "query,target,pident,alnlen,qstart,qend,tstart,tend,evalue,bits,qcov,tcov"'
         print(colorify('  '+cmd, 'yellow'))
         try:
             completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
@@ -237,12 +240,6 @@ class MMseqs2Searcher:
     
     ##
     def _parse_mmseqs(self, raw_mmseqs_file):
-        # From MMseqs2 documentation
-        # The file is formatted as a tab-separated list with 12 columns: (1,2) identifiers for query and
-        # target sequences/profiles, (3) sequence identity, (4) alignment length, (5) number of mismatches,
-        # (6) number of gap openings, (7-8, 9-10) domain start and end-position in query and in target,
-        # (11) E-value, and (12) bit score.
-        
         hits = []
 
         visited = set()
@@ -252,55 +249,42 @@ class MMseqs2Searcher:
                     continue
                 
                 fields = list(map(str.strip, line.split('\t')))
-            
+                # check fields in convertalis_step()
+        
                 query = fields[0]
 
+                # only one hit per query
                 if query in visited:
                     continue
-
-                pident = float(fields[2])
-                evalue = float(fields[10])
-                score = float(fields[11])
+                visited.add(query)
                 
+                pident = float(fields[2])
+                evalue = float(fields[8])
+                score = float(fields[9])
+                qcov = float(fields[10])
+                scov = float(fields[11])
+
+                # note: this could be done with mmmseqs filterdb, but I dont know how to do it in a single step
                 if ((self.pident_thr is not None and pident < self.pident_thr) or 
                     (self.evalue_thr is not None and evalue > self.evalue_thr) or
-                    (self.score_thr is not None and score < self.score_thr)):
-                    continue
-
-                length = int(fields[3])
-                qstart = int(fields[6])
-                qend = int(fields[7])
-                
-                qcov = qstart - (qend - 1) / length
-                if self.query_cov is not None and qcov < self.query_cov:
-                    continue
-
-                sstart = int(fields[8])
-                send = int(fields[9])
-                
-                scov = sstart - (send - 1) / length
-                if self.subject_cov is not None and scov < self.subject_cov:
+                    (self.score_thr is not None and score < self.score_thr) or
+                    (self.query_cov is not None and qcov < self.query_cov) or
+                    (self.subject_cov is not None and scov < self.subject_cov)):
                     continue
 
                 hit = fields[1]
+                length = int(fields[3])
+                qstart = int(fields[4])
+                qend = int(fields[5])
+                sstart = int(fields[6])
+                send = int(fields[7])
                 
-                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                #     continue
-
-                visited.add(query)
-
-                hits.append([query, hit, evalue, score])
+                hits.append([query, hit, evalue, score, qstart, qend, sstart, send, qcov, scov])
                 
         return hits
 
     ##
     def _parse_genepred(self, raw_mmseqs_file):
-        # From MMseqs2 documentation
-        # The file is formatted as a tab-separated list with 12 columns: (1,2) identifiers for query and
-        # target sequences/profiles, (3) sequence identity, (4) alignment length, (5) number of mismatches,
-        # (6) number of gap openings, (7-8, 9-10) domain start and end-position in query and in target,
-        # (11) E-value, and (12) bit score.
-        
         hits = []
         curr_query_hits = []
         prev_query = None
@@ -312,39 +296,32 @@ class MMseqs2Searcher:
                     continue
                 
                 fields = list(map(str.strip, line.split('\t')))
+                # check fields in convertalis_step()
+                # cmd += f' --format-output "query,target,pident,alnlen,qstart,qend,tstart,tend,evalue,bits,qcov,tcov"'
 
                 pident = float(fields[2])
-                evalue = float(fields[10])
-                score = float(fields[11])
+                evalue = float(fields[8])
+                score = float(fields[9])
+                qcov = float(fields[10])
+                scov = float(fields[11])
 
+                # note: this could be done with mmmseqs filterdb, but I dont know how to do it in a single step
                 if ((self.pident_thr is not None and pident < self.pident_thr) or 
                     (self.evalue_thr is not None and evalue > self.evalue_thr) or
-                    (self.score_thr is not None and score < self.score_thr)):
+                    (self.score_thr is not None and score < self.score_thr) or
+                    (self.query_cov is not None and qcov < self.query_cov) or
+                    (self.subject_cov is not None and scov < self.subject_cov)):
                     continue
                 
-                length = int(fields[3])
-                qstart = int(fields[6])
-                qend = int(fields[7])
-                
-                qcov = qstart - (qend - 1) / length
-                if self.query_cov is not None and qcov < self.query_cov:
-                    continue
-
-                sstart = int(fields[8])
-                send = int(fields[9])
-                
-                scov = sstart - (send - 1) / length
-                if self.subject_cov is not None and scov < self.subject_cov:
-                    continue
-                
-                hit = fields[1]
-                
-                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                #     continue
-
                 query = fields[0]
+                hit = fields[1]
+                length = int(fields[3])
+                qstart = int(fields[4])
+                qend = int(fields[5])
+                sstart = int(fields[6])
+                send = int(fields[7])
                 
-                hit = [query, hit, evalue, score, qstart, qend, sstart, send]
+                hit = [query, hit, evalue, score, qstart, qend, sstart, send, qcov, scov]
 
                 if query == prev_query:
                     if not hit_does_overlap(hit, curr_query_hits):
@@ -354,8 +331,7 @@ class MMseqs2Searcher:
                     hits.append(hit)
                     curr_query_hits = [hit]
                     
-                prev_query = query
-                    
+                prev_query = query    
                 
         return hits
     
@@ -370,12 +346,17 @@ class MMseqs2Searcher:
     ##
     def _output_mmseqs(self, cmds, hits, out_file):
         with open(out_file, 'w') as OUT:
-        
+
+            # comments
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
                 for cmd in cmds:
                     print('#'+cmd, file=OUT)
 
+            # header
+            print('#'+"\t".join("qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcov scov".split(" ")), file=OUT)
+
+            # rows
             for line in hits:
                 print('\t'.join(map(str, line)), file=OUT)
                 
@@ -385,12 +366,17 @@ class MMseqs2Searcher:
     def _output_genepred(self, cmds, hits, out_file):
         queries_suffixes = {}
         with open(out_file, 'w') as OUT:
-        
+
+            # comments
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
                 for cmd in cmds:
                     print('#'+cmd, file=OUT)
 
+            # header
+            print('#'+"\t".join("qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcov scov".split(" ")), file=OUT)
+
+            # rows
             for line in hits:
                 query = line[0]
                 target = line[1]
@@ -402,8 +388,8 @@ class MMseqs2Searcher:
                 else:
                     suffix = 0
                     queries_suffixes[query] = suffix
-                    
-                print('\t'.join(map(str, [f"{query}_{suffix}", target, str(evalue), str(score)])), file=OUT)
+                
+                print('\t'.join(map(str, [f"{query}_{suffix}"] + line[1:])), file=OUT)
                 
         return
     
