@@ -57,6 +57,7 @@ class DiamondSearcher:
     in_file = None
     itype = None
     translate = None
+    query_gencode = None
 
     # Results
     queries = hits = no_hits = None
@@ -66,6 +67,7 @@ class DiamondSearcher:
         
         self.itype = args.itype
         self.translate = args.translate
+        self.query_gencode = args.trans_table
 
         self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
 
@@ -164,7 +166,8 @@ class DiamondSearcher:
         if self.pident_thr is not None: cmd += f' --id {self.pident_thr}'
         if self.query_cov is not None: cmd += f' --query-cover {self.query_cov}'
         if self.subject_cov is not None: cmd += f' --subject-cover {self.subject_cov}'
-        
+
+        if self.query_gencode: cmd += f' --query-gencode {self.query_gencode}'
         if self.matrix: cmd += f' --matrix {self.matrix}'
         if self.gapopen: cmd += f' --gapopen {self.gapopen}'
         if self.gapextend: cmd += f' --gapextend {self.gapextend}'
