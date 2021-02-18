@@ -143,19 +143,19 @@ class DiamondSearcher:
         else:
             raise EmapperException(f"Unrecognized --itype {self.itype}.")
         
-        if self.sensmode == SENSMODE_FAST:
-            cmd = (
-                f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
-                f'--threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
-                f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
-            )
-        else:
-            cmd = (
-                f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
-                f'--{self.sensmode} --threads {self.cpu} -e {self.evalue_thr} -o {output_file} '
-                f'--query-cover {self.query_cov} --subject-cover {self.subject_cov}'
-            )
+        cmd = (
+            f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
+            f'--threads {self.cpu} -o {output_file} '
+        )
+        
+        if self.sensmode != SENSMODE_FAST: cmd += f' --{self.sensmode}'
 
+        if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
+        if self.score_thr is not None: cmd += f' --min-score {self.score_thr}'
+        if self.pident_thr is not None: cmd += f' --id {self.pident_thr}'
+        if self.query_cov is not None: cmd += f' --query-cover {self.query_cov}'
+        if self.subject_cov is not None: cmd += f' --subject-cover {self.subject_cov}'
+        
         if self.matrix: cmd += f' --matrix {self.matrix}'
         if self.gapopen: cmd += f' --gapopen {self.gapopen}'
         if self.gapextend: cmd += f' --gapextend {self.gapextend}'
@@ -166,6 +166,9 @@ class DiamondSearcher:
             cmd += " --top 3 "
         else: # self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             cmd += " --max-target-seqs 0 --max-hsps 0 "
+
+        # output format
+        cmd += " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore"
 
         print(colorify('  '+cmd, 'yellow'))
         try:
@@ -200,19 +203,12 @@ class DiamondSearcher:
 
                 if query in visited:
                     continue
-                
+
+                hit = fields[1]
                 pident = float(fields[2])
                 evalue = float(fields[10])
                 score = float(fields[11])
                 
-                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
-                    continue
-
-                hit = fields[1]
-                
-                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                #     continue
-
                 visited.add(query)
 
                 hits.append([query, hit, evalue, score])
@@ -234,17 +230,12 @@ class DiamondSearcher:
                 fields = list(map(str.strip, line.split('\t')))
                 # From diamond docs:
                 # By default, there are 12 preconfigured fields: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+
+                hit = fields[1]
                 pident = float(fields[2])
                 evalue = float(fields[10])
                 score = float(fields[11])
                 
-                if pident < self.pident_thr or evalue > self.evalue_thr or score < self.score_thr:
-                    continue
-
-                hit = fields[1]
-                # if self.excluded_taxa and hit.startswith("%s." % self.excluded_taxa):
-                #     continue
-
                 query = fields[0]
                 qstart = int(fields[6])
                 qend = int(fields[7])
