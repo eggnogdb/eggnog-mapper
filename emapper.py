@@ -126,7 +126,9 @@ def create_arg_parser():
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
     pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=None,
-                                   help='Report only alignments above or equal the given percentage of query cover. Default=(not used)')
+                                   help=(
+                                       f'Report only alignments above or equal the given percentage of query cover. Default=(not used). '
+                                       f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
     pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=None,
                                    help=(
