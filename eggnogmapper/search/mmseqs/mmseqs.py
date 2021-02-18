@@ -58,6 +58,7 @@ class MMseqs2Searcher:
     in_file = None
     itype = None
     translate = None
+    translation_table = None
 
     # Results
     queries = hits = no_hits = None
@@ -186,8 +187,8 @@ class MMseqs2Searcher:
             f'--threads {self.cpu}'
         )
 
-        if self.sub_mat is not None:
-            cmd += f' --sub-mat {self.sub_mat}'
+        if self.sub_mat is not None: cmd += f' --sub-mat {self.sub_mat}'
+        if self.translation_table is not None: cmd += f' --translation-table {self.translation_table}'
         
         print(colorify('  '+cmd, 'yellow'))
         try:
@@ -218,8 +219,9 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} convertalis {querydb} {targetdb} {resultdb} {resultdb}.m8 --threads {self.cpu}'
         )
-        if self.sub_mat is not None:
-            cmd += f' --sub-mat {self.sub_mat}'
+        if self.sub_mat is not None: cmd += f' --sub-mat {self.sub_mat}'
+            
+        if self.translation_table is not None: cmd += f' --translation-table {self.translation_table}'
 
         # outfmt
         cmd += f' --format-output "query,target,pident,alnlen,qstart,qend,tstart,tend,evalue,bits,qcov,tcov"'

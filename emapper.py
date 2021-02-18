@@ -84,7 +84,13 @@ def create_arg_parser():
                               ))
 
     pg_genepred.add_argument('--trans_table', dest='trans_table', type=str, metavar='TRANS_TABLE_CODE',
-                             help=f"Prodigal -g/--trans_table option. Default is the Prodigal's default. Only used if --genepred {GENEPRED_MODE_PRODIGAL}")
+                             help=(
+                                 f"This option will be used for Prodigal, Diamond or MMseqs2, depending on the mode. "
+                                 f"For Diamond searches, this option corresponds to the --query-gencode option. "
+                                 f"For MMseqs2 searches, this option corresponds to the --translation-table option. "
+                                 f"For Prodigal, this option corresponds to the -g/--trans_table option. "
+                                 f"Default is the corresponding programs defaults. "
+                             ))
 
     pg_genepred.add_argument('--training_genome', dest='training_genome', type=existing_file, metavar='FILE',
                              help=(

@@ -20,6 +20,7 @@ class Test(unittest.TestCase):
     def test_run_diamond_blastp(self):
         args = Namespace(itype=ITYPE_PROTS,
                          translate=False,
+                         trans_table=None,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
@@ -52,6 +53,7 @@ class Test(unittest.TestCase):
     def test_run_diamond_blastx(self):
         args = Namespace(itype=ITYPE_CDS,
                          translate=False,
+                         trans_table=None,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
@@ -85,6 +87,7 @@ class Test(unittest.TestCase):
     def test_parse_diamond(self):
         args = Namespace(itype=ITYPE_PROTS,
                          translate=False,
+                         trans_table=None,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
