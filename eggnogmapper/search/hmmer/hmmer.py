@@ -24,6 +24,8 @@ from .hmmer_overlaps import process_overlaps, CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS
 
 class HmmerSearcher:
 
+    name = "hmmer"
+    
     call_info = None
     cpu = None
     usemem = None
@@ -50,6 +52,7 @@ class HmmerSearcher:
 
     # Results
     queries = hits = no_hits = None
+    hits_dict = None
     
     ##
     def __init__(self, args):
@@ -191,12 +194,25 @@ class HmmerSearcher:
 
     ##
     def get_hits(self):
+        return self.hits
+
+    def get_hits_dict(self):
+        hits_dict = None
+        
+        if self.hits_dict is not None:
+            hits_dict = self.hits_dict
+        elif self.hits is not None:
+            hits_dict = {hit[0]:hit for hit in self.hits}
+            self.hits_dict = hits_dict
+        
+        return hits_dict
+
+    def get_no_hits(self):
         if self.hits is not None and self.queries is not None:
             hit_queries = set([x[0] for x in self.hits])
             self.no_hits = set(self.queries).difference(hit_queries)
             
-        return self.hits, self.no_hits
-
+        return self.no_hits
     ##
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file, silent = False):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",

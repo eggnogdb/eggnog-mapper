@@ -19,6 +19,7 @@ from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HM
 from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, \
     PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
+from eggnogmapper.deco.decoration import DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FILE, DECORATE_GFF_FIELD_DEFAULT
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
@@ -363,6 +364,16 @@ def create_arg_parser():
 
     pg_out.add_argument('--no_file_comments', action="store_true",
                         help="No header lines nor stats are included in the output files")
+
+    pg_out.add_argument('--decorate_gff', type=str, default=DECORATE_GFF_NONE, choices=[DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FILE],
+                        help=(
+                            "Add search hits and/or annotation results to GFF file from gene prediction of a user specified one. "
+                            f"{DECORATE_GFF_NONE} = no GFF decoration at all. GFF file from blastx-based gene prediction will be created anyway. "
+                            f"{DECORATE_GFF_GENEPRED} = add search hits and/or annotations to GFF file from Prodigal or blastx-based gene prediction. "
+                            f"FILE[:FIELD] = decorate the specified pre-existing GFF FILE. e.g. --decorage_gff myfile.gff "
+                            f"You can add the name of the tag from the attributes field to be used to retrieve the hits and/or annotations. "
+                            f"e.g. --decorate_gff myfile.gff:GeneName. By default, the {DECORATE_GFF_FIELD_DEFAULT} tag is used."
+                        ))
         
     return parser
 
@@ -563,7 +574,9 @@ def parse_args(parser):
 
     elif args.mode == SEARCH_MODE_CACHE:
         if args.cache_file is None:
-                parser.error('A file with annotations and md5 of queries is required (-c FILE)')
+            parser.error('A file with annotations and md5 of queries is required (-c FILE)')
+        if args.decorate_gff != DECORATE_GFF_NONE:
+            print(colorify("WARNING: no GFF will be created for cache-based annotations. It is not implemented yet, sorry.", 'red'))
                 
         if args.no_annot == True:
             parser.error(f'Cache mode (-m {SEARCH_MODE_CACHE}) should be used to annotate.')
@@ -650,7 +663,8 @@ if __name__ == "__main__":
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
             
-        emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
+        emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.decorate_gff,
+                          args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
         emapper.run(args, args.input, args.annotate_hits_table, args.cache_file)
 
         print(get_citation([args.mode, args.genepred]))

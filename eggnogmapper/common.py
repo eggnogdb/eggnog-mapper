@@ -156,10 +156,10 @@ def show_binaries():
 
 def get_call_info():
     text = []
-    text.append('# ' + time.ctime())
-    text.append('# ' + get_version())
-    text.append('# ' + ' '.join(sys.argv))
-    text.append('#')
+    text.append('## ' + time.ctime())
+    text.append('## ' + get_version())
+    text.append('## ' + ' '.join(sys.argv))
+    text.append('##')
     return '\n'.join(text)
 
 
