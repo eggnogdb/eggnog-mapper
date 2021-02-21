@@ -13,7 +13,7 @@ from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGA
 from .genepred.util import create_prots_file
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE
 from .annotation.annotators import get_annotator, get_cache_annotator
-from .deco.decoration import decorate_gff, DECORATE_GFF_NONE
+from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE
 
 class Emapper:
 
@@ -187,7 +187,7 @@ class Emapper:
 
         gff_outfile = pjoin(self._current_dir, self.genepred_gff_file)
         
-        decorate_gff(self.decorate_gff, self.genepred_is_prodigal, self.genepred_is_blastx, gff_outfile,
+        run_gff_decoration(self.decorate_gff, self.genepred_is_prodigal, self.genepred_is_blastx, gff_outfile,
                      predictor, searcher, annotator)
         
         return

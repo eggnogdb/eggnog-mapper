@@ -13,7 +13,7 @@ DECORATE_GFF_FILE = "FILE:FIELD"
 DECORATE_GFF_FIELD_DEFAULT = "ID"
 
 ##
-def decorate_gff(mode, is_prodigal, is_blastx, gff_outfile, predictor, searcher, annotator):
+def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile, predictor, searcher, annotator):
     
     ##
     # Generate GFF data to decorate
@@ -60,11 +60,31 @@ def decorate_gff(mode, is_prodigal, is_blastx, gff_outfile, predictor, searcher,
         else:
             decorate_gff_file = mode
             decorate_gff_field = DECORATE_GFF_FIELD_DEFAULT
+
+        if searcher is None: # -m no_search (IT SHOULD NEVER HAPPEN FOR is_blastx)
+            hits = None
+            searcher_name = None
+        else:
+            hits = searcher.get_hits_dict()
+            searcher_name = searcher.name
             
-        decorate_gff(decorate_gff_file, decorate_gff_field, gff_outfile, queries_results) # TODO
+        if annotator is None: # --no_annot
+            annotations = None
+        else:
+            annotations = annotator.get_annotations_dict()
+            hits = annotator.get_hits_dict()
+
+        if hits is None and annotations is None:
+            print("No GFF will be created, since there are no hits nor annotations.")
+            
+        decorate_gff(decorate_gff_file, decorate_gff_field, gff_outfile, hits, annotations) # TODO
 
     return
 
+##
+# Parse a GFF and create a new one adding hits and/or annotations
+def decorate_gff(gff_file, gff_field, outfile, hits, annotations):
+    return
 
 ##
 # Create GFF file by parsing the hits

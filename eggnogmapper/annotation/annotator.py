@@ -95,13 +95,30 @@ class Annotator:
     #
     def get_hits(self):
         return self.hits
+
+    def get_hits_dict(self):
+        hits_dict = None
+        if self.hits_dict is not None:
+            hits_dict = self.hits_dict
+        elif self.hits is not None:
+            hits_dict = {hit[0]:hit for hit in self.hits}
+            self.hits_dict = hits_dict
+        # else: None
+        return hits_dict
+    
     #
     def get_annotations(self):
         return self.annotations
-
-    #
+    
     def get_annotations_dict(self):
-        return self.annotations_dict
+        annotations_dict = None
+        if self.annotations_dict is not None:
+            annotations_dict = self.annotations_dict
+        elif self.annotations is not None:
+            annotations_dict = {annot[0]:annot for annot in self.annotations}
+            self.annotations_dict = annotations_dict
+        # else: None
+        return annotations_dict
 
     #
     def get_orthologs(self):
@@ -166,9 +183,9 @@ class Annotator:
         start_time = time.time()
         
         if self.dbmem == True:
-            all_orthologs, all_annotations, annotations_dict, qn = self._annotate_dbmem(hits_gen_func, store_hits, pfam_file)
+            all_orthologs, all_annotations, qn = self._annotate_dbmem(hits_gen_func, store_hits, pfam_file)
         else:
-            all_orthologs, all_annotations, annotations_dict, qn = self._annotate_ondisk(hits_gen_func, store_hits, pfam_file)
+            all_orthologs, all_annotations, qn = self._annotate_ondisk(hits_gen_func, store_hits, pfam_file)
 
         elapsed_time = time.time() - start_time
         print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
@@ -193,7 +210,6 @@ class Annotator:
 
         self.orthologs = all_orthologs
         self.annotations = all_annotations
-        self.annotations_dict = annotations_dict
             
         return qn, elapsed_time
 
@@ -202,7 +218,6 @@ class Annotator:
     def _annotate_dbmem(self, hits_gen_func, store_hits, pfam_file):
         all_orthologs = {}
         all_annotations = []
-        annotations_dict = {}
 
         start_time = time.time() # do not take into account time to load the db into memory
         db_sqlite.connect(usemem = True)
@@ -222,7 +237,7 @@ class Annotator:
                     sys.stderr.flush()
 
                 if result:
-                    self._process_annot_result(result, all_orthologs, all_annotations, annotations_dict)
+                    self._process_annot_result(result, all_orthologs, all_annotations)
 
         except EmapperException:
             raise
@@ -236,7 +251,7 @@ class Annotator:
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
                     
-        return all_orthologs, all_annotations, annotations_dict, qn
+        return all_orthologs, all_annotations, qn
 
     
     ##
@@ -244,7 +259,6 @@ class Annotator:
 
         all_orthologs = {}
         all_annotations = []
-        annotations_dict = {}
         
         # multiprocessing.set_start_method("spawn")
         pool = multiprocessing.Pool(self.cpu)
@@ -261,7 +275,7 @@ class Annotator:
                     sys.stderr.flush()
 
                 if result:
-                    self._process_annot_result(result, all_orthologs, all_annotations, annotations_dict)      
+                    self._process_annot_result(result, all_orthologs, all_annotations)      
 
         except EmapperException:
             raise
@@ -275,11 +289,11 @@ class Annotator:
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
             
-        return all_orthologs, all_annotations, annotations_dict, qn
+        return all_orthologs, all_annotations, qn
 
     
     ##
-    def _process_annot_result(self, result, all_orthologs, all_annotations, annotations_dict):
+    def _process_annot_result(self, result, all_orthologs, all_annotations):
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations, 
          narr_og_name, narr_og_cat, narr_og_desc,
@@ -321,7 +335,6 @@ class Annotator:
                     annot_columns.append('-')
 
             all_annotations.append(annot_columns)
-            annotations_dict[query_name] = annot_columns
 
         return
     
