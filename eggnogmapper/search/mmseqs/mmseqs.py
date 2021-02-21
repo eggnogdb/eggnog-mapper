@@ -62,6 +62,7 @@ class MMseqs2Searcher:
 
     # Results
     queries = hits = no_hits = None
+    hits_dict = None
 
     ##
     def __init__(self, args):
@@ -93,6 +94,17 @@ class MMseqs2Searcher:
     ##
     def get_hits(self):
         return self.hits
+
+    def get_hits_dict(self):
+        hits_dict = None
+        
+        if self.hits_dict is not None:
+            hits_dict = self.hits_dict
+        elif self.hits is not None:
+            hits_dict = {hit[0]:hit for hit in self.hits}
+            self.hits_dict = hits_dict
+        
+        return hits_dict
 
     ##
     def get_no_hits(self):
@@ -281,7 +293,7 @@ class MMseqs2Searcher:
                 sstart = int(fields[6])
                 send = int(fields[7])
                 
-                hits.append([query, hit, evalue, score, qstart, qend, sstart, send, qcov, scov])
+                hits.append([query, hit, evalue, score, qstart, qend, sstart, send, pident, qcov, scov])
                 
         return hits
 
@@ -290,7 +302,7 @@ class MMseqs2Searcher:
         hits = []
         curr_query_hits = []
         prev_query = None
-        
+        queries_suffixes = {}        
         
         with open(raw_mmseqs_file, 'r') as raw_f:
             for line in raw_f:
@@ -323,14 +335,28 @@ class MMseqs2Searcher:
                 sstart = int(fields[6])
                 send = int(fields[7])
                 
-                hit = [query, hit, evalue, score, qstart, qend, sstart, send, qcov, scov]
+                hit = [query, hit, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
                 if query == prev_query:
                     if not hit_does_overlap(hit, curr_query_hits):
-                        hits.append(hit)
+                        if query in queries_suffixes:
+                            queries_suffixes[query] += 1
+                            suffix = queries_suffixes[query]
+                        else:
+                            suffix = 0
+                            queries_suffixes[query] = suffix
+                            
+                        hits.append([f"{hit[0]}_{suffix}"]+hit[1:])
                         curr_query_hits.append(hit)
                 else:
-                    hits.append(hit)
+                    if query in queries_suffixes:
+                        queries_suffixes[query] += 1
+                        suffix = queries_suffixes[query]
+                    else:
+                        suffix = 0
+                        queries_suffixes[query] = suffix
+                            
+                    hits.append([f"{hit[0]}_{suffix}"]+hit[1:])
                     curr_query_hits = [hit]
                     
                 prev_query = query    
@@ -340,58 +366,20 @@ class MMseqs2Searcher:
 
     ##
     def output_mmseqs(self, cmds, hits, out_file):
-        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            return self._output_mmseqs(cmds, hits, out_file)
-        else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-            return self._output_genepred(cmds, hits, out_file)
-    
-    ##
-    def _output_mmseqs(self, cmds, hits, out_file):
         with open(out_file, 'w') as OUT:
 
             # comments
             if not self.no_file_comments:
                 print(get_call_info(), file=OUT)
                 for cmd in cmds:
-                    print('#'+cmd, file=OUT)
+                    print('##'+cmd, file=OUT)
 
             # header
-            print('#'+"\t".join("qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcov scov".split(" ")), file=OUT)
+            print('#'+"\t".join("qseqid sseqid evalue bitscore qstart qend sstart send pident qcov scov".split(" ")), file=OUT)
 
             # rows
             for line in hits:
                 print('\t'.join(map(str, line)), file=OUT)
-                
-        return
-
-    ##
-    def _output_genepred(self, cmds, hits, out_file):
-        queries_suffixes = {}
-        with open(out_file, 'w') as OUT:
-
-            # comments
-            if not self.no_file_comments:
-                print(get_call_info(), file=OUT)
-                for cmd in cmds:
-                    print('#'+cmd, file=OUT)
-
-            # header
-            print('#'+"\t".join("qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcov scov".split(" ")), file=OUT)
-
-            # rows
-            for line in hits:
-                query = line[0]
-                target = line[1]
-                evalue = line[2]
-                score = line[3]
-                if query in queries_suffixes:
-                    queries_suffixes[query] += 1
-                    suffix = queries_suffixes[query]
-                else:
-                    suffix = 0
-                    queries_suffixes[query] = suffix
-                
-                print('\t'.join(map(str, [f"{query}_{suffix}"] + line[1:])), file=OUT)
                 
         return
     

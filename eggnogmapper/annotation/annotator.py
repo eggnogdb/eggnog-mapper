@@ -26,6 +26,10 @@ PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 ##
 class Annotator:
 
+    hits = None
+    annotations = annotations_dict = None
+    orthologs = None
+    
     annot = report_orthologs = None
     
     dbmem = None
@@ -41,7 +45,7 @@ class Annotator:
     go_evidence = go_excluded = None
     pfam_realign = pfam_transfer = queries_fasta = translate = temp_dir = None
     md5 = None
-    
+        
     ##
     def __init__(self, args, annot, report_orthologs):
 
@@ -88,9 +92,23 @@ class Annotator:
         
         return
 
+    #
+    def get_hits(self):
+        return self.hits
+    #
+    def get_annotations(self):
+        return self.annotations
 
+    #
+    def get_annotations_dict(self):
+        return self.annotations_dict
+
+    #
+    def get_orthologs(self):
+        return self.orthologs
+    
     ##
-    def annotate(self, seed_orthologs_file, annot_file, orthologs_file, pfam_file):
+    def annotate(self, hits_gen_func, store_hits, annot_file, orthologs_file, pfam_file):
 
         if self.report_orthologs == True or self.annot == True:            
             ##
@@ -125,7 +143,7 @@ class Annotator:
 
             ##
             # Obtain annotations
-            qn, elapsed_time = self._annotate(seed_orthologs_file, pfam_file, output_orthologs_f, output_annotations_f)
+            qn, elapsed_time = self._annotate(hits_gen_func, store_hits, pfam_file, output_orthologs_f, output_annotations_f)
             db_sqlite.close()
 
             ##
@@ -143,14 +161,14 @@ class Annotator:
         return
 
     ##
-    def _annotate(self, seed_orthologs_file, pfam_file, output_ortho_f, output_annot_f):
+    def _annotate(self, hits_gen_func, store_hits, pfam_file, output_ortho_f, output_annot_f):
         
         start_time = time.time()
         
         if self.dbmem == True:
-            all_orthologs, all_annotations, qn = self._annotate_dbmem(seed_orthologs_file, pfam_file)
+            all_orthologs, all_annotations, annotations_dict, qn = self._annotate_dbmem(hits_gen_func, store_hits, pfam_file)
         else:
-            all_orthologs, all_annotations, qn = self._annotate_ondisk(seed_orthologs_file, pfam_file)
+            all_orthologs, all_annotations, annotations_dict, qn = self._annotate_ondisk(hits_gen_func, store_hits, pfam_file)
 
         elapsed_time = time.time() - start_time
         print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
@@ -172,14 +190,19 @@ class Annotator:
             
         if self.annot == True:
             output_annot_f(all_annotations)
+
+        self.orthologs = all_orthologs
+        self.annotations = all_annotations
+        self.annotations_dict = annotations_dict
             
         return qn, elapsed_time
 
 
     ##
-    def _annotate_dbmem(self, seed_orthologs_file, pfam_file):
+    def _annotate_dbmem(self, hits_gen_func, store_hits, pfam_file):
         all_orthologs = {}
         all_annotations = []
+        annotations_dict = {}
 
         start_time = time.time() # do not take into account time to load the db into memory
         db_sqlite.connect(usemem = True)
@@ -191,7 +214,7 @@ class Annotator:
         
         qn = 0
         try:
-            for result in map(annotate_hit_line, self.iter_hit_lines(seed_orthologs_file)):
+            for result in map(annotate_hit_line, self.iter_hit_lines(hits_gen_func, store_hits)):
                 qn += 1
                 if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
@@ -199,7 +222,7 @@ class Annotator:
                     sys.stderr.flush()
 
                 if result:
-                    self._process_annot_result(result, all_orthologs, all_annotations)
+                    self._process_annot_result(result, all_orthologs, all_annotations, annotations_dict)
 
         except EmapperException:
             raise
@@ -213,14 +236,15 @@ class Annotator:
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
                     
-        return all_orthologs, all_annotations, qn
+        return all_orthologs, all_annotations, annotations_dict, qn
 
     
     ##
-    def _annotate_ondisk(self, seed_orthologs_file, pfam_file):
+    def _annotate_ondisk(self, hits_gen_func, store_hits, pfam_file):
 
         all_orthologs = {}
         all_annotations = []
+        annotations_dict = {}
         
         # multiprocessing.set_start_method("spawn")
         pool = multiprocessing.Pool(self.cpu)
@@ -229,7 +253,7 @@ class Annotator:
         
         qn = 0
         try:
-            for result in pool.imap(annotate_hit_line_process, self.iter_hit_lines(seed_orthologs_file)):
+            for result in pool.imap(annotate_hit_line_process, self.iter_hit_lines(hits_gen_func, store_hits)):
                 qn += 1
                 if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
@@ -237,7 +261,7 @@ class Annotator:
                     sys.stderr.flush()
 
                 if result:
-                    self._process_annot_result(result, all_orthologs, all_annotations)      
+                    self._process_annot_result(result, all_orthologs, all_annotations, annotations_dict)      
 
         except EmapperException:
             raise
@@ -251,11 +275,11 @@ class Annotator:
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
             
-        return all_orthologs, all_annotations, qn
+        return all_orthologs, all_annotations, annotations_dict, qn
 
     
     ##
-    def _process_annot_result(self, result, all_orthologs, all_annotations):
+    def _process_annot_result(self, result, all_orthologs, all_annotations, annotations_dict):
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations, 
          narr_og_name, narr_og_cat, narr_og_desc,
@@ -297,18 +321,39 @@ class Annotator:
                     annot_columns.append('-')
 
             all_annotations.append(annot_columns)
+            annotations_dict[query_name] = annot_columns
 
         return
     
+
+    ##
+    def parse_hits(self, filename):
+
+        def _parse_hits():
+            for line in open(filename, 'r'):
+                if line.startswith('#') or not line.strip():
+                    continue
+
+                line = list(map(str.strip, line.split('\t')))
+                # query, target, evalue, score
+                hit = [line[0], line[1], float(line[2]), float(line[3])]
+                # if len(line) == 14:
+                #     hit = [line[0], line[1], float(line[2]), float(line[3])]
+
+                yield hit
+                            
+        return _parse_hits
     
     ##
-    def iter_hit_lines(self, filename):
+    def iter_hit_lines(self, hits_gen_func, store_hits = True):
+
+        if store_hits: self.hits = []
         
-        for line in open(filename, 'r'):
-            if line.startswith('#') or not line.strip():
-                continue
+        for hit in hits_gen_func():
             
-            yield_tuple = (line, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
+            if store_hits: self.hits.append(hit)
+            
+            yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_id, self.TAXONOMIC_RESOLUTION,
                            self.target_taxa, self.target_orthologs, self.excluded_taxa,
                            self.go_evidence, self.go_excluded, self.pfam_transfer)
@@ -330,24 +375,24 @@ def annotate_hit_line_process(arguments):
 ##
 def annotate_hit_line(arguments):
     
-    line, annot, seed_ortholog_score, seed_ortholog_evalue, \
+    hit, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_id, tax_resolution, \
         target_taxa, target_orthologs, excluded_taxa, \
         go_evidence, go_excluded, \
         pfam_transfer = arguments
     
     try:
-        if not line.strip() or line.startswith('#'):
-            return None
+        # if not line.strip() or line.startswith('#'):
+        #     return None
         
-        ##
-        # Split fields of search results
-        r = list(map(str.strip, line.split('\t')))
+        # ##
+        # # Split fields of search results
+        # r = list(map(str.strip, line.split('\t')))
 
-        query_name = r[0]
-        best_hit_name = r[1]
-        best_hit_evalue = float(r[2])
-        best_hit_score = float(r[3])
+        query_name = hit[0]
+        best_hit_name = hit[1]
+        best_hit_evalue = float(hit[2])
+        best_hit_score = float(hit[3])
         
         ##
         # Filter by empty hit, error, evalue and/or score
@@ -463,7 +508,7 @@ def annotate_hit_line(arguments):
                 annotations = {}
 
     except Exception as e:
-        raise EmapperException(f"Error: annotation went wrong for line \"{line.strip()}\". "+str(e))
+        raise EmapperException(f'Error: annotation went wrong for hit {hit}. '+str(e))
 
     # WARNING: do NOT close db connections, because it becomes super slow
     # finally:

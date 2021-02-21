@@ -23,7 +23,7 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m diamond) command
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test
+        # ./emapper.py -m diamond -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test_output
 
         ##
         # Setup test
@@ -82,7 +82,7 @@ class Test(unittest.TestCase):
         '''
         Tests the whole emapper (-m mmseqs) command
         '''
-        # ./emapper.py -m mmseqs -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test
+        # ./emapper.py -m mmseqs -i tests/fixtures/test_queries.fa --data_dir tests/fixtures --output_dir tmp -o test_mmseqs
         
         ##
         # Setup test
@@ -364,10 +364,8 @@ class Test(unittest.TestCase):
         outprefix = "test"
 
         # Observed and expected files
-        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
         
-        exp_seed_orthologs = os.path.join(data_dir, 'pfam_transfer_narrowest_og_output', 'test.emapper.seed_orthologs')
         exp_annotations = os.path.join(data_dir, 'pfam_transfer_narrowest_og_output', 'test.emapper.annotations')
 
         ##
@@ -392,10 +390,6 @@ class Test(unittest.TestCase):
 
         ##
         # Check test
-        
-        # Check alignment phase: detection of seed orthologs
-        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-        
         # Check annotation phase
         check_annotations(obs_annotations, exp_annotations)
 
@@ -424,11 +418,9 @@ class Test(unittest.TestCase):
         outprefix = "test"
 
         # Observed and expected files
-        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
         obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
         
-        exp_seed_orthologs = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.seed_orthologs')
         exp_annotations = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.annotations')
         exp_pfam = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.pfam')
 
@@ -454,10 +446,6 @@ class Test(unittest.TestCase):
 
         ##
         # Check test
-        
-        # Check alignment phase: detection of seed orthologs
-        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-
         # Check PFAM
         check_pfam(obs_pfam, exp_pfam)
         
@@ -489,11 +477,9 @@ class Test(unittest.TestCase):
         outprefix = "test"
 
         # Observed and expected files
-        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
         obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
         
-        exp_seed_orthologs = os.path.join(data_dir, 'pfam_denovo_output', 'test.emapper.seed_orthologs')
         exp_annotations = os.path.join(data_dir, 'pfam_denovo_output', 'test.emapper.annotations')
         exp_pfam = os.path.join(data_dir, 'pfam_denovo_output', 'test.emapper.pfam')
 
@@ -519,10 +505,6 @@ class Test(unittest.TestCase):
 
         ##
         # Check test
-        
-        # Check alignment phase: detection of seed orthologs
-        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-
         # Check PFAM
         check_pfam(obs_pfam, exp_pfam)
         
@@ -542,8 +524,8 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with prodigal
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal -m diamond --sensmode sensitive --no_annot
-        # --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o test --output_dir tmp
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal 
+        # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
         
         ##
         # Setup test
@@ -571,8 +553,8 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome '
-               f'--genepred prodigal -m diamond --sensmode sensitive --no_annot '
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred prodigal '
+               f'-m diamond --sensmode sensitive --no_annot '
                f'--dmnd_db {dmnd_db} '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
@@ -610,7 +592,8 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with diamond
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o test --output_dir tmp_borrar
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search 
+        # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
         
         ##
         # Setup test
@@ -638,8 +621,8 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome '
-               f'--genepred search -m diamond --sensmode sensitive --no_annot '
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search '
+               f'-m diamond --sensmode sensitive --no_annot '
                f'--dmnd_db {dmnd_db} '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
@@ -678,7 +661,8 @@ class Test(unittest.TestCase):
         Test gene prediction with mmseqs
         '''
 
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search -m mmseqs --no_annot --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o test --output_dir tmp_borrar
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search 
+        # -m mmseqs --no_annot --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o out --output_dir tmp
         
         ##
         # Setup test
@@ -706,8 +690,8 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome '
-               f'--genepred search -m mmseqs --no_annot '
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search '
+               f'-m mmseqs --no_annot '
                f'--mmseqs_db {mmseqs_db} '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
@@ -740,6 +724,66 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         
         return
+
+    
+    def test_decorate_gff_blastx_annot(self):
+        '''
+        Test gene prediction with mmseqs with GFF decoration
+        '''
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --decorate_gff yes
+        # -m mmseqs --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o test --output_dir tmp
+        
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/genepred_contig/contig.fna"
+        data_dir = "tests/fixtures/decorate_gff/blastx_annot"
+        mmseqs_db = "tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+
+        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.genepred.gff')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --decorate_gff yes '
+               f'-m mmseqs '
+               f'--mmseqs_db {mmseqs_db} '
+               f'-o {outprefix} --output_dir {outdir}')
+        # print(f"\t{cmd}")
+        
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+
+        # Check GFF from gene prediction
+        check_gff(obs_genepred_gff, exp_genepred_gff)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+    
     
 if __name__ == '__main__':
     unittest.main()

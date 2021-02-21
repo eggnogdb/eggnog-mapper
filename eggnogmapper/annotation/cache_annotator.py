@@ -40,6 +40,21 @@ class CacheAnnotator:
         
         return
 
+    # The next methods are not implemented
+    # If required (for example, to decorate a gff)
+    # check how these methods work in annotator.py
+    def get_hits(self):
+        return None
+    
+    def get_annotations(self):
+        return None
+
+    def get_annotations_dict(self):
+        return None
+
+    def get_orthologs(self):
+        return None
+    
     ##
     def annotate(self, cache_file, annot_file, no_annot_file):
         

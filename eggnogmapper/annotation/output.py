@@ -58,16 +58,16 @@ def output_orthologs_closure(out, ncbi):
 def output_orthologs_footer(out, no_file_comments, qn, elapsed_time):
     # Timings
     if not no_file_comments:
-        print('# %d queries scanned' % (qn), file=out)
-        print('# Total time (seconds):', elapsed_time, file=out)
-        print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=out)
+        print('## %d queries scanned' % (qn), file=out)
+        print('## Total time (seconds):', elapsed_time, file=out)
+        print('## Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=out)
 
     return
 
 ##############
 # Annotations
 
-HIT_HEADER = ["#query_name",
+HIT_HEADER = ["query_name",
               "seed_eggNOG_ortholog",
               "seed_ortholog_evalue",
               "seed_ortholog_score",
@@ -94,12 +94,15 @@ ANNOTATIONS_HEADER = ['Preferred_name',
                       'BiGG_Reaction',
                       'PFAMs']
 
+ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + BEST_OG_HEADER + ANNOTATIONS_HEADER
+
 ##
 def output_annotations_header(out, no_file_comments, md5_field):
 
     if not no_file_comments:
         print(get_call_info(), file=out)
 
+    print("#", end="", file=out)
     print('\t'.join(HIT_HEADER), end="\t", file=out)
 
     print('\t'.join(BEST_OG_HEADER), end="\t", file=out)
@@ -131,9 +134,9 @@ def output_annotations_closure(out, md5_field, md5_queries):
 ##
 def output_annotations_footer(out, no_file_comments, qn, elapsed_time):
     if not no_file_comments:
-        print('# %d queries scanned' % (qn), file=out)
-        print('# Total time (seconds):', elapsed_time, file=out)
-        print('# Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=out)
+        print('## %d queries scanned' % (qn), file=out)
+        print('## Total time (seconds):', elapsed_time, file=out)
+        print('## Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=out)
 
     return
 
