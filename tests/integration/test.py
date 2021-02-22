@@ -730,14 +730,14 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with mmseqs with GFF decoration
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --decorate_gff yes
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --decorate_gff yes 
         # -m mmseqs --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o test --output_dir tmp
         
         ##
         # Setup test
         
         in_file = "tests/fixtures/genepred_contig/contig.fna"
-        data_dir = "tests/fixtures/decorate_gff/blastx_annot"
+        data_dir = "tests/fixtures"
         mmseqs_db = "tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db"
         outdir = "tests/integration/out"
         outprefix = "test"
@@ -745,7 +745,7 @@ class Test(unittest.TestCase):
         # Observed and expected files
         obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
 
-        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.genepred.gff')
+        exp_genepred_gff = os.path.join(data_dir, 'decorate_gff', 'blastx_annot', 'out.emapper.genepred.gff')
 
         ##
         # Run test
@@ -795,7 +795,7 @@ class Test(unittest.TestCase):
         # Setup test
         
         in_file = "tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs"
-        data_dir = "tests/fixtures/decorate_gff/decorate_file"
+        data_dir = "tests/fixtures"
         gff_to_decorate = "tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff"
         outdir = "tests/integration/out"
         outprefix = "test"
@@ -803,7 +803,7 @@ class Test(unittest.TestCase):
         # Observed and expected files
         obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
 
-        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.genepred.gff')
+        exp_genepred_gff = os.path.join(data_dir, 'decorate_gff', 'decorate_file', 'out.emapper.genepred.gff')
 
         ##
         # Run test
@@ -852,7 +852,7 @@ class Test(unittest.TestCase):
         # Setup test
         
         in_file = "tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs.short"
-        data_dir = "tests/fixtures/decorate_gff/decorate_file"
+        data_dir = "tests/fixtures"
         gff_to_decorate = "tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff"
         outdir = "tests/integration/out"
         outprefix = "test"
@@ -860,7 +860,7 @@ class Test(unittest.TestCase):
         # Observed and expected files
         obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
 
-        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.short.genepred.gff')
+        exp_genepred_gff = os.path.join(data_dir, 'decorate_gff', 'decorate_file', 'out.emapper.short.genepred.gff')
 
         ##
         # Run test
