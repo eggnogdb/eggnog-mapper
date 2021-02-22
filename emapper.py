@@ -365,7 +365,7 @@ def create_arg_parser():
     pg_out.add_argument('--no_file_comments', action="store_true",
                         help="No header lines nor stats are included in the output files")
 
-    pg_out.add_argument('--decorate_gff', type=str, default=DECORATE_GFF_NONE, choices=[DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FILE],
+    pg_out.add_argument('--decorate_gff', type=str, default=DECORATE_GFF_NONE,
                         help=(
                             "Add search hits and/or annotation results to GFF file from gene prediction of a user specified one. "
                             f"{DECORATE_GFF_NONE} = no GFF decoration at all. GFF file from blastx-based gene prediction will be created anyway. "
@@ -506,10 +506,6 @@ def parse_args(parser):
         if args.resume == True:
             print(colorify("Diamond jobs cannot be resumed. --resume will be ignored.", 'blue'))
             args.resume = False
-
-        if args.annotate_hits_table is not None:
-            print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_DIAMOND}", 'blue'))
-            args.annotate_hits_table = None
             
     elif args.mode == SEARCH_MODE_MMSEQS2:
         mmseqs_db = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()

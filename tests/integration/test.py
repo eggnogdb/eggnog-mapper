@@ -783,7 +783,119 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         
         return
-    
+
+    def test_decorate_gff_file(self):
+        '''
+        Test decoration of existing GFF file from seed_orthologs file and annotations
+        '''
+        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs
+        # --decorate_gff tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff --output_dir tmp -o test
+        
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs"
+        data_dir = "tests/fixtures/decorate_gff/decorate_file"
+        gff_to_decorate = "tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+
+        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.genepred.gff')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} '
+               f'-o {outprefix} --output_dir {outdir}')
+        # print(f"\t{cmd}")
+        
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+
+        # Check GFF from gene prediction
+        check_gff(obs_genepred_gff, exp_genepred_gff)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+
+
+    def test_decorate_gff_file_short(self):
+        '''
+        Test decoration of existing GFF file from seed_orthologs file (short format) and annotations
+        '''
+        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs.short
+        # --decorate_gff tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff --output_dir tmp -o test
+        
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs.short"
+        data_dir = "tests/fixtures/decorate_gff/decorate_file"
+        gff_to_decorate = "tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+
+        exp_genepred_gff = os.path.join(data_dir, 'out.emapper.short.genepred.gff')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} '
+               f'-o {outprefix} --output_dir {outdir}')
+        # print(f"\t{cmd}")
+        
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+
+        # Check GFF from gene prediction
+        check_gff(obs_genepred_gff, exp_genepred_gff)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
     
 if __name__ == '__main__':
     unittest.main()

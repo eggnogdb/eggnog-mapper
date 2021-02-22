@@ -26,7 +26,7 @@ PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 ##
 class Annotator:
 
-    hits = None
+    hits = hits_dict = None
     annotations = annotations_dict = None
     orthologs = None
     
@@ -349,9 +349,12 @@ class Annotator:
 
                 line = list(map(str.strip, line.split('\t')))
                 # query, target, evalue, score
-                hit = [line[0], line[1], float(line[2]), float(line[3])]
-                # if len(line) == 14:
-                #     hit = [line[0], line[1], float(line[2]), float(line[3])]
+                if len(line) == 4: # short hits
+                    hit = [line[0], line[1], float(line[2]), float(line[3])]
+                elif len(line) == 11:
+                    hit = [line[0], line[1], float(line[2]), float(line[3]),
+                           int(line[4]), int(line[5]), int(line[6]), int(line[7]),
+                           float(line[8]), float(line[9]), float(line[10])]
 
                 yield hit
                             

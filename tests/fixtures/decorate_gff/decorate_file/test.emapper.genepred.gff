@@ -1,0 +1,6 @@
+##gff-version 3
+## SOME OTHER HEADER INFO
+## SOME OTHER HEADER INFO 2
+0	eggNOG-mapper	CDS	337	2796	1597.8	+	.	ID=0_0;some_other_field=0_1;;
+0	eggNOG-mapper	CDS	3734	5017	857.4	+	.	ID=0_1;some_other_field=2;
+0	eggNOG-mapper	CDS	2801	3730	629.0	+	.	ID=0_2;some_other_field=3
