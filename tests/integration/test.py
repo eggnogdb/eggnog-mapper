@@ -524,7 +524,7 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with prodigal
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal 
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal --data_dir tests/fixtures
         # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
         
         ##
@@ -553,7 +553,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred prodigal '
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred prodigal --data_dir tests/fixtures '
                f'-m diamond --sensmode sensitive --no_annot '
                f'--dmnd_db {dmnd_db} '
                f'-o {outprefix} --output_dir {outdir}')
@@ -592,7 +592,7 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with diamond
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search 
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --data_dir tests/fixtures
         # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
         
         ##
@@ -621,7 +621,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search '
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --data_dir tests/fixtures '
                f'-m diamond --sensmode sensitive --no_annot '
                f'--dmnd_db {dmnd_db} '
                f'-o {outprefix} --output_dir {outdir}')
@@ -661,7 +661,7 @@ class Test(unittest.TestCase):
         Test gene prediction with mmseqs
         '''
 
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search 
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --data_dir tests/fixtures
         # -m mmseqs --no_annot --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o out --output_dir tmp
         
         ##
@@ -690,7 +690,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search '
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --data_dir tests/fixtures '
                f'-m mmseqs --no_annot '
                f'--mmseqs_db {mmseqs_db} '
                f'-o {outprefix} --output_dir {outdir}')
@@ -730,7 +730,7 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with mmseqs with GFF decoration
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --decorate_gff yes 
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --decorate_gff yes --data_dir tests/fixtures
         # -m mmseqs --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o test --output_dir tmp
         
         ##
@@ -756,7 +756,7 @@ class Test(unittest.TestCase):
         os.mkdir(outdir)
 
         cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --decorate_gff yes '
-               f'-m mmseqs '
+               f'-m mmseqs --data_dir tests/fixtures '
                f'--mmseqs_db {mmseqs_db} '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
@@ -788,7 +788,7 @@ class Test(unittest.TestCase):
         '''
         Test decoration of existing GFF file from seed_orthologs file and annotations
         '''
-        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs
+        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs --data_dir tests/fixtures
         # --decorate_gff tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff --output_dir tmp -o test
         
         ##
@@ -813,7 +813,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} '
+        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} --data_dir tests/fixtures '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
         
@@ -845,7 +845,7 @@ class Test(unittest.TestCase):
         '''
         Test decoration of existing GFF file from seed_orthologs file (short format) and annotations
         '''
-        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs.short
+        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs.short --data_dir tests/fixtures
         # --decorate_gff tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff --output_dir tmp -o test
         
         ##
@@ -870,7 +870,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} '
+        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} --data_dir tests/fixtures '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
         
