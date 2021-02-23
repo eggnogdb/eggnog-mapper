@@ -11,14 +11,23 @@ import sqlite3
 from ...emapperException import EmapperException
 from ...common import get_ncbitaxadb_file
 
+ncbi = None
+
+def get_ncbi(usemem = False, dbfile = None):
+    global ncbi
+    if ncbi is None:
+        ncbi = NCBITaxa(usemem, dbfile)
+    return ncbi
+
 class NCBITaxa(object):
     """
     Provides a local transparent connector to the NCBI taxonomy database.
     """
     dbfile = None
     db = None
+    prepostorder = None # data loaded with pickle from file eggnog.taxa.db.traverse.pkl
     
-    def __init__(self, dbfile=None):
+    def __init__(self, usemem = False, dbfile = None):
 
         if dbfile is None:
             self.dbfile = get_ncbitaxadb_file()
@@ -29,6 +38,15 @@ class NCBITaxa(object):
             raise EmapperException(f'Could not find NCBI database {self.dbfile}.')
         
         self.db = sqlite3.connect(self.dbfile)
+
+        if usemem == True:
+            source = sqlite3.connect(self.dbfile)
+            self.db = sqlite3.connect(':memory:')
+            source.backup(self.db)
+            source.close()
+        else:
+            print("Loading taxa DB from disk...")
+            self.db = sqlite3.connect(self.dbfile)
         
         return
         
@@ -119,11 +137,12 @@ class NCBITaxa(object):
         if conversion:
             taxid = conversion[taxid]
 
-        with open(self.dbfile+".traverse.pkl", "rb") as CACHED_TRAVERSE:
-            prepostorder = pickle.load(CACHED_TRAVERSE)
+        if self.prepostorder is None:
+            with open(self.dbfile+".traverse.pkl", "rb") as CACHED_TRAVERSE:
+                self.prepostorder = pickle.load(CACHED_TRAVERSE)
         descendants = {}
         found = 0
-        for tid in prepostorder:
+        for tid in self.prepostorder:
             if tid == taxid:
                 found += 1
             elif found == 1:
