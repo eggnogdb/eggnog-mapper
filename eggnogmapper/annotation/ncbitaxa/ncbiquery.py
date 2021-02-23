@@ -22,6 +22,10 @@ def get_ncbi(usemem = False, dbfile = None):
         print(f"NCBITaxa already exists")        
     return ncbi
 
+def get_fresh_ncbi(usemem = False):
+    print(f"Creating fresh NCBI DB with usemem {usemem}")
+    return NCBITaxa(usemem)
+
 class NCBITaxa(object):
     """
     Provides a local transparent connector to the NCBI taxonomy database.
