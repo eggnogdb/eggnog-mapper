@@ -158,11 +158,14 @@ class Annotator:
 
             # closures to generate output
 
+            output_orthologs_f = None
             if self.report_orthologs == True:
                 ncbi = get_ncbi(usemem = True)
-                
-            output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
-            output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
+                output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
+
+            output_annotations_f = None
+            if self.annot == True:
+                output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
 
             ##
             # Obtain annotations
