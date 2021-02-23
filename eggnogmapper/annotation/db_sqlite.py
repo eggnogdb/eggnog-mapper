@@ -83,8 +83,6 @@ class AnnotDB(object):
 
             prot_data = curs.fetchone()
             if prot_data is not None:
-                print("db_sqlite: get_annotations")
-                print(prot_data)
                 yield prot_data
 
         return
