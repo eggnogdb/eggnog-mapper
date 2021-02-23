@@ -265,7 +265,12 @@ class Annotator:
         all_annotations = []
         
         # multiprocessing.set_start_method("spawn")
-        pool = multiprocessing.Pool(self.cpu)
+        def init_db():
+            global eggnog_db
+            eggnog_db = get_fresh_eggnog_db()
+            return
+        
+        pool = multiprocessing.Pool(self.cpu, init_db, ())
 
         start_time = time.time() # do not take into account time to load the pool of processes
         
@@ -395,11 +400,12 @@ def annotate_hit_line_process(arguments):
     # db_sqlite.connect()
     # ncbi = get_ncbi(usemem = False)
     
-    eggnog_db = get_eggnog_db()
+    # eggnog_db = get_eggnog_db()
     # This produces error sqlite3 disk error malformed
     # It is weird, but looks like the different processes
     # are sharing global variables
-    
+
+    global eggnog_db # from init_db when creating the pool of workers
     # eggnog_db = get_fresh_eggnog_db(usemem = False)
     ret = annotate_hit_line(arguments, eggnog_db)
     # eggnog_db.close()
