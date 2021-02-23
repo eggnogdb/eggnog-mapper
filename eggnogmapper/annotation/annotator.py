@@ -17,7 +17,7 @@ from . import db_sqlite
 from . import orthologs as ortho
 from . import output
 from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
-from .ncbitaxa.ncbiquery import NCBITaxa
+from .ncbitaxa.ncbiquery import get_ncbi
 
 ANNOTATIONS_HEADER = output.ANNOTATIONS_HEADER
 
@@ -78,6 +78,7 @@ class Annotator:
         self.target_taxa = args.target_taxa
         self.target_orthologs = args.target_orthologs
         self.excluded_taxa = args.excluded_taxa
+            
         self.go_evidence = args.go_evidence
         self.go_excluded = args.go_excluded
         
@@ -155,7 +156,7 @@ class Annotator:
                 output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
 
             # closures to generate output
-            output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, NCBITaxa())
+            output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, get_ncbi(usemem = True))
             output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
 
             ##
@@ -384,6 +385,7 @@ def annotate_hit_line_process(arguments):
     # should connect also if no previous connection
     # exists in this Pool process (worker)
     db_sqlite.connect()
+    # ncbi = get_ncbi(usemem = False)
 
     return annotate_hit_line(arguments)
 
@@ -647,7 +649,7 @@ def normalize_target_taxa(target_taxa):
     """
     Receives a list of taxa IDs and/or taxa names and returns a set of expanded taxids numbers
     """
-    ncbi = NCBITaxa()
+    ncbi = get_ncbi(usemem = True)
     expanded_taxa = set()
     
     for taxon in target_taxa:
