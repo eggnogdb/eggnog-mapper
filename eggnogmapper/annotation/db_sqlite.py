@@ -62,7 +62,7 @@ class AnnotDB(object):
 
     def get_member_ogs(self, name):
         curs = self.conn.cursor()
-        curs.execute('SELECT groups FROM eggnog WHERE name == ?;', (name,))
+        curs.execute('SELECT ogs FROM prots WHERE name == ?;', (name,))
         return curs.fetchone()
 
 
@@ -77,38 +77,22 @@ class AnnotDB(object):
 
         for seq in seq_names.split(","):
             seq = seq.replace('"', '')
-            curs.execute("SELECT name FROM eggnog WHERE name == ?", (seq,))
+            curs.execute(("SELECT pname, gos, kegg_ec, kegg_ko, kegg_pathway, kegg_module, kegg_reaction, "
+                          "kegg_rclass, kegg_brite, kegg_tc, kegg_cazy, bigg_reaction, pfam FROM prots WHERE name == ?")
+                         , (seq,))
 
-            eggnog = curs.fetchone()
-            if eggnog is not None:
-                curs.execute("SELECT pname FROM seq WHERE name == ?", (seq,))
-                pname = curs.fetchone()
-                pname = pname[0] if pname is not None else None
-
-                curs.execute("SELECT gos FROM gene_ontology WHERE name == ?", (seq,))
-                gos = curs.fetchone()
-                gos = gos[0] if gos is not None else None
-
-                curs.execute("SELECT ec, ko, pathway, module, reaction, rclass, brite, tc, cazy FROM kegg WHERE name == ?", (seq,))
-                kegg_fields = curs.fetchone()
-                kegg_fields = list(kegg_fields) if kegg_fields is not None else [None] * 9
-
-                curs.execute("SELECT reaction FROM bigg WHERE name == ?", (seq,))
-                bigg = curs.fetchone()
-                bigg = bigg[0] if bigg is not None else None
-
-                curs.execute("SELECT pfam FROM pfam WHERE name == ?", (seq,))
-                pfam = curs.fetchone()
-                pfam = pfam[0] if pfam is not None else None
-
-                yield [pname, gos] + kegg_fields + [bigg, pfam]
+            prot_data = curs.fetchone()
+            if prot_data is not None:
+                print("db_sqlite: get_annotations")
+                print(prot_data)
+                yield prot_data
 
         return
 
     def get_pfam_annotations(self, seq_names):
-        cmd = """SELECT pfam.pfam
-            FROM pfam
-            WHERE pfam.name in (%s)
+        cmd = """SELECT pfam
+            FROM prots
+            WHERE name in (%s)
             """ % seq_names
 
         curs = self.conn.cursor()
@@ -117,7 +101,7 @@ class AnnotDB(object):
 
     def get_member_events(self, member, target_levels):
         curs = self.conn.cursor()
-        curs.execute('SELECT orthoindex FROM orthologs WHERE name == ?', (member.strip(),))
+        curs.execute('SELECT orthoindex FROM prots WHERE name == ?', (member.strip(),))
         event_indexes = curs.fetchone()
         if event_indexes is not None and len(event_indexes) > 0:
             event_indexes = str(event_indexes[0])
