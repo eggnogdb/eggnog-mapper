@@ -16,14 +16,10 @@ ncbi = None
 def get_ncbi(usemem = False, dbfile = None):
     global ncbi
     if ncbi is None:
-        print(f"Creating new NCBITaxa with usemem {usemem}")
         ncbi = NCBITaxa(usemem, dbfile)
-    else:
-        print(f"NCBITaxa already exists")        
     return ncbi
 
 def get_fresh_ncbi(usemem = False):
-    print(f"Creating fresh NCBI DB with usemem {usemem}")
     return NCBITaxa(usemem)
 
 class NCBITaxa(object):
