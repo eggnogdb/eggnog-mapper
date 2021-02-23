@@ -293,7 +293,7 @@ class Annotator:
             # traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
-            pool.terminate()
+            pool.terminate() # it should remove the global eggnog_db variables also
 
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
