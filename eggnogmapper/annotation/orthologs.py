@@ -1,14 +1,10 @@
 ##
 
-# from ..utils import colorify
-
-from . import db_sqlite as db_sqlite
-
-def get_member_orthologs(member, target_levels, all_nogs):
+def get_member_orthologs(member, target_levels, all_nogs, eggnog_db):
     
     # Try to setup orthology using best OG
     
-    orthology = __setup_orthology(member, target_levels)
+    orthology = __setup_orthology(member, target_levels, eggnog_db)
     if orthology is not None and len(orthology) > 0:
         all_orthologs = __load_orthology(orthology)
         best_OG = None
@@ -18,10 +14,9 @@ def get_member_orthologs(member, target_levels, all_nogs):
 
         for nog in reversed(all_nogs):
             nog_level = nog.split("|")[0].split("@")[1]
-            orthology = __setup_orthology(member, [nog_level])
+            orthology = __setup_orthology(member, [nog_level], eggnog_db)
             
             if orthology is not None and len(orthology) > 0:
-                # print(colorify(f"Warning: we found no orthologs for auto best OG for {member}. Using OG {nog} for annotation.", 'orange'))
                 all_orthologs = __load_orthology(orthology)
                 best_OG = nog
                 break
@@ -29,7 +24,6 @@ def get_member_orthologs(member, target_levels, all_nogs):
         # If no orthology found, use seed ortholog for annotation
         
         if orthology is None or len(orthology) == 0:
-            # print(colorify(f"Warning: we found no orthologs for {member}. Using seed ortholog for annotation.", 'orange'))
             all_orthologs = {
                 "one2one": {member},
                 "one2many": set(),
@@ -76,13 +70,12 @@ def __load_orthology(orthology):
             
     return all_orthologs
 
-def __setup_orthology(member, target_levels):
+def __setup_orthology(member, target_levels, eggnog_db):
     orthology = {}
     
     member_as_set = set([member])
     
-    for level, _side1, _side2 in db_sqlite.get_member_events(member.strip(), target_levels):
-
+    for level, _side1, _side2 in eggnog_db.get_member_events(member.strip(), target_levels):
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
 

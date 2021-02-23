@@ -3,14 +3,15 @@
 
 from collections import Counter, defaultdict
 
-from . import db_sqlite as db_sqlite
+# from . import db_sqlite
 
 
-def summarize_annotations(seq_names, annotations_fields, target_go_ev, excluded_go_ev):
+def summarize_annotations(seq_names, annotations_fields, target_go_ev, excluded_go_ev, eggnog_db):
 
     annotations = defaultdict(Counter)
     
-    for fields in db_sqlite.get_annotations(','.join(['"%s"' % n for n in seq_names])):
+    # for fields in db_sqlite.get_annotations(','.join(['"%s"' % n for n in seq_names])):
+    for fields in eggnog_db.get_annotations(','.join(['"%s"' % n for n in seq_names])):
         for i, h in enumerate(annotations_fields):
             if not fields[i]:
                 continue
