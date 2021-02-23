@@ -49,6 +49,13 @@ class NCBITaxa(object):
             self.db = sqlite3.connect(self.dbfile)
         
         return
+
+    ##
+    def close(self):
+        if self.db is not None:
+            self.db.close()
+            self.db = None
+        return
         
     ##
     def get_taxid_translator(self, taxids, try_synonyms=True):

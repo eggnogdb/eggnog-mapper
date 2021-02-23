@@ -156,13 +156,17 @@ class Annotator:
                 output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
 
             # closures to generate output
-            output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, get_ncbi(usemem = True))
+            ncbi = get_ncbi(usemem = True)
+            
+            output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
             output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
 
             ##
             # Obtain annotations
             qn, elapsed_time = self._annotate(hits_gen_func, store_hits, pfam_file, output_orthologs_f, output_annotations_f)
+            
             db_sqlite.close()
+            ncbi.close()
 
             ##
             # Output footer and close files
