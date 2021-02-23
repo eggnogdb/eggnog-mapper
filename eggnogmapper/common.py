@@ -229,9 +229,9 @@ def get_version():
     return version
 
 def get_db_version():
-    from .annotation import db_sqlite
-    db_sqlite.connect()
-    return db_sqlite.get_db_version()
+    from .annotation.db_sqlite import get_fresh_eggnog_db
+    eggnog_db = get_fresh_eggnog_db(usemem = False)
+    return eggnog_db.get_db_version()
 
 def get_diamond_version():
     dmnd_version = None
