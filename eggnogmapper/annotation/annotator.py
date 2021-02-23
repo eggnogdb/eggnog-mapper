@@ -180,8 +180,6 @@ class Annotator:
             if self.annot == True:
                 output.output_annotations_footer(ANNOTATIONS_OUT, self.no_file_comments, qn, elapsed_time)
                 ANNOTATIONS_OUT.close()
-
-            print(colorify("Functional annotation of refined hits starts now", 'green'))
             
         return
 

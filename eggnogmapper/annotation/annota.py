@@ -50,8 +50,6 @@ def parse_gos(gos, target_go_ev, excluded_go_ev):
     for g in gos.strip().split(','):
         if not g:
             continue
-        print("annota:parse_gos")
-        print(g)
         gocat, gid, gevidence = list(map(str, g.strip().split('|')))
         if not target_go_ev or gevidence in target_go_ev:
             if not excluded_go_ev or gevidence not in excluded_go_ev:
