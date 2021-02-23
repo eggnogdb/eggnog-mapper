@@ -45,7 +45,6 @@ class NCBITaxa(object):
             source.backup(self.db)
             source.close()
         else:
-            print("Loading taxa DB from disk...")
             self.db = sqlite3.connect(self.dbfile)
         
         return

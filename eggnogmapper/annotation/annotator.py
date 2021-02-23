@@ -13,7 +13,7 @@ from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
 from . import annota
-from . import db_sqlite
+from .db_sqlite import get_eggnog_db, get_fresh_eggnog_db
 from . import orthologs as ortho
 from . import output
 from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
@@ -157,6 +157,7 @@ class Annotator:
 
             # closures to generate output
             ncbi = get_ncbi(usemem = True)
+            eggnog_db = get_eggnog_db(usemem = self.dbmem)
             
             output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
             output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
@@ -165,7 +166,7 @@ class Annotator:
             # Obtain annotations
             qn, elapsed_time = self._annotate(hits_gen_func, store_hits, pfam_file, output_orthologs_f, output_annotations_f)
             
-            db_sqlite.close()
+            eggnog_db.close()
             ncbi.close()
 
             ##
@@ -225,7 +226,7 @@ class Annotator:
         all_annotations = []
 
         start_time = time.time() # do not take into account time to load the db into memory
-        db_sqlite.connect(usemem = True)
+        
         total_time = time.time() - start_time
         print(colorify(f"Time to load the DB into memory: {total_time}", "lblue"), file=sys.stderr)
         sys.stderr.flush()        
@@ -234,7 +235,7 @@ class Annotator:
         
         qn = 0
         try:
-            for result in map(annotate_hit_line, self.iter_hit_lines(hits_gen_func, store_hits)):
+            for result in map(annotate_hit_line_mem, self.iter_hit_lines(hits_gen_func, store_hits)):
                 qn += 1
                 if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
@@ -250,8 +251,6 @@ class Annotator:
             # import traceback
             # traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
-        finally:
-            db_sqlite.close()
 
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
@@ -383,19 +382,33 @@ class Annotator:
             
         return
 
+##
+def annotate_hit_line_mem(arguments):
+    eggnog_db = get_eggnog_db()
 
+    return annotate_hit_line(arguments, eggnog_db)    
 ##
 def annotate_hit_line_process(arguments):
     # should connect also if no previous connection
     # exists in this Pool process (worker)
-    db_sqlite.connect()
+    
+    # db_sqlite.connect()
     # ncbi = get_ncbi(usemem = False)
+    
+    eggnog_db = get_eggnog_db()
+    # This produces error sqlite3 disk error malformed
+    # It is weird, but looks like the different processes
+    # are sharing global variables
+    
+    # eggnog_db = get_fresh_eggnog_db(usemem = False)
+    ret = annotate_hit_line(arguments, eggnog_db)
+    # eggnog_db.close()
 
-    return annotate_hit_line(arguments)
+    return ret
 
 # annotate_hit_line is outside the class because must be pickable
 ##
-def annotate_hit_line(arguments):
+def annotate_hit_line(arguments, eggnog_db):
     
     hit, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_id, tax_resolution, \
@@ -420,10 +433,12 @@ def annotate_hit_line(arguments):
         # Filter by empty hit, error, evalue and/or score
         if filter_out(best_hit_name, best_hit_evalue, best_hit_score, seed_ortholog_evalue, seed_ortholog_score):
             return None
+
+        # eggnog_db = get_eggnog_db()
         
         ##
         # Retrieve OGs (orthologs groups) the hit belongs to
-        match_nogs = get_member_ogs(best_hit_name)
+        match_nogs = get_member_ogs(best_hit_name, eggnog_db)
         if not match_nogs:
             return None
             
@@ -447,10 +462,10 @@ def annotate_hit_line(arguments):
             
         else:
             best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
-            best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
+            best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
             
             narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
-            narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level)
+            narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level, eggnog_db)
 
             ##
             # Normalize target_taxa if any
@@ -469,7 +484,7 @@ def annotate_hit_line(arguments):
             # annot_levels are used to restrict the speciation events retrieved
             # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
             try:
-                all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names)
+                all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names, eggnog_db)
                 if best_OG is not None:
                     best_og_name = best_OG
                     best_og_id = best_OG.split("|")[0].split("@")[0]
@@ -478,7 +493,7 @@ def annotate_hit_line(arguments):
                         best_og_cat = "-"
                         best_og_desc = "-"
                     else:
-                        best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level)
+                        best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
 
             except Exception as e:
                 # import traceback
@@ -495,7 +510,8 @@ def annotate_hit_line(arguments):
                 annotations = annota.summarize_annotations(orthologs,
                                                            annotations_fields = ANNOTATIONS_HEADER,
                                                            target_go_ev = go_evidence,
-                                                           excluded_go_ev = go_excluded)
+                                                           excluded_go_ev = go_excluded,
+                                                           eggnog_db = eggnog_db)
 
                 if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
                     if best_og_level == narr_og_level:
@@ -508,7 +524,7 @@ def annotate_hit_line(arguments):
                     # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
                     narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
 
-                    pfam_annotations = db_sqlite.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
+                    pfam_annotations = eggnog_db.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
                     if pfam_annotations is not None and len(pfam_annotations) > 0:
                         annotations["PFAMs"] = Counter()
                         for pfam_annotation in pfam_annotations:
@@ -517,7 +533,7 @@ def annotate_hit_line(arguments):
                         annotations["PFAMs"] = Counter()
 
                 elif pfam_transfer == PFAM_TRANSFER_SEED_ORTHOLOG:
-                    pfam_annotations = db_sqlite.get_pfam_annotations('"'+best_hit_name+'"')
+                    pfam_annotations = eggnog_db.get_pfam_annotations('"'+best_hit_name+'"')
                     if pfam_annotations is not None and len(pfam_annotations) > 0:
                         pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
                         annotations["PFAMs"] = pfam_annotations
@@ -530,11 +546,9 @@ def annotate_hit_line(arguments):
                 annotations = {}
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise EmapperException(f'Error: annotation went wrong for hit {hit}. '+str(e))
-
-    # WARNING: do NOT close db connections, because it becomes super slow
-    # finally:
-    #     db_sqlite.close()
     
     return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
             annotations,
@@ -673,18 +687,18 @@ def normalize_target_taxa(target_taxa):
     return expanded_taxa
 
 
-def get_member_ogs(name):
-    match = db_sqlite.get_member_ogs(name)
+def get_member_ogs(name, eggnog_db):
+    match = eggnog_db.get_member_ogs(name)
     ogs = None
     if match:
         ogs = [str(x).strip() for x in match[0].split(',')]
     return ogs
 
 
-def get_og_description(og, level):
+def get_og_description(og, level, eggnog_db):
     best = ['-', '-', '-']
     
-    for og, nm, desc, cat in db_sqlite.get_ogs_description(og, level):
+    for og, nm, desc, cat in eggnog_db.get_ogs_description(og, level):
         desc = desc.strip()
         if desc and desc != 'N/A' and desc != 'NA':
             best = [nm, cat, desc]
