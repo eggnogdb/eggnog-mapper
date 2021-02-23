@@ -282,7 +282,8 @@ class Annotator:
             eggnog_db = get_fresh_eggnog_db(usemem = False)
             ncbi = get_ncbi(usemem = True)
             return
-        
+
+        ncbi = get_ncbi(usemem = True)
         pool = multiprocessing.Pool(self.cpu, init_db, ())
 
         start_time = time.time() # do not take into account time to load the pool of processes
