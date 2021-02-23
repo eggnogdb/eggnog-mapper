@@ -12,12 +12,13 @@ from ..utils import colorify
 from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
-from . import annota
 from .db_sqlite import get_eggnog_db, get_fresh_eggnog_db
+from .ncbitaxa.ncbiquery import get_ncbi, get_fresh_ncbi
+from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
+
+from . import annota
 from . import orthologs as ortho
 from . import output
-from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
-from .ncbitaxa.ncbiquery import get_ncbi
 
 ANNOTATIONS_HEADER = output.ANNOTATIONS_HEADER
 
@@ -156,18 +157,16 @@ class Annotator:
                 output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
 
             # closures to generate output
-            ncbi = get_ncbi(usemem = True)
-            eggnog_db = get_eggnog_db(usemem = self.dbmem)
-            
+
+            if self.report_orthologs == True:
+                ncbi = get_ncbi(usemem = True)
+                
             output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
             output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
 
             ##
             # Obtain annotations
             qn, elapsed_time = self._annotate(hits_gen_func, store_hits, pfam_file, output_orthologs_f, output_annotations_f)
-            
-            eggnog_db.close()
-            ncbi.close()
 
             ##
             # Output footer and close files
@@ -225,12 +224,19 @@ class Annotator:
         all_orthologs = {}
         all_annotations = []
 
-        start_time = time.time() # do not take into account time to load the db into memory
+        ##
+        # Load sqlite DBs into memory
         
+        start_time = time.time() # do not take into account time to load the db into memory
+        eggnog_db = get_eggnog_db(usemem = True)
+        ncbi = get_ncbi(usemem = True)
         total_time = time.time() - start_time
         print(colorify(f"Time to load the DB into memory: {total_time}", "lblue"), file=sys.stderr)
-        sys.stderr.flush()        
-
+        sys.stderr.flush()
+        
+        ##
+        # Annotate hits
+        
         start_time = time.time() # do not take into account time to load the db into memory
         
         qn = 0
@@ -251,6 +257,9 @@ class Annotator:
             # import traceback
             # traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
+        finally:
+            eggnog_db.close()
+            ncbi.close()
 
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
@@ -266,8 +275,9 @@ class Annotator:
         
         # multiprocessing.set_start_method("spawn")
         def init_db():
-            global eggnog_db
-            eggnog_db = get_fresh_eggnog_db()
+            global eggnog_db, ncbi
+            eggnog_db = get_fresh_eggnog_db(usemem = False)
+            ncbi = get_fresh_ncbi(usemem = False)
             return
         
         pool = multiprocessing.Pool(self.cpu, init_db, ())
@@ -389,9 +399,10 @@ class Annotator:
 
 ##
 def annotate_hit_line_mem(arguments):
-    eggnog_db = get_eggnog_db()
+    eggnog_db = get_eggnog_db(usemem = True)
+    ncbi = get_ncbi(usemem = True)
 
-    return annotate_hit_line(arguments, eggnog_db)    
+    return annotate_hit_line(arguments, eggnog_db, ncbi)    
 ##
 def annotate_hit_line_process(arguments):
     # should connect also if no previous connection
@@ -405,16 +416,17 @@ def annotate_hit_line_process(arguments):
     # It is weird, but looks like the different processes
     # are sharing global variables
 
-    global eggnog_db # from init_db when creating the pool of workers
+    global eggnog_db, ncbi # from init_db when creating the pool of workers
     # eggnog_db = get_fresh_eggnog_db(usemem = False)
-    ret = annotate_hit_line(arguments, eggnog_db)
+    # ncbi = get_fresh_ncbi(usemem = False)
+    ret = annotate_hit_line(arguments, eggnog_db, ncbi)
     # eggnog_db.close()
 
     return ret
 
 # annotate_hit_line is outside the class because must be pickable
 ##
-def annotate_hit_line(arguments, eggnog_db):
+def annotate_hit_line(arguments, eggnog_db, ncbi):
     
     hit, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_id, tax_resolution, \
@@ -476,12 +488,12 @@ def annotate_hit_line(arguments, eggnog_db):
             ##
             # Normalize target_taxa if any
             if target_taxa is not None:
-                target_taxa = normalize_target_taxa(target_taxa)
+                target_taxa = normalize_target_taxa(target_taxa, ncbi)
             else:
                 target_taxa = None
 
             if excluded_taxa is not None:
-                excluded_taxa = normalize_target_taxa(excluded_taxa)
+                excluded_taxa = normalize_target_taxa(excluded_taxa, ncbi)
             else:
                 excluded_taxa = None
 
@@ -669,11 +681,10 @@ def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_scor
     return False
 
 ##
-def normalize_target_taxa(target_taxa):
+def normalize_target_taxa(target_taxa, ncbi):
     """
     Receives a list of taxa IDs and/or taxa names and returns a set of expanded taxids numbers
     """
-    ncbi = get_ncbi(usemem = True)
     expanded_taxa = set()
     
     for taxon in target_taxa:
