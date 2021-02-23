@@ -10,14 +10,10 @@ db = None
 def get_eggnog_db(usemem = False):
     global db
     if db is None or db.conn is None:
-        print(f"Creating new AnnotDB with usemem {usemem}")
-        db = AnnotDB(usemem)
-    else:
-        print(f"AnnotDB already exists")        
+        db = AnnotDB(usemem)        
     return db
 
 def get_fresh_eggnog_db(usemem = False):
-    print(f"Creating fresh AnnotDB with usemem {usemem}")
     return AnnotDB(usemem)
 
 class AnnotDB(object):
