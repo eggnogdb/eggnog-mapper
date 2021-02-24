@@ -271,7 +271,7 @@ class Test(unittest.TestCase):
         '''
         Tests the use of scratch_dir
         '''
-        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact -o bact --output_dir tmp_borrar --scratch_dir tmp_scratch
+        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact -o bact --output_dir tmp --scratch_dir tmp_scratch
         
         ##
         # Setup test
