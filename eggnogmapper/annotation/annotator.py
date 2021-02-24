@@ -278,7 +278,7 @@ class Annotator:
         def init_db():
             global eggnog_db, ncbi
             eggnog_db = get_fresh_eggnog_db(usemem = False)
-            ncbi = get_ncbi(usemem = True)
+            ncbi = get_fresh_ncbi(usemem = False)
             return
         
         pool = multiprocessing.Pool(self.cpu, init_db, ())
