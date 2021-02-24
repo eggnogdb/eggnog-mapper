@@ -6,7 +6,7 @@ import time
 import multiprocessing
     
 from ..emapperException import EmapperException
-from ..common import get_call_info, TAX_SCOPE_AUTO, TAX_SCOPE_AUTO_BROAD
+from ..common import get_call_info
 from ..utils import colorify
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
@@ -39,7 +39,7 @@ class Annotator:
 
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
-    TAXONOMIC_RESOLUTION = None
+    
     go_evidence = go_excluded = None
     pfam_realign = pfam_transfer = queries_fasta = translate = temp_dir = None
     md5 = None
@@ -63,14 +63,6 @@ class Annotator:
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 
         self.tax_scope_mode = args.tax_scope_mode
-        if self.tax_scope_mode == "auto":
-            self.TAXONOMIC_RESOLUTION = TAX_SCOPE_AUTO
-        elif self.tax_scope_mode == "auto_broad":
-            self.TAXONOMIC_RESOLUTION = TAX_SCOPE_AUTO_BROAD
-        else:
-            # self.TAXONOMIC_RESOLUTION = None
-            pass
-        
         self.tax_scope_id = args.tax_scope_id
                 
         self.target_taxa = args.target_taxa
@@ -341,9 +333,7 @@ class Annotator:
             annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
                              ",".join(match_nogs_names), 
                              narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
-
-            # # If tax_scope_mode == narrowest there is no need to output best_og colums
-            # if self.tax_scope_id is not None or self.tax_scope_mode != "narrowest":
+            
             annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
             
             for h in ANNOTATIONS_HEADER:
@@ -388,7 +378,7 @@ class Annotator:
             if store_hits: self.hits.append(hit)
             
             yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
-                           self.tax_scope_mode, self.tax_scope_id, self.TAXONOMIC_RESOLUTION,
+                           self.tax_scope_mode, self.tax_scope_id,
                            self.target_taxa, self.target_orthologs, self.excluded_taxa,
                            self.go_evidence, self.go_excluded, self.pfam_transfer)
             

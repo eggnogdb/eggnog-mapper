@@ -29,24 +29,6 @@ ITYPE_META = "metagenome"
 
 TIMEOUT_LOAD_SERVER = 10
 
-
-TAX_LVL_6 = ["84992", "225057", "422676", "135624", "91061", "976", "213481", "204458", "1090", "32061", "135613", "186801", "84998", "1117", "301297", "28221", "29547", "526524", "119069", "118969", "135618", "909932", "206351", "206350", "135619", "414999", "135625", "4776", "121069", "206389", "204441", "766", "84995", "204457", "189775", "72273", "203494", "135623", "135614"]
-TAX_LVL_5 = ["204432", "201174", "28211", "5794", "183980", "2836", "28216", "204428", "200795", "3041", "5878", "28889", "1297", "1239", "4751", "1236", "142182", "183963", "5653", "11989", "10477", "33208", "183925", "183939", "224756", "11157", "10662", "76804", "464095", "203682", "10744", "157897", "10699", "35493", "544448", "651137", "183968", "183967", "675063", "74201"]
-TAX_LVL_4 = ["57723", "554915", "200783", "423358", "28883", "200930", "28890", "10474", "32066", "10404", "548681", "10860", "1511857", "10841", "40117", "33154", "1224", "11632", "203691", "508458", "10656", "200940", "200918", "33090"]
-TAX_LVL_321 = ["2157", "2", "2759", "10239", "1"]
-TAX_SCOPE_AUTO = TAX_LVL_6 + TAX_LVL_5 + TAX_LVL_4 + TAX_LVL_321
-
-TAX_SCOPE_AUTO_BROAD = ["10239", # viruses
-                        "5794", #apicomplexa
-                        "33090", # plants
-                        "6231", "6656", # nematods, arthopods
-                        "40674", "78", "8782", # mammals, fishes, avian
-                        "33208", # metazoa
-                        "4751", # fungi
-                        "33154", # opithokonta
-                        '2759', '2157', '2', # euk, arch, bact
-                        '1']
-
 BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0] + '/..')
 
 HMMSEARCH = find_executable('hmmsearch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmsearch')
@@ -78,6 +60,7 @@ def get_hmmer_base_dbpath(dbname): return pjoin(DATA_PATH, 'hmmer', dbname)
 def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmer")
 def get_OG_fasta_path(dbname, og): return pjoin(DATA_PATH, 'hmmer', dbname, f"{og}.fa")
 def get_hmmer_databases(): return os.listdir(get_hmmdb_path()) if os.path.isdir(os.path.realpath(get_hmmdb_path())) else []
+def get_tax_scopes_path(): return pjoin(DATA_PATH, "tax_scopes")
 
 def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 
