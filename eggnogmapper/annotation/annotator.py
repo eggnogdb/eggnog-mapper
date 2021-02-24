@@ -284,7 +284,7 @@ class Annotator:
         
         qn = 0
         try:
-            for result in pool.imap_unordered(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func, store_hits), chunk_size):
+            for result in pool.imap(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func, store_hits), chunk_size):
                 qn += 1
                 if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
