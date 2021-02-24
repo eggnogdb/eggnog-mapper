@@ -465,6 +465,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
+    multiprocessing.set_start_method("spawn")
 
 
     # translate
