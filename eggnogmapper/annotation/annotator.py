@@ -281,7 +281,7 @@ class Annotator:
             ncbi = get_ncbi(usemem = False)
             return
 
-        # ncbi = get_ncbi(usemem = True)
+        ncbi = get_ncbi(usemem = True)
         pool = multiprocessing.Pool(self.cpu, init_db, ())
 
         start_time = time.time() # do not take into account time to load the pool of processes
