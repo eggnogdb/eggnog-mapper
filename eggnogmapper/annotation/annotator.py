@@ -274,7 +274,7 @@ class Annotator:
         all_orthologs = {}
         all_annotations = []
         
-        # multiprocessing.set_start_method("spawn")
+        multiprocessing.set_start_method("spawn")
         
         pool = multiprocessing.Pool(self.cpu, init_db, ())
 
