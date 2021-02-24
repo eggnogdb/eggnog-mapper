@@ -276,7 +276,8 @@ class Annotator:
         
         multiprocessing.set_start_method("spawn")
         
-        pool = multiprocessing.Pool(self.cpu, init_db, ())
+        # pool = multiprocessing.Pool(self.cpu, init_db, ())
+        pool = multiprocessing.Pool(self.cpu)        
 
         start_time = time.time() # do not take into account time to load the pool of processes
         
@@ -299,6 +300,7 @@ class Annotator:
             # traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
+            pool.close()
             pool.terminate() # it should remove the global eggnog_db variables also
 
         elapsed_time = time.time() - start_time
@@ -393,18 +395,19 @@ class Annotator:
             
         return
 
-def init_db():
-    global eggnog_db, ncbi
-    eggnog_db = get_fresh_eggnog_db(usemem = False)
-    ncbi = get_fresh_ncbi(usemem = False)
-    return
+# def init_db():
+#     global eggnog_db, ncbi
+#     eggnog_db = get_fresh_eggnog_db(usemem = False)
+#     ncbi = get_fresh_ncbi(usemem = False)
+#     return
 
 ##
 def annotate_hit_line_mem(arguments):
     eggnog_db = get_eggnog_db(usemem = True)
     ncbi = get_ncbi(usemem = True)
 
-    return annotate_hit_line(arguments, eggnog_db, ncbi)    
+    return annotate_hit_line(arguments, eggnog_db, ncbi)
+
 ##
 def annotate_hit_line_process(arguments):
     # should connect also if no previous connection
@@ -419,8 +422,8 @@ def annotate_hit_line_process(arguments):
     # are sharing global variables
 
     global eggnog_db, ncbi # from init_db when creating the pool of workers
-    # eggnog_db = get_fresh_eggnog_db(usemem = False)
-    # ncbi = get_fresh_ncbi(usemem = False)
+    eggnog_db = get_eggnog_db(usemem = False)
+    ncbi = get_ncbi(usemem = False)
     ret = annotate_hit_line(arguments, eggnog_db, ncbi)
     # eggnog_db.close()
 
