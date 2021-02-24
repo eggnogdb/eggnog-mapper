@@ -273,13 +273,14 @@ class Annotator:
         
         # multiprocessing.set_start_method("spawn")
         
-        pool = multiprocessing.Pool(self.cpu)        
+        pool = multiprocessing.Pool(self.cpu)
+        chunk_size = 100
 
         start_time = time.time() # do not take into account time to load the pool of processes
         
         qn = 0
         try:
-            for result in pool.imap(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func, store_hits)):
+            for result in pool.imap(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func, store_hits), chunk_size):
                 qn += 1
                 if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
