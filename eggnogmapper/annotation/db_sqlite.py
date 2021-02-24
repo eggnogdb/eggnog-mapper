@@ -107,8 +107,8 @@ class AnnotDB(object):
         if event_indexes is not None and len(event_indexes) > 0:
 
             print(event_indexes)
-            event_indexes = str(event_indexes[0])
-            if event_indexes is not None:
+            if event_indexes[0] is not None:
+                event_indexes = str(event_indexes[0])
                 # if target_levels is not None and len(target_levels) > 0:
                 #     levels = ",".join([f'"{x}"' for x in target_levels])
                 #     db.execute(f'SELECT level, side1, side2 FROM event WHERE i IN ({event_indexes}) AND level IN ({levels})')
