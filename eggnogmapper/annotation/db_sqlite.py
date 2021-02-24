@@ -113,6 +113,9 @@ class AnnotDB(object):
             # return db.fetchall()
 
             # this one looks like faster than the code above
+            print("db_sqlite:get_member_events")
+            print(event_indexes)
+            print(target_levels)
             all_queries = [(int(x),y) for x in event_indexes.split(",") for y in target_levels]
 
             for query in all_queries:
