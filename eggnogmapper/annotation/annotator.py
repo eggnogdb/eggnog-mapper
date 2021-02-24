@@ -12,7 +12,7 @@ from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
 from .db_sqlite import get_eggnog_db
 from .ncbitaxa.ncbiquery import get_ncbi
-from .pfam.pfam_modes import run_pfam_mode, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
+from .pfam.pfam_modes import run_pfam_mode, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 
 from .annotator_worker import annotate_hit_line_mem, annotate_hit_line_ondisk
 from . import output
