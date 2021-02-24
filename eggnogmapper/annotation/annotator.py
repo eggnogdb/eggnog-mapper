@@ -278,12 +278,13 @@ class Annotator:
         # "my recommendation is targeting 10 ms chunk processing time"
         # https://stackoverflow.com/a/43817408/2361653
         # As our tasks take no less than 0.1 secs, a large chunk_size makes no sense at all
+        # Note that this makes q/s an approximation until all tasks have been finished
 
         start_time = time.time() # do not take into account time to load the pool of processes
         
         qn = 0
         try:
-            for result in pool.imap(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func, store_hits), chunk_size):
+            for result in pool.imap_unordered(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func, store_hits), chunk_size):
                 qn += 1
                 if qn and (qn % 100 == 0):
                     total_time = time.time() - start_time
