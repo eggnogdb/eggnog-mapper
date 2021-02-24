@@ -9,6 +9,8 @@ from ..emapperException import EmapperException
 from .db_sqlite import get_eggnog_db
 from .ncbitaxa.ncbiquery import get_ncbi
 
+from .pfam.pfam_modes import PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG,
+
 from . import orthologs as ortho
 from . import annota
 from . import output
