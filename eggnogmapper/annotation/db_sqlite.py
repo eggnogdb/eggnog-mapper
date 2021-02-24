@@ -98,11 +98,14 @@ class AnnotDB(object):
         return curs.fetchall()
 
     def get_member_events(self, member, target_levels):
+        print("db_sqlite:get_member_events")
+        print(member)
+        print(target_levels)
         curs = self.conn.cursor()
         curs.execute('SELECT orthoindex FROM prots WHERE name == ?', (member.strip(),))
         event_indexes = curs.fetchone()
         if event_indexes is not None and len(event_indexes) > 0:
-            print("db_sqlite:get_member_events")
+
             print(event_indexes)
             event_indexes = str(event_indexes[0])
 
@@ -115,8 +118,6 @@ class AnnotDB(object):
             # return db.fetchall()
 
             # this one looks like faster than the code above
-            print(event_indexes)
-            print(target_levels)
             all_queries = [(int(x),y) for x in event_indexes.split(",") for y in target_levels]
 
             for query in all_queries:
