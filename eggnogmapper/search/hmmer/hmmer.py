@@ -431,7 +431,7 @@ class HmmerSearcher:
             cmds.append([seqname, seq, target_fasta, excluded_taxa, tempdir])
 
         if cmds is not None and len(cmds) > 0:
-            multiprocessing.set_start_method("spawn")
+            # multiprocessing.set_start_method("spawn")
             pool = multiprocessing.Pool(cpu)
             for r in pool.imap(refine_hit, cmds):
                 yield r
