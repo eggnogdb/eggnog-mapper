@@ -26,7 +26,6 @@ def annotate_hit_line_mem(arguments):
 
 ##
 def annotate_hit_line_ondisk(arguments):
-    # global eggnog_db, ncbi # from init_db when creating the pool of workers
     eggnog_db = get_eggnog_db(usemem = False)
     ncbi = get_ncbi(usemem = False)
     ret = annotate_hit_line(arguments, eggnog_db, ncbi)
@@ -37,7 +36,7 @@ def annotate_hit_line_ondisk(arguments):
 def annotate_hit_line(arguments, eggnog_db, ncbi):
     
     hit, annot, seed_ortholog_score, seed_ortholog_evalue, \
-        tax_scope_mode, tax_scope_id, tax_resolution, \
+        tax_scope_mode, tax_scope_id, \
         target_taxa, target_orthologs, excluded_taxa, \
         go_evidence, go_excluded, \
         pfam_transfer = arguments
@@ -61,7 +60,7 @@ def annotate_hit_line(arguments, eggnog_db, ncbi):
             
         ##
         # Obtain names of OGs, narrowest OG, and the best OG according to tax_scope
-        match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution)
+        match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
             
         annot_levels = set()
         annot_levels.add(best_og_level)
@@ -183,7 +182,7 @@ def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_t
     return orthologs
             
 ##
-def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution):        
+def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):        
     match_nogs_names = []
     best_og_id = None
     best_og_level = None
@@ -217,15 +216,7 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution):
 
         # Obtain best OG based on tax scope
         if tax_scope_id is None:
-            if tax_scope_mode in {"auto", "auto_broad"}:
-                for filter_tax_id in tax_resolution:
-                    if filter_tax_id == nog_tax_id:
-                        best_og_id = nog_id
-                        best_og_level = nog_tax_id
-                        best_og_depth = nog_depth
-                        break
-
-            elif tax_scope_mode == "narrowest":
+            if tax_scope_mode == "narrowest":
                 pass # Already processed above
 
             else:
@@ -248,15 +239,6 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id, tax_resolution):
             best_og_id = narr_og_id
             best_og_level = narr_og_level
             best_og_depth = narr_og_depth
-        elif tax_scope_mode in {"auto", "auto_broad"}:
-            for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
-                nog_tax_id = nog.split("@")[1]
-                for filter_tax_id in tax_resolution:
-                    if filter_tax_id == nog_tax_id:
-                        best_og_id = nog_id
-                        best_og_level = nog_tax_id
-                        best_og_depth = nog_depth
-                        break                
         else:
             raise EmapperException(f"Error. Unrecognized tax scope mode {tax_scope_mode}.")
     

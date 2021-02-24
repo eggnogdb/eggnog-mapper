@@ -21,7 +21,7 @@ from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_
     PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 from eggnogmapper.deco.decoration import DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FILE, DECORATE_GFF_FIELD_DEFAULT
 
-from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
+from eggnogmapper.common import existing_file, existing_dir, set_data_path, get_tax_scopes_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
     get_version, get_full_version_info, get_citation, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 
@@ -288,11 +288,13 @@ def create_arg_parser():
     pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
                                 "particular clade are used for functional transfer. "
-                                "By default ('auto'), it is automatically adjusted for every query sequence, with a predefined list of tax IDs. "
-                                "'auto_broad' is the same, but using a broader list of tax IDs, aiming for more annotations, yet slower than 'auto'. "
-                                "Use 'narrowest' to use the deepest or narrowest taxon among the OGs identified for each hit. "
-                                "Use a comma-separated list of tax IDs to choose an OG among the OGs identified for each hit. "
-                                "The list of tax IDs can be followed by 'narrowest' or 'none', to specify the behaviour when the tax ID is not found among OGs. "
+                                "Also, among the potential clades, the annotations will be transferred from the broadest one. "
+                                "Possible arguments are: "
+                                "1) The name of a file stored within the 'data/tax_scopes/' directory "
+                                "(note that 'data' could have been changed with --data_dir). Some existing examples are 'auto', 'bacteria', ... "
+                                "2) 'narrowest': to use the deepest or narrowest clade for each hit. "
+                                "3) A comma-separated list of taxonomic names and/or taxonomic IDs, sorted by preference. "
+                                "Such list can be ended with 'narrowest' or 'none', to specify the behaviour when the tax ID is not found among OGs. "
                                 "If only the list of tax IDs is specified, the default behaviour is 'none', "
                                 "so that no OG will be used for annotation if not found among the tax IDs. "
                                 "If 'narrowest' is specified, if no OG is found among the list of tax IDs, the narrowest OG will be used for annotation. "
@@ -377,26 +379,37 @@ def create_arg_parser():
         
     return parser
 
-
+##
+# Parse a tax scope file
+def parse_tax_scope_file(tax_scope_file):
+    tax_scope_fields = []
+    with open(tax_scope_file, 'r') as f:
+        for line in f:
+            tax_scope_fields.append(line.strip())
+    return tax_scope_fields
 ##
 # Parses tax_scope command line argument
 # to define tax_scope_mode and tax_scope_id (one or more tax IDs)
 def __parse_tax_scope(tax_scope):
     tax_scope_mode = None
     tax_scope_id = None
+    
+    tax_scope_file = os.path.join(get_tax_scopes_path(), tax_scope)
 
-    tax_scope_fields = tax_scope.strip().split(",")
-    tax_scope_mode = tax_scope_fields[0]
-
-    # Auto
-    if tax_scope_mode in {"auto", "auto_broad"}:
-        tax_scope_id = None
-
+    # Tax scope from file
+    if os.path.exists(tax_scope_file) and os.path.isfile(tax_scope_file):
+        # parse tax scope file
+        tax_scope_mode = "none"
+        tax_scope_fields = parse_tax_scope_file(tax_scope_file)
+    else:
+        tax_scope_fields = tax_scope.strip().split(",")
+        tax_scope_mode = tax_scope_fields[0]
+        
     # Narrowest
-    elif tax_scope_mode == "narrowest":
+    if tax_scope_mode == "narrowest":
         tax_scope_id = None
 
-    # Tax IDs
+    # Comma-separated list of tax IDs or list of tax IDs from file
     else:
         # Only the specified tax ID
         if len(tax_scope_fields) == 1:
@@ -415,19 +428,21 @@ def __parse_tax_scope(tax_scope):
         else:
             raise EmapperException(f"Error: unrecognized tax scope format {tax_scope}.")
 
-        if tax_scope_id is not None and len(tax_scope_id) > 0:
-            tax_scope_id_int = []
-            from eggnogmapper.vars import LEVEL_NAMES, LEVEL_DICT
-            for tax_id in tax_scope_id:
-                if tax_id in LEVEL_NAMES:
-                    tax_scope_id_int.append(tax_id)
-                elif tax_id in LEVEL_DICT:
-                    tax_scope_id_int.append(LEVEL_DICT[tax_id])
-                else:
-                    raise EmapperException(f"Unrecognized tax ID, tax name or tax_scope mode: '{tax_id}'.")
+    # Create a list which contains only tax IDs (tax names are translated)
+    # and check that those tax IDs are recognized by eggNOG-mapper
+    if tax_scope_id is not None and len(tax_scope_id) > 0:
+        tax_scope_id_int = []
+        from eggnogmapper.vars import LEVEL_NAMES, LEVEL_DICT
+        for tax_id in tax_scope_id:
+            if tax_id in LEVEL_NAMES:
+                tax_scope_id_int.append(tax_id)
+            elif tax_id in LEVEL_DICT:
+                tax_scope_id_int.append(LEVEL_DICT[tax_id])
+            else:
+                raise EmapperException(f"Unrecognized tax ID, tax name or tax_scope mode: '{tax_id}'.")
 
-            tax_scope_id = tax_scope_id_int
-
+        tax_scope_id = tax_scope_id_int
+    
     return tax_scope_mode, tax_scope_id
 
 
@@ -530,18 +545,6 @@ def parse_args(parser):
             args.annotate_hits_table = None
             
     elif args.mode == SEARCH_MODE_HMMER:
-
-        # if args.usemem == True:
-        #     total_workers = args.num_workers * args.num_servers
-        #     if args.cpu < total_workers:
-        #         parser.error(f"Less cpus ({args.cpu}) than total workers ({total_workers}) were specified.")
-        #     if args.cpu % total_workers != 0:
-        #         parser.error(f"Number of cpus ({args.cpu}) must be a multiple of total workers ({total_workers}).")        
-
-        #     args.cpus_per_worker = int(args.cpu / total_workers)
-        #     sys.stderr.write(f"CPUs per worker: {args.cpus_per_worker}\n")
-        # else:
-        #     args.cpus_per_worker = args.cpu
         
         if not args.input:
             parser.error('An input file is required (-i)')
@@ -583,8 +586,6 @@ def parse_args(parser):
             parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) requires a hits table to annotate (--annotate_hits_table FILE.seed_orthologs)')
         if args.md5 == True and args.input is None:
             parser.error(f'--md5 requires an input FASTA file (-i FASTA).')            
-        # if args.no_annot == True and args.report_orthologs == False:
-        #     parser.error(f'Nothing to do if running in no search mode (-m {SEARCH_MODE_NO_SEARCH}), with --no_annot and without --report_orthologs.')
             
     else:
         parser.error(f'unrecognized search mode (-m {args.mode})')
