@@ -274,7 +274,7 @@ class Annotator:
         # multiprocessing.set_start_method("spawn")
         
         pool = multiprocessing.Pool(self.cpu)
-        chunk_size = 10
+        chunk_size = 1
         # "my recommendation is targeting 10 ms chunk processing time"
         # https://stackoverflow.com/a/43817408/2361653
         # As our tasks take no less than 0.1 secs, a large chunk_size makes no sense at all
