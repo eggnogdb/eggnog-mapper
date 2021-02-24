@@ -27,59 +27,7 @@ ITYPE_PROTS = "proteins"
 ITYPE_GENOME = "genome"
 ITYPE_META = "metagenome"
 
-# ANNOTATIONS_HEADER = list(map(str.strip, 'Preferred_name, GOs, EC, KEGG_ko, KEGG_Pathway, KEGG_Module, KEGG_Reaction, KEGG_rclass, BRITE, KEGG_TC, CAZy, BiGG_Reaction'.split(',')))
-
 TIMEOUT_LOAD_SERVER = 10
-
-LEVEL_CONTENT = {
-"NOG":["arNOG","bactNOG","euNOG","thaNOG","eurNOG","creNOG","synNOG","spiNOG","firmNOG","fusoNOG","aquNOG","aciNOG","therNOG","tenNOG","proNOG","defNOG","plaNOG","actNOG","chloNOG","cyaNOG","deiNOG","bctoNOG","chlNOG","chlaNOG","verNOG","kinNOG","perNOG","virNOG","apiNOG","opiNOG","arcNOG","metNOG","methNOG","thermNOG","methaNOG","halNOG","theNOG","negNOG","cloNOG","eryNOG","bacNOG","acidNOG","delNOG","gproNOG","aproNOG","bproNOG","chlorNOG","dehNOG","cytNOG","bacteNOG","sphNOG","flaNOG","verrNOG","strNOG","chloroNOG","acoNOG","cocNOG","meNOG","fuNOG","dproNOG","eproNOG","braNOG","lilNOG","haeNOG","cryNOG","biNOG","basNOG","ascNOG","poaNOG","nemNOG","artNOG","chorNOG","agarNOG","treNOG","saccNOG","euroNOG","sordNOG","dotNOG","chrNOG","inNOG","veNOG","agaNOG","sacNOG","debNOG","eurotNOG","onyNOG","hypNOG","magNOG","sorNOG","pleNOG","rhaNOG","lepNOG","dipNOG","hymNOG","fiNOG","aveNOG","maNOG","arthNOG","necNOG","chaNOG","droNOG","spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"arNOG":["thaNOG","eurNOG","creNOG","arcNOG","metNOG","methNOG","thermNOG","methaNOG","halNOG","theNOG"],
-"bactNOG":["synNOG","spiNOG","firmNOG","fusoNOG","aquNOG","aciNOG","therNOG","tenNOG","proNOG","defNOG","plaNOG","actNOG","chloNOG","cyaNOG","deiNOG","bctoNOG","chlNOG","chlaNOG","verNOG","negNOG","cloNOG","eryNOG","bacNOG","acidNOG","delNOG","gproNOG","aproNOG","bproNOG","chlorNOG","dehNOG","cytNOG","bacteNOG","sphNOG","flaNOG","verrNOG","dproNOG","eproNOG"],
-"euNOG":["kinNOG","perNOG","virNOG","apiNOG","opiNOG","strNOG","chloroNOG","acoNOG","cocNOG","meNOG","fuNOG","braNOG","lilNOG","haeNOG","cryNOG","biNOG","basNOG","ascNOG","poaNOG","nemNOG","artNOG","chorNOG","agarNOG","treNOG","saccNOG","euroNOG","sordNOG","dotNOG","chrNOG","inNOG","veNOG","agaNOG","sacNOG","debNOG","eurotNOG","onyNOG","hypNOG","magNOG","sorNOG","pleNOG","rhaNOG","lepNOG","dipNOG","hymNOG","fiNOG","aveNOG","maNOG","arthNOG","necNOG","chaNOG","droNOG","spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"eurNOG":["arcNOG","metNOG","methNOG","thermNOG","methaNOG","halNOG","theNOG"],
-"firmNOG":["negNOG","cloNOG","eryNOG","bacNOG"],
-"aciNOG":["acidNOG"],
-"proNOG":["delNOG","gproNOG","aproNOG","bproNOG","dproNOG","eproNOG"],
-"chloNOG":["chlorNOG","dehNOG"],
-"bctoNOG":["cytNOG","bacteNOG","sphNOG","flaNOG"],
-"verNOG":["verrNOG"],
-"virNOG":["strNOG","chloroNOG","braNOG","lilNOG","poaNOG"],
-"apiNOG":["acoNOG","cocNOG","haeNOG","cryNOG"],
-"opiNOG":["meNOG","fuNOG","biNOG","basNOG","ascNOG","nemNOG","artNOG","chorNOG","agarNOG","treNOG","saccNOG","euroNOG","sordNOG","dotNOG","chrNOG","inNOG","veNOG","agaNOG","sacNOG","debNOG","eurotNOG","onyNOG","hypNOG","magNOG","sorNOG","pleNOG","rhaNOG","lepNOG","dipNOG","hymNOG","fiNOG","aveNOG","maNOG","arthNOG","necNOG","chaNOG","droNOG","spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"delNOG":["dproNOG","eproNOG"],
-"strNOG":["braNOG","lilNOG","poaNOG"],
-"acoNOG":["haeNOG"],
-"cocNOG":["cryNOG"],
-"meNOG":["biNOG","nemNOG","artNOG","chorNOG","chrNOG","inNOG","veNOG","rhaNOG","lepNOG","dipNOG","hymNOG","fiNOG","aveNOG","maNOG","droNOG","spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"fuNOG":["basNOG","ascNOG","agarNOG","treNOG","saccNOG","euroNOG","sordNOG","dotNOG","agaNOG","sacNOG","debNOG","eurotNOG","onyNOG","hypNOG","magNOG","sorNOG","pleNOG","arthNOG","necNOG","chaNOG"],
-"lilNOG":["poaNOG"],
-"biNOG":["nemNOG","artNOG","chorNOG","chrNOG","inNOG","veNOG","rhaNOG","lepNOG","dipNOG","hymNOG","fiNOG","aveNOG","maNOG","droNOG","spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"basNOG":["agarNOG","treNOG","agaNOG"],
-"ascNOG":["saccNOG","euroNOG","sordNOG","dotNOG","sacNOG","debNOG","eurotNOG","onyNOG","hypNOG","magNOG","sorNOG","pleNOG","arthNOG","necNOG","chaNOG"],
-"nemNOG":["chrNOG","rhaNOG"],
-"artNOG":["inNOG","lepNOG","dipNOG","hymNOG","droNOG"],
-"chorNOG":["veNOG","fiNOG","aveNOG","maNOG","spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"agarNOG":["agaNOG"],
-"saccNOG":["sacNOG","debNOG"],
-"euroNOG":["eurotNOG","onyNOG","arthNOG"],
-"sordNOG":["hypNOG","magNOG","sorNOG","necNOG","chaNOG"],
-"dotNOG":["pleNOG"],
-"chrNOG":["rhaNOG"],
-"inNOG":["lepNOG","dipNOG","hymNOG","droNOG"],
-"veNOG":["fiNOG","aveNOG","maNOG","spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"onyNOG":["arthNOG"],
-"hypNOG":["necNOG"],
-"sorNOG":["chaNOG"],
-"dipNOG":["droNOG"],
-"maNOG":["spriNOG","carNOG","prNOG","roNOG","homNOG"],
-"spriNOG":["prNOG","roNOG","homNOG"],
-"prNOG":["homNOG"]
-}
-
-
-LEVEL_HIERARCHY = '((thaNOG,(arcNOG,metNOG,methNOG,thermNOG,methaNOG,halNOG,theNOG)eurNOG,creNOG)arNOG,(synNOG,spiNOG,(negNOG,cloNOG,eryNOG,bacNOG)firmNOG,fusoNOG,aquNOG,(acidNOG)aciNOG,therNOG,tenNOG,((cytNOG,bacteNOG,sphNOG,flaNOG)bctoNOG,chlNOG)NoName,((dproNOG,eproNOG)delNOG,gproNOG,aproNOG,bproNOG)proNOG,defNOG,plaNOG,actNOG,(chlorNOG,dehNOG)chloNOG,cyaNOG,(chlaNOG,(verrNOG)verNOG)NoName,deiNOG)bactNOG,(kinNOG,perNOG,(((braNOG,(poaNOG)lilNOG)NoName)strNOG,chloroNOG)virNOG,((haeNOG)acoNOG,(cryNOG)cocNOG)apiNOG,(((((((lepNOG,(droNOG)dipNOG,hymNOG)NoName)inNOG)artNOG,(((fiNOG,(aveNOG,((((homNOG)prNOG,roNOG)spriNOG,carNOG)NoName)maNOG)NoName)NoName)veNOG)chorNOG)NoName,((rhaNOG)chrNOG)nemNOG)biNOG)meNOG,(((((agaNOG)agarNOG,treNOG)NoName)basNOG,(((((eurotNOG,(arthNOG)onyNOG)NoName)euroNOG,((magNOG,(chaNOG)sorNOG)NoName,(necNOG)hypNOG)sordNOG,(pleNOG)dotNOG)NoName,((sacNOG,debNOG)NoName)saccNOG)NoName)ascNOG)NoName)fuNOG)opiNOG)euNOG)NOG;'
-EGGNOG_DATABASES = {k:51700+(i*2) for i, k in enumerate('NOG,aciNOG,acidNOG,acoNOG,actNOG,agaNOG,agarNOG,apiNOG,aproNOG,aquNOG,arNOG,arcNOG,artNOG,arthNOG,ascNOG,aveNOG,bacNOG,bactNOG,bacteNOG,basNOG,bctoNOG,biNOG,bproNOG,braNOG,carNOG,chaNOG,chlNOG,chlaNOG,chloNOG,chlorNOG,chloroNOG,chorNOG,chrNOG,cloNOG,cocNOG,creNOG,cryNOG,cyaNOG,cytNOG,debNOG,defNOG,dehNOG,deiNOG,delNOG,dipNOG,dotNOG,dproNOG,droNOG,eproNOG,eryNOG,euNOG,eurNOG,euroNOG,eurotNOG,fiNOG,firmNOG,flaNOG,fuNOG,fusoNOG,gproNOG,haeNOG,halNOG,homNOG,hymNOG,hypNOG,inNOG,kinNOG,lepNOG,lilNOG,maNOG,magNOG,meNOG,metNOG,methNOG,methaNOG,necNOG,negNOG,nemNOG,onyNOG,opiNOG,perNOG,plaNOG,pleNOG,poaNOG,prNOG,proNOG,rhaNOG,roNOG,sacNOG,saccNOG,sorNOG,sordNOG,sphNOG,spiNOG,spriNOG,strNOG,synNOG,tenNOG,thaNOG,theNOG,therNOG,thermNOG,treNOG,veNOG,verNOG,verrNOG,virNOG,viruses'.split(','))}
-EGGNOG_DATABASES.update({'euk':51400, 'bact':51500, 'arch':51600})
 
 
 TAX_LVL_6 = ["84992", "225057", "422676", "135624", "91061", "976", "213481", "204458", "1090", "32061", "135613", "186801", "84998", "1117", "301297", "28221", "29547", "526524", "119069", "118969", "135618", "909932", "206351", "206350", "135619", "414999", "135625", "4776", "121069", "206389", "204441", "766", "84995", "204457", "189775", "72273", "203494", "135623", "135614"]
@@ -136,7 +84,6 @@ def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 def set_data_path(data_path):
     global DATA_PATH
     DATA_PATH = existing_dir(data_path)
-    # show_binaries()
 
 ##
 def cleanup_og_name(name):
@@ -148,11 +95,6 @@ def cleanup_og_name(name):
         name = m.groups()[0]
     name = re.sub("^ENOG41", "", name)
     return name
-
-def show_binaries():
-    for e in (HMMSEARCH, HMMSCAN, HMMSTAT, HMMPGMD, PHMMER, DIAMOND, DATA_PATH,
-              get_fasta_path(), get_hmmdb_path(), get_eggnogdb_file(), get_oglevels_file(), get_eggnog_dmnd_db()):
-        print("% 65s" %e, pexists(e))
 
 def get_call_info():
     text = []
@@ -260,6 +202,9 @@ def get_mmseqs_version():
     return mmseqs_version
 
 
+EGGNOG_DATABASES = {k:51700+(i*2) for i, k in enumerate('NOG,aciNOG,acidNOG,acoNOG,actNOG,agaNOG,agarNOG,apiNOG,aproNOG,aquNOG,arNOG,arcNOG,artNOG,arthNOG,ascNOG,aveNOG,bacNOG,bactNOG,bacteNOG,basNOG,bctoNOG,biNOG,bproNOG,braNOG,carNOG,chaNOG,chlNOG,chlaNOG,chloNOG,chlorNOG,chloroNOG,chorNOG,chrNOG,cloNOG,cocNOG,creNOG,cryNOG,cyaNOG,cytNOG,debNOG,defNOG,dehNOG,deiNOG,delNOG,dipNOG,dotNOG,dproNOG,droNOG,eproNOG,eryNOG,euNOG,eurNOG,euroNOG,eurotNOG,fiNOG,firmNOG,flaNOG,fuNOG,fusoNOG,gproNOG,haeNOG,halNOG,homNOG,hymNOG,hypNOG,inNOG,kinNOG,lepNOG,lilNOG,maNOG,magNOG,meNOG,metNOG,methNOG,methaNOG,necNOG,negNOG,nemNOG,onyNOG,opiNOG,perNOG,plaNOG,pleNOG,poaNOG,prNOG,proNOG,rhaNOG,roNOG,sacNOG,saccNOG,sorNOG,sordNOG,sphNOG,spiNOG,spriNOG,strNOG,synNOG,tenNOG,thaNOG,theNOG,therNOG,thermNOG,treNOG,veNOG,verNOG,verrNOG,virNOG,viruses'.split(','))}
+EGGNOG_DATABASES.update({'euk':51400, 'bact':51500, 'arch':51600})
+
 def get_db_info(level):
     return (get_hmmer_dbpath(level), EGGNOG_DATABASES[level])
 
@@ -343,17 +288,6 @@ def gopen(fname):
         return gzip.open(fname, 'rt')
     else:
         return open(fname)
-
-# def load_nog_lineages():
-#     if os.path.exists('NOG_hierarchy.pkl'):
-#         nog2lineage = cPickle.load(open('NOG_hierarchy.pkl'))
-#     else:
-#         nog2lineage = {}
-#         for line in open('../build_db/NOG_hierarchy.tsv'):
-#             fields = line.strip().split('\t')
-#             nog2lineage[fields[0].split('@')[0]] = map(lambda x: tuple(x.split('@')), fields[2].split(','))
-#         cPickle.dump(nog2lineage, open('NOG_hierarchy.pkl', 'wb'), protocol=2)
-#     return nog2lineage
 
 def silent_rm(f):
     if pexists(f):
