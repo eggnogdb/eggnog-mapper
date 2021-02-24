@@ -11,6 +11,9 @@ from .ncbitaxa.ncbiquery import get_ncbi
 
 from . import orthologs as ortho
 from . import annota
+from . import output
+
+ANNOTATIONS_HEADER = output.ANNOTATIONS_HEADER
 
 ##
 def annotate_hit_line_mem(arguments):
