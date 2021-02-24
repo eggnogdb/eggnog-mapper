@@ -435,6 +435,7 @@ class HmmerSearcher:
             pool = multiprocessing.Pool(cpu)
             for r in pool.imap(refine_hit, cmds):
                 yield r
+            pool.close()
             pool.terminate()
 
         shutil.rmtree(tempdir)
