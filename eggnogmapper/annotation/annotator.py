@@ -274,12 +274,7 @@ class Annotator:
         all_orthologs = {}
         all_annotations = []
         
-        multiprocessing.set_start_method("spawn")
-        def init_db():
-            global eggnog_db, ncbi
-            eggnog_db = get_fresh_eggnog_db(usemem = False)
-            ncbi = get_fresh_ncbi(usemem = True)
-            return
+        # multiprocessing.set_start_method("spawn")
         
         pool = multiprocessing.Pool(self.cpu, init_db, ())
 
@@ -397,6 +392,12 @@ class Annotator:
             yield yield_tuple
             
         return
+
+def init_db():
+    global eggnog_db, ncbi
+    eggnog_db = get_fresh_eggnog_db(usemem = False)
+    ncbi = get_fresh_ncbi(usemem = True)
+    return
 
 ##
 def annotate_hit_line_mem(arguments):
