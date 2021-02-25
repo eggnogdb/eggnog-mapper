@@ -60,7 +60,8 @@ def get_hmmer_base_dbpath(dbname): return pjoin(DATA_PATH, 'hmmer', dbname)
 def get_hmmdb_path(): return pjoin(DATA_PATH, "hmmer")
 def get_OG_fasta_path(dbname, og): return pjoin(DATA_PATH, 'hmmer', dbname, f"{og}.fa")
 def get_hmmer_databases(): return os.listdir(get_hmmdb_path()) if os.path.isdir(os.path.realpath(get_hmmdb_path())) else []
-def get_tax_scopes_path(): return pjoin(DATA_PATH, "tax_scopes")
+
+def get_tax_scopes_path(): return pjoin("eggnogmapper/annotation/tax_scopes")
 
 def get_oglevels_file(): return pjoin(DATA_PATH, "og2level.tsv.gz")
 
