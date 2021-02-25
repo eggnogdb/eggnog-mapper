@@ -54,7 +54,7 @@ def annotate_hit_line(arguments, eggnog_db, ncbi):
         
         ##
         # Retrieve OGs (orthologs groups) the hit belongs to
-        print("annotator_worker.py:annotate_hit_line - Hit: {best_hit_name}")
+        print(f"annotator_worker.py:annotate_hit_line - Hit: {best_hit_name}")
         match_nogs = get_member_ogs(best_hit_name, eggnog_db)
         if not match_nogs:
             return None
