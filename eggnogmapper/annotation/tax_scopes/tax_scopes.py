@@ -96,48 +96,49 @@ def parse_tax_scope(tax_scope):
 ##
 def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):        
     match_nogs_names = []
-    best_og_id = None
-    best_og_level = None
-    best_og_depth = None
-    narr_og_id = None
-    narr_og_level = None
-    narr_og_depth = None
-
-    lvl_depths = set(LEVEL_DEPTH.keys())
+    best_og = None
+    narr_og = None
+    
+    # best_og_id = None
+    # best_og_tax_id = None
+    # best_og_depth = None
+    # narr_og_id = None
+    # narr_og_tax_id = None
+    # narr_og_depth = None
     
     tax_scope_id_2 = tax_scope_id
 
     match_nogs_sorted = sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])
     print(match_nogs_sorted)
+
+    # Obtain narrowest OG
+    narr_og_id, narr_og_tax_id = match_nogs_sorted[-1].split("@")
+    narr_og_name = f"{narr_og_id}@{narr_og_tax_id}|{LEVEL_NAMES.get(narr_og_tax_id, narr_og_tax_id)}"
+    narr_og = (narr_og_id, narr_og_tax_id, narr_og_name) if narr_og_id is not None else None
     
-    for nog in match_nogs_sorted:
-        nog_id = nog.split("@")[0]
-        nog_tax_id = nog.split("@")[1]
+    # If use narrowest, best_og will be just the narrowest
+    if tax_scope_id is None and tax_scope_mode == "narrowest":
+        best_og = narr_og
+        match_nog_names = [f"{nog}|{LEVEL_NAMES.get(nog.split('@')[1], nog.split('@')[1])}" for nog in match_nogs_sorted]
+            
+    elif tax_scope_id is None:
+            raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}")
+    # Obtain best OG based on tax scope
+    else:
+        match_nogs_tax_ids = set([nog.split("@")[1] for nog in match_nogs_sorted])
+        print(f"NOGs tax ids: {match_nogs_tax_ids}")
+        print(f"Tax scope: {tax_scope_id}")
+        
+        for nog in match_nogs_sorted:
+            nog_id = nog.split("@")[0]
+            nog_tax_id = nog.split("@")[1]
 
-        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id)}"
-        match_nogs_names.append(nog_name)
+            nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id)}"
+            match_nogs_names.append(nog_name)
 
-        nog_depth = LEVEL_DEPTH[nog_tax_id]
+            nog_depth = LEVEL_DEPTH[nog_tax_id]
 
-        # Obtain narrowest OG
-        if narr_og_depth is None or nog_depth >= narr_og_depth:
-            narr_og_id = nog_id
-            narr_og_level = nog_tax_id
-            narr_og_depth = nog_depth
-            if tax_scope_id is None and tax_scope_mode == "narrowest":
-                best_og_id = narr_og_id
-                best_og_level = narr_og_level
-                best_og_depth = narr_og_depth
-
-        # Obtain best OG based on tax scope
-        if tax_scope_id is None:
-            if tax_scope_mode == "narrowest":
-                pass # Already processed above
-
-            else:
-                raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}")    
-
-        else: # tax_scope_id is not None:
+                    
             for i, filter_tax_id in enumerate(tax_scope_id_2):
                 if filter_tax_id == nog_tax_id:
                     best_og_id = nog_id
@@ -146,28 +147,41 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
                     # only leave IDs of equal or more priority (left-most in the list)
                     tax_scope_id_2 = tax_scope_id_2[:i+1]
                     break
+                    
 
-    if best_og_id is None:
-        if tax_scope_mode == "none":
-            pass
-        elif tax_scope_mode == "narrowest":
-            best_og_id = narr_og_id
-            best_og_level = narr_og_level
-            best_og_depth = narr_og_depth
+        if best_og_id is None:
+            best_og = None
         else:
-            raise EmapperException(f"Error. Unrecognized tax scope mode {tax_scope_mode}.")
+            best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
+            best_og = (best_og_id, best_og_level, best_og_name)
+            
+            # # Obtain narrowest OG
+            # if narr_og_depth is None or nog_depth >= narr_og_depth:
+            #     narr_og_id = nog_id
+            #     narr_og_level = nog_tax_id
+            #     narr_og_depth = nog_depth
+            #     if tax_scope_id is None and tax_scope_mode == "narrowest":
+            #         best_og_id = narr_og_id
+            #         best_og_level = narr_og_level
+            #         best_og_depth = narr_og_depth
 
-    if narr_og_id is None:
-        narr_og = None
-    else:
-        narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
-        narr_og = (narr_og_id, narr_og_level, narr_og_name) if narr_og_id is not None else None
-        
-    if best_og_id is None:
-        best_og = None
-    else:
-        best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
-        best_og = (best_og_id, best_og_level, best_og_name)
+            # # Obtain best OG based on tax scope
+            # if tax_scope_id is None:
+            #     if tax_scope_mode == "narrowest":
+            #         pass # Already processed above
+
+            #     else:
+            #         raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}")    
+
+            # else: # tax_scope_id is not None:
+                # for i, filter_tax_id in enumerate(tax_scope_id_2):
+                #     if filter_tax_id == nog_tax_id:
+                #         best_og_id = nog_id
+                #         best_og_level = nog_tax_id
+                #         best_og_depth = nog_depth
+                #         # only leave IDs of equal or more priority (left-most in the list)
+                #         tax_scope_id_2 = tax_scope_id_2[:i+1]
+                #         break
 
     # print(match_nogs_names)
     # print(f"Best OG: {best_og_id}-{best_og_level}")
