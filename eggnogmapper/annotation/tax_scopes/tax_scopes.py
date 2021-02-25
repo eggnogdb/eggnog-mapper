@@ -40,9 +40,6 @@ def parse_tax_scope(tax_scope):
         tax_scope_mode = "none"
         tax_scope_fields = parse_tax_scope_file(tax_scope)        
     else:
-        print(get_tax_scopes_path())
-        from ...common import get_data_path
-        print(get_data_path())
         # 2nd option, a file within eggnogmapper/annotation/tax_scope
         tax_scope_file = os.path.join(get_tax_scopes_path(), tax_scope)
         if os.path.exists(tax_scope_file) and os.path.isfile(tax_scope_file):
@@ -109,8 +106,11 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
     lvl_depths = set(LEVEL_DEPTH.keys())
     
     tax_scope_id_2 = tax_scope_id
+
+    match_nogs_sorted = sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])
+    print(match_nogs_sorted)
     
-    for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
+    for nog in match_nogs_sorted:
         nog_id = nog.split("@")[0]
         nog_tax_id = nog.split("@")[1]
 
