@@ -20,8 +20,9 @@ from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, \
     PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 from eggnogmapper.deco.decoration import DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FILE, DECORATE_GFF_FIELD_DEFAULT
+from eggnogmapper.annotation.tax_scopes.tax_scopes import parse_tax_scope, print_taxa
 
-from eggnogmapper.common import existing_file, existing_dir, set_data_path, get_tax_scopes_path, pexists, \
+from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
     get_version, get_full_version_info, get_citation, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 
@@ -379,72 +380,6 @@ def create_arg_parser():
         
     return parser
 
-##
-# Parse a tax scope file
-def parse_tax_scope_file(tax_scope_file):
-    tax_scope_fields = []
-    with open(tax_scope_file, 'r') as f:
-        for line in f:
-            tax_scope_fields.append(line.strip())
-    return tax_scope_fields
-##
-# Parses tax_scope command line argument
-# to define tax_scope_mode and tax_scope_id (one or more tax IDs)
-def __parse_tax_scope(tax_scope):
-    tax_scope_mode = None
-    tax_scope_id = None
-    
-    tax_scope_file = os.path.join(get_tax_scopes_path(), tax_scope)
-
-    # Tax scope from file
-    if os.path.exists(tax_scope_file) and os.path.isfile(tax_scope_file):
-        # parse tax scope file
-        tax_scope_mode = "none"
-        tax_scope_fields = parse_tax_scope_file(tax_scope_file)
-    else:
-        tax_scope_fields = tax_scope.strip().split(",")
-        tax_scope_mode = tax_scope_fields[0]
-        
-    # Narrowest
-    if tax_scope_mode == "narrowest":
-        tax_scope_id = None
-
-    # Comma-separated list of tax IDs or list of tax IDs from file
-    else:
-        # Only the specified tax ID
-        if len(tax_scope_fields) == 1:
-            tax_scope_mode = "none"
-            tax_scope_id = [tax_scope_fields[0]]
-
-        # Tax ID list, with or without mode for those not found in the list
-        elif len(tax_scope_fields) > 1:
-            last_pos = tax_scope_fields[-1]
-            if last_pos in ["narrowest", "auto", "none"]:
-                tax_scope_mode = last_pos
-                tax_scope_id = tax_scope_fields[:-1]
-            else:
-                tax_scope_mode = "none"
-                tax_scope_id = tax_scope_fields
-        else:
-            raise EmapperException(f"Error: unrecognized tax scope format {tax_scope}.")
-
-    # Create a list which contains only tax IDs (tax names are translated)
-    # and check that those tax IDs are recognized by eggNOG-mapper
-    if tax_scope_id is not None and len(tax_scope_id) > 0:
-        tax_scope_id_int = []
-        from eggnogmapper.vars import LEVEL_NAMES, LEVEL_DICT
-        for tax_id in tax_scope_id:
-            if tax_id in LEVEL_NAMES:
-                tax_scope_id_int.append(tax_id)
-            elif tax_id in LEVEL_DICT:
-                tax_scope_id_int.append(LEVEL_DICT[tax_id])
-            else:
-                raise EmapperException(f"Unrecognized tax ID, tax name or tax_scope mode: '{tax_id}'.")
-
-        tax_scope_id = tax_scope_id_int
-    
-    return tax_scope_mode, tax_scope_id
-
 
 ##
 def parse_args(parser):
@@ -469,13 +404,7 @@ def parse_args(parser):
     args.call_info = get_call_info()
 
     if args.list_taxa:
-        from eggnogmapper.vars import LEVEL_DEPTH, LEVEL_DICT, LEVEL_NAMES, LEVEL_PARENTS
-        print("tax_name\ttax_id\tdepth\tparents\tparents_names")
-        for tax_name, tax_id in LEVEL_DICT.items():
-            depth = LEVEL_DEPTH.get(tax_id, "-")
-            parents = LEVEL_PARENTS.get(tax_id, "-")
-            parents_names = [LEVEL_NAMES.get(x, "-") for x in parents]
-            print(f"{tax_name}\t{tax_id}\t{depth}\t{','.join(parents)}\t{','.join(parents_names)}")
+        print_taxa()
         sys.exit(0)
 
     if args.cpu == 0:
@@ -602,7 +531,7 @@ def parse_args(parser):
             print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
             raise EmapperException()
 
-        args.tax_scope_mode, args.tax_scope_id = __parse_tax_scope(args.tax_scope)
+        args.tax_scope_mode, args.tax_scope_id = parse_tax_scope(args.tax_scope)
         if args.target_taxa is not None:
             args.target_taxa = args.target_taxa.split(",")
         if args.excluded_taxa is not None:

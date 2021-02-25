@@ -6,10 +6,11 @@ from collections import Counter
 from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 from ..emapperException import EmapperException
 
-from .db_sqlite import get_eggnog_db
 from .ncbitaxa.ncbiquery import get_ncbi
-
 from .pfam.pfam_modes import PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG
+from .tax_scopes.tax_scopes import parse_nogs
+
+from .db_sqlite import get_eggnog_db
 
 from . import orthologs as ortho
 from . import annota
@@ -60,12 +61,9 @@ def annotate_hit_line(arguments, eggnog_db, ncbi):
             
         ##
         # Obtain names of OGs, narrowest OG, and the best OG according to tax_scope
-        match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
-            
-        annot_levels = set()
-        annot_levels.add(best_og_level)
-        
-        if best_og_id is None:
+        match_nogs_names, narr_og, best_og = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
+                
+        if best_og is None:
             annotations = None
             all_orthologies = None
             orthologs = None
@@ -77,10 +75,10 @@ def annotate_hit_line(arguments, eggnog_db, ncbi):
             narr_og_desc = "-"
             
         else:
-            best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
+            best_og_id, best_og_level, best_og_name = best_og
             best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
-            
-            narr_og_name = f"{narr_og_id}@{narr_og_level}|{LEVEL_NAMES.get(narr_og_level, narr_og_level)}"
+
+            narr_og_id, narr_og_level, narr_og_name = narr_og
             narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level, eggnog_db)
 
             ##
@@ -99,6 +97,8 @@ def annotate_hit_line(arguments, eggnog_db, ncbi):
             # Retrieve co-orthologs of seed ortholog
             # annot_levels are used to restrict the speciation events retrieved
             # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
+            annot_levels = set()
+            annot_levels.add(best_og_level)
             try:
                 all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names, eggnog_db)
                 if best_OG is not None:
@@ -180,73 +180,6 @@ def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_t
     if target_taxa is not None:
         orthologs = [o for o in orthologs if int(o.split(".")[0]) in target_taxa]
     return orthologs
-            
-##
-def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):        
-    match_nogs_names = []
-    best_og_id = None
-    best_og_level = None
-    best_og_depth = None
-    narr_og_id = None
-    narr_og_level = None
-    narr_og_depth = None
-
-    lvl_depths = set(LEVEL_DEPTH.keys())
-    
-    tax_scope_id_2 = tax_scope_id
-    
-    for nog in sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]]):
-        nog_id = nog.split("@")[0]
-        nog_tax_id = nog.split("@")[1]
-
-        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id)}"
-        match_nogs_names.append(nog_name)
-
-        nog_depth = LEVEL_DEPTH[nog_tax_id]
-
-        # Obtain narrowest OG
-        if narr_og_depth is None or nog_depth >= narr_og_depth:
-            narr_og_id = nog_id
-            narr_og_level = nog_tax_id
-            narr_og_depth = nog_depth
-            if tax_scope_id is None and tax_scope_mode == "narrowest":
-                best_og_id = narr_og_id
-                best_og_level = narr_og_level
-                best_og_depth = narr_og_depth
-
-        # Obtain best OG based on tax scope
-        if tax_scope_id is None:
-            if tax_scope_mode == "narrowest":
-                pass # Already processed above
-
-            else:
-                raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}")    
-
-        else: # tax_scope_id is not None:
-            for i, filter_tax_id in enumerate(tax_scope_id_2):
-                if filter_tax_id == nog_tax_id:
-                    best_og_id = nog_id
-                    best_og_level = nog_tax_id
-                    best_og_depth = nog_depth
-                    # only leave IDs of equal or more priority (left-most in the list)
-                    tax_scope_id_2 = tax_scope_id_2[:i+1]
-                    break
-
-    if best_og_id is None:
-        if tax_scope_mode == "none":
-            pass
-        elif tax_scope_mode == "narrowest":
-            best_og_id = narr_og_id
-            best_og_level = narr_og_level
-            best_og_depth = narr_og_depth
-        else:
-            raise EmapperException(f"Error. Unrecognized tax scope mode {tax_scope_mode}.")
-    
-    # print(match_nogs_names)
-    # print(f"Best OG: {best_og_id}-{best_og_level}")
-
-    return match_nogs_names, narr_og_id, narr_og_level, best_og_id, best_og_level
-
         
 ##
 def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_score):
