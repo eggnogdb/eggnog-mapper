@@ -54,111 +54,105 @@ def annotate_hit_line(arguments, eggnog_db, ncbi):
         
         ##
         # Retrieve OGs (orthologs groups) the hit belongs to
+        print("annotator_worker.py:annotate_hit_line")
+        print(f"Hit: {best_hit_name}")
         match_nogs = get_member_ogs(best_hit_name, eggnog_db)
         if not match_nogs:
             return None
+        print(f"Match nogs: {match_nogs}")
             
         ##
         # Obtain names of OGs, narrowest OG, and the best OG according to tax_scope
         match_nogs_names, narr_og, best_og = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
                 
         if best_og is None:
-            annotations = None
-            all_orthologies = None
-            orthologs = None
-            best_og_name = "-"
-            best_og_cat = "-"
-            best_og_desc = "-"
-            narr_og_name = "-"
-            narr_og_cat = "-"
-            narr_og_desc = "-"
-            
+            return None
+        
+        best_og_id, best_og_level, best_og_name = best_og
+        best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
+
+        narr_og_id, narr_og_level, narr_og_name = narr_og
+        narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level, eggnog_db)
+
+        ##
+        # Normalize target_taxa if any
+        if target_taxa is not None:
+            target_taxa = normalize_target_taxa(target_taxa, ncbi)
         else:
-            best_og_id, best_og_level, best_og_name = best_og
-            best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
+            target_taxa = None
 
-            narr_og_id, narr_og_level, narr_og_name = narr_og
-            narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level, eggnog_db)
+        if excluded_taxa is not None:
+            excluded_taxa = normalize_target_taxa(excluded_taxa, ncbi)
+        else:
+            excluded_taxa = None
 
-            ##
-            # Normalize target_taxa if any
-            if target_taxa is not None:
-                target_taxa = normalize_target_taxa(target_taxa, ncbi)
-            else:
-                target_taxa = None
+        ##
+        # Retrieve co-orthologs of seed ortholog
+        # annot_levels are used to restrict the speciation events retrieved
+        # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
+        annot_levels = set()
+        annot_levels.add(best_og_level)
+        try:
+            all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names, eggnog_db)
+            if best_OG is not None:
+                best_og_name = best_OG
+                best_og_id = best_OG.split("|")[0].split("@")[0]
+                best_og_level = best_OG.split("|")[0].split("@")[1]
+                if best_og_id == "seed_ortholog":
+                    best_og_cat = "-"
+                    best_og_desc = "-"
+                else:
+                    best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
 
-            if excluded_taxa is not None:
-                excluded_taxa = normalize_target_taxa(excluded_taxa, ncbi)
-            else:
-                excluded_taxa = None
+        except Exception as e:
+            # import traceback
+            # traceback.print_exc()
+            raise e
+        else:
+            # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
+            orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
 
-            ##
-            # Retrieve co-orthologs of seed ortholog
-            # annot_levels are used to restrict the speciation events retrieved
-            # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
-            annot_levels = set()
-            annot_levels.add(best_og_level)
-            try:
-                all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names, eggnog_db)
-                if best_OG is not None:
-                    best_og_name = best_OG
-                    best_og_id = best_OG.split("|")[0].split("@")[0]
-                    best_og_level = best_OG.split("|")[0].split("@")[1]
-                    if best_og_id == "seed_ortholog":
-                        best_og_cat = "-"
-                        best_og_desc = "-"
-                    else:
-                        best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
+        ##
+        # Retrieve annotations of co-orthologs
+        if annot == True and orthologs is not None and len(orthologs) > 0:
 
-            except Exception as e:
-                # import traceback
-                # traceback.print_exc()
-                raise e
-            else:
+            annotations = annota.summarize_annotations(orthologs,
+                                                       annotations_fields = ANNOTATIONS_HEADER,
+                                                       target_go_ev = go_evidence,
+                                                       excluded_go_ev = go_excluded,
+                                                       eggnog_db = eggnog_db)
+
+            if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
+                if best_og_level == narr_og_level:
+                    narr_orthologies = all_orthologies
+                else:
+                    narr_annot_levels = set()
+                    narr_annot_levels.add(narr_og_level)
+                    narr_orthologies, _ = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names, eggnog_db)
+
                 # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-                orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
+                narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
 
-            ##
-            # Retrieve annotations of co-orthologs
-            if annot == True and orthologs is not None and len(orthologs) > 0:
+                pfam_annotations = eggnog_db.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
+                if pfam_annotations is not None and len(pfam_annotations) > 0:
+                    annotations["PFAMs"] = Counter()
+                    for pfam_annotation in pfam_annotations:
+                        annotations["PFAMs"].update([str(x).strip() for x in pfam_annotation[0].split(",")])
+                else:
+                    annotations["PFAMs"] = Counter()
 
-                annotations = annota.summarize_annotations(orthologs,
-                                                           annotations_fields = ANNOTATIONS_HEADER,
-                                                           target_go_ev = go_evidence,
-                                                           excluded_go_ev = go_excluded,
-                                                           eggnog_db = eggnog_db)
+            elif pfam_transfer == PFAM_TRANSFER_SEED_ORTHOLOG:
+                pfam_annotations = eggnog_db.get_pfam_annotations('"'+best_hit_name+'"')
+                if pfam_annotations is not None and len(pfam_annotations) > 0:
+                    pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
+                    annotations["PFAMs"] = pfam_annotations
+                else:
+                    annotations["PFAMs"] = Counter()                    
+            else: # pfam_transfer == PFAM_TRANSFER_BEST_OG
+                pass
 
-                if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
-                    if best_og_level == narr_og_level:
-                        narr_orthologies = all_orthologies
-                    else:
-                        narr_annot_levels = set()
-                        narr_annot_levels.add(narr_og_level)
-                        narr_orthologies, _ = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names, eggnog_db)
-
-                    # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-                    narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
-
-                    pfam_annotations = eggnog_db.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
-                    if pfam_annotations is not None and len(pfam_annotations) > 0:
-                        annotations["PFAMs"] = Counter()
-                        for pfam_annotation in pfam_annotations:
-                            annotations["PFAMs"].update([str(x).strip() for x in pfam_annotation[0].split(",")])
-                    else:
-                        annotations["PFAMs"] = Counter()
-
-                elif pfam_transfer == PFAM_TRANSFER_SEED_ORTHOLOG:
-                    pfam_annotations = eggnog_db.get_pfam_annotations('"'+best_hit_name+'"')
-                    if pfam_annotations is not None and len(pfam_annotations) > 0:
-                        pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
-                        annotations["PFAMs"] = pfam_annotations
-                    else:
-                        annotations["PFAMs"] = Counter()                    
-                else: # pfam_transfer == PFAM_TRANSFER_BEST_OG
-                    pass
-
-            else:
-                annotations = {}
+        else:
+            annotations = {}
 
     except Exception as e:
         import traceback
