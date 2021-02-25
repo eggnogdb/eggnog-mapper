@@ -40,6 +40,9 @@ def parse_tax_scope(tax_scope):
         tax_scope_mode = "none"
         tax_scope_fields = parse_tax_scope_file(tax_scope)        
     else:
+        print(get_tax_scopes_path())
+        from ...common import get_data_path
+        print(get_data_path())
         # 2nd option, a file within eggnogmapper/annotation/tax_scope
         tax_scope_file = os.path.join(get_tax_scopes_path(), tax_scope)
         if os.path.exists(tax_scope_file) and os.path.isfile(tax_scope_file):
