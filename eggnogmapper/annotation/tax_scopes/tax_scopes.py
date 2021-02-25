@@ -129,31 +129,31 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
         print(f"NOGs tax ids: {match_nogs_tax_ids}")
         print(f"Tax scope: {tax_scope_id}")
         
-        for nog in match_nogs_sorted:
-            nog_id = nog.split("@")[0]
-            nog_tax_id = nog.split("@")[1]
+        # for nog in match_nogs_sorted:
+        #     nog_id = nog.split("@")[0]
+        #     nog_tax_id = nog.split("@")[1]
 
-            nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id)}"
-            match_nogs_names.append(nog_name)
+        #     nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id)}"
+        #     match_nogs_names.append(nog_name)
 
-            nog_depth = LEVEL_DEPTH[nog_tax_id]
+        #     nog_depth = LEVEL_DEPTH[nog_tax_id]
 
                     
-            for i, filter_tax_id in enumerate(tax_scope_id_2):
-                if filter_tax_id == nog_tax_id:
-                    best_og_id = nog_id
-                    best_og_level = nog_tax_id
-                    best_og_depth = nog_depth
-                    # only leave IDs of equal or more priority (left-most in the list)
-                    tax_scope_id_2 = tax_scope_id_2[:i+1]
-                    break
+        #     for i, filter_tax_id in enumerate(tax_scope_id_2):
+        #         if filter_tax_id == nog_tax_id:
+        #             best_og_id = nog_id
+        #             best_og_level = nog_tax_id
+        #             best_og_depth = nog_depth
+        #             # only leave IDs of equal or more priority (left-most in the list)
+        #             tax_scope_id_2 = tax_scope_id_2[:i+1]
+        #             break
                     
 
-        if best_og_id is None:
-            best_og = None
-        else:
-            best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
-            best_og = (best_og_id, best_og_level, best_og_name)
+        # if best_og_id is None:
+        #     best_og = None
+        # else:
+        #     best_og_name = f"{best_og_id}@{best_og_level}|{LEVEL_NAMES.get(best_og_level, best_og_level)}"
+        #     best_og = (best_og_id, best_og_level, best_og_name)
             
             # # Obtain narrowest OG
             # if narr_og_depth is None or nog_depth >= narr_og_depth:
