@@ -3,7 +3,6 @@
 
 from collections import Counter
 
-from ..vars import LEVEL_NAMES, LEVEL_DEPTH
 from ..emapperException import EmapperException
 
 from .ncbitaxa.ncbiquery import get_ncbi

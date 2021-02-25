@@ -4,8 +4,9 @@
 import os
 
 from ...emapperException import EmapperException
-from ...vars import LEVEL_DEPTH, LEVEL_DICT, LEVEL_NAMES, LEVEL_PARENTS
 from ...common import get_tax_scopes_path
+
+from .vars import LEVEL_DEPTH, LEVEL_DICT, LEVEL_NAMES, LEVEL_PARENTS
 
 def print_taxa():
     print("tax_name\ttax_id\tdepth\tparents\tparents_names")
