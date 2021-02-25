@@ -98,18 +98,8 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
     match_nogs_names = None
     best_og = None
     narr_og = None
-    
-    # best_og_id = None
-    # best_og_tax_id = None
-    # best_og_depth = None
-    # narr_og_id = None
-    # narr_og_tax_id = None
-    # narr_og_depth = None
-    
-    tax_scope_id_2 = tax_scope_id
 
     match_nogs_sorted = sorted(match_nogs, key=lambda x: LEVEL_DEPTH[x.split("@")[1]])
-    print(match_nogs_sorted)
 
     # Obtain narrowest OG (TODO: extend these to a list with more than one OG)
     narr_og_id, narr_og_tax_id = match_nogs_sorted[-1].split("@")
@@ -125,22 +115,19 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_id):
     # Obtain best OG based on tax scope
     else:
         match_nogs_tax_ids = set([nog.split("@")[1] for nog in match_nogs_sorted])
-        print(f"NOGs tax ids: {match_nogs_tax_ids}")
-        tax_scope_set = set(tax_scope_id)
-        print(f"Tax scope: {tax_scope_set}")
-        inters = match_nogs_tax_ids & tax_scope_set
-        print(f"Inters: {inters}")
-        best_og_tax_id = max(inters, key = lambda x: LEVEL_DEPTH[x])
-        print(f"Candidate best OG tax id: {best_og_tax_id}")
+        inters = match_nogs_tax_ids & set(tax_scope_id) # Intersect OGs and tax scope
+        best_og_tax_id = max(inters, key = lambda x: LEVEL_DEPTH[x]) # Get deepest tax ID of intersection
+        
         # Obtain best OG (TODO: extend these to a list with more than one OG)        
         best_og_id, best_og_tax_id = [nog for nog in match_nogs_sorted if nog.split("@")[1] == best_og_tax_id][0].split("@")
         best_og_name = f"{best_og_id}@{best_og_tax_id}|{LEVEL_NAMES.get(best_og_tax_id, best_og_tax_id)}"
         best_og = (best_og_id, best_og_tax_id, best_og_name)
-        print(f"Best OG: {best_og}")
 
     match_nogs_names = [f"{nog}|{LEVEL_NAMES.get(nog.split('@')[1], nog.split('@')[1])}" for nog in match_nogs_sorted]
+    
     # print(match_nogs_names)
-    # print(f"Best OG: {best_og_id}-{best_og_level}")
+    # print(narr_og)
+    # print(best_og)
 
     return match_nogs_names, narr_og, best_og
 
