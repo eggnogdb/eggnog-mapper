@@ -147,9 +147,9 @@ def get_ogs_descriptions(nogs, eggnog_db):
             cat = nog_cat
             desc = nog_desc
         else:
-            og_name = " / ".join(og_name, nog_name)
-            cat = " / ".join(cat, nog_cat)
-            desc = " / ".join(desc, nog_desc)
+            og_name = " / ".join([og_name, nog_name])
+            cat = " / ".join([cat, nog_cat])
+            desc = " / ".join([desc, nog_desc])
             
     return og_name, cat, desc
 
