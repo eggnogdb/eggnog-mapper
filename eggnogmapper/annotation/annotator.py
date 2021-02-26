@@ -38,10 +38,10 @@ class Annotator:
     num_servers = num_workers = cpus_per_worker = port = end_port = None
 
     seed_ortholog_score = seed_ortholog_evalue = None
-    tax_scope_mode = tax_scope_id = target_taxa = target_orthologs = excluded_taxa = None
+    tax_scope_mode = tax_scope_ids = target_taxa = target_orthologs = excluded_taxa = None
     
     go_evidence = go_excluded = None
-    pfam_realign = pfam_transfer = queries_fasta = translate = temp_dir = None
+    pfam_realign = queries_fasta = translate = temp_dir = None
     md5 = None
         
     ##
@@ -63,7 +63,7 @@ class Annotator:
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 
         self.tax_scope_mode = args.tax_scope_mode
-        self.tax_scope_id = args.tax_scope_id
+        self.tax_scope_ids = args.tax_scope_ids
                 
         self.target_taxa = args.target_taxa
         self.target_orthologs = args.target_orthologs
@@ -73,7 +73,6 @@ class Annotator:
         self.go_excluded = args.go_excluded
         
         self.pfam_realign = args.pfam_realign
-        self.pfam_transfer = args.pfam_transfer
         
         self.queries_fasta = args.input
         self.translate = args.translate
@@ -118,57 +117,81 @@ class Annotator:
     ##
     def annotate(self, hits_gen_func, store_hits, annot_file, orthologs_file, pfam_file):
 
-        if self.report_orthologs == True or self.annot == True:            
-            ##
-            # md5 hashes
-            if self.md5 == True:
-                print(colorify("Creating md5 hashes of input sequences", 'green'))
-                md5_queries = md5_seqs(self.queries_fasta)
-            else:
-                md5_queries = None
+        ncbi = None
+        ORTHOLOGS_OUT = None
+        ANNOTATIONS_OUT = None
 
-            md5_field = (self.md5 == True and md5_queries is not None)
+        try:
+            if self.report_orthologs == True or self.annot == True:            
+                ##
+                # md5 hashes
+                if self.md5 == True:
+                    print(colorify("Creating md5 hashes of input sequences", 'green'))
+                    md5_queries = md5_seqs(self.queries_fasta)
+                else:
+                    md5_queries = None
 
-            ##
-            # Annotations
-            print(colorify("Functional annotation of refined hits starts now", 'green'))
+                md5_field = (self.md5 == True and md5_queries is not None)
 
-            #
-            # Prepare output files and print headers and call info
-            ORTHOLOGS_OUT = None
-            if self.report_orthologs == True:
-                ORTHOLOGS_OUT = open(orthologs_file, "w")            
-                output.output_orthologs_header(ORTHOLOGS_OUT, self.no_file_comments)
+                ##
+                # Prepare taxa restrictions
+                # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
+                # the opposite is excluded_taxa
+                # In both cases, we need to normalize the list of taxa, if any
+                
+                if self.target_taxa is not None:
+                    ncbi = get_ncbi(usemem = False)
+                    self.target_taxa = normalize_target_taxa(self.target_taxa, ncbi)
+                    
+                if self.excluded_taxa is not None:
+                    ncbi = get_ncbi(usemem = False)
+                    self.excluded_taxa = normalize_target_taxa(self.excluded_taxa, ncbi)
 
-            ANNOTATIONS_OUT = None
-            if self.annot == True:
-                ANNOTATIONS_OUT = open(annot_file, "w")
-                output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
+                if ncbi is not None: ncbi.close() # close it, so that for orthologs we can load it into memory
+                
+                ##
+                # Annotations
+                print(colorify("Functional annotation of refined hits starts now", 'green'))
 
-            # closures to generate output
+                #
+                # Prepare output files and print headers and call info
+                ORTHOLOGS_OUT = None
+                if self.report_orthologs == True:
+                    ORTHOLOGS_OUT = open(orthologs_file, "w")            
+                    output.output_orthologs_header(ORTHOLOGS_OUT, self.no_file_comments)
 
-            output_orthologs_f = None
-            if self.report_orthologs == True:
-                ncbi = get_ncbi(usemem = True)
-                output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
+                ANNOTATIONS_OUT = None
+                if self.annot == True:
+                    ANNOTATIONS_OUT = open(annot_file, "w")
+                    output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
 
-            output_annotations_f = None
-            if self.annot == True:
-                output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
+                # closures to generate output
 
-            ##
-            # Obtain annotations
-            qn, elapsed_time = self._annotate(hits_gen_func, store_hits, pfam_file, output_orthologs_f, output_annotations_f)
+                output_orthologs_f = None
+                if self.report_orthologs == True:
+                    ncbi = get_ncbi(usemem = True)
+                    output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
 
-            ##
-            # Output footer and close files
-            if self.report_orthologs == True:
-                output.output_orthologs_footer(ORTHOLOGS_OUT, self.no_file_comments, qn, elapsed_time)
-                ORTHOLOGS_OUT.close()
+                output_annotations_f = None
+                if self.annot == True:
+                    output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
 
-            if self.annot == True:
-                output.output_annotations_footer(ANNOTATIONS_OUT, self.no_file_comments, qn, elapsed_time)
-                ANNOTATIONS_OUT.close()
+                ##
+                # Obtain annotations
+                qn, elapsed_time = self._annotate(hits_gen_func, store_hits, pfam_file, output_orthologs_f, output_annotations_f)
+
+                ##
+                # Output footer and close files
+                if self.report_orthologs == True:
+                    output.output_orthologs_footer(ORTHOLOGS_OUT, self.no_file_comments, qn, elapsed_time)
+
+                if self.annot == True:
+                    output.output_annotations_footer(ANNOTATIONS_OUT, self.no_file_comments, qn, elapsed_time)
+
+        finally:
+            if ncbi is not None: ncbi.close()
+            if ORTHOLOGS_OUT is not None: ORTHOLOGS_OUT.close()
+            if ANNOTATIONS_OUT is not None: ANNOTATIONS_OUT.close()
             
         return
 
@@ -213,24 +236,23 @@ class Annotator:
     def _annotate_dbmem(self, hits_gen_func, store_hits, pfam_file):
         all_orthologs = {}
         all_annotations = []
-
-        ##
-        # Load sqlite DBs into memory
-        
         start_time = time.time() # do not take into account time to load the db into memory
-        eggnog_db = get_eggnog_db(usemem = True)
-        ncbi = get_ncbi(usemem = True)
-        total_time = time.time() - start_time
-        print(colorify(f"Time to load the DB into memory: {total_time}", "lblue"), file=sys.stderr)
-        sys.stderr.flush()
-        
-        ##
-        # Annotate hits
-        
-        start_time = time.time() # do not take into account time to load the db into memory
-        
         qn = 0
+        
         try:
+            ##
+            # Load sqlite DBs into memory
+
+            eggnog_db = get_eggnog_db(usemem = True)
+            total_time = time.time() - start_time
+            print(colorify(f"Time to load the DB into memory: {total_time}", "lblue"), file=sys.stderr)
+            sys.stderr.flush()
+
+            ##
+            # Annotate hits
+
+            start_time = time.time() # do not take into account time to load the db into memory
+
             for result in map(annotate_hit_line_mem, self.iter_hit_lines(hits_gen_func, store_hits)):
                 qn += 1
                 if qn and (qn % 100 == 0):
@@ -249,7 +271,6 @@ class Annotator:
             raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
         finally:
             eggnog_db.close()
-            ncbi.close()
 
         elapsed_time = time.time() - start_time
         print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
@@ -370,7 +391,7 @@ class Annotator:
     
     ##
     def iter_hit_lines(self, hits_gen_func, store_hits = True):
-
+        
         if store_hits: self.hits = []
         
         for hit in hits_gen_func():
@@ -378,13 +399,36 @@ class Annotator:
             if store_hits: self.hits.append(hit)
             
             yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
-                           self.tax_scope_mode, self.tax_scope_id,
+                           self.tax_scope_mode, self.tax_scope_ids,
                            self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded, self.pfam_transfer)
+                           self.go_evidence, self.go_excluded)
             
             yield yield_tuple
             
         return
+
+##
+def normalize_target_taxa(target_taxa, ncbi):
+    """
+    Receives a list of taxa IDs and/or taxa names and returns a set of expanded taxids numbers
+    """
+    expanded_taxa = set()
+    
+    for taxon in target_taxa:
+        taxid = ""
+        try:
+            taxid = int(taxon)
+        except ValueError:
+            taxid = ncbi.get_name_translator([taxon])[taxon][0]
+        else:
+            taxon = ncbi.get_taxid_translator([taxid])[taxid]
+
+        if taxid is not None:
+            species = ncbi.get_descendant_taxa(taxid, intermediate_nodes = True)
+            for sp in species:
+                expanded_taxa.add(sp)
+
+    return expanded_taxa
 
 
 def md5_seqs(fasta_file):

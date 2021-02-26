@@ -17,10 +17,10 @@ from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_
 from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_SENSITIVE
 from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
-from eggnogmapper.annotation.pfam.pfam_modes import PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG, \
-    PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
+from eggnogmapper.annotation.pfam.pfam_modes import PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 from eggnogmapper.deco.decoration import DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FILE, DECORATE_GFF_FIELD_DEFAULT
-from eggnogmapper.annotation.tax_scopes.tax_scopes import parse_tax_scope, print_taxa
+from eggnogmapper.annotation.tax_scopes.tax_scopes import parse_tax_scope, print_taxa, \
+    TAX_SCOPE_MODE_BROADEST, TAX_SCOPE_MODE_INNER_BROADEST, TAX_SCOPE_MODE_INNER_NARROWEST, TAX_SCOPE_MODE_NARROWEST
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
@@ -301,6 +301,12 @@ def create_arg_parser():
                                 "If 'narrowest' is specified, if no OG is found among the list of tax IDs, the narrowest OG will be used for annotation. "
                                 "An example of list of tax IDs would be 2759,2157,2,1 for euk, arch, bact and root, in that order of preference. "))
 
+    pg_annot.add_argument("--tax_scope_mode", type=str, default=TAX_SCOPE_MODE_INNER_NARROWEST, choices=[TAX_SCOPE_MODE_BROADEST,
+                                                                                                         TAX_SCOPE_MODE_INNER_BROADEST,
+                                                                                                         TAX_SCOPE_MODE_INNER_NARROWEST,
+                                                                                                         TAX_SCOPE_MODE_NARROWEST],
+                          help=(""))
+
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
                                                          "one2many","many2many", "all"],
                           default="all",
@@ -322,13 +328,6 @@ def create_arg_parser():
                           help='Defines what type of GO terms should be used for annotation. '
                           'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
-
-    pg_annot.add_argument('--pfam_transfer', type=str, choices=(PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG),
-                          default=PFAM_TRANSFER_BEST_OG,
-                          help='Defines from which orthologs PFAM domains will be transferred. '
-                          f'{PFAM_TRANSFER_BEST_OG} = PFAMs will be transferred from orthologs in the best Orthologous Group (OG). '
-                          f'{PFAM_TRANSFER_NARROWEST_OG} = PFAMs will be transferred from orthologs in the narrowest OG. '
-                          f'{PFAM_TRANSFER_SEED_ORTHOLOG} = PFAMs will be transferred from the seed ortholog. ')
 
     pg_annot.add_argument('--pfam_realign', type=str, choices=(PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO),
                           default=PFAM_REALIGN_NONE,
@@ -531,7 +530,8 @@ def parse_args(parser):
             print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
             raise EmapperException()
 
-        args.tax_scope_mode, args.tax_scope_id = parse_tax_scope(args.tax_scope)
+        args.tax_scope_ids = parse_tax_scope(args.tax_scope)
+        
         if args.target_taxa is not None:
             args.target_taxa = args.target_taxa.split(",")
         if args.excluded_taxa is not None:
@@ -554,10 +554,6 @@ def parse_args(parser):
         raise ValueError('Invalid --go_evidence value')
 
     # PFAM annotation options
-    if args.pfam_transfer in [PFAM_TRANSFER_BEST_OG, PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG]:
-        pass
-    else:
-        raise ValueError(f'Invalid --pfam_transfer option {args.pfam_transfer}')
     
     if args.pfam_realign == PFAM_REALIGN_NONE:
         pass
