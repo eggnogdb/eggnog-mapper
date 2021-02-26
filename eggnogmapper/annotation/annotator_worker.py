@@ -5,8 +5,6 @@ from collections import Counter
 
 from ..emapperException import EmapperException
 
-from .ncbitaxa.ncbiquery import get_ncbi
-from .pfam.pfam_modes import PFAM_TRANSFER_NARROWEST_OG, PFAM_TRANSFER_SEED_ORTHOLOG
 from .tax_scopes.tax_scopes import parse_nogs
 
 from .db_sqlite import get_eggnog_db
@@ -20,26 +18,23 @@ ANNOTATIONS_HEADER = output.ANNOTATIONS_HEADER
 ##
 def annotate_hit_line_mem(arguments):
     eggnog_db = get_eggnog_db(usemem = True)
-    ncbi = get_ncbi(usemem = True)
 
-    return annotate_hit_line(arguments, eggnog_db, ncbi)
+    return annotate_hit_line(arguments, eggnog_db)
 
 ##
 def annotate_hit_line_ondisk(arguments):
     eggnog_db = get_eggnog_db(usemem = False)
-    ncbi = get_ncbi(usemem = False)
-    ret = annotate_hit_line(arguments, eggnog_db, ncbi)
+    ret = annotate_hit_line(arguments, eggnog_db)
     return ret
 
 # annotate_hit_line is outside the class because must be pickable
 ##
-def annotate_hit_line(arguments, eggnog_db, ncbi):
+def annotate_hit_line(arguments, eggnog_db):
     
     hit, annot, seed_ortholog_score, seed_ortholog_evalue, \
-        tax_scope_mode, tax_scope_id, \
+        tax_scope_mode, tax_scope_ids, \
         target_taxa, target_orthologs, excluded_taxa, \
-        go_evidence, go_excluded, \
-        pfam_transfer = arguments
+        go_evidence, go_excluded = arguments
     
     try:
         query_name = hit[0]
@@ -59,98 +54,44 @@ def annotate_hit_line(arguments, eggnog_db, ncbi):
             return None
             
         ##
-        # Obtain names of OGs, narrowest OG, and the best OG according to tax_scope
-        match_nogs_names, narr_og, best_og = parse_nogs(match_nogs, tax_scope_mode, tax_scope_id)
-                
-        if best_og is None:
-            return None
+        # Obtain OGs sorted by depth (aka tax level) and with name added
+        # and also the narrowest OG, and the best OG according to tax scope ids list and mode
         
-        best_og_id, best_og_level, best_og_name = best_og
-        best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
-
-        narr_og_id, narr_og_level, narr_og_name = narr_og
-        narr_og_cat, narr_og_desc = get_og_description(narr_og_id, narr_og_level, eggnog_db)
-
-        ##
-        # Normalize target_taxa if any
-        if target_taxa is not None:
-            target_taxa = normalize_target_taxa(target_taxa, ncbi)
-        else:
-            target_taxa = None
-
-        if excluded_taxa is not None:
-            excluded_taxa = normalize_target_taxa(excluded_taxa, ncbi)
-        else:
-            excluded_taxa = None
+        match_nogs, match_nogs_names, narr_ogs, best_ogs = parse_nogs(match_nogs, tax_scope_mode, tax_scope_ids)
+                
+        if best_ogs is None:
+            return None
 
         ##
         # Retrieve co-orthologs of seed ortholog
-        # annot_levels are used to restrict the speciation events retrieved
-        # target_taxa are used to restrict the species from which to retrieve co-ortholog proteins
-        annot_levels = set()
-        annot_levels.add(best_og_level)
         try:
-            all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, annot_levels, match_nogs_names, eggnog_db)
+            all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, best_ogs, match_nogs, eggnog_db)
             if best_OG is not None:
-                best_og_name = best_OG
-                best_og_id = best_OG.split("|")[0].split("@")[0]
-                best_og_level = best_OG.split("|")[0].split("@")[1]
-                if best_og_id == "seed_ortholog":
-                    best_og_cat = "-"
-                    best_og_desc = "-"
-                else:
-                    best_og_cat, best_og_desc = get_og_description(best_og_id, best_og_level, eggnog_db)
+                best_ogs = [best_OG]
 
-        except Exception as e:
-            # import traceback
-            # traceback.print_exc()
-            raise e
-        else:
             # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
             orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise EmapperException(f'Error: orthology retrieval went wrong for hit {hit}. '+str(e))
 
         ##
         # Retrieve annotations of co-orthologs
         if annot == True and orthologs is not None and len(orthologs) > 0:
-
             annotations = annota.summarize_annotations(orthologs,
                                                        annotations_fields = ANNOTATIONS_HEADER,
                                                        target_go_ev = go_evidence,
                                                        excluded_go_ev = go_excluded,
                                                        eggnog_db = eggnog_db)
 
-            if pfam_transfer == PFAM_TRANSFER_NARROWEST_OG:
-                if best_og_level == narr_og_level:
-                    narr_orthologies = all_orthologies
-                else:
-                    narr_annot_levels = set()
-                    narr_annot_levels.add(narr_og_level)
-                    narr_orthologies, _ = ortho.get_member_orthologs(best_hit_name, narr_annot_levels, match_nogs_names, eggnog_db)
-
-                # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-                narr_orthologs = _filter_orthologs(narr_orthologies, target_orthologs, target_taxa, excluded_taxa)
-
-                pfam_annotations = eggnog_db.get_pfam_annotations(','.join(['"%s"' % n for n in narr_orthologs]))
-                if pfam_annotations is not None and len(pfam_annotations) > 0:
-                    annotations["PFAMs"] = Counter()
-                    for pfam_annotation in pfam_annotations:
-                        annotations["PFAMs"].update([str(x).strip() for x in pfam_annotation[0].split(",")])
-                else:
-                    annotations["PFAMs"] = Counter()
-
-            elif pfam_transfer == PFAM_TRANSFER_SEED_ORTHOLOG:
-                pfam_annotations = eggnog_db.get_pfam_annotations('"'+best_hit_name+'"')
-                if pfam_annotations is not None and len(pfam_annotations) > 0:
-                    pfam_annotations = Counter(list(pfam_annotations[0][0].split(",")))
-                    annotations["PFAMs"] = pfam_annotations
-                else:
-                    annotations["PFAMs"] = Counter()                    
-            else: # pfam_transfer == PFAM_TRANSFER_BEST_OG
-                pass
-
         else:
             annotations = {}
-
+            
+        best_og_name, best_og_cat, best_og_desc = get_ogs_descriptions(best_ogs, eggnog_db)
+        narr_og_name, narr_og_cat, narr_og_desc = get_ogs_descriptions(narr_ogs, eggnog_db)
+        
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -184,29 +125,6 @@ def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_scor
     
     return False
 
-##
-def normalize_target_taxa(target_taxa, ncbi):
-    """
-    Receives a list of taxa IDs and/or taxa names and returns a set of expanded taxids numbers
-    """
-    expanded_taxa = set()
-    
-    for taxon in target_taxa:
-        taxid = ""
-        try:
-            taxid = int(taxon)
-        except ValueError:
-            taxid = ncbi.get_name_translator([taxon])[taxon][0]
-        else:
-            taxon = ncbi.get_taxid_translator([taxid])[taxid]
-
-        if taxid is not None:
-            species = ncbi.get_descendant_taxa(taxid, intermediate_nodes = True)
-            for sp in species:
-                expanded_taxa.add(sp)
-
-    return expanded_taxa
-
 
 def get_member_ogs(name, eggnog_db):
     ogs = None
@@ -216,10 +134,29 @@ def get_member_ogs(name, eggnog_db):
     return ogs
 
 
-def get_og_description(og, level, eggnog_db):
+def get_ogs_descriptions(nogs, eggnog_db):
+    og_name = None
+    cat = None
+    desc = None
+    for nog in nogs:
+        nog_id, nog_tax_id, nog_name, nog_depth = nog
+        nog_cat, nog_desc = get_og_description(nog_id, nog_tax_id, eggnog_db)
+
+        if og_name is None:
+            og_name = nog_name
+            cat = nog_cat
+            desc = nog_desc
+        else:
+            og_name = " / ".join(og_name, nog_name)
+            cat = " / ".join(cat, nog_cat)
+            desc = " / ".join(desc, nog_desc)
+            
+    return og_name, cat, desc
+
+def get_og_description(og, tax_id, eggnog_db):
     best = ['-', '-', '-']
     
-    for og, nm, desc, cat in eggnog_db.get_ogs_description(og, level):
+    for og, nm, desc, cat in eggnog_db.get_ogs_description(og, tax_id):
         desc = desc.strip()
         if desc and desc != 'N/A' and desc != 'NA':
             best = [nm, cat, desc]

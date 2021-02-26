@@ -347,67 +347,13 @@ class Test(unittest.TestCase):
             shutil.rmtree(scratchdir)
         
         return
-
     
-    def test_pfam_transfer_narrowest_og(self):
+
+    def test_pfam_realign(self):
         '''
-        Tests --pfam_transfer narrowest_og
+        Tests --pfam_realign realign
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_transfer narrowest_og
-        
-        ##
-        # Setup test
-        
-        in_file = "tests/fixtures/test_pfam_groups.fa"
-        data_dir = "tests/fixtures"
-        outdir = "tests/integration/out"
-        outprefix = "test"
-
-        # Observed and expected files
-        obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
-        
-        exp_annotations = os.path.join(data_dir, 'pfam_transfer_narrowest_og_output', 'test.emapper.annotations')
-
-        ##
-        # Run test
-        
-        # Remove (just in case) and recreate the output dir
-        if os.path.isdir(outdir):
-            shutil.rmtree(outdir)
-        os.mkdir(outdir)
-
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_transfer narrowest_og'
-
-        # print(f"\t{cmd}")
-
-        st, out, err = run(cmd)
-        if st != 0:
-            # print(out)
-            # print(err)
-            print(out.decode("utf-8"))
-            print(err.decode("utf-8"))
-        assert st == 0 # check exit status is ok        
-
-        ##
-        # Check test
-        # Check annotation phase
-        check_annotations(obs_annotations, exp_annotations)
-
-        ##
-        # Teardown test
-        
-        # Remove the output dir
-        if os.path.isdir(outdir):
-            shutil.rmtree(outdir)
-        
-        return
-
-
-    def test_pfam_align_seed(self):
-        '''
-        Tests --pfam_transfer seed_ortholog --pfam_realign realign
-        '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_transfer seed_ortholog --pfam_realign realign
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_realign realign
         
         ##
         # Setup test
@@ -421,8 +367,8 @@ class Test(unittest.TestCase):
         obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
         obs_pfam = os.path.join(outdir, outprefix+PFAM_SUFFIX)
         
-        exp_annotations = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.annotations')
-        exp_pfam = os.path.join(data_dir, 'pfam_align_seed_output', 'test.emapper.pfam')
+        exp_annotations = os.path.join(data_dir, 'pfam_realign_output', 'test.emapper.annotations')
+        exp_pfam = os.path.join(data_dir, 'pfam_realign_output', 'test.emapper.pfam')
 
         ##
         # Run test
@@ -432,7 +378,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_transfer seed_ortholog --pfam_realign realign'
+        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_realign realign'
 
         # print(f"\t{cmd}")
 

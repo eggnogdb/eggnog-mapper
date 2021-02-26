@@ -1,27 +1,65 @@
 ##
 
-def get_member_orthologs(member, target_levels, all_nogs, eggnog_db):
+def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
     
     # Try to setup orthology using best OG
     
-    orthology = __setup_orthology(member, target_levels, eggnog_db)
+    orthology = __setup_orthology(member, best_ogs, eggnog_db)
     if orthology is not None and len(orthology) > 0:
         all_orthologs = __load_orthology(orthology)
         best_OG = None
     else:
-        
-        # If no orthology from best OG, try using other NOGs from narrowest to widest
 
-        for nog in reversed(all_nogs):
-            nog_level = nog.split("|")[0].split("@")[1]
-            orthology = __setup_orthology(member, [nog_level], eggnog_db)
+        ##
+        # If no orthology was obtained from best OG, try using other NOGs in its vicinity
+
+        # 1) Split the list of OGs from the best OGs, in 2 parts:
+        # - bot_top_nogs: bottom-top NOGs from the best OGs
+        # - top_bot_nogs: top-bottom NOGs from the best OGs
+        
+        best_ogs_indexes = [all_nogs.index(best_og) for best_og in best_ogs]
+        
+        if min(best_ogs_indexes) <= len(all_nogs):
+            bot_top_nogs = all_nogs[:min(best_ogs_indexes)]
+            bot_top_nogs.reverse()
+        else:
+            bot_top_nogs = []
+        
+        if max(best_ogs_indexes) + 1 <= len(all_nogs) - 1:
+            top_bot_nogs = all_nogs[max(best_ogs_indexes) + 1:]
+        else:
+            top_bot_nogs = []
+
+        # 2) Iterate alternatively from one list to the other trying to find
+        # the closesest NOG to the best OGs which yields a valid orthology
+        if len(top_bot_nogs) > 0:
+            curr_list = top_bot_nogs
+            prev_list = bot_top_nogs
+        else:
+            curr_list = bot_top_nogs
+            prev_list = []
             
+        while len(curr_list) > 0:
+            nog = curr_list[0]
+            orthology = __setup_orthology(member, [nog], eggnog_db)
+
+            # If a valid orthology is found, the new best OG will be this NOG
             if orthology is not None and len(orthology) > 0:
                 all_orthologs = __load_orthology(orthology)
                 best_OG = nog
                 break
 
-        # If no orthology found, use seed ortholog for annotation
+            # If no valid orthology was found, keep looping alternatively the 2 lists
+            if len(prev_list) > 0:
+                tmp_list = prev_list
+                prev_list = curr_list[1:]
+                curr_list = tmp_list
+            # If one list was already depleted, iterate over the remaining list
+            else:
+                curr_list = curr_list[1:]
+
+        ##
+        # If no orthology was found after iterating over all the NOGs, use the seed ortholog for annotation
         
         if orthology is None or len(orthology) == 0:
             all_orthologs = {
@@ -31,7 +69,7 @@ def get_member_orthologs(member, target_levels, all_nogs, eggnog_db):
                 "many2one": set(),
                 "all": {member},
             }
-            best_OG = f"seed_ortholog@{member}|-"
+            best_OG = ("seed_ortholog", "-", f"seed_ortholog@{member}|-", None)
 
     return all_orthologs, best_OG
 
@@ -70,12 +108,14 @@ def __load_orthology(orthology):
             
     return all_orthologs
 
-def __setup_orthology(member, target_levels, eggnog_db):
+def __setup_orthology(member, best_ogs, eggnog_db):
     orthology = {}
     
     member_as_set = set([member])
+
+    best_ogs_tax_ids = set([best_og[1] for best_og in best_ogs])
     
-    for level, _side1, _side2 in eggnog_db.get_member_events(member.strip(), target_levels):
+    for level, _side1, _side2 in eggnog_db.get_member_events(member.strip(), best_ogs_tax_ids):
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
 
@@ -85,7 +125,7 @@ def __setup_orthology(member, target_levels, eggnog_db):
         
         # merge by coorthologs
         __set_coorthologs(by_sp1, by_sp2, member_as_set, orthology)
-        __set_coorthologs(by_sp2, by_sp1, member_as_set, orthology)        
+        __set_coorthologs(by_sp2, by_sp1, member_as_set, orthology)
     
     return orthology
 

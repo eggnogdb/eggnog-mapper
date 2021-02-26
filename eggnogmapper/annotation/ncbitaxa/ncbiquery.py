@@ -15,7 +15,7 @@ ncbi = None
 
 def get_ncbi(usemem = False, dbfile = None):
     global ncbi
-    if ncbi is None:
+    if ncbi is None or ncbi.db is None:
         ncbi = NCBITaxa(usemem, dbfile)
     return ncbi
 
