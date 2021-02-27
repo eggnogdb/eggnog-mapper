@@ -121,13 +121,24 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_ids):
             best_ogs = narr_ogs
             
         else:
-            raise EmapperException(f"Could not recognize tax scope mode {tax_scope_mode}.")
+            # If tax_scope_mode is another tax_scope
+            tax_scope_mode_ids = parse_tax_scope(tax_scope_mode)
+            if tax_scope_mode_ids is not None:
+                inters = set(tax_scope_mode_ids) & set([nog[1] for nog in match_nogs_full])
+                if len(inters) > 0:
+                    max_depth = max([LEVEL_DEPTH[tax_id] for tax_id in inters])
+                    candidate_best_ogs = [nog for nog in match_nogs_full if nog[3] == max_depth]
+                    if len(candidate_best_ogs) > 0:
+                        best_ogs = candidate_best_ogs
+            else:
+                raise EmapperException(f"Could not recognize tax scope mode {tax_scope_mode}.")
 
     ##
     # Obtain best OG based on tax scope
     
     else:
         # Intersection of tax scope and OGs
+        candidate_best_ogs = None
         inters = set(tax_scope_ids) & set([nog[1] for nog in match_nogs_full])
         if len(inters) > 0:
             # pick best OG tax id based on tax scope mode
@@ -145,11 +156,18 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_ids):
                 
             elif tax_scope_mode == TAX_SCOPE_MODE_NARROWEST:
                 candidate_best_ogs = max_depth_ogs
-                
             else:
-                raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}.")
+                # If tax_scope_mode is another tax_scope
+                tax_scope_mode_ids = parse_tax_scope(tax_scope_mode)
+                if tax_scope_mode_ids is not None:
+                    inters = set(tax_scope_mode_ids) & set([nog[1] for nog in match_nogs_full])
+                    if len(inters) > 0:
+                        max_depth = max([LEVEL_DEPTH[tax_id] for tax_id in inters])
+                        candidate_best_ogs = [nog for nog in match_nogs_full if nog[3] == max_depth]
+                else:                
+                    raise EmapperException(f"Unrecognized tax scope mode {tax_scope_mode}.")
 
-            if len(candidate_best_ogs) > 0:
+            if candidate_best_ogs is not None and len(candidate_best_ogs) > 0:
                 best_ogs = candidate_best_ogs
 
     match_nogs_names = [f"{nog[2]}" for nog in match_nogs_full]
