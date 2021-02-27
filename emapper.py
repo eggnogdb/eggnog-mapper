@@ -289,23 +289,29 @@ def create_arg_parser():
     pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
                                 "particular clade are used for functional transfer. "
-                                "Also, among the potential clades, the annotations will be transferred from the broadest one. "
-                                "Possible arguments are: "
-                                "1) The name of a file stored within the 'data/tax_scopes/' directory "
-                                "(note that 'data' could have been changed with --data_dir). Some existing examples are 'auto', 'bacteria', ... "
-                                "2) 'narrowest': to use the deepest or narrowest clade for each hit. "
+                                "More specifically, the --tax_scope list is intersected with the seed orthologs clades, "
+                                "and the resulting clades are used for annotation based on --tax_scope_mode. "
+                                "Note that those seed orthologs without clades intersecting with --tax_scope "
+                                "will be filtered out, and won't annotated. "
+                                "Possible arguments for --tax_scope are: "
+                                "1) A path to a file defined by the user, which contains a list of tax IDs and/or tax names. "
+                                "2) The name of a pre-configured tax scope, whose source is a file stored within the 'eggnogmapper/annotation/tax_scopes/' directory "
+                                "By default, available ones are: 'auto' ('all'), 'auto_broad' ('all_broad'), 'all_narrow', 'archaea', "
+                                "'bacteria', 'bacteria_broad', 'eukaryota', 'eukaryota_broad' and 'prokaryota_broad'."
                                 "3) A comma-separated list of taxonomic names and/or taxonomic IDs, sorted by preference. "
-                                "Such list can be ended with 'narrowest' or 'none', to specify the behaviour when the tax ID is not found among OGs. "
-                                "If only the list of tax IDs is specified, the default behaviour is 'none', "
-                                "so that no OG will be used for annotation if not found among the tax IDs. "
-                                "If 'narrowest' is specified, if no OG is found among the list of tax IDs, the narrowest OG will be used for annotation. "
-                                "An example of list of tax IDs would be 2759,2157,2,1 for euk, arch, bact and root, in that order of preference. "))
+                                "An example of list of tax IDs would be 2759,2157,2,1 for Eukaryota, Archaea, Bacteria and root, in that order of preference. "
+                                "4) 'none': do not filter out annotations based on taxonomic scope."))
 
-    pg_annot.add_argument("--tax_scope_mode", type=str, default=TAX_SCOPE_MODE_INNER_NARROWEST, choices=[TAX_SCOPE_MODE_BROADEST,
-                                                                                                         TAX_SCOPE_MODE_INNER_BROADEST,
-                                                                                                         TAX_SCOPE_MODE_INNER_NARROWEST,
-                                                                                                         TAX_SCOPE_MODE_NARROWEST],
-                          help=(""))
+    pg_annot.add_argument("--tax_scope_mode", type=str, default=TAX_SCOPE_MODE_INNER_NARROWEST,
+                          help=("For a seed ortholog which passed the filter imposed by --tax_scope, "
+                                "--tax_scope_mode controls which specific clade, to which the seed ortholog belongs, will be used for annotation. "
+                                f"Options: "
+                                f"1) {TAX_SCOPE_MODE_BROADEST}: use the broadest clade. "
+                                f"2) {TAX_SCOPE_MODE_INNER_BROADEST}: use the broadest clade from the intersection with --tax_scope. "
+                                f"3) {TAX_SCOPE_MODE_INNER_NARROWEST}: use the narrowest clade from the intersection with --tax_scope. "
+                                f"4) {TAX_SCOPE_MODE_NARROWEST}: use the narrowest clade. "
+                                f"5) A taxonomic scope as in --tax_scope: use this second list to intersect with seed ortholog clades and "
+                                f"use the narrowest (as in inner_narrowest) from the intersection to annotate."))
 
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
                                                          "one2many","many2many", "all"],
