@@ -11,54 +11,51 @@ DECORATE_GFF_GENEPRED = "yes"
 DECORATE_GFF_FILE = "FILE:FIELD"
 
 DECORATE_GFF_FIELD_DEFAULT = "ID"
-
+        
 ##
-def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile, predictor, searcher, annotator):
+def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile,
+                       predictor, searcher_name, annotated_hits):
+
+    annot_generator = None
     
     ##
     # Generate GFF data to decorate
     if mode == DECORATE_GFF_NONE:
-        # if prodigal, just rename its GFF file, since it will be no decorated
+        
+        # if prodigal, just rename its GFF file, since it won't decorated
         if is_prodigal:
             shutil.move(predictor.outfile, gff_outfile)
+            annot_generator = annotated_hits
+            
 
         # if blastx, create a gff with the hits
         elif is_blastx:
-            hits = searcher.get_hits()
-            annotations = None
             rm_suffix = True # rm_suffix is to remove the "_int" added for gene prediction hits (to recover the contig name)
-            create_gff(searcher.name, get_version(), hits, annotations, gff_outfile, rm_suffix)
+            annot_generator = create_gff(searcher_name, get_version(),
+                                         annotated_hits, gff_outfile, rm_suffix)
 
-        # else: DO NOTHING
+        else:
+            annot_generator = annotated_hits
 
     elif mode == DECORATE_GFF_GENEPRED:
-            
-        if searcher is None: # -m no_search (IT SHOULD NEVER HAPPEN FOR is_blastx)
-            hits = None
-            searcher_name = None
-        else:
-            hits = searcher.get_hits()
-            searcher_name = searcher.name
-            
-        if annotator is None: # --no_annot
-            annotations = None
-        else:
-            annotations = annotator.get_annotations_dict()
-            hits = annotator.get_hits()
 
-        if hits is None and annotations is None and is_prodigal:
+        if annotated_hits is None and is_prodigal:
             shutil.move(predictor.outfile, gff_outfile)
-        elif hits is None:
-            print("Hits are required to create a GFF.")            
-        elif len(hits[0]) == 4: # short hits
-            print("No GFF will be created from short hits.")
+            annot_generator = annotated_hits
+            
+        elif annotated_hits is None:
+            print("Hits are required to create a GFF.")
+            annot_generator = annotated_hits
+            
         else:
             # rm_suffix is to remove the "_int" added for gene prediction hits (to recover the contig name)
             if is_prodigal or is_blastx:
                 rm_suffix = True
             else:
                 rm_suffix = False
-            create_gff(searcher_name, get_version(), hits, annotations, gff_outfile, rm_suffix)
+
+            annot_generator = create_gff(searcher_name, get_version(),
+                                         annotated_hits, gff_outfile, rm_suffix)
 
     else: # DECORATE_GFF_FILE --> decorate user specified file
         if ":" in mode:
@@ -69,100 +66,101 @@ def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile, predictor, sea
             decorate_gff_file = mode
             decorate_gff_field = DECORATE_GFF_FIELD_DEFAULT
 
-        if searcher is None: # -m no_search (IT SHOULD NEVER HAPPEN FOR is_blastx)
-            hits = None
-            searcher_name = None
-        else:
-            hits = searcher.get_hits_dict()
-            searcher_name = searcher.name
+        if annotated_hits is None:
+            print("No GFF will be created, since there are no annotated hits.")
             
-        if annotator is None: # --no_annot
-            annotations = None
-        else:
-            annotations = annotator.get_annotations_dict()
-            hits = annotator.get_hits_dict()
+        annot_generator = decorate_gff(decorate_gff_file, decorate_gff_field,
+                                       gff_outfile, annotated_hits,
+                                       get_version(), searcher_name)
 
-        if hits is None and annotations is None:
-            print("No GFF will be created, since there are no hits nor annotations.")
-            
-        decorate_gff(decorate_gff_file, decorate_gff_field, gff_outfile, hits, annotations, get_version(), searcher_name) # TODO
-
-    return
+    return annot_generator
 
 ##
 # Parse a GFF and create a new one adding hits and/or annotations
-def decorate_gff(gff_file, gff_field, outfile, hits_dict, annotations_dict, version, searcher_name):
+def decorate_gff(gff_file, gff_field, outfile, annotated_hits, version, searcher_name):
 
-    if annotations_dict is not None:
-        # print([(name,col) for col,name in enumerate(ANNOTATIONS_WHOLE_HEADER)])
-        annotations_fields = [(name,col) for col,name in enumerate(ANNOTATIONS_WHOLE_HEADER)][8:]
-        
-    with open(outfile, 'w') as OUT, open(gff_file, 'r') as gff_f:
-        print("##gff-version 3", file=OUT)
-        print(f"## decorated with {version}", file=OUT)
-        
+    # 1) Parse GFF
+    gff_comments = []
+    gff_dict = {}
+    with open(gff_file, 'r') as gff_f:
         for line in gff_f:
             if line.startswith("##gff-version"): continue
             if line.startswith("#"):
-                print(line.strip(), file=OUT)
+                gff_comments.append(line.strip())
                 continue
+            
+            (g_seqid, g_source, g_type, g_start, g_end,
+             g_score, g_strand, g_phase, g_attrs) = list(map(str.strip, line.split("\t")))
 
-            (g_seqid, g_source, g_type, g_start, g_end, g_score, g_strand, g_phase, g_attrs) = list(map(str.strip, line.split("\t")))
+            g_start = int(g_start)
+            g_end = int(g_end)
+            g_score = float(g_score)
 
             attrs_list = [attr for attr in g_attrs.split(";") if attr is not None and attr != ""]
-            attrs_dict = {attr.split("=")[0]:attr.split("=")[1] for attr in attrs_list}
-            
-            if gff_field in attrs_dict:
-                g_field_v = attrs_dict[gff_field]
-                if g_field_v in hits_dict:
-                    hit = hits_dict[g_field_v]
-                    if len(hit) == 4:
-                        query, target, evalue, score = short_hit_to_gff(hit)
-                        attrs_list.extend([f"em_target={target}", f"em_score={score}", f"em_evalue={evalue}"])
-                    elif len(hit) == 11:
-                        query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov, strand, phase = hit_to_gff(hit)
-                        attrs_list.extend([f"em_target={target}", f"em_score={score}",
-                                           f"em_evalue={evalue}", f"em_tcov={scov}",
-                                           f"em_sstart={sstart}", f"em_send={send}"])
-                    if searcher_name is None:
-                        attrs_list.append(f"em_searcher=unk")
-                    else:
-                        attrs_list.append(f"em_searcher={searcher_name}")
-                        
-                if g_field_v in annotations_dict:
-                    annotations = annotations_dict[query]
-                    for name,col in annotations_fields:
-                        attrs_list.append(f"em_{name}={annotations[col]}")
-            else:
-                pass
-            
-            fields = "\t".join((str(x) for x in [g_seqid, g_source, g_type, g_start, g_end, g_score, g_strand, g_phase, ";".join(attrs_list)]))
-            
+            record_key = [attr.split("=")[1] for attr in attrs_list
+                          if attr.split("=")[0] == DECORATE_GFF_FIELD_DEFAULT][0]
+
+            gff_dict[record_key] = [g_seqid, g_source, g_type, g_start, g_end,
+                                    g_score, g_strand, g_phase, attrs_list]
+
+    # 2) Parse annotated hits and yield them again
+    for hit, annotation in parse_annotations(annotated_hits):
+        query = hit[0]
+        if query in gff_dict:
+            attrs_list = gff_dict[query][8]
+            # include hit
+            if hit is not None:
+                (query, target, evalue, score,
+                 qstart, qend, sstart, send,
+                 pident, qcov, scov,
+                 strand, phase, attrs) = hit_to_gff(hit)
+
+                attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
+                
+            # include annotations
+            if annotation is not None:
+                attrs = annotation_to_gff(annotation)
+                
+                attrs_list.extend(attrs)
+
+        yield hit, annotation
+
+    # 3) Output GFF
+    with open(outfile, 'w') as OUT:
+        print("##gff-version 3", file=OUT)
+        print(f"## decorated with {version}", file=OUT)
+
+        for comment in gff_comments:
+            print(comment, file=OUT)
+
+        for v in sorted(gff_dict.values(), key=lambda x: (x[0], x[3], x[4], x[5])):
+            fields = v[:-1]
+            attrs_list = ";".join(v[-1])
+            fields = fields + [attrs_list]
+            fields = "\t".join(list(map(str, fields)))
             print(fields, file=OUT)
             
     return
 
 ##
 # Create GFF file by parsing the hits
-#
-def create_gff(searcher_name, version, hits, annotations_dict, outfile, rm_suffix):
-    
-    # preload annotations fields to be output in the GFF
-    if annotations_dict is not None:
-        # print([(name,col) for col,name in enumerate(ANNOTATIONS_WHOLE_HEADER)])
-        annotations_fields = [(name,col) for col,name in enumerate(ANNOTATIONS_WHOLE_HEADER)][8:]
+##
+def create_gff(searcher_name, version, annotated_hits, outfile, rm_suffix):
         
     with open(outfile, 'w') as OUT:
 
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
 
-        for hit in sorted(hits, key=lambda x: (x[0],x[4],x[5],x[3])):
+        # The sorted function breaks the generators flow
+        # but here it is necessary to sort the gff records by position
+        for hit, annotation in sorted(parse_annotations(annotated_hits),
+                                      key=lambda hit: sort_annotated_hits(hit, rm_suffix)):
 
-            query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov, strand, phase = hit_to_gff(hit)
-            
-            attrs = [f"ID={query}", f"em_target={target}", f"em_score={score}", f"em_evalue={evalue}",
-                     f"em_tcov={scov}", f"em_sstart={sstart}", f"em_send={send}"]
+            (query, target, evalue, score,
+             qstart, qend, sstart, send,
+             pident, qcov, scov,
+             strand, phase, attrs) = hit_to_gff(hit)
 
             if searcher_name is None:
                 attrs.append(f"em_searcher=unk")
@@ -170,25 +168,46 @@ def create_gff(searcher_name, version, hits, annotations_dict, outfile, rm_suffi
                 attrs.append(f"em_searcher={searcher_name}")
 
             # include annotations
-            if annotations_dict is not None and query in annotations_dict:
-                annotations = annotations_dict[query]
-                for name,col in annotations_fields:
-                    attrs.append(f"em_{name}={annotations[col]}")
+            if annotation is not None:
+                attrs.extend(annotation_to_gff(annotation))
 
             if rm_suffix:
                 contig = query[:query.rfind("_")]
             else:
                 contig = query
                 
-            fields = "\t".join((str(x) for x in [contig, "eggNOG-mapper", "CDS", qstart, qend, score, strand, phase, ";".join(attrs)]))
+            fields = "\t".join((str(x) for x in [contig, "eggNOG-mapper", "CDS", qstart, qend,
+                                                 score, strand, phase, ";".join(attrs)]))
             
             print(fields, file=OUT)
 
+            yield hit, annotation
     return
 
 #
+def parse_annotations(annotated_hits):
+    for hit, annotation in annotated_hits:
+        if len(hit) == 4:
+            hit = hit + [-1, -1, -1, -1,
+                         ".", ".", "."]
+        yield hit, annotation
+    return
+
+#
+def sort_annotated_hits(annotated_hit, rm_suffix):
+    hit, annotation = annotated_hit
+    query = hit[0]
+    if rm_suffix == True:
+        contig = query[:query.rfind("_")]
+    else:
+        contig = query
+    return contig, hit[4], hit[5], hit[3]
+
+#
 def hit_to_gff(hit):
-    (query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov) = hit
+    (query, target, evalue, score,
+     qstart, qend, sstart, send,
+     pident, qcov, scov) = hit
     if qstart <= qend:
         strand = "+"
     else:
@@ -197,13 +216,34 @@ def hit_to_gff(hit):
         qstart = hit[5]
         
     phase = "." # we cannot know the phase as we align against proteins
-                
-    return query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov, strand, phase
 
-
-def short_hit_to_gff(hit):
-    (query, target, evalue, score) = hit
+    attrs = [f"{DECORATE_GFF_FIELD_DEFAULT}={query}", f"em_target={target}",
+             f"em_score={score}", f"em_evalue={evalue}",
+             f"em_tcov={scov}"]
                 
-    return query, target, evalue, score
+    return (query, target, evalue, score, qstart, qend,
+            sstart, send, pident, qcov, scov, strand, phase, attrs)
+
+def annotation_to_gff(annotation):
+    attrs = []
+    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+     annotations,
+     (narr_og_name, narr_og_cat, narr_og_desc),
+     (best_og_name, best_og_cat, best_og_desc),
+     match_nog_names,
+     all_orthologies, annot_orthologs) = annotation
+    
+    match_nog_names = ",".join(match_nog_names)
+    attrs.append(f"em_OGs={match_nog_names}")
+    attrs.append(f"em_best_OG_name={best_og_name}")
+    attrs.append(f"em_best_OG_cat={best_og_cat}")
+    attrs.append(f"em_best_OG_desc={best_og_desc}")
+
+    for k, v in annotations.items():
+        tag = f"em_{k.replace(' ', '_')}"
+        value = ",".join(sorted(list(v)))
+        attrs.append(f"{tag}={value}")
+        
+    return attrs
 
 ## END

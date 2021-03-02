@@ -35,18 +35,19 @@ class Test(unittest.TestCase):
                          dmnd_evalue=0.001,
                          dmnd_score=60,
                          outfmt_short=True,
-                         temp_dir=os.getcwd(),
+                         temp_dir="tests/unit/out/",
                          no_file_comments=None)
         
         fasta_file = "tests/fixtures/test_queries.fa"
-        tempdir = "tests/unit/out/"
         output_file = "tests/unit/out/test_run_diamond_blastp.seed_orthologs"
                 
         searcher = DiamondSearcher(args)
-        cmd = searcher.run_diamond(fasta_file, tempdir, output_file)
+        cmd = searcher.run_diamond(fasta_file, output_file)
         
         self.assertIsNotNone(cmd)
         self.assertTrue(cmd.startswith(DIAMOND))
+
+        searcher.clear()
         
         return
 
@@ -68,19 +69,20 @@ class Test(unittest.TestCase):
                          dmnd_evalue=0.001,
                          dmnd_score=60,
                          outfmt_short=True,
-                         temp_dir=os.getcwd(),
+                         temp_dir="tests/unit/out/",
                          no_file_comments=None)
         
         fasta_file = "tests/fixtures/test_queries.fna"
-        tempdir = "tests/unit/out/"
         output_file = "tests/unit/out/test_run_diamond_blastx.seed_orthologs"
                 
         searcher = DiamondSearcher(args)
         
-        cmd = searcher.run_diamond(fasta_file, tempdir, output_file)
+        cmd = searcher.run_diamond(fasta_file, output_file)
         
         self.assertIsNotNone(cmd)
         self.assertTrue(cmd.startswith(DIAMOND))
+
+        searcher.clear()
         
         return
 
@@ -102,7 +104,7 @@ class Test(unittest.TestCase):
                          dmnd_evalue=0.001,
                          dmnd_score=60,
                          outfmt_short=True,
-                         temp_dir=os.getcwd(),
+                         temp_dir="tests/unit/out/",
                          no_file_comments=None)
         
         searcher = DiamondSearcher(args)
@@ -111,7 +113,10 @@ class Test(unittest.TestCase):
         parsed = searcher.parse_diamond(seed_orthologs_file)
         
         expected = [['1000565.METUNv1_03812', '1000565.METUNv1_03812', 1.9e-207, 716.8], ['362663.ECP_0061', '362663.ECP_0061', 0.0, 1636.3]]
+        parsed = [x for x in parsed] # convert generator to list
         self.assertEqual(parsed, expected)
+
+        searcher.clear()
         
         return
     

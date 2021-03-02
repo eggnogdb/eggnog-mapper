@@ -14,7 +14,7 @@ from .pfam_common import filter_fasta_hmm_files, wrap_group_queries_pfams
 from .pfam import PfamAligner, get_hmmscan_args, parse_hmmscan_file
 
 ##
-def pfam_align_parallel_scan(annotations, PFAM_COL, queries_fasta, translate, cpu, temp_dir, pfam_file):
+def pfam_align_parallel_scan(queries_pfams, queries_fasta, translate, cpu, temp_dir, pfam_file):
     aligned_pfams = None
 
     pool = multiprocessing.Pool(cpu)
@@ -22,7 +22,7 @@ def pfam_align_parallel_scan(annotations, PFAM_COL, queries_fasta, translate, cp
     try:
 
         for alignments in pool.imap(query_pfam_annotate_scan,
-                                    wrap_group_queries_pfams(annotations, PFAM_COL, queries_fasta, get_pfam_db(), translate, temp_dir, pfam_file)):
+                                    wrap_group_queries_pfams(queries_pfams, queries_fasta, get_pfam_db(), translate, temp_dir, pfam_file)):
             if alignments is not None:
 
                 if aligned_pfams is None:

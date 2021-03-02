@@ -1,10 +1,71 @@
 ##
 ## CPCantalapiedra 2020
 
+import time
+
 from ..common import get_call_info
+
+from .ncbitaxa.ncbiquery import get_ncbi
 
 #############
 # Orthologs
+
+##
+def output_orthologs(annots, orthologs_file, no_file_comments):
+    start_time = time.time()
+
+    ncbi = get_ncbi(usemem = True)
+    
+    with open(orthologs_file, 'w') as ORTHOLOGS_OUT:
+        output_orthologs_header(ORTHOLOGS_OUT, no_file_comments)
+
+        qn = 0
+        for hit, annotation in annots:
+            if annotation is not None:
+                output_orthologs_row(ORTHOLOGS_OUT, annotation, ncbi)
+            yield hit, annotation
+            qn += 1
+
+        elapsed_time = time.time() - start_time
+        output_orthologs_footer(ORTHOLOGS_OUT, no_file_comments, qn, elapsed_time)
+
+    if ncbi is not None: ncbi.close()
+    
+    return
+
+##
+def output_orthologs_row(out, annotation, ncbi):
+    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+     annotations,
+     (narr_og_name, narr_og_cat, narr_og_desc),
+     (best_og_name, best_og_cat, best_og_desc),
+     match_nog_names,
+     all_orthologies, annot_orthologs) = annotation
+
+    all_orthologies["annot_orthologs"] = annot_orthologs
+
+    for target in all_orthologies:
+        if target == "all": continue
+        if target == "annot_orthologs": continue
+        
+        query_target_orths = all_orthologies[target]
+        if query_target_orths is None or len(query_target_orths) == 0:
+            continue
+
+        orthologs_taxids = set([int(x.split(".")[0]) for x in query_target_orths])
+        orthologs_taxnames = sorted(ncbi.get_taxid_translator(orthologs_taxids).items(), key=lambda x: x[1])
+
+        for taxid, taxname in orthologs_taxnames:
+            orth_names = []
+            for orth in [x for x in query_target_orths if int(x.split(".")[0]) == taxid]:
+                orth_name = orth.split(".")[1]
+                if orth in annot_orthologs:
+                    orth_name = f"*{orth_name}"
+                orth_names.append(orth_name)
+
+            row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+            print('\t'.join(row), file=out)
+    return
 
 ##
 def output_orthologs_header(out, no_file_comments):
@@ -19,42 +80,6 @@ def output_orthologs_header(out, no_file_comments):
     return
 
 ##
-def output_orthologs_closure(out, ncbi):
-    def output_orthologs_rows(rows):
-        # Rows
-        for query_name in rows:
-            query_orthologs = rows[query_name]
-
-            if "annot_orthologs" in query_orthologs:
-                annot_orthologs = query_orthologs["annot_orthologs"]
-            else:
-                annot_orthologs = set()
-
-            for target in query_orthologs:
-                if target == "all": continue
-                if target == "annot_orthologs": continue
-                query_target_orths = query_orthologs[target]
-                if query_target_orths is None or len(query_target_orths) == 0:
-                    continue
-
-                orthologs_taxids = set([int(x.split(".")[0]) for x in query_target_orths])
-                orthologs_taxnames = sorted(ncbi.get_taxid_translator(orthologs_taxids).items(), key=lambda x: x[1])
-
-                for taxid, taxname in orthologs_taxnames:
-                    orth_names = []
-                    for orth in [x for x in query_target_orths if int(x.split(".")[0]) == taxid]:
-                        orth_name = orth.split(".")[1]
-                        if orth in annot_orthologs:
-                            orth_name = f"*{orth_name}"
-                        orth_names.append(orth_name)
-
-                    row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
-                    print('\t'.join(row), file=out)
-
-        return
-    return output_orthologs_rows
-
-##
 def output_orthologs_footer(out, no_file_comments, qn, elapsed_time):
     # Timings
     if not no_file_comments:
@@ -67,18 +92,20 @@ def output_orthologs_footer(out, no_file_comments, qn, elapsed_time):
 ##############
 # Annotations
 
-HIT_HEADER = ["query_name",
-              "seed_eggNOG_ortholog",
-              "seed_ortholog_evalue",
-              "seed_ortholog_score",
-              "eggNOG OGs",
-              "narr_og_name",
-              "narr_og_cat",
-              "narr_og_desc"]
+##
 
-BEST_OG_HEADER = ["best_og_name",
-                  "best_og_cat",
-                  "best_og_desc"]
+HIT_HEADER = ["query",
+              "seed_ortholog",
+              "evalue",
+              "score",
+              "eggNOG_OGs",
+              "narr_OG_name",
+              "narr_OG_cat",
+              "narr_OG_desc"]
+
+BEST_OG_HEADER = ["best_OG_name",
+                  "best_OG_cat",
+                  "best_OG_desc"]
 
 ANNOTATIONS_HEADER = ['Preferred_name',
                       'GOs',
@@ -95,6 +122,58 @@ ANNOTATIONS_HEADER = ['Preferred_name',
                       'PFAMs']
 
 ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + BEST_OG_HEADER + ANNOTATIONS_HEADER
+
+##
+def output_annotations(annots, annot_file, no_file_comments, md5_field, md5_queries):
+
+    start_time = time.time()
+    
+    with open(annot_file, 'w') as ANNOTATIONS_OUT:
+        output_annotations_header(ANNOTATIONS_OUT, no_file_comments, md5_field)
+
+        qn = 0
+        for hit, annotation in annots:
+            if annotation is not None:
+                output_annotations_row(ANNOTATIONS_OUT, annotation, md5_field, md5_queries)
+            yield hit, annotation
+            qn += 1
+        
+        elapsed_time = time.time() - start_time
+        output_annotations_footer(ANNOTATIONS_OUT, no_file_comments, qn, elapsed_time)
+    return
+
+##
+def output_annotations_row(out, annotation, md5_field, md5_queries):
+
+    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+     annotations,
+     (narr_og_name, narr_og_cat, narr_og_desc),
+     (best_og_name, best_og_cat, best_og_desc),
+     match_nog_names,
+     all_orthologies, annot_orthologs) = annotation
+
+    annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
+                     ",".join(match_nog_names), 
+                     narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
+            
+    annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
+    
+    for h in ANNOTATIONS_HEADER:
+        if h in annotations:
+            annot_columns.append(",".join(sorted(list(annotations[h]))))
+        else:
+            annot_columns.append('-')
+                    
+    if md5_field == True:
+        query_name = annot_columns[0]
+        if query_name in md5_queries:
+            annot_columns.append(md5_queries[query_name])
+        else:
+            annot_columns.append("-")
+            
+    print('\t'.join([x if x is not None and x.strip() != "" else "-" for x in annot_columns]), file=out)
+    
+    return
 
 ##
 def output_annotations_header(out, no_file_comments, md5_field):
@@ -115,21 +194,7 @@ def output_annotations_header(out, no_file_comments, md5_field):
 
     return
 
-##
-def output_annotations_closure(out, md5_field, md5_queries):
-    def output_annotations_rows(rows):
-        for annot_columns in rows:
-            if md5_field == True:
-                query_name = annot_columns[0]
-                if query_name in md5_queries:
-                    annot_columns.append(md5_queries[query_name])
-                else:
-                    annot_columns.append("-")
-            print('\t'.join([x if x is not None and x.strip() != "" else "-" for x in annot_columns]), file=out)
 
-        return
-
-    return output_annotations_rows
 
 ##
 def output_annotations_footer(out, no_file_comments, qn, elapsed_time):

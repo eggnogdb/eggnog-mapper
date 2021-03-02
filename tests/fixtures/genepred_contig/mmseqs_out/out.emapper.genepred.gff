@@ -1,5 +1,5 @@
 ##gff-version 3
-## created with emapper-2.0.7-2-g7649a2f
-0	eggNOG-mapper	CDS	337	2796	1626.0	+	.	ID=0_0;em_target=316407.85674276;em_score=1626.0;em_evalue=0.0;em_tcov=100.0;em_sstart=1;em_send=820;em_searcher=mmseqs2
-0	eggNOG-mapper	CDS	3734	5017	870.0	+	.	ID=0_1;em_target=316407.21321894;em_score=870.0;em_evalue=5.487e-303;em_tcov=100.0;em_sstart=1;em_send=428;em_searcher=mmseqs2
-0	eggNOG-mapper	CDS	2801	3730	638.0	+	.	ID=0_2;em_target=316407.85674277;em_score=638.0;em_evalue=3.462e-217;em_tcov=100.0;em_sstart=1;em_send=310;em_searcher=mmseqs2
+## created with emapper-2.0.8.post2-66-g724ddf9
+0	eggNOG-mapper	CDS	337	2796	1626.0	+	.	ID=0_0;em_target=316407.85674276;em_score=1626.0;em_evalue=0.0;em_tcov=100.0;em_searcher=mmseqs2
+0	eggNOG-mapper	CDS	2801	3730	638.0	+	.	ID=0_2;em_target=316407.85674277;em_score=638.0;em_evalue=3.462e-217;em_tcov=100.0;em_searcher=mmseqs2
+0	eggNOG-mapper	CDS	3734	5017	870.0	+	.	ID=0_1;em_target=316407.21321894;em_score=870.0;em_evalue=5.487e-303;em_tcov=100.0;em_searcher=mmseqs2

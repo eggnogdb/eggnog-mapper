@@ -2,6 +2,8 @@
 ## CPCantalapiedra 2020
 
 import errno, os, shutil
+from sys import stderr
+import time
 from os.path import exists as pexists
 from os.path import join as pjoin
 
@@ -127,24 +129,26 @@ class Emapper:
 
         # search
         searcher = get_searcher(args, self.mode)
+        searcher_name = None
+        hits = None
         if searcher is not None:
-            searcher.search(queries_file,
-                            pjoin(self._current_dir, self.seed_orthologs_file),
-                            pjoin(self._current_dir, self.hmm_hits_file))
+            searcher_name = searcher.name
+            hits = searcher.search(queries_file,
+                                   pjoin(self._current_dir, self.seed_orthologs_file),
+                                   pjoin(self._current_dir, self.hmm_hits_file))
 
             # If gene prediction from the hits obtained in the search step
             # create a fasta file with the inferred proteins
             if self.genepred_is_blastx == True:
-                hits = searcher.get_hits()
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
-                create_prots_file(queries_file, hits, fasta_file)
+                hits = create_prots_file(queries_file, hits, fasta_file)
             
-        return searcher
+        return searcher, searcher_name, hits
     
     
     ##
-    def annotate(self, args, searcher, annotate_hits_table, cache_file):
-        annotator = None
+    def annotate(self, args, hits, annotate_hits_table, cache_file):
+        annotated_hits = None
         if self.annot == True or self.report_orthologs:
             hits_file = None
 
@@ -153,70 +157,72 @@ class Emapper:
                     raise EmaperException(f"Could not find cache file: {cache_file}")
                 annotator = get_cache_annotator(args)
                 if annotator is not None:
-                    annotator.annotate(cache_file,
-                                       pjoin(self._current_dir, self.annot_file),
-                                       pjoin(self._current_dir, self.no_annot_file))
+                    annotated_hits = annotator.annotate(cache_file,
+                                                        pjoin(self._current_dir, self.annot_file),
+                                                        pjoin(self._current_dir, self.no_annot_file))
             else:
                 annotator = get_annotator(args, self.annot, self.report_orthologs)
                 
                 annot_in = None # a generator of hits to annotate
-                store_hits = False # force or not the annotator to store the hits as annotator.hits
                 if annotate_hits_table is not None:
                     if not pexists(annotate_hits_table):
                         raise EmapperException("Could not find the file with the hits table to annotate: %s" % (annotate_hits_table))
                     annot_in = annotator.parse_hits(annotate_hits_table) # function which parses the file and yields hits
-                    store_hits = True
-                elif searcher is not None:
-                    annot_in = annotator.get_hits # function which returns annotator.hits
-                    annotator.hits = searcher.get_hits()
-                    store_hits = False
+                elif hits is not None:
+                    annot_in = hits
                 else:
                     raise EmapperException("Could not find hits to annotate.")
 
                 if annot_in is not None and annotator is not None:
-                    annotator.annotate(annot_in, store_hits, 
-                                       pjoin(self._current_dir, self.annot_file),
-                                       pjoin(self._current_dir, self.orthologs_file),
-                                       pjoin(self._current_dir, self.pfam_file))
+                    annotated_hits = annotator.annotate(annot_in, 
+                                                        pjoin(self._current_dir, self.annot_file),
+                                                        pjoin(self._current_dir, self.orthologs_file),
+                                                        pjoin(self._current_dir, self.pfam_file))
+        else:
+            annotated_hits = ((hit, None) for hit in hits) # hits generator without annotations
                 
-        return annotator
+        return annotated_hits
 
     
     ##
-    def decorate_gff_f(self, predictor, searcher, annotator):
+    def decorate_gff_f(self, predictor, searcher_name, annotated_hits):
 
         gff_outfile = pjoin(self._current_dir, self.genepred_gff_file)
         
-        run_gff_decoration(self.decorate_gff, self.genepred_is_prodigal, self.genepred_is_blastx, gff_outfile,
-                     predictor, searcher, annotator)
+        annotated_hits = run_gff_decoration(self.decorate_gff, self.genepred_is_prodigal,
+                                            self.genepred_is_blastx, gff_outfile,
+                                            predictor, searcher_name, annotated_hits)
         
-        return
+        return annotated_hits
 
-    
+
     ##
-    def run(self, args, infile, annotate_hits_table = None, cache_dir = None):
-
-        ##
-        # Step 0. Gene prediction
-        predictor = self.gene_prediction(args, infile)
+    def run_generator(self, generator):
+        n = 0
+        CHUNK_SIZE = 100
         
-        ##
-        # Step 1. Sequence search
-        searcher = self.search(args, infile, predictor)
-            
-        ##
-        # Step 2. Annotation
-        annotator = self.annotate(args, searcher, annotate_hits_table, cache_dir)
+        start_time = time.time()
+        
+        for item in generator:
+            n += 1
+            if n and (n % CHUNK_SIZE == 0):
+                total_time = time.time() - start_time
+                print(f"{n} {total_time} {(float(n) / total_time):.2f} q/s", file=stderr)
+                stderr.flush()
 
-        ##
-        # Decorate GFF
-        self.decorate_gff_f(predictor, searcher, annotator)
+        total_time = time.time() - start_time
+        
+        return n, total_time
 
+    ##
+    def wrap_up(self, predictor, searcher):
         ##
         # Clear things
         if predictor is not None:
             shutil.move(predictor.outprots, pjoin(self._current_dir, self.genepred_fasta_file))
             predictor.clear() # removes gene predictor output directory
+        if searcher is not None:
+            searcher.clear()
         
         ##
         # If running in scratch, move files to real output dir and clean up
@@ -237,7 +243,36 @@ class Emapper:
             colorify('Result files:', 'yellow')
             if pexists(pathname):
                 print("   %s" % (pathname))
-        
+                
         return
+    
+    ##
+    def run(self, args, infile, annotate_hits_table = None, cache_dir = None):
+
+        ##
+        # Step 0. Gene prediction
+        predictor = self.gene_prediction(args, infile)
+        
+        ##
+        # Step 1. Sequence search
+        searcher, searcher_name, hits = self.search(args, infile, predictor)
+            
+        ##
+        # Step 2. Annotation
+        annotated_hits = self.annotate(args, hits, annotate_hits_table, cache_dir)
+
+        ##
+        # step 3. Decorate GFF
+        annotated_hits = self.decorate_gff_f(predictor, searcher_name, annotated_hits)
+
+        ##
+        # Run the generators
+        n, elapsed_time = self.run_generator(annotated_hits)
+
+        ##
+        # Finish
+        self.wrap_up(predictor, searcher)
+        
+        return n, elapsed_time
 
 ## END

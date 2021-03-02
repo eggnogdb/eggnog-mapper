@@ -4,7 +4,8 @@
 import sys
 import time
 import multiprocessing
-    
+from collections import defaultdict
+
 from ..emapperException import EmapperException
 from ..common import get_call_info
 from ..utils import colorify
@@ -24,9 +25,9 @@ PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 ##
 class Annotator:
 
-    hits = hits_dict = None
-    annotations = annotations_dict = None
-    orthologs = None
+    # hits = hits_dict = None
+    # annotations = annotations_dict = None
+    # orthologs = None
     
     annot = report_orthologs = None
     
@@ -82,45 +83,42 @@ class Annotator:
         
         return
 
-    #
-    def get_hits(self):
-        return self.hits
+    # #
+    # def get_hits(self):
+    #     return self.hits
 
-    def get_hits_dict(self):
-        hits_dict = None
-        if self.hits_dict is not None:
-            hits_dict = self.hits_dict
-        elif self.hits is not None:
-            hits_dict = {hit[0]:hit for hit in self.hits}
-            self.hits_dict = hits_dict
-        # else: None
-        return hits_dict
+    # def get_hits_dict(self):
+    #     hits_dict = None
+    #     if self.hits_dict is not None:
+    #         hits_dict = self.hits_dict
+    #     elif self.hits is not None:
+    #         hits_dict = {hit[0]:hit for hit in self.hits}
+    #         self.hits_dict = hits_dict
+    #     # else: None
+    #     return hits_dict
     
-    #
-    def get_annotations(self):
-        return self.annotations
+    # #
+    # def get_annotations(self):
+    #     return self.annotations
     
-    def get_annotations_dict(self):
-        annotations_dict = None
-        if self.annotations_dict is not None:
-            annotations_dict = self.annotations_dict
-        elif self.annotations is not None:
-            annotations_dict = {annot[0]:annot for annot in self.annotations}
-            self.annotations_dict = annotations_dict
-        # else: None
-        return annotations_dict
+    # def get_annotations_dict(self):
+    #     annotations_dict = None
+    #     if self.annotations_dict is not None:
+    #         annotations_dict = self.annotations_dict
+    #     elif self.annotations is not None:
+    #         annotations_dict = {annot[0]:annot for annot in self.annotations}
+    #         self.annotations_dict = annotations_dict
+    #     # else: None
+    #     return annotations_dict
 
-    #
-    def get_orthologs(self):
-        return self.orthologs
+    # #
+    # def get_orthologs(self):
+    #     return self.orthologs
     
     ##
-    def annotate(self, hits_gen_func, store_hits, annot_file, orthologs_file, pfam_file):
+    def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file):
 
         ncbi = None
-        ORTHOLOGS_OUT = None
-        ANNOTATIONS_OUT = None
-
         try:
             if self.report_orthologs == True or self.annot == True:            
                 ##
@@ -151,98 +149,60 @@ class Annotator:
                 
                 ##
                 # Annotations
-                print(colorify("Functional annotation of refined hits starts now", 'green'))
 
-                #
-                # Prepare output files and print headers and call info
-                ORTHOLOGS_OUT = None
-                if self.report_orthologs == True:
-                    ORTHOLOGS_OUT = open(orthologs_file, "w")            
-                    output.output_orthologs_header(ORTHOLOGS_OUT, self.no_file_comments)
-
-                ANNOTATIONS_OUT = None
-                if self.annot == True:
-                    ANNOTATIONS_OUT = open(annot_file, "w")
-                    output.output_annotations_header(ANNOTATIONS_OUT, self.no_file_comments, md5_field)
-
-                # closures to generate output
-
-                output_orthologs_f = None
-                if self.report_orthologs == True:
-                    ncbi = get_ncbi(usemem = True)
-                    output_orthologs_f = output.output_orthologs_closure(ORTHOLOGS_OUT, ncbi)
-
-                output_annotations_f = None
-                if self.annot == True:
-                    output_annotations_f = output.output_annotations_closure(ANNOTATIONS_OUT, md5_field, md5_queries)
-
-                ##
                 # Obtain annotations
-                qn, elapsed_time = self._annotate(hits_gen_func, store_hits, pfam_file, output_orthologs_f, output_annotations_f)
+                annots_generator = self._annotate(hits_gen_func)
 
                 ##
-                # Output footer and close files
-                if self.report_orthologs == True:
-                    output.output_orthologs_footer(ORTHOLOGS_OUT, self.no_file_comments, qn, elapsed_time)
-
+                # PFAM realign
+                # Note that this needs all the annotations at once,
+                # and therefore breaks the generators pipeline
+                if (self.annot == True and
+                    self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and
+                    annots_generator is not None):
+                    
+                    annots_generator = run_pfam_mode(self.pfam_realign, annots_generator,
+                                                     self.queries_fasta, self.translate,
+                                                     self.cpu, self.num_servers,
+                                                     self.num_workers, self.cpus_per_worker,
+                                                     self.port, self.end_port,
+                                                     self.temp_dir, pfam_file)
+                
+                ##
+                # Output
+                
                 if self.annot == True:
-                    output.output_annotations_footer(ANNOTATIONS_OUT, self.no_file_comments, qn, elapsed_time)
+                    annots_generator = output.output_annotations(annots_generator,
+                                                                 annot_file,
+                                                                 self.no_file_comments,
+                                                                 md5_field,
+                                                                 md5_queries)
+                    
+                if self.report_orthologs == True:
+                    annots_generator = output.output_orthologs(annots_generator,
+                                                               orthologs_file,
+                                                               self.no_file_comments)
 
         finally:
             if ncbi is not None: ncbi.close()
-            if ORTHOLOGS_OUT is not None: ORTHOLOGS_OUT.close()
-            if ANNOTATIONS_OUT is not None: ANNOTATIONS_OUT.close()
             
-        return
+        return annots_generator
 
-    ##
-    def _annotate(self, hits_gen_func, store_hits, pfam_file, output_ortho_f, output_annot_f):
-        
-        start_time = time.time()
-        
+
+    def _annotate(self, hits_gen_func):
         if self.dbmem == True:
-            all_orthologs, all_annotations, qn = self._annotate_dbmem(hits_gen_func, store_hits, pfam_file)
+            annots_generator = self._annotate_dbmem(hits_gen_func)
         else:
-            all_orthologs, all_annotations, qn = self._annotate_ondisk(hits_gen_func, store_hits, pfam_file)
-
-        elapsed_time = time.time() - start_time
-        print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
-            
-        ##
-        # PFAMs annotation
-        if self.annot == True and self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and all_annotations is not None and len(all_annotations) > 0:
-            all_annotations = run_pfam_mode(self.pfam_realign, all_annotations, self.queries_fasta, self.translate,
-                                            self.cpu, self.num_servers, self.num_workers, self.cpus_per_worker, self.port, self.end_port,
-                                            self.temp_dir, pfam_file)
-            
-            elapsed_time = time.time() - start_time
-            print(colorify(f" Processed queries:{qn} total_time:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
-
-        ##
-        # Output rows
-        if self.report_orthologs == True:
-            output_ortho_f(all_orthologs)
-            
-        if self.annot == True:
-            output_annot_f(all_annotations)
-
-        self.orthologs = all_orthologs
-        self.annotations = all_annotations
-            
-        return qn, elapsed_time
+            annots_generator = self._annotate_ondisk(hits_gen_func)
+        return annots_generator
 
 
     ##
-    def _annotate_dbmem(self, hits_gen_func, store_hits, pfam_file):
-        all_orthologs = {}
-        all_annotations = []
-        start_time = time.time() # do not take into account time to load the db into memory
-        qn = 0
-        
+    def _annotate_dbmem(self, hits_gen_func):
         try:
             ##
             # Load sqlite DBs into memory
-
+            start_time = time.time()
             eggnog_db = get_eggnog_db(usemem = True)
             total_time = time.time() - start_time
             print(colorify(f"Time to load the DB into memory: {total_time}", "lblue"), file=sys.stderr)
@@ -250,41 +210,23 @@ class Annotator:
 
             ##
             # Annotate hits
-
-            start_time = time.time() # do not take into account time to load the db into memory
-
-            for result in map(annotate_hit_line_mem, self.iter_hit_lines(hits_gen_func, store_hits)):
-                qn += 1
-                if qn and (qn % 100 == 0):
-                    total_time = time.time() - start_time
-                    print(f"{qn} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
-                    sys.stderr.flush()
-
-                if result:
-                    self._process_annot_result(result, all_orthologs, all_annotations)
+            for result in map(annotate_hit_line_mem, self.iter_hit_lines(hits_gen_func)):
+                yield result
 
         except EmapperException:
             raise
         except Exception as e:
             # import traceback
             # traceback.print_exc()
-            raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
+            raise EmapperException(f"Error: annotation went wrong. "+str(e))
         finally:
             eggnog_db.close()
-
-        elapsed_time = time.time() - start_time
-        print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
                     
-        return all_orthologs, all_annotations, qn
+        return
 
     
     ##
-    def _annotate_ondisk(self, hits_gen_func, store_hits, pfam_file):
-
-        all_orthologs = {}
-        all_annotations = []
-        
-        # multiprocessing.set_start_method("spawn")
+    def _annotate_ondisk(self, hits_gen_func):
         
         pool = multiprocessing.Pool(self.cpu)
         chunk_size = 1
@@ -292,111 +234,46 @@ class Annotator:
         # https://stackoverflow.com/a/43817408/2361653
         # As our tasks take no less than 0.1 secs, a large chunk_size makes no sense at all
         # Note that this makes q/s an approximation until all tasks have been finished
-
-        start_time = time.time() # do not take into account time to load the pool of processes
         
-        qn = 0
         try:
-            for result in pool.imap(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func, store_hits), chunk_size):
-                qn += 1
-                if qn and (qn % 100 == 0):
-                    total_time = time.time() - start_time
-                    print(f"{qn} {total_time} {(float(qn) / total_time):.2f} q/s (func. annotation)", file=sys.stderr)
-                    sys.stderr.flush()
-
-                if result:
-                    self._process_annot_result(result, all_orthologs, all_annotations)      
+            for result in pool.imap(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func), chunk_size):
+                yield result
 
         except EmapperException:
             raise
         except Exception as e:
-            # import traceback
-            # traceback.print_exc()
-            raise EmapperException(f"Error: annotation went wrong for query number {qn}. "+str(e))
+            import traceback
+            traceback.print_exc()
+            raise EmapperException(f"Error: annotation failed. "+str(e))
         finally:
             pool.close()
             pool.terminate() # it should remove the global eggnog_db variables also
-
-        elapsed_time = time.time() - start_time
-        print(colorify(f" All queries processed. Time to perform queries:{elapsed_time} rate:{(float(qn) / elapsed_time):.2f} q/s", 'lblue'))
             
-        return all_orthologs, all_annotations, qn
-
-    
-    ##
-    def _process_annot_result(self, result, all_orthologs, all_annotations):
-        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-         annotations, 
-         narr_og_name, narr_og_cat, narr_og_desc,
-         best_og_name, best_og_cat, best_og_desc,                     
-         match_nogs_names, all_orthologies, annot_orthologs) = result
-
-        if self.report_orthologs == True and all_orthologies is not None and annot_orthologs is not None:
-            # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-            if query_name in all_orthologs:
-                query_orthologs = all_orthologs[query_name]
-            else:
-                query_orthologs = {}
-                all_orthologs[query_name] = query_orthologs
-
-            for target in all_orthologies:
-                if target in query_orthologs:
-                    query_orthologs[target].update(all_orthologies[target])
-                else:
-                    query_orthologs[target] = set(all_orthologies[target])
-            if "annot_orthologs" in query_orthologs:
-                query_orthologs["annot_orthologs"].update(annot_orthologs)
-            else:
-                query_orthologs["annot_orthologs"] = set(annot_orthologs)
-
-        if self.annot == True and annotations is not None:
-            # prepare annotations for printing
-            annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
-                             ",".join(match_nogs_names), 
-                             narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
-            
-            annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
-            
-            for h in ANNOTATIONS_HEADER:
-                if h in annotations:
-                    annot_columns.append(','.join(sorted(annotations[h])))
-                else:
-                    annot_columns.append('-')
-
-            all_annotations.append(annot_columns)
-
         return
     
 
     ##
     def parse_hits(self, filename):
+        for line in open(filename, 'r'):
+            if line.startswith('#') or not line.strip():
+                continue
 
-        def _parse_hits():
-            for line in open(filename, 'r'):
-                if line.startswith('#') or not line.strip():
-                    continue
+            line = list(map(str.strip, line.split('\t')))
+            # query, target, evalue, score
+            if len(line) == 4: # short hits
+                hit = [line[0], line[1], float(line[2]), float(line[3])]
+            elif len(line) == 11:
+                hit = [line[0], line[1], float(line[2]), float(line[3]),
+                       int(line[4]), int(line[5]), int(line[6]), int(line[7]),
+                       float(line[8]), float(line[9]), float(line[10])]
 
-                line = list(map(str.strip, line.split('\t')))
-                # query, target, evalue, score
-                if len(line) == 4: # short hits
-                    hit = [line[0], line[1], float(line[2]), float(line[3])]
-                elif len(line) == 11:
-                    hit = [line[0], line[1], float(line[2]), float(line[3]),
-                           int(line[4]), int(line[5]), int(line[6]), int(line[7]),
-                           float(line[8]), float(line[9]), float(line[10])]
-
-                yield hit
-                            
-        return _parse_hits
+            yield hit
+        return
     
     ##
-    def iter_hit_lines(self, hits_gen_func, store_hits = True):
+    def iter_hit_lines(self, hits_gen_func):
         
-        if store_hits: self.hits = []
-        
-        for hit in hits_gen_func():
-            
-            if store_hits: self.hits.append(hit)
+        for hit in hits_gen_func:
             
             yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_ids,
