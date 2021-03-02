@@ -1,7 +1,7 @@
 ##
 ## CPCantalapiedra 2019
 
-from os.path import join as pjoin
+from os.path import join as pjoin, isdir as pisdir
 import shutil
 import subprocess
 from tempfile import mkdtemp, mkstemp
@@ -60,9 +60,9 @@ class MMseqs2Searcher:
     translate = None
     translation_table = None
 
-    # Results
-    queries = hits = no_hits = None
-    hits_dict = None
+    # # Results
+    # queries = hits = no_hits = None
+    # hits_dict = None
 
     ##
     def __init__(self, args):
@@ -86,36 +86,42 @@ class MMseqs2Searcher:
 
         self.sub_mat = args.mmseqs_sub_mat
         
-        self.temp_dir = args.temp_dir
+        # self.temp_dir = args.temp_dir
+        self.temp_dir = mkdtemp(prefix='emappertmp_mmseqs_', dir=args.temp_dir)
         self.no_file_comments = args.no_file_comments
         
         return
 
-    ##
-    def get_hits(self):
-        return self.hits
+    # ##
+    # def get_hits(self):
+    #     return self.hits
 
-    def get_hits_dict(self):
-        hits_dict = None
+    # def get_hits_dict(self):
+    #     hits_dict = None
         
-        if self.hits_dict is not None:
-            hits_dict = self.hits_dict
-        elif self.hits is not None:
-            hits_dict = {hit[0]:hit for hit in self.hits}
-            self.hits_dict = hits_dict
+    #     if self.hits_dict is not None:
+    #         hits_dict = self.hits_dict
+    #     elif self.hits is not None:
+    #         hits_dict = {hit[0]:hit for hit in self.hits}
+    #         self.hits_dict = hits_dict
         
-        return hits_dict
+    #     return hits_dict
 
-    ##
-    def get_no_hits(self):
-        if self.hits is not None:
-            hit_queries = set([x[0] for x in self.hits])
-            self.queries = set({name for name, seq in iter_fasta_seqs(self.in_file)})
-            self.no_hits = set(self.queries).difference(hit_queries)
+    # ##
+    # def get_no_hits(self):
+    #     if self.hits is not None:
+    #         hit_queries = set([x[0] for x in self.hits])
+    #         self.queries = set({name for name, seq in iter_fasta_seqs(self.in_file)})
+    #         self.no_hits = set(self.queries).difference(hit_queries)
             
-        return self.no_hits
+    #     return self.no_hits
     
-    
+    ##
+    def clear(self):
+        if self.temp_dir is not None and pisdir(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+        return
+
     ##
     def search(self, in_file, seed_orthologs_file, hits_file = None):
         # MMseqs2Searcher does not use the "hits_file"
@@ -123,36 +129,35 @@ class MMseqs2Searcher:
         return self._search(in_file, seed_orthologs_file)
 
     def _search(self, in_file, seed_orthologs_file):
+        hits_generator = None
         if not MMSEQS2:
             raise EmapperException("%s command not found in path" % (MMSEQS2))
 
         self.in_file = in_file
         
-        tempdir = mkdtemp(prefix='emappertmp_mmseqs_', dir=self.temp_dir)
         try:
-            querydb = pjoin(tempdir, uuid.uuid4().hex)
+            querydb = pjoin(self.temp_dir, uuid.uuid4().hex)
             # print(f'Querydb {querydb}')
-            resultdb = pjoin(tempdir, uuid.uuid4().hex)
+            resultdb = pjoin(self.temp_dir, uuid.uuid4().hex)
             # print(f'ResultDB {resultdb}')
-            bestresultdb = pjoin(tempdir, uuid.uuid4().hex)
+            bestresultdb = pjoin(self.temp_dir, uuid.uuid4().hex)
             # print(f'BestResultDB {bestresultdb}')
             
-            alignmentsdb, cmds = self.run_mmseqs(in_file, tempdir, querydb, self.targetdb, resultdb, bestresultdb)
-            self.hits = self.parse_mmseqs(f'{alignmentsdb}.m8')
-            self.output_mmseqs(cmds, self.hits, seed_orthologs_file)
+            alignmentsdb, cmds = self.run_mmseqs(in_file, querydb,
+                                                 self.targetdb, resultdb, bestresultdb)
+            hits_generator = self.parse_mmseqs(f'{alignmentsdb}.m8')
+            hits_generator = self.output_mmseqs(cmds, hits_generator, seed_orthologs_file)
 
         except Exception as e:
             raise e
-        finally:
-            shutil.rmtree(tempdir)
             
-        return
+        return hits_generator
     
-    def run_mmseqs(self, fasta_file, tempdir, querydb, targetdb, resultdb, bestresultdb):
+    def run_mmseqs(self, fasta_file, querydb, targetdb, resultdb, bestresultdb):
         cmds = []
 
         if self.itype == ITYPE_CDS and self.translate == True:
-            handle, query_file = mkstemp(dir = tempdir, text = True)
+            handle, query_file = mkstemp(dir = self.temp_dir, text = True)
             translate_cds_to_prots(fasta_file, query_file)
         else:
             query_file = fasta_file
@@ -160,7 +165,7 @@ class MMseqs2Searcher:
         cmd = self.createdb(query_file, querydb)
         cmds.append(cmd)
 
-        cmd = self.search_step(querydb, targetdb, resultdb, tempdir)
+        cmd = self.search_step(querydb, targetdb, resultdb)
         cmds.append(cmd)
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
@@ -191,10 +196,10 @@ class MMseqs2Searcher:
             raise EmapperException("Error running 'mmseqs createdb': "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
         return cmd
 
-    def search_step(self, querydb, targetdb, resultdb, tempdir):
+    def search_step(self, querydb, targetdb, resultdb):
         # mmseqs search queryDB targetDB resultDB tmp
         cmd = (
-            f'{MMSEQS2} search -a true {querydb} {targetdb} {resultdb} {tempdir} '
+            f'{MMSEQS2} search -a true {querydb} {targetdb} {resultdb} {self.temp_dir} '
             f'--start-sens {self.start_sens} --sens-steps {self.sens_steps} -s {self.final_sens} '
             f'--threads {self.cpu}'
         )
@@ -254,8 +259,6 @@ class MMseqs2Searcher:
     
     ##
     def _parse_mmseqs(self, raw_mmseqs_file):
-        hits = []
-
         visited = set()
         with open(raw_mmseqs_file, 'r') as raw_f:
             for line in raw_f:
@@ -286,20 +289,18 @@ class MMseqs2Searcher:
                     (self.subject_cov is not None and scov < self.subject_cov)):
                     continue
                 
-                hit = fields[1]
+                target = fields[1]
                 length = int(fields[3])
                 qstart = int(fields[4])
                 qend = int(fields[5])
                 sstart = int(fields[6])
                 send = int(fields[7])
-                
-                hits.append([query, hit, evalue, score, qstart, qend, sstart, send, pident, qcov, scov])
-                
-        return hits
+
+                yield [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
+        return
 
     ##
     def _parse_genepred(self, raw_mmseqs_file):
-        hits = []
         curr_query_hits = []
         prev_query = None
         queries_suffixes = {}        
@@ -328,14 +329,14 @@ class MMseqs2Searcher:
                     continue
                 
                 query = fields[0]
-                hit = fields[1]
+                target = fields[1]
                 length = int(fields[3])
                 qstart = int(fields[4])
                 qend = int(fields[5])
                 sstart = int(fields[6])
                 send = int(fields[7])
                 
-                hit = [query, hit, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
+                hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
                 if query == prev_query:
                     if not hit_does_overlap(hit, curr_query_hits):
@@ -346,7 +347,7 @@ class MMseqs2Searcher:
                             suffix = 0
                             queries_suffixes[query] = suffix
                             
-                        hits.append([f"{hit[0]}_{suffix}"]+hit[1:])
+                        yield [f"{hit[0]}_{suffix}"]+hit[1:]
                         curr_query_hits.append(hit)
                 else:
                     if query in queries_suffixes:
@@ -356,12 +357,12 @@ class MMseqs2Searcher:
                         suffix = 0
                         queries_suffixes[query] = suffix
                             
-                    hits.append([f"{hit[0]}_{suffix}"]+hit[1:])
+                    yield [f"{hit[0]}_{suffix}"]+hit[1:]
                     curr_query_hits = [hit]
                     
                 prev_query = query    
                 
-        return hits
+        return
     
 
     ##
@@ -378,8 +379,9 @@ class MMseqs2Searcher:
             print('#'+"\t".join("qseqid sseqid evalue bitscore qstart qend sstart send pident qcov scov".split(" ")), file=OUT)
 
             # rows
-            for line in hits:
-                print('\t'.join(map(str, line)), file=OUT)
+            for hit in hits:
+                print('\t'.join(map(str, hit)), file=OUT)
+                yield hit
                 
         return
     

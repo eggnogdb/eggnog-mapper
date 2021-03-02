@@ -24,10 +24,11 @@ def annotate_hit_line_mem(arguments):
 ##
 def annotate_hit_line_ondisk(arguments):
     eggnog_db = get_eggnog_db(usemem = False)
-    ret = annotate_hit_line(arguments, eggnog_db)
-    return ret
+    
+    return annotate_hit_line(arguments, eggnog_db)
 
-# annotate_hit_line is outside the class because must be pickable
+##
+# Retrieve annotations and orthologs of a hit
 ##
 def annotate_hit_line(arguments, eggnog_db):
     
@@ -35,6 +36,8 @@ def annotate_hit_line(arguments, eggnog_db):
         tax_scope_mode, tax_scope_ids, \
         target_taxa, target_orthologs, excluded_taxa, \
         go_evidence, go_excluded = arguments
+
+    annotation = None
     
     try:
         query_name = hit[0]
@@ -45,63 +48,73 @@ def annotate_hit_line(arguments, eggnog_db):
         ##
         # Filter by empty hit, error, evalue and/or score
         if filter_out(best_hit_name, best_hit_evalue, best_hit_score, seed_ortholog_evalue, seed_ortholog_score):
-            return None
-        
-        ##
-        # Retrieve OGs (orthologs groups) the hit belongs to
-        match_nogs = get_member_ogs(best_hit_name, eggnog_db)
-        if not match_nogs:
-            return None
-            
-        ##
-        # Obtain OGs sorted by depth (aka tax level) and with name added
-        # and also the narrowest OG, and the best OG according to tax scope ids list and mode
-        
-        match_nogs, match_nogs_names, narr_ogs, best_ogs = parse_nogs(match_nogs, tax_scope_mode, tax_scope_ids)
-                
-        if best_ogs is None:
-            return None
-
-        ##
-        # Retrieve co-orthologs of seed ortholog
-        try:
-            all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name, best_ogs, match_nogs, eggnog_db)
-            if best_OG is not None:
-                best_ogs = [best_OG]
-
-            # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
-            orthologs = _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa)
-
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            raise EmapperException(f'Error: orthology retrieval went wrong for hit {hit}. '+str(e))
-
-        ##
-        # Retrieve annotations of co-orthologs
-        if annot == True and orthologs is not None and len(orthologs) > 0:
-            annotations = annota.summarize_annotations(orthologs,
-                                                       annotations_fields = ANNOTATIONS_HEADER,
-                                                       target_go_ev = go_evidence,
-                                                       excluded_go_ev = go_excluded,
-                                                       eggnog_db = eggnog_db)
-
+            pass
         else:
-            annotations = {}
-            
-        best_og_name, best_og_cat, best_og_desc = get_ogs_descriptions(best_ogs, eggnog_db)
-        narr_og_name, narr_og_cat, narr_og_desc = get_ogs_descriptions(narr_ogs, eggnog_db)
+            ##
+            # Retrieve OGs (orthologs groups) the hit belongs to
+            match_nogs = get_member_ogs(best_hit_name, eggnog_db)
+            if not match_nogs:
+                pass
+            else:
+                ##
+                # Obtain OGs sorted by depth (aka tax level) and with name added
+                # and also the narrowest OG, and the best OG according to tax scope ids list and mode
+
+                match_nogs, match_nogs_names, narr_ogs, best_ogs = parse_nogs(match_nogs,
+                                                                              tax_scope_mode,
+                                                                              tax_scope_ids)
+                if best_ogs is None:
+                    pass
+                else:
+                    ##
+                    # Retrieve co-orthologs of seed ortholog
+                    try:
+                        all_orthologies, best_OG = ortho.get_member_orthologs(best_hit_name,
+                                                                              best_ogs,
+                                                                              match_nogs,
+                                                                              eggnog_db)
+                        if best_OG is not None:
+                            best_ogs = [best_OG]
+
+                        # filter co-orthologs to keep only target_orthologs: "all", "one2one", ...
+                        annot_orthologs = _filter_orthologs(all_orthologies,
+                                                            target_orthologs,
+                                                            target_taxa,
+                                                            excluded_taxa)
+
+                    except Exception as e:
+                        import traceback
+                        traceback.print_exc()
+                        raise EmapperException(f'Error: orthology retrieval went wrong for hit {hit}. '+str(e))
+
+                    ##
+                    # Retrieve annotations of co-orthologs
+                    if annot == True and annot_orthologs is not None and len(annot_orthologs) > 0:
+                        annotations = annota.summarize_annotations(annot_orthologs,
+                                                                   annotations_fields = ANNOTATIONS_HEADER,
+                                                                   target_go_ev = go_evidence,
+                                                                   excluded_go_ev = go_excluded,
+                                                                   eggnog_db = eggnog_db)
+
+                    else:
+                        annotations = {}
+
+                    best_og_descriptions = get_ogs_descriptions(best_ogs, eggnog_db)
+                    narr_og_descriptions = get_ogs_descriptions(narr_ogs, eggnog_db)
+
+                    annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+                                  annotations,
+                                  narr_og_descriptions,
+                                  best_og_descriptions,
+                                  match_nogs_names,
+                                  all_orthologies, annot_orthologs)
         
     except Exception as e:
         import traceback
         traceback.print_exc()
         raise EmapperException(f'Error: annotation went wrong for hit {hit}. '+str(e))
-    
-    return (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-            annotations,
-            narr_og_name, narr_og_cat, narr_og_desc,
-            best_og_name, best_og_cat, best_og_desc,
-            match_nogs_names, all_orthologies, orthologs)
+
+    return (hit, annotation)
 
 
 def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa):
@@ -151,7 +164,7 @@ def get_ogs_descriptions(nogs, eggnog_db):
             cat = " / ".join([cat, nog_cat])
             desc = " / ".join([desc, nog_desc])
             
-    return og_name, cat, desc
+    return (og_name, cat, desc)
 
 def get_og_description(og, tax_id, eggnog_db):
     best = ['-', '-', '-']

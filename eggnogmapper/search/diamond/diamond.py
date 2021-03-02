@@ -1,7 +1,7 @@
 ##
 ## CPCantalapiedra 2019
 
-from os.path import join as pjoin
+from os.path import join as pjoin, isdir as pisdir
 import shutil
 import subprocess
 from tempfile import mkdtemp, mkstemp
@@ -59,9 +59,9 @@ class DiamondSearcher:
     translate = None
     query_gencode = None
 
-    # Results
-    queries = hits = no_hits = None
-    hits_dict = None
+    # # Results
+    # queries = hits = no_hits = None
+    # hits_dict = None
 
     ##
     def __init__(self, args):
@@ -92,11 +92,17 @@ class DiamondSearcher:
 
         self.outfmt_short = args.outfmt_short
         
-        self.temp_dir = args.temp_dir
+        self.temp_dir = mkdtemp(prefix='emappertmp_dmdn_', dir=args.temp_dir)
         self.no_file_comments = args.no_file_comments
         
         return
 
+    ##
+    def clear(self):
+        if self.temp_dir is not None and pisdir(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+        return
+    
     ##
     def search(self, in_file, seed_orthologs_file, hits_file = None):
         # DiamondSearcher does not use the "hits_file"
@@ -104,56 +110,55 @@ class DiamondSearcher:
         return self._search(in_file, seed_orthologs_file)
 
     def _search(self, in_file, seed_orthologs_file):
+        hits_generator = None
+        
         if not DIAMOND:
             raise EmapperException("%s command not found in path" % (DIAMOND))
 
         self.in_file = in_file
         
-        tempdir = mkdtemp(prefix='emappertmp_dmdn_', dir=self.temp_dir)
         try:
-            output_file = pjoin(tempdir, uuid.uuid4().hex)
-            cmd = self.run_diamond(in_file, tempdir, output_file)
-            self.hits = self.parse_diamond(output_file)            
-            self.output_diamond(cmd, self.hits, seed_orthologs_file)
+            output_file = pjoin(self.temp_dir, uuid.uuid4().hex)
+            cmd = self.run_diamond(in_file, output_file)
+            hits_generator = self.parse_diamond(output_file)            
+            hits_generator = self.output_diamond(cmd, hits_generator, seed_orthologs_file)
 
         except Exception as e:
             raise e
-        finally:
-            shutil.rmtree(tempdir)
             
-        return
+        return hits_generator
 
-    ##
-    def get_hits(self):
-        return self.hits
+    # ##
+    # def get_hits(self):
+    #     return self.hits
 
-    def get_hits_dict(self):
-        hits_dict = None
+    # def get_hits_dict(self):
+    #     hits_dict = None
         
-        if self.hits_dict is not None:
-            hits_dict = self.hits_dict
-        elif self.hits is not None:
-            hits_dict = {hit[0]:hit for hit in self.hits}
-            self.hits_dict = hits_dict
+    #     if self.hits_dict is not None:
+    #         hits_dict = self.hits_dict
+    #     elif self.hits is not None:
+    #         hits_dict = {hit[0]:hit for hit in self.hits}
+    #         self.hits_dict = hits_dict
         
-        return hits_dict
+    #     return hits_dict
 
-    ##
-    def get_no_hits(self):
-        if self.hits is not None:
-            hit_queries = set([x[0] for x in self.hits])
-            self.queries = set({name for name, seq in iter_fasta_seqs(self.in_file)})
-            self.no_hits = set(self.queries).difference(hit_queries)
+    # ##
+    # def get_no_hits(self):
+    #     if self.hits is not None:
+    #         hit_queries = set([x[0] for x in self.hits])
+    #         self.queries = set({name for name, seq in iter_fasta_seqs(self.in_file)})
+    #         self.no_hits = set(self.queries).difference(hit_queries)
             
-        return self.no_hits
+    #     return self.no_hits
 
     ##
-    def run_diamond(self, fasta_file, tempdir, output_file):
+    def run_diamond(self, fasta_file, output_file):
         ##
         # search type
         if self.itype == ITYPE_CDS and self.translate == True:
             tool = 'blastp'
-            handle, query_file = mkstemp(dir = tempdir, text = True)
+            handle, query_file = mkstemp(dir = self.temp_dir, text = True)
             translate_cds_to_prots(fasta_file, query_file)
         elif self.itype == ITYPE_CDS or self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             tool = 'blastx'
@@ -228,9 +233,7 @@ class DiamondSearcher:
             return self._parse_genepred(raw_dmnd_file)
         
     ##
-    def _parse_diamond(self, raw_dmnd_file):
-        hits = []
-
+    def _parse_diamond(self, raw_dmnd_file):        
         visited = set()
         with open(raw_dmnd_file, 'r') as raw_f:
             for line in raw_f:
@@ -249,12 +252,12 @@ class DiamondSearcher:
                     continue
                 visited.add(query)
                 
-                hit = fields[1]
+                target = fields[1]
 
                 if self.outfmt_short == True:
                     evalue = float(fields[2])
                     score = float(fields[3])
-                    hits.append([query, hit, evalue, score])
+                    hit = [query, target, evalue, score]
                 else:
                     pident = float(fields[2])
                     qstart = int(fields[6])
@@ -265,13 +268,13 @@ class DiamondSearcher:
                     score = float(fields[11])
                     qcov = float(fields[12])
                     scov = float(fields[13])
-                    hits.append([query, hit, evalue, score, qstart, qend, sstart, send, pident, qcov, scov])
-            
-        return hits
+                    hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
+
+                yield hit
+        return
 
     ##
     def _parse_genepred(self, raw_dmnd_file):
-        hits = []
         curr_query_hits = []
         prev_query = None
         queries_suffixes = {}
@@ -283,9 +286,10 @@ class DiamondSearcher:
 
                 fields = list(map(str.strip, line.split('\t')))
                 # fields are defined in run_diamond
-                # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
+                # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch
+                # gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
 
-                hit = fields[1]
+                target = fields[1]
                 pident = float(fields[2])
                 evalue = float(fields[10])
                 score = float(fields[11])
@@ -298,7 +302,7 @@ class DiamondSearcher:
                 qcov = float(fields[12])
                 scov = float(fields[13])
                 
-                hit = [query, hit, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
+                hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
                 if query == prev_query:
                     if not hit_does_overlap(hit, curr_query_hits):
@@ -308,9 +312,10 @@ class DiamondSearcher:
                         else:
                             suffix = 0
                             queries_suffixes[query] = suffix
-                            
-                        hits.append([f"{hit[0]}_{suffix}"]+hit[1:])
+
+                        yield [f"{hit[0]}_{suffix}"]+hit[1:]
                         curr_query_hits.append(hit)
+                        
                 else:
                     if query in queries_suffixes:
                         queries_suffixes[query] += 1
@@ -319,14 +324,15 @@ class DiamondSearcher:
                         suffix = 0
                         queries_suffixes[query] = suffix
                             
-                    hits.append([f"{hit[0]}_{suffix}"]+hit[1:])
+                    yield [f"{hit[0]}_{suffix}"]+hit[1:]
                     curr_query_hits = [hit]
                     
                 prev_query = query
-        
-        return hits
+        return
 
     ##
+    # Receives an iterable of hits to output
+    # and also returns a generator object of hits
     def output_diamond(self, cmd, hits, out_file):
         with open(out_file, 'w') as OUT:
 
@@ -342,9 +348,9 @@ class DiamondSearcher:
                 print('#'+"\t".join("qseqid sseqid evalue bitscore qstart qend sstart send pident qcov scov".split(" ")), file=OUT)
 
             # rows
-            for line in hits:
-                print('\t'.join(map(str, line)), file=OUT)
-                
+            for hit in hits:
+                print('\t'.join(map(str, hit)), file=OUT)                
+                yield hit
         return
 
 def hit_does_overlap(hit, hits):

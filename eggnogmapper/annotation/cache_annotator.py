@@ -39,21 +39,7 @@ class CacheAnnotator:
         self.temp_dir = args.temp_dir
         
         return
-
-    # The next methods are not implemented
-    # If required (for example, to decorate a gff)
-    # check how these methods work in annotator.py
-    def get_hits(self):
-        return None
     
-    def get_annotations(self):
-        return None
-
-    def get_annotations_dict(self):
-        return None
-
-    def get_orthologs(self):
-        return None
     
     ##
     def annotate(self, cache_file, annot_file, no_annot_file):
@@ -70,7 +56,7 @@ class CacheAnnotator:
             with open(cache_file, 'r') as cached_annot:
                 for line in cached_annot:
                     if line.startswith("#query"):
-                        data = line.strip().split("\t")
+                        data = list(map(str.strip, line.split("\t")))
                         cached_md5 = data[-1]
                         if cached_md5 != "md5":
                             print(colorify("WARNING: last column of cached annotations file should contain the md5 field. The last column name in header is not called 'md5'", 'red'))
@@ -82,6 +68,10 @@ class CacheAnnotator:
                     if cached_md5 in md5_queries:
                         md5_queries[cached_md5]["found"] = 1
                         print(line, file=OUT)
+
+                        (hit, annotation) = parse_annotation_line(line)
+                        yield hit, annotation
+                        
             OUT.close()
         else:
             print(colorify(f"Skipping cached annotation. {cached_annot_fn} file not found", 'orange'))
@@ -93,5 +83,33 @@ class CacheAnnotator:
         OUT.close()
             
         return
+
+def parse_annotation_line(line):
+    hit = None
+    annotation = None
+
+    data = list(map(str.strip, line.split("\t")))
+
+    query_name = data[0]
+    best_hit_name = data[1]
+    best_hit_evalue = float(data[2])
+    best_hit_score = float(data[3])
+    hit = [query_name, best_hit_name, best_hit_evalue, best_hit_score]
+
+    annotations = data[11:]
+    narr_og = (data[5], data[6], data[7])
+    best_og = (data[8], data[9], data[10])
     
+    match_nog_names = data[4].split(",")
+    
+    all_orthologies = None
+    annot_orthologs = None
+    
+    annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+                  annotations,
+                  narr_og, best_og, match_nog_names,
+                  all_orthologies, annot_orthologs)
+    
+    return hit, annotation
+
 ## END

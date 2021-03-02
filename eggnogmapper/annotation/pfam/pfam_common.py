@@ -4,6 +4,7 @@
 import os
 import subprocess
 from tempfile import NamedTemporaryFile
+from collections import defaultdict
 
 from ...common import HMMFETCH
 
@@ -59,22 +60,15 @@ def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
     
     return Q, H
 
-def group_queries_pfams(all_annotations, PFAM_COL):
+def group_queries_pfams(queries_pfams_tuples):
     queries_pfams_groups = []
 
     # Extract list of pfams for each query
-    queries_pfams = {}
-    for annot_columns in all_annotations:
-        query_name = annot_columns[0]
-        pfams = annot_columns[PFAM_COL]
-
-        if pfams == "-": continue
-
-        for pfam in sorted(pfams.split(",")):
-            if query_name in queries_pfams:
-                queries_pfams[query_name].add(pfam)
-            else:
-                queries_pfams[query_name] = {pfam}
+    queries_pfams = defaultdict(set)
+    
+    for query_name, pfams in queries_pfams_tuples:
+        for pfam in sorted(pfams):
+            queries_pfams[query_name].add(pfam)
                 
     # print(f"pfam.py:group:queries_pfams {queries_pfams['1105367.SAMN02673274.CG50_07170']}")
 
@@ -128,10 +122,8 @@ def group_queries_pfams(all_annotations, PFAM_COL):
 #     return [(x["queries"], x["pfams"]) for x in queries_pfams_keys.values()]
 
 ##
-def wrap_group_queries_pfams(annotations, PFAM_COL, queries_fasta, pfam_db, translate, temp_dir, pfam_file):
-    # queries_pfams_groups = group_queries_pfams(annotations, PFAM_COL)
-
-    for queries_pfams_group in group_queries_pfams(annotations, PFAM_COL):
+def wrap_group_queries_pfams(queries_pfams, queries_fasta, pfam_db, translate, temp_dir, pfam_file):
+    for queries_pfams_group in group_queries_pfams(queries_pfams):
         yield (queries_pfams_group, queries_fasta, pfam_db, temp_dir, translate, pfam_file, 1)
         # cpu = 1 since we are already parallelizing
 

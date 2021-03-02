@@ -7,13 +7,13 @@ from .pfam_common import filter_fasta_file
 from .pfam import PfamAligner, get_pfam_args, parse_pfam_file, parse_hmmsearch_file
 
 ##
-def pfam_align_denovo(all_annotations, queries_fasta, translate,
+def pfam_align_denovo(queries_pfams, queries_fasta, translate,
                       cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
                       temp_dir, pfam_file):
     aligned_pfams = None
     
     # filter fasta file to have only annotated queries
-    queries = [annot_columns[0] for annot_columns in all_annotations]
+    queries = [annot_columns[0] for annot_columns in queries_pfams]
     fasta_file = filter_fasta_file(queries, queries_fasta, temp_dir)
 
     # align those queries to whole PFAM to carry out a de novo annotation
@@ -33,11 +33,11 @@ def pfam_align_denovo(all_annotations, queries_fasta, translate,
     return aligned_pfams
                 
 ##
-def pfam_align_denovo_search(all_annotations, queries_fasta, translate, cpu, temp_dir, pfam_file):
+def pfam_align_denovo_search(queries_pfams, queries_fasta, translate, cpu, temp_dir, pfam_file):
     aligned_pfams = None
     
     # filter fasta file to have only annotated queries
-    queries = [annot_columns[0] for annot_columns in all_annotations]
+    queries = [annot_columns[0] for annot_columns in queries_pfams]
     fasta_file = filter_fasta_file(queries, queries_fasta, temp_dir)
 
     # align those queries to whole PFAM to carry out a de novo annotation

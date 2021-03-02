@@ -583,21 +583,26 @@ def parse_args(parser):
 if __name__ == "__main__":
 
     try:
-
+        start_time = time.time()
+        
         parser = create_arg_parser()
         args = parse_args(parser)
-
-        _total_time = time.time()
         
         print('# ', get_version())
         print('# emapper.py ', ' '.join(sys.argv[1:]))
             
-        emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot), args.report_orthologs, args.decorate_gff,
-                          args.output, args.output_dir, args.scratch_dir, args.resume, args.override)
-        emapper.run(args, args.input, args.annotate_hits_table, args.cache_file)
+        emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot),
+                          args.report_orthologs, args.decorate_gff,
+                          args.output, args.output_dir, args.scratch_dir,
+                          args.resume, args.override)
+        
+        n, elapsed_time = emapper.run(args, args.input, args.annotate_hits_table, args.cache_file)
 
+        elapsed_time = time.time() - start_time
+        
         print(get_citation([args.mode, args.genepred]))
-        print('Total time: %g secs' % (time.time()-_total_time))
+        print(f'Total hits processed: {n}')
+        print(f'Total time: {elapsed_time} secs')
         
     except EmapperException as ee:
         print(ee)

@@ -7,8 +7,7 @@ from tempfile import mkdtemp
 import multiprocessing
 import shutil
 
-from os.path import exists as pexists
-from os.path import join as pjoin
+from os.path import join as pjoin, isdir as pisdir, exists as pexists
 
 from ...common import get_oglevels_file, get_OG_fasta_path, cleanup_og_name, gopen, get_hmmer_databases
 from ...utils import colorify
@@ -48,7 +47,8 @@ class HmmerSearcher:
     clean_overlaps = None
     excluded_taxa = None
 
-    temp_dir = None
+    hmmcmd_temp_dir = None
+    phmmer_temp_dir = None
 
     # Results
     queries = hits = no_hits = None
@@ -93,8 +93,9 @@ class HmmerSearcher:
         self.qcov = args.qcov
         
         self.Z = args.Z
-        
-        self.temp_dir = args.temp_dir
+
+        self.hmmcmd_temp_dir = mkdtemp(prefix='emappertmp_hmmcmd_', dir=args.temp_dir)
+        self.phmmer_temp_dir = mkdtemp(prefix='emappertmp_phmmer_', dir=args.temp_dir)
 
         self.excluded_taxa = args.excluded_taxa
         
@@ -104,11 +105,16 @@ class HmmerSearcher:
     def get_call_info(self):
         return self.call_info
     
-        
+    ##
+    def clear(self):
+        if self.hmmcmd_temp_dir is not None and pisdir(self.hmmcmd_temp_dir):
+            shutil.rmtree(self.hmmcmd_temp_dir)
+        if self.phmmer_temp_dir is not None and pisdir(self.phmmer_temp_dir):
+            shutil.rmtree(self.phmmer_temp_dir)
+        return
+    
     ##
     def search_hmm_matches(self, in_file, hmm_hits_file, silent = False):
-        
-        annot = None
         
         # Prepare HMM database and/or server
         dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype,
@@ -143,8 +149,6 @@ class HmmerSearcher:
     ##
     def search(self, in_file, seed_orthologs_file, hmm_hits_file):
 
-        annot = None
-
         print(f"hmmer.py:search DB: {self.db}")
         
         # Prepare HMM database and/or server
@@ -174,45 +178,44 @@ class HmmerSearcher:
         # Search for seed orthologs within the HMM hits
         if dbname == 'viruses':
             print('Skipping seed ortholog detection in "viruses" database')
-            annot = False
 
         elif dbname in get_hmmer_databases():
             if not pexists(seed_orthologs_file):
-                self.refine_matches(dbname, in_file, seed_orthologs_file, hmm_hits_file)
+                hits = self.refine_matches(dbname, in_file, seed_orthologs_file, hmm_hits_file)
 
         else:
             print(f'Could not find {dbname} among eggnog databases. Skipping seed ortholog detection.')
-            annot = False
 
         # Shutdown server, If a temp local server was set up
         if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             for dbpath, port, master_pid, workers_pids in servers:
                 shutdown_server_by_pid(master_pid, workers_pids)
             
-        return annot
+        return hits
 
 
-    ##
-    def get_hits(self):
-        return self.hits
+    # ##
+    # def get_hits(self):
+    #     return self.hits
 
-    def get_hits_dict(self):
-        hits_dict = None
+    # def get_hits_dict(self):
+    #     hits_dict = None
         
-        if self.hits_dict is not None:
-            hits_dict = self.hits_dict
-        elif self.hits is not None:
-            hits_dict = {hit[0]:hit for hit in self.hits}
-            self.hits_dict = hits_dict
+    #     if self.hits_dict is not None:
+    #         hits_dict = self.hits_dict
+    #     elif self.hits is not None:
+    #         hits_dict = {hit[0]:hit for hit in self.hits}
+    #         self.hits_dict = hits_dict
         
-        return hits_dict
+    #     return hits_dict
 
-    def get_no_hits(self):
-        if self.hits is not None and self.queries is not None:
-            hit_queries = set([x[0] for x in self.hits])
-            self.no_hits = set(self.queries).difference(hit_queries)
+    # def get_no_hits(self):
+    #     if self.hits is not None and self.queries is not None:
+    #         hit_queries = set([x[0] for x in self.hits])
+    #         self.no_hits = set(self.queries).difference(hit_queries)
             
-        return self.no_hits
+    #     return self.no_hits
+    
     ##
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file, silent = False):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
@@ -266,7 +269,7 @@ class HmmerSearcher:
                                                             maxseqlen=self.maxseqlen,
                                                             cut_ga=self.cut_ga,
                                                             cpus=self.cpu,
-                                                            base_tempdir=self.temp_dir,
+                                                            base_tempdir=self.hmmcmd_temp_dir,
                                                             silent=silent):
 
             if elapsed == -1:
@@ -361,13 +364,11 @@ class HmmerSearcher:
 
         qn = -1 # in case no hits in loop bellow
         sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
-        self.hits = []
         self.queries = set(sequences.keys())
         for qn, r in enumerate(self.process_nog_hits_file(dbname, hits_file, sequences,
                                                           translate=self.translate,
                                                           cpu=self.cpu,
-                                                          excluded_taxa=self.excluded_taxa,
-                                                          base_tempdir=self.temp_dir)):
+                                                          excluded_taxa=self.excluded_taxa)):
             if qn and (qn % 25 == 0):
                 total_time = time.time() - start_time
                 print(str(qn + 1)+" "+str(total_time)+" %0.2f q/s (refinement)" % ((float(qn + 1) / total_time)), file=sys.stderr)
@@ -380,7 +381,8 @@ class HmmerSearcher:
             best_hit_score = float(r[3])
             print('\t'.join(map(str, (query_name, best_hit_name,
                                              best_hit_evalue, best_hit_score))), file=OUT)
-            self.hits.append([query_name, best_hit_name, best_hit_evalue, best_hit_score])
+            
+            yield [query_name, best_hit_name, best_hit_evalue, best_hit_score]
             #OUT.flush()
 
         elapsed_time = time.time() - start_time
@@ -391,19 +393,18 @@ class HmmerSearcher:
         OUT.close()
         print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
                        (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue'))
+        return
 
 
     ##
     def process_nog_hits_file(self, dbname, hits_file, sequences, skip_queries=None,
-                              translate=False, cpu=1, excluded_taxa=None, base_tempdir=None):
+                              translate=False, cpu=1, excluded_taxa=None):
 
         cmds = []
         visited_queries = set()
 
         if skip_queries:
             visited_queries.update(skip_queries)
-
-        tempdir = mkdtemp(prefix='emappertmp_phmmer_', dir=base_tempdir)
 
         for line in gopen(hits_file):
             if line.startswith('#'):
@@ -428,7 +429,7 @@ class HmmerSearcher:
             print(f"hmmer.py:process_nog_hits_file Target FASTA: {target_fasta}")
             # target_fasta = pjoin(get_fasta_path(), level, "%s.fa" % hitname)
             
-            cmds.append([seqname, seq, target_fasta, excluded_taxa, tempdir])
+            cmds.append([seqname, seq, target_fasta, excluded_taxa, self.phmmer_temp_dir])
 
         if cmds is not None and len(cmds) > 0:
             # multiprocessing.set_start_method("spawn")
@@ -437,8 +438,6 @@ class HmmerSearcher:
                 yield r
             pool.close()
             pool.terminate()
-
-        shutil.rmtree(tempdir)
 
         return
     

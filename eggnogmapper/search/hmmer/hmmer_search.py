@@ -112,7 +112,8 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     if not hmmer_cmd:
         raise ValueError(f'{hmmer_cmd} not found in path')
     
-    tempdir = mkdtemp(prefix='emappertmp_hmmcmd_', dir=base_tempdir)
+    # tempdir = mkdtemp(prefix='emappertmp_hmmcmd_', dir=base_tempdir)
+    tempdir = base_tempdir
 
     Q = None
     R = None
@@ -133,7 +134,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                 # Q.write(f">{name}\n{seq}".encode())
         if has_records == False:
             sys.stderr.write(f"No records after maxseqlen filtering for file {fasta_file}.\n")
-            shutil.rmtree(tempdir)
+            # shutil.rmtree(tempdir)
             if Q is not None:
                 Q.close()
             return
@@ -296,7 +297,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
         Q.close()
     if R is not None:
         R.close()
-    shutil.rmtree(tempdir)
+    # shutil.rmtree(tempdir)
 
     # if report_no_hits == True:
     # report queries without hits
