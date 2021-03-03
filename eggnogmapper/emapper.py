@@ -212,15 +212,24 @@ class Emapper:
                 total_time = time.time() - start_time
                 percen_mem = psutil.virtual_memory().percent
                 percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
-
                 
                 msg = f"{n} {total_time} {(float(n) / total_time):.2f} q/s "
                 if mem_monitor == True:
                     msg += f"(% mem usage: {percen_mem:.2f}, % mem avail: {percen_avail:.2f})"
+                    
                 print(msg, file=stderr)
                 stderr.flush()
 
         total_time = time.time() - start_time
+        percen_mem = psutil.virtual_memory().percent
+        percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
+        
+        msg = f"{n} {total_time} {(float(n) / total_time):.2f} q/s "
+        if mem_monitor == True:
+            msg += f"(% mem usage: {percen_mem:.2f}, % mem avail: {percen_avail:.2f})"
+            
+        print(msg, file=stderr)
+        stderr.flush()
         
         return n, total_time
 
