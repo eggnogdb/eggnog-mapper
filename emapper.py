@@ -602,7 +602,7 @@ if __name__ == "__main__":
         
         print(get_citation([args.mode, args.genepred]))
         print(f'Total hits processed: {n}')
-        print(f'Total time: {elapsed_time} secs')
+        print(f'Total time: {elapsed_time:.0f} secs')
         
     except EmapperException as ee:
         print(ee)
