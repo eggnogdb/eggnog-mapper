@@ -198,8 +198,10 @@ class Emapper:
 
     ##
     def run_generator(self, generator):
+        import psutil
+        
         n = 0
-        CHUNK_SIZE = 100
+        CHUNK_SIZE = 1
         
         start_time = time.time()
         
@@ -209,6 +211,10 @@ class Emapper:
                 total_time = time.time() - start_time
                 print(f"{n} {total_time} {(float(n) / total_time):.2f} q/s", file=stderr)
                 stderr.flush()
+
+                percen_mem = psutil.virtual_memory().percent
+                percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
+                print(f"% mem usage: {percen_mem}, % mem avail: {percen_avail}")
 
         total_time = time.time() - start_time
         
