@@ -209,7 +209,7 @@ class Emapper:
         print(msg, file=stderr)
         stderr.flush()
         
-        return
+        return total_time
     
     ##
     def run_generator(self, generator, CHUNK_SIZE = 500, mem_monitor = True):
@@ -222,7 +222,7 @@ class Emapper:
             if n and (n % CHUNK_SIZE == 0):
                 self._print_progress(n, start_time, mem_monitor)
 
-        self._print_progress(n, start_time, mem_monitor)
+        total_time = self._print_progress(n, start_time, mem_monitor)
         
         return n, total_time
 
