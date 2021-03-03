@@ -202,6 +202,7 @@ class Emapper:
         
         n = 0
         CHUNK_SIZE = 100
+        mem_monitor = True
         
         start_time = time.time()
         
@@ -211,8 +212,12 @@ class Emapper:
                 total_time = time.time() - start_time
                 percen_mem = psutil.virtual_memory().percent
                 percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
-                print(f"{n} {total_time} {(float(n) / total_time):.2f} q/s / "
-                      f"% mem usage: {percen_mem}, % mem avail: {percen_avail}", file=stderr)
+
+                
+                msg = f"{n} {total_time} {(float(n) / total_time):.2f} q/s "
+                if mem_monitor == True:
+                    msg += f"(% mem usage: {percen_mem:.2f}, % mem avail: {percen_avail:.2f})"
+                print(msg, file=stderr)
                 stderr.flush()
 
         total_time = time.time() - start_time
