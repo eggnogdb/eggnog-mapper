@@ -1,7 +1,7 @@
 ##
 ## CPCantalapiedra 2020
 
-import errno, os, shutil
+import errno, os, shutil, psutil
 from sys import stderr
 import time
 from os.path import exists as pexists
@@ -197,39 +197,32 @@ class Emapper:
 
 
     ##
-    def run_generator(self, generator):
-        import psutil
+    def _print_progress(self, n, start_time, mem_monitor):
+        total_time = time.time() - start_time
+        percen_mem = psutil.virtual_memory().percent
+        percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
+                
+        msg = f"{n} {total_time} {(float(n) / total_time):.2f} q/s "
+        if mem_monitor == True:
+            msg += f"(% mem usage: {percen_mem:.2f}, % mem avail: {percen_avail:.2f})"
+                    
+        print(msg, file=stderr)
+        stderr.flush()
+        
+        return
+    
+    ##
+    def run_generator(self, generator, CHUNK_SIZE = 500, mem_monitor = True):
         
         n = 0
-        CHUNK_SIZE = 100
-        mem_monitor = True
-        
         start_time = time.time()
         
         for item in generator:
             n += 1
             if n and (n % CHUNK_SIZE == 0):
-                total_time = time.time() - start_time
-                percen_mem = psutil.virtual_memory().percent
-                percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
-                
-                msg = f"{n} {total_time} {(float(n) / total_time):.2f} q/s "
-                if mem_monitor == True:
-                    msg += f"(% mem usage: {percen_mem:.2f}, % mem avail: {percen_avail:.2f})"
-                    
-                print(msg, file=stderr)
-                stderr.flush()
+                self._print_progress(n, start_time, mem_monitor)
 
-        total_time = time.time() - start_time
-        percen_mem = psutil.virtual_memory().percent
-        percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
-        
-        msg = f"{n} {total_time} {(float(n) / total_time):.2f} q/s "
-        if mem_monitor == True:
-            msg += f"(% mem usage: {percen_mem:.2f}, % mem avail: {percen_avail:.2f})"
-            
-        print(msg, file=stderr)
-        stderr.flush()
+        self._print_progress(n, start_time, mem_monitor)
         
         return n, total_time
 
