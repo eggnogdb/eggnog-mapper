@@ -28,6 +28,7 @@ def iter_fasta_seqs(source, translate=False, silent=False):
     seq_name = None
     for line in _source:
         line = line.strip()
+        print(line)
         if line.startswith('#') or not line:
             continue       
         elif line.startswith('>'):
