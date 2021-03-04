@@ -4,6 +4,7 @@
 from collections import Counter
 
 from ..emapperException import EmapperException
+from ..common import set_data_path
 
 from .tax_scopes.tax_scopes import parse_nogs
 
@@ -23,6 +24,8 @@ def annotate_hit_line_mem(arguments):
 
 ##
 def annotate_hit_line_ondisk(arguments):
+    data_dir = arguments[-1]
+    set_data_path(data_dir)
     eggnog_db = get_eggnog_db(usemem = False)
     
     return annotate_hit_line(arguments, eggnog_db)
@@ -35,7 +38,7 @@ def annotate_hit_line(arguments, eggnog_db):
     hit, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_ids, \
         target_taxa, target_orthologs, excluded_taxa, \
-        go_evidence, go_excluded = arguments
+        go_evidence, go_excluded, data_dir = arguments
 
     annotation = None
     
