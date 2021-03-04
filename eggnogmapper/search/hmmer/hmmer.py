@@ -368,7 +368,6 @@ class HmmerSearcher:
         sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
         self.queries = set(sequences.keys())
         for qn, r in enumerate(self.process_nog_hits_file(dbname, hits_file, sequences,
-                                                          translate=self.translate,
                                                           cpu=self.cpu,
                                                           excluded_taxa=self.excluded_taxa)):
             if qn and (qn % 25 == 0):
@@ -400,7 +399,7 @@ class HmmerSearcher:
 
     ##
     def process_nog_hits_file(self, dbname, hits_file, sequences, skip_queries=None,
-                              translate=False, cpu=1, excluded_taxa=None):
+                              cpu=1, excluded_taxa=None):
 
         cmds = []
         visited_queries = set()
