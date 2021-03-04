@@ -18,7 +18,7 @@ def print_taxa():
     for tax_name, tax_id in LEVEL_DICT.items():
         depth = LEVEL_DEPTH.get(tax_id, "-")
         parents = LEVEL_PARENTS.get(tax_id, "-")
-        parents_names = [LEVEL_NAMES.get(x, "-") for x in parents]
+        parents_names = [LEVEL_NAMES.get(x, "-").replace(",", "") for x in parents]
         print(f"{tax_name}\t{tax_id}\t{depth}\t{','.join(parents)}\t{','.join(parents_names)}")
     return
 
@@ -87,7 +87,7 @@ def parse_nogs(match_nogs, tax_scope_mode, tax_scope_ids):
 
     for nog in match_nogs:
         nog_id, nog_tax_id = nog.split("@")
-        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id)}"
+        nog_name = f"{nog}|{LEVEL_NAMES.get(nog_tax_id, nog_tax_id).replace(',', ' ')}"
         
         match_nogs_full.append((nog_id, nog_tax_id, nog_name, LEVEL_DEPTH[nog_tax_id]))
 
