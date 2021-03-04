@@ -7,8 +7,7 @@ import subprocess
 from tempfile import NamedTemporaryFile
 
 from ...emapperException import EmapperException
-from ...common import get_pfam_db
-from ...common import HMMPRESS
+from ...common import get_pfam_db, get_data_path, set_data_path, HMMPRESS
 
 from .pfam_common import filter_fasta_hmm_files, wrap_group_queries_pfams
 from .pfam import PfamAligner, get_hmmscan_args, parse_hmmscan_file
@@ -22,7 +21,9 @@ def pfam_align_parallel_scan(queries_pfams, queries_fasta, translate, cpu, temp_
     try:
 
         for alignments in pool.imap(query_pfam_annotate_scan,
-                                    wrap_group_queries_pfams(queries_pfams, queries_fasta, get_pfam_db(), translate, temp_dir, pfam_file)):
+                                    wrap_group_queries_pfams(queries_pfams, queries_fasta,
+                                                             get_pfam_db(), translate,
+                                                             temp_dir, pfam_file, get_data_path())):
             if alignments is not None:
 
                 if aligned_pfams is None:
@@ -52,7 +53,10 @@ def pfam_align_parallel_scan(queries_pfams, queries_fasta, translate, cpu, temp_
 
 ##
 def query_pfam_annotate_scan(arguments):
-    queries_pfams_group, queries_fasta, pfam_db, temp_dir, translate, pfam_file, cpu = arguments
+    (queries_pfams_group, queries_fasta, pfam_db,
+     temp_dir, translate, pfam_file, cpu, data_path) = arguments
+     
+    set_data_path(data_path)
     
     aligned_pfams = None
 
@@ -61,7 +65,7 @@ def query_pfam_annotate_scan(arguments):
     if fasta_file is None or hmm_file is None:
         pass
     else:
-
+        
         # create hmmdb
         cmd = f"{HMMPRESS} {hmm_file.name}"
         cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
