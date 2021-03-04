@@ -24,10 +24,6 @@ PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 
 ##
 class Annotator:
-
-    # hits = hits_dict = None
-    # annotations = annotations_dict = None
-    # orthologs = None
     
     annot = report_orthologs = None
     
@@ -82,38 +78,6 @@ class Annotator:
         self.md5 = args.md5
         
         return
-
-    # #
-    # def get_hits(self):
-    #     return self.hits
-
-    # def get_hits_dict(self):
-    #     hits_dict = None
-    #     if self.hits_dict is not None:
-    #         hits_dict = self.hits_dict
-    #     elif self.hits is not None:
-    #         hits_dict = {hit[0]:hit for hit in self.hits}
-    #         self.hits_dict = hits_dict
-    #     # else: None
-    #     return hits_dict
-    
-    # #
-    # def get_annotations(self):
-    #     return self.annotations
-    
-    # def get_annotations_dict(self):
-    #     annotations_dict = None
-    #     if self.annotations_dict is not None:
-    #         annotations_dict = self.annotations_dict
-    #     elif self.annotations is not None:
-    #         annotations_dict = {annot[0]:annot for annot in self.annotations}
-    #         self.annotations_dict = annotations_dict
-    #     # else: None
-    #     return annotations_dict
-
-    # #
-    # def get_orthologs(self):
-    #     return self.orthologs
     
     ##
     def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file):

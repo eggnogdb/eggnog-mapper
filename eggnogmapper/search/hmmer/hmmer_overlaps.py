@@ -3,8 +3,6 @@
 
 import gzip, os, sys
 
-from ...common import get_pfam_clans_file
-
 CLEAN_OVERLAPS_ALL = "all"
 CLEAN_OVERLAPS_CLANS = "clans"
 CLEAN_OVERLAPS_NONE = "none"
@@ -12,15 +10,15 @@ CLEAN_OVERLAPS_HMMSEARCH_ALL = "hmmsearch_all"
 CLEAN_OVERLAPS_HMMSEARCH_CLANS = "hmmsearch_clans"
 
 ##
-def process_overlaps(hits, clean_overlaps, idmap_idx = None):
+def process_overlaps(hits, clean_overlaps, CLANS_FILE, idmap_idx = None):
     if clean_overlaps == CLEAN_OVERLAPS_ALL:
         hits = process_overlaps_all(hits)
     elif clean_overlaps == CLEAN_OVERLAPS_CLANS:
-        hits = process_overlaps_clans(hits, idmap_idx)
+        hits = process_overlaps_clans(hits, CLANS_FILE, idmap_idx)
     elif clean_overlaps == CLEAN_OVERLAPS_HMMSEARCH_ALL:
         hits = process_overlaps_all_queries(hits)
     elif clean_overlaps == CLEAN_OVERLAPS_HMMSEARCH_CLANS:
-        hits = process_overlaps_clans_queries(hits)
+        hits = process_overlaps_clans_queries(hits, CLANS_FILE)
     else:
         sys.stderr.write(f"Warning: unrecognized clean_overlaps option ({clean_overlaps}). No overlaps will be processed.\n")
 
@@ -28,8 +26,7 @@ def process_overlaps(hits, clean_overlaps, idmap_idx = None):
 
 
 ##
-def process_overlaps_clans(hits, idmap_idx = None):
-    CLANS_FILE = get_pfam_clans_file()
+def process_overlaps_clans(hits, CLANS_FILE, idmap_idx = None):
 
     if not os.path.exists(CLANS_FILE) or not os.path.isfile(CLANS_FILE):
         raise Exception(f"Couldn't find PFAM clans file at path {CLANS_FILE}, or it is not a file.")
@@ -105,7 +102,6 @@ def process_overlaps_clans(hits, idmap_idx = None):
 
 ##
 def process_overlaps_all(hits):
-    CLANS_FILE = get_pfam_clans_file()
     
     clean_doms = []
     total_range = set()
@@ -148,8 +144,7 @@ def process_overlaps_all(hits):
 
 
 ##
-def process_overlaps_all_queries(namedhits):
-    CLANS_FILE = get_pfam_clans_file()
+def process_overlaps_all_queries(namedhits, CLANS_FILE):
     
     targets_hits = {}
 
@@ -206,8 +201,7 @@ def process_overlaps_all_queries(namedhits):
 
 
 ##
-def process_overlaps_clans_queries(namedhits):
-    CLANS_FILE = get_pfam_clans_file()
+def process_overlaps_clans_queries(namedhits, CLANS_FILE):
     
     if not os.path.exists(CLANS_FILE) or not os.path.isfile(CLANS_FILE):
         raise Exception(f"Couldn't find PFAM clans file at path {CLANS_FILE}, or it is not a file.")

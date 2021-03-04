@@ -9,7 +9,7 @@ import shutil
 
 from os.path import join as pjoin, isdir as pisdir, exists as pexists
 
-from ...common import get_oglevels_file, get_OG_fasta_path, cleanup_og_name, gopen, get_hmmer_databases
+from ...common import get_oglevels_file, get_OG_fasta_path, cleanup_og_name, gopen, get_hmmer_databases, get_pfam_clans_file
 from ...utils import colorify
 
 from .hmmer_server import shutdown_server_by_pid, create_servers, check_servers
@@ -220,6 +220,8 @@ class HmmerSearcher:
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file, silent = False):
         hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
+
+        CLANS_FILE = get_pfam_clans_file()
         
         # Cache previous results if resuming is enabled
         VISITED = set()
@@ -285,7 +287,7 @@ class HmmerSearcher:
                 
                 if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS_CLANS]:
                     # if "CG50_07170" in name:
-                    hits = process_overlaps(hits, self.clean_overlaps, idmap_idx)
+                    hits = process_overlaps(hits, self.clean_overlaps, CLANS_FILE, idmap_idx)
 
                     # if "CG50_07170" in name:
                     #     print(f"hmmer.py:dump_hmm_matches:clean_overlaps {hits}")
@@ -312,7 +314,7 @@ class HmmerSearcher:
         if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
             if silent == False:
                 sys.stderr.write("Postprocessing overlapping hits...\n")
-            namedhits = process_overlaps(namedhits, self.clean_overlaps, idmap_idx)
+            namedhits = process_overlaps(namedhits, self.clean_overlaps, CLANS_FILE, idmap_idx)
             for (name, querylen, hits) in namedhits:
                 self.output_hits(name, querylen, hits, OUT, idmap_idx)
 
