@@ -11,6 +11,8 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
+from eggnogmapper.utils import colorify
+
 from eggnogmapper.emapper import Emapper
 
 from eggnogmapper.genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL
@@ -40,9 +42,8 @@ from eggnogmapper.annotation.tax_scopes.tax_scopes import \
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
-    get_version, get_full_version_info, get_citation, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
-
-from eggnogmapper.utils import colorify
+    get_version, get_full_version_info, get_citation, get_call_info, \
+    ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 
 
 __description__ = ('A program for bulk functional annotation of novel '
@@ -241,7 +242,9 @@ def create_arg_parser():
                           help='''Use this option to allocate the whole database (-d) in memory using hmmpgmd.
                           If --dbtype hmm, the database must be a hmmpress-ed database.
                           If --dbtype seqdb, the database must be a HMMER-format database created with esl-reformat.
-                          Database will be unloaded after execution.''')
+                          Database will be unloaded after execution.
+                          Note that this only works for HMMER based searches.
+                          To load the eggnog-mapper annotation DB into memory use --dbmem.''')
 
     pg_hmmer.add_argument('-p', '--port', dest='port', type=int, default=DEFAULT_PORT, metavar='PORT',
                           help=('Port used to setup HMM server, when --usemem. Also used for --pfam_realign modes.'))
@@ -250,14 +253,17 @@ def create_arg_parser():
                           help=('Last port to be used to setup HMM server, when --usemem. Also used for --pfam_realign modes.'))
 
     pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
-                          help="When using --usemem, specify the number of servers to fire up."
-                          " By default, only 1 server is used. Note that cpus specified with --cpu will be distributed among servers and workers."
-                          " Also used for --pfam_realign modes.")
+                          help=("When using --usemem, specify the number of servers to fire up."
+                                " By default, only 1 server is used. "
+                                "Note that cpus specified with --cpu will be distributed among servers and workers."
+                                " Also used for --pfam_realign modes."))
     
     pg_hmmer.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
-                          help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
-                          " By default, cpus specified with --cpu will be distributed among servers and workers."
-                          " Also used for --pfam_realign modes.")
+                          help=("When using --usemem, specify the number of "
+                                "workers per server (--num_servers) to fire up. "
+                                "By default, cpus specified with --cpu will be "
+                                "distributed among servers and workers. "
+                                "Also used for --pfam_realign modes."))
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                           help="Max number of hits to report (0 to report all). Default=1.")
@@ -273,13 +279,17 @@ def create_arg_parser():
                           ' (allows comparing e-values among databases). Default=40,000,000')
 
     pg_hmmer.add_argument('--cut_ga', action="store_true",
-                          help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")
+                          help=("Adds the --cut_ga to hmmer commands (useful for "
+                                "Pfam mappings, for example). See hmmer documentation."))
 
     pg_hmmer.add_argument('--clean_overlaps', dest="clean_overlaps", type=str, default=None, metavar="none|all|clans|hmmsearch_all|hmmsearch_clans",
-                          help='Removes those hits which overlap, keeping only the one with best evalue. '
-                          'Use the "all" and "clans" options when performing a hmmscan type search (i.e. domains are in the database). '
-                          'Use the "hmmsearch_all" and "hmmsearch_clans" options when using a hmmsearch type search (i.e. domains are the queries from -i file). '
-                          'The "clans" and "hmmsearch_clans" and options will only have effect for hits to/from Pfam.')
+                          help=('Removes those hits which overlap, keeping only the one with best evalue. '
+                                'Use the "all" and "clans" options when performing a '
+                                'hmmscan type search (i.e. domains are in the database). '
+                                'Use the "hmmsearch_all" and "hmmsearch_clans" options '
+                                'when using a hmmsearch type search (i.e. domains are the queries from -i file). '
+                                'The "clans" and "hmmsearch_clans" and options will only '
+                                'have effect for hits to/from Pfam.'))
     
     ##
     pg_annot = parser.add_argument_group('Annotation Options')
@@ -305,28 +315,39 @@ def create_arg_parser():
     pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
                                 "particular clade are used for functional transfer. "
-                                "More specifically, the --tax_scope list is intersected with the seed orthologs clades, "
+                                "More specifically, the --tax_scope list is intersected with the "
+                                "seed orthologs clades, "
                                 "and the resulting clades are used for annotation based on --tax_scope_mode. "
                                 "Note that those seed orthologs without clades intersecting with --tax_scope "
                                 "will be filtered out, and won't annotated. "
                                 "Possible arguments for --tax_scope are: "
-                                "1) A path to a file defined by the user, which contains a list of tax IDs and/or tax names. "
-                                "2) The name of a pre-configured tax scope, whose source is a file stored within the 'eggnogmapper/annotation/tax_scopes/' directory "
-                                "By default, available ones are: 'auto' ('all'), 'auto_broad' ('all_broad'), 'all_narrow', 'archaea', "
-                                "'bacteria', 'bacteria_broad', 'eukaryota', 'eukaryota_broad' and 'prokaryota_broad'."
-                                "3) A comma-separated list of taxonomic names and/or taxonomic IDs, sorted by preference. "
-                                "An example of list of tax IDs would be 2759,2157,2,1 for Eukaryota, Archaea, Bacteria and root, in that order of preference. "
+                                "1) A path to a file defined by the user, which contains "
+                                "a list of tax IDs and/or tax names. "
+                                "2) The name of a pre-configured tax scope, whose source is "
+                                "a file stored within the 'eggnogmapper/annotation/tax_scopes/' directory "
+                                "By default, available ones are: 'auto' ('all'), 'auto_broad' ('all_broad'), "
+                                "'all_narrow', 'archaea', "
+                                "'bacteria', 'bacteria_broad', 'eukaryota', 'eukaryota_broad' "
+                                "and 'prokaryota_broad'."
+                                "3) A comma-separated list of taxonomic names and/or taxonomic IDs, "
+                                "sorted by preference. "
+                                "An example of list of tax IDs would be 2759,2157,2,1 for Eukaryota, "
+                                "Archaea, Bacteria and root, in that order of preference. "
                                 "4) 'none': do not filter out annotations based on taxonomic scope."))
 
     pg_annot.add_argument("--tax_scope_mode", type=str, default=TAX_SCOPE_MODE_INNER_NARROWEST,
                           help=("For a seed ortholog which passed the filter imposed by --tax_scope, "
-                                "--tax_scope_mode controls which specific clade, to which the seed ortholog belongs, will be used for annotation. "
+                                "--tax_scope_mode controls which specific clade, to which the "
+                                "seed ortholog belongs, will be used for annotation. "
                                 f"Options: "
                                 f"1) {TAX_SCOPE_MODE_BROADEST}: use the broadest clade. "
-                                f"2) {TAX_SCOPE_MODE_INNER_BROADEST}: use the broadest clade from the intersection with --tax_scope. "
-                                f"3) {TAX_SCOPE_MODE_INNER_NARROWEST}: use the narrowest clade from the intersection with --tax_scope. "
+                                f"2) {TAX_SCOPE_MODE_INNER_BROADEST}: use the broadest clade "
+                                "from the intersection with --tax_scope. "
+                                f"3) {TAX_SCOPE_MODE_INNER_NARROWEST}: use the narrowest clade "
+                                "from the intersection with --tax_scope. "
                                 f"4) {TAX_SCOPE_MODE_NARROWEST}: use the narrowest clade. "
-                                f"5) A taxonomic scope as in --tax_scope: use this second list to intersect with seed ortholog clades and "
+                                f"5) A taxonomic scope as in --tax_scope: use this second list "
+                                "to intersect with seed ortholog clades and "
                                 f"use the narrowest (as in inner_narrowest) from the intersection to annotate."))
 
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
@@ -336,11 +357,13 @@ def create_arg_parser():
 
     pg_annot.add_argument('--target_taxa', type=str, 
                           default=None,
-                          help="Only orthologs from the specified taxa and all its descendants will be used for annotation transference. By default, all taxa are used.")
+                          help=("Only orthologs from the specified taxa and all its descendants "
+                                "will be used for annotation transference. By default, all taxa are used."))
 
     pg_annot.add_argument('--excluded_taxa', type=str,
                           default=None, 
-                          help='Orthologs from the specified taxa and all its descendants will not be used for annotation transference. By default, no taxa is excluded.')
+                          help=('Orthologs from the specified taxa and all its descendants will not be '
+                                'used for annotation transference. By default, no taxa is excluded.'))
 
     pg_annot.add_argument("--report_orthologs", action="store_true",
                           help="Output the list of orthologs found for each query to a .orthologs file")
@@ -351,13 +374,18 @@ def create_arg_parser():
                           'experimental = Use only terms inferred from experimental evidence. '
                           'non-electronic = Use only non-electronically curated terms')
 
-    pg_annot.add_argument('--pfam_realign', type=str, choices=(PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO),
+    pg_annot.add_argument('--pfam_realign', type=str,
+                          choices=(PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO),
                           default=PFAM_REALIGN_NONE,
-                          help='Realign the queries to the PFAM domains. '
-                          f'{PFAM_REALIGN_NONE} = no realignment is performed. PFAM annotation will be that transferred as specify in the --pfam_transfer option. '
-                          f'{PFAM_REALIGN_REALIGN} = queries will be realigned to the PFAM domains found according to the --pfam_transfer option. '
-                          f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, ignoring the --pfam_transfer option. '
-                          f'Check hmmer options (--num_servers, --num_workers, --port, --end_port) to change how the hmmpgmd server is run. ')
+                          help=('Realign the queries to the PFAM domains. '
+                                f'{PFAM_REALIGN_NONE} = no realignment is performed. PFAM annotation will be '
+                                'that transferred as specify in the --pfam_transfer option. '
+                                f'{PFAM_REALIGN_REALIGN} = queries will be realigned to the PFAM domains '
+                                'found according to the --pfam_transfer option. '
+                                f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, '
+                                'ignoring the --pfam_transfer option. '
+                                f'Check hmmer options (--num_servers, --num_workers, --port, --end_port) '
+                                'to change how the hmmpgmd server is run. '))
 
     pg_annot.add_argument("--md5", action="store_true",
                           help="Adds the md5 hash of each query as an additional field in annotations output files.")
@@ -394,10 +422,13 @@ def create_arg_parser():
                             "Add search hits and/or annotation results to GFF file from gene prediction of a user specified one. "
                             f"{DECORATE_GFF_NONE} = no GFF decoration at all. GFF file from blastx-based gene prediction will be created anyway. "
                             f"{DECORATE_GFF_GENEPRED} = add search hits and/or annotations to GFF file from Prodigal or blastx-based gene prediction. "
-                            f"FILE[:FIELD] = decorate the specified pre-existing GFF FILE. e.g. --decorage_gff myfile.gff "
-                            f"You can add the name of the tag from the attributes field to be used to retrieve the hits and/or annotations. "
-                            f"e.g. --decorate_gff myfile.gff:GeneName. By default, the {DECORATE_GFF_FIELD_DEFAULT} tag is used."
+                            f"FILE = decorate the specified pre-existing GFF FILE. e.g. --decorage_gff myfile.gff "
+                            f"You change the field interpreted as ID of the feature with --decorate_gff_ID_field. "
                         ))
+
+    pg_out.add_argument('--decorate_gff_ID_field', type=str, default=DECORATE_GFF_FIELD_DEFAULT,
+                        help=("Change the field used in GFF files as ID of the feature. "
+                              f"Default: {DECORATE_GFF_FIELD_DEFAULT}"))
         
     return parser
 

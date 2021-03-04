@@ -8,12 +8,11 @@ from ..annotation.output import ANNOTATIONS_WHOLE_HEADER
 
 DECORATE_GFF_NONE = "no"
 DECORATE_GFF_GENEPRED = "yes"
-DECORATE_GFF_FILE = "FILE:FIELD"
 
 DECORATE_GFF_FIELD_DEFAULT = "ID"
         
 ##
-def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile,
+def run_gff_decoration(mode, gff_ID_field, is_prodigal, is_blastx, gff_outfile,
                        predictor, searcher_name, annotated_hits):
 
     annot_generator = None
@@ -32,7 +31,7 @@ def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile,
         elif is_blastx:
             rm_suffix = True # rm_suffix is to remove the "_int" added for gene prediction hits (to recover the contig name)
             annot_generator = create_gff(searcher_name, get_version(),
-                                         annotated_hits, gff_outfile, rm_suffix)
+                                         annotated_hits, gff_outfile, rm_suffix, gff_ID_field)
 
         else:
             annot_generator = annotated_hits
@@ -55,21 +54,14 @@ def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile,
                 rm_suffix = False
 
             annot_generator = create_gff(searcher_name, get_version(),
-                                         annotated_hits, gff_outfile, rm_suffix)
+                                         annotated_hits, gff_outfile, rm_suffix, gff_ID_field)
 
-    else: # DECORATE_GFF_FILE --> decorate user specified file
-        if ":" in mode:
-            parts = mode.split(":")
-            decorate_gff_file = parts[0]
-            decorate_gff_field = parts[1]
-        else:
-            decorate_gff_file = mode
-            decorate_gff_field = DECORATE_GFF_FIELD_DEFAULT
+    else: # decorate user specified file
 
         if annotated_hits is None:
             print("No GFF will be created, since there are no annotated hits.")
             
-        annot_generator = decorate_gff(decorate_gff_file, decorate_gff_field,
+        annot_generator = decorate_gff(mode, gff_ID_field,
                                        gff_outfile, annotated_hits,
                                        get_version(), searcher_name)
 
@@ -77,7 +69,7 @@ def run_gff_decoration(mode, is_prodigal, is_blastx, gff_outfile,
 
 ##
 # Parse a GFF and create a new one adding hits and/or annotations
-def decorate_gff(gff_file, gff_field, outfile, annotated_hits, version, searcher_name):
+def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searcher_name):
 
     # 1) Parse GFF
     gff_comments = []
@@ -98,7 +90,7 @@ def decorate_gff(gff_file, gff_field, outfile, annotated_hits, version, searcher
 
             attrs_list = [attr for attr in g_attrs.split(";") if attr is not None and attr != ""]
             record_key = [attr.split("=")[1] for attr in attrs_list
-                          if attr.split("=")[0] == DECORATE_GFF_FIELD_DEFAULT][0]
+                          if attr.split("=")[0] == gff_ID_field][0]
 
             gff_dict[record_key] = [g_seqid, g_source, g_type, g_start, g_end,
                                     g_score, g_strand, g_phase, attrs_list]
@@ -113,7 +105,7 @@ def decorate_gff(gff_file, gff_field, outfile, annotated_hits, version, searcher
                 (query, target, evalue, score,
                  qstart, qend, sstart, send,
                  pident, qcov, scov,
-                 strand, phase, attrs) = hit_to_gff(hit)
+                 strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
 
                 attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
                 
@@ -145,7 +137,7 @@ def decorate_gff(gff_file, gff_field, outfile, annotated_hits, version, searcher
 ##
 # Create GFF file by parsing the hits
 ##
-def create_gff(searcher_name, version, annotated_hits, outfile, rm_suffix):
+def create_gff(searcher_name, version, annotated_hits, outfile, rm_suffix, gff_ID_field):
         
     with open(outfile, 'w') as OUT:
 
@@ -160,7 +152,7 @@ def create_gff(searcher_name, version, annotated_hits, outfile, rm_suffix):
             (query, target, evalue, score,
              qstart, qend, sstart, send,
              pident, qcov, scov,
-             strand, phase, attrs) = hit_to_gff(hit)
+             strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
 
             if searcher_name is None:
                 attrs.append(f"em_searcher=unk")
@@ -204,7 +196,7 @@ def sort_annotated_hits(annotated_hit, rm_suffix):
     return contig, hit[4], hit[5], hit[3]
 
 #
-def hit_to_gff(hit):
+def hit_to_gff(hit, gff_ID_field):
     (query, target, evalue, score,
      qstart, qend, sstart, send,
      pident, qcov, scov) = hit
@@ -217,7 +209,7 @@ def hit_to_gff(hit):
         
     phase = "." # we cannot know the phase as we align against proteins
 
-    attrs = [f"{DECORATE_GFF_FIELD_DEFAULT}={query}", f"em_target={target}",
+    attrs = [f"{gff_ID_field}={query}", f"em_target={target}",
              f"em_score={score}", f"em_evalue={evalue}",
              f"em_tcov={scov}"]
                 
