@@ -217,7 +217,7 @@ class Emapper:
         n = 0
         start_time = time.time()
         
-        total_time = self._print_progress(n, start_time, mem_monitor)
+        total_time = self._print_progress("Start", start_time, mem_monitor)
         
         for item in generator:
             n += 1
