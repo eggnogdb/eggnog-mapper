@@ -94,9 +94,10 @@ def parse_args(parser):
     if not args.db:
         parser.error('The HMMER server requires a target database (-d, --database).')
 
-    if os.path.exists(args.output_servers_list):
-        parser.error(f"File {args.output_servers_list} already exists, and won't be overwritten."
-                     "Please, remove it and run again to create it.")
+    if args.output_servers_list is not None:
+        if os.path.exists(args.output_servers_list):
+            parser.error(f"File {args.output_servers_list} already exists, and won't be overwritten."
+                         "Please, remove it and run again to create it.")
     
     return args
 

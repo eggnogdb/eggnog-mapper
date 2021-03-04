@@ -12,15 +12,31 @@ sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
 from eggnogmapper.emapper import Emapper
+
 from eggnogmapper.genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL
-from eggnogmapper.search.search_modes import SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2, SEARCH_MODE_CACHE
+
+from eggnogmapper.search.search_modes import \
+    SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, \
+    SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2, SEARCH_MODE_CACHE
+
 from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_SENSITIVE
-from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
+
+from eggnogmapper.search.hmmer.hmmer_search import \
+    QUERY_TYPE_SEQ, QUERY_TYPE_HMM, \
+    DB_TYPE_SEQ, DB_TYPE_HMM
+
 from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
+
 from eggnogmapper.annotation.pfam.pfam_modes import PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
-from eggnogmapper.deco.decoration import DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FILE, DECORATE_GFF_FIELD_DEFAULT
-from eggnogmapper.annotation.tax_scopes.tax_scopes import parse_tax_scope, print_taxa, \
-    TAX_SCOPE_MODE_BROADEST, TAX_SCOPE_MODE_INNER_BROADEST, TAX_SCOPE_MODE_INNER_NARROWEST, TAX_SCOPE_MODE_NARROWEST
+
+from eggnogmapper.deco.decoration import \
+    DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, \
+    DECORATE_GFF_FILE, DECORATE_GFF_FIELD_DEFAULT
+
+from eggnogmapper.annotation.tax_scopes.tax_scopes import \
+    parse_tax_scope, print_taxa, \
+    TAX_SCOPE_MODE_BROADEST, TAX_SCOPE_MODE_INNER_BROADEST, \
+    TAX_SCOPE_MODE_INNER_NARROWEST, TAX_SCOPE_MODE_NARROWEST
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
