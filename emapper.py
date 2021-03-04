@@ -32,8 +32,7 @@ from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 from eggnogmapper.annotation.pfam.pfam_modes import PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 
 from eggnogmapper.deco.decoration import \
-    DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, \
-    DECORATE_GFF_FILE, DECORATE_GFF_FIELD_DEFAULT
+    DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FIELD_DEFAULT
 
 from eggnogmapper.annotation.tax_scopes.tax_scopes import \
     parse_tax_scope, print_taxa, \
