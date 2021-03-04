@@ -39,7 +39,10 @@ def iter_fasta_seqs(source, translate=False, silent=False):
                 if translate:
                     full_seq = ''.join(seq_chunks)
                     prot = Seq(full_seq, generic_dna).translate(to_stop=True)
-                    yield seq_name, str(prot)
+                    if prot is None or prot == "":
+                        print(f"No translation found for sequence {seq_name}", file=sys.stderr)
+                    else:
+                        yield seq_name, str(prot)
                 else:
                     yield seq_name, ''.join(seq_chunks)
                 
