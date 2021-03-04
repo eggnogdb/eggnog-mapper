@@ -217,6 +217,8 @@ class Emapper:
         n = 0
         start_time = time.time()
         
+        total_time = self._print_progress(n, start_time, mem_monitor)
+        
         for item in generator:
             n += 1
             if n and (n % CHUNK_SIZE == 0):

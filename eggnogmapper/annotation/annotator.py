@@ -7,7 +7,7 @@ import multiprocessing
 from collections import defaultdict
 
 from ..emapperException import EmapperException
-from ..common import get_call_info
+from ..common import get_call_info, get_data_path
 from ..utils import colorify
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
@@ -278,7 +278,7 @@ class Annotator:
             yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_ids,
                            self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded)
+                           self.go_evidence, self.go_excluded, get_data_path())
             
             yield yield_tuple
             
