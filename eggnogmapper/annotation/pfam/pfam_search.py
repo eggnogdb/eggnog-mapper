@@ -5,7 +5,7 @@ import multiprocessing
 from tempfile import NamedTemporaryFile
 
 from ...emapperException import EmapperException
-from ...common import get_pfam_db
+from ...common import get_pfam_db, get_data_path, set_data_path
 
 from .pfam import get_hmmsearch_args, PfamAligner, parse_hmmsearch_file
 from .pfam_common import filter_fasta_hmm_files, group_queries_pfams, wrap_group_queries_pfams
@@ -44,7 +44,9 @@ def pfam_align_parallel(annotations, PFAM_COL, queries_fasta, translate, cpu, te
     try:
 
         for alignments in pool.imap(query_pfam_annotate,
-                                    wrap_group_queries_pfams(annotations, PFAM_COL, queries_fasta, get_pfam_db(), translate, temp_dir, pfam_file)):
+                                    wrap_group_queries_pfams(annotations, PFAM_COL, queries_fasta,
+                                                             get_pfam_db(), translate, temp_dir,
+                                                             pfam_file, get_data_path())):
             if alignments is not None:
                 if aligned_pfams is None:
                     aligned_pfams = alignments
@@ -68,7 +70,10 @@ def pfam_align_parallel(annotations, PFAM_COL, queries_fasta, translate, cpu, te
 
 ##
 def query_pfam_annotate(arguments):
-    queries_pfams_group, queries_fasta, pfam_db, temp_dir, translate, pfam_file, cpu = arguments
+    (queries_pfams_group, queries_fasta, pfam_db, temp_dir,
+     translate, pfam_file, cpu, data_path) = arguments
+
+    set_data_path(data_path)
     
     aligned_pfams = None
 
