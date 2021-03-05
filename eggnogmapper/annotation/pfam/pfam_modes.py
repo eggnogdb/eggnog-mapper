@@ -60,7 +60,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, translate,
     
     if aligned_pfams is not None and all_annotations is not None:
         
-        for hit, annotation in all_annotations:
+        for (hit, annotation), exists in all_annotations:
             
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
              annotations,
@@ -74,7 +74,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, translate,
             else:
                 annotations["PFAMs"] = None
                 
-            yield hit, annotation
+            yield ((hit, annotation), exists)
 
     return
 
@@ -84,8 +84,8 @@ def load_all_annotations(annots_generator):
     all_annotations = []
     queries_pfams = []
 
-    for hit, annotation in annots_generator:
-        all_annotations.append((hit, annotation))
+    for (hit, annotation), exists in annots_generator:
+        all_annotations.append(((hit, annotation), exists))
 
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations,

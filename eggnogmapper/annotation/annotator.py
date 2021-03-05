@@ -5,7 +5,7 @@ from os.path import isfile as pisfile
 import sys
 import time
 import multiprocessing
-from collections import defaultdict
+from collections import defaultdict, Counter
 
 from ..emapperException import EmapperException
 from ..common import get_call_info, get_data_path
@@ -88,7 +88,9 @@ class Annotator:
     ##
     def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file):
 
+        annots_generator = None
         ncbi = None
+        
         try:
             if self.report_orthologs == True or self.annot == True:            
                 ##
@@ -120,28 +122,20 @@ class Annotator:
                 ##
                 # Annotations
 
-                # # if resume, load annotations to skip
-                # resume_queries = set()
-                # if self.resume == True:
-                #     if self.annot == True and pisfile(annot_file):
-                #         resume_queries.update(set([line.split("\t")[0].strip() for line
-                #                               in open(annot_file, 'r')
-                #                               if not line.startswith("#")]))
-                #     if self.report_orthologs == True and pisfile(self.orthologs_file):
-                #         resume_queries.update(set([line.split("\t")[0].strip() for line
-                #                               in open(orthologs_file, 'r')
-                #                               if not line.startswith("#")]))
-                # print("annotator.py:annotate")
-                # print(resume_queries)
-                    
+                # If resume, create generator of previous annotations
+                annots_parser = None
+                if self.resume == True:
+                    annots_parser = parse_annotations(self.annot, annot_file,
+                                                      self.report_orthologs, orthologs_file)
                 
                 # Obtain annotations
-                annots_generator = self._annotate(hits_gen_func)
+                annots_generator = self._annotate(hits_gen_func, annots_parser)
 
                 ##
                 # PFAM realign
                 # Note that this needs all the annotations at once,
-                # and therefore breaks the generators pipeline
+                # and therefore breaks the generators pipeline and
+                # it is incompatible with --resume
                 if (self.annot == True and
                     self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and
                     annots_generator is not None):
@@ -159,6 +153,7 @@ class Annotator:
                 if self.annot == True:
                     annots_generator = output.output_annotations(annots_generator,
                                                                  annot_file,
+                                                                 self.resume,
                                                                  self.no_file_comments,
                                                                  md5_field,
                                                                  md5_queries)
@@ -166,7 +161,13 @@ class Annotator:
                 if self.report_orthologs == True:
                     annots_generator = output.output_orthologs(annots_generator,
                                                                orthologs_file,
+                                                               self.resume,
                                                                self.no_file_comments)
+
+                # unpack the annotations removing the "exists" or "skip"
+                # boolean used when --resume
+                
+                annots_generator = unpack_annotations(annots_generator)
 
         finally:
             if ncbi is not None: ncbi.close()
@@ -174,16 +175,16 @@ class Annotator:
         return annots_generator
 
 
-    def _annotate(self, hits_gen_func):
+    def _annotate(self, hits_gen_func, annots_parser):
         if self.dbmem == True:
-            annots_generator = self._annotate_dbmem(hits_gen_func)
+            annots_generator = self._annotate_dbmem(hits_gen_func, annots_parser)
         else:
-            annots_generator = self._annotate_ondisk(hits_gen_func)
+            annots_generator = self._annotate_ondisk(hits_gen_func, annots_parser)
         return annots_generator
 
 
     ##
-    def _annotate_dbmem(self, hits_gen_func):
+    def _annotate_dbmem(self, hits_gen_func, annots_parser):
         try:
             ##
             # Load sqlite DBs into memory
@@ -195,7 +196,8 @@ class Annotator:
 
             ##
             # Annotate hits
-            for result in map(annotate_hit_line_mem, self.iter_hit_lines(hits_gen_func)):
+            for result in map(annotate_hit_line_mem,
+                              self.iter_hit_lines(hits_gen_func, annots_parser)):
                 yield result
 
         except EmapperException:
@@ -211,7 +213,7 @@ class Annotator:
 
     
     ##
-    def _annotate_ondisk(self, hits_gen_func):
+    def _annotate_ondisk(self, hits_gen_func, annots_parser):
         
         pool = multiprocessing.Pool(self.cpu)
         chunk_size = 1
@@ -221,7 +223,9 @@ class Annotator:
         # Note that this makes q/s an approximation until all tasks have been finished
         
         try:
-            for result in pool.imap(annotate_hit_line_ondisk, self.iter_hit_lines(hits_gen_func), chunk_size):
+            for result in pool.imap(annotate_hit_line_ondisk,
+                                    self.iter_hit_lines(hits_gen_func, annots_parser),
+                                    chunk_size):
                 yield result
 
         except EmapperException:
@@ -237,18 +241,116 @@ class Annotator:
         return
     
     ##
-    def iter_hit_lines(self, hits_gen_func):
+    def iter_hit_lines(self, hits_gen_func, annots_parser):
+
+        curr_annot = None
+        if annots_parser is not None:
+            try:
+                curr_annot = next(annots_parser)
+            except StopIteration:
+                curr_annot = None
         
         for hit in hits_gen_func:
+
+            annotation = None
+            
+            if curr_annot is not None:
+                if hit[0] == curr_annot[0]:
+                    annotation = curr_annot
+                    try:
+                        curr_annot = next(annots_parser)
+                    except StopIteration:
+                        curr_annot = None
             
             yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_ids,
                            self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded, get_data_path())
+                           self.go_evidence, self.go_excluded, get_data_path(), annotation)
             
             yield yield_tuple
             
         return
+
+##
+def unpack_annotations(annots):
+    for (hit, annotation), skip in annots:
+        yield hit, annotation
+
+##
+def parse_annotations(annot, annot_file, report_orthologs, orthologs_file):
+    
+    if annot == True:
+        with open(annot_file, 'r') as annot_f:
+            for line in annot_f:
+                if line.startswith("#"): continue
+                
+                hit, annotation = parse_annotation_line(line)
+                
+                # this assumes the annotated hit it is also present
+                # in orthologs_file
+                yield annotation
+            
+    elif report_orthologs == True:
+        
+        prev_query = None
+        with open(orthologs_file, 'r') as orth_f:
+            for line in orth_f:
+                if line.startswith("#"): continue
+
+                # just yield that query already exists in file
+                query_name = line[0]
+                if prev_query is not None and query_name != prev_query:
+                    annotation = (prev_query, None, None, None, None,
+                                  None, None, None, None, None)
+                    yield annotation
+
+                prev_query = query_name
+                
+            # last query
+            if prev_query is not None:
+                annotation = (prev_query, None, None, None, None,
+                              None, None, None, None, None)
+                yield annotation
+                
+    else:
+        pass # no annotations then
+    
+    return
+
+def parse_annotation_line(line):
+    hit = None
+    annotation = None
+
+    data = list(map(str.strip, line.split("\t")))
+
+    query_name = data[0]
+    best_hit_name = data[1]
+    best_hit_evalue = float(data[2])
+    best_hit_score = float(data[3])
+    hit = [query_name, best_hit_name, best_hit_evalue, best_hit_score]
+    
+    annotations = defaultdict(Counter)
+    
+    for i, field in enumerate(data[11:]):
+        if i < len(ANNOTATIONS_HEADER):
+            field_name = ANNOTATIONS_HEADER[i]
+            annotations[field_name] = field.split(",")
+        
+    narr_og = (data[5], data[6], data[7])
+    best_og = (data[8], data[9], data[10])
+    
+    match_nog_names = data[4].split(",")
+    
+    all_orthologies = None
+    annot_orthologs = None
+    
+    annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+                  annotations,
+                  narr_og, best_og, match_nog_names,
+                  all_orthologies, annot_orthologs)
+    
+    return hit, annotation
+
 
 ##
 def normalize_target_taxa(target_taxa, ncbi):

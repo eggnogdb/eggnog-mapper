@@ -24,7 +24,7 @@ def annotate_hit_line_mem(arguments):
 
 ##
 def annotate_hit_line_ondisk(arguments):
-    data_dir = arguments[-1]
+    data_dir = arguments[-2]
     set_data_path(data_dir)
     eggnog_db = get_eggnog_db(usemem = False)
     
@@ -38,9 +38,12 @@ def annotate_hit_line(arguments, eggnog_db):
     hit, annot, seed_ortholog_score, seed_ortholog_evalue, \
         tax_scope_mode, tax_scope_ids, \
         target_taxa, target_orthologs, excluded_taxa, \
-        go_evidence, go_excluded, data_dir = arguments
+        go_evidence, go_excluded, data_dir, annotation = arguments
 
-    annotation = None
+    # For hits already annotated (this is important when --resume),
+    # just return the annotation back
+    if annotation is not None:
+        return ((hit, annotation), True) # and mark as already present in output file
     
     try:
         query_name = hit[0]
@@ -117,7 +120,8 @@ def annotate_hit_line(arguments, eggnog_db):
         traceback.print_exc()
         raise EmapperException(f'Error: annotation went wrong for hit {hit}. '+str(e))
 
-    return (hit, annotation)
+    # False: new annotation, not present in output file (this is important when --resume)
+    return ((hit, annotation), False)
 
 
 def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa):
