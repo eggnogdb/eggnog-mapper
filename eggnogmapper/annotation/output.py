@@ -11,19 +11,28 @@ from .ncbitaxa.ncbiquery import get_ncbi
 # Orthologs
 
 ##
-def output_orthologs(annots, orthologs_file, no_file_comments):
+def output_orthologs(annots, orthologs_file, resume, no_file_comments):
     start_time = time.time()
 
     ncbi = get_ncbi(usemem = True)
-    
-    with open(orthologs_file, 'w') as ORTHOLOGS_OUT:
-        output_orthologs_header(ORTHOLOGS_OUT, no_file_comments)
+
+    if resume == True:
+        file_mode = 'a'
+    else:
+        file_mode = 'w'
+        
+    with open(orthologs_file, file_mode) as ORTHOLOGS_OUT:
+        output_orthologs_header(ORTHOLOGS_OUT, no_file_comments, not resume)
 
         qn = 0
-        for hit, annotation in annots:
-            if annotation is not None:
+        for ((hit, annotation), exists) in annots:
+
+            # exists == False (--resume)
+            
+            if exists == False and annotation is not None:
                 output_orthologs_row(ORTHOLOGS_OUT, annotation, ncbi)
-            yield hit, annotation
+                
+            yield (hit, annotation), exists
             qn += 1
 
         elapsed_time = time.time() - start_time
@@ -68,14 +77,15 @@ def output_orthologs_row(out, annotation, ncbi):
     return
 
 ##
-def output_orthologs_header(out, no_file_comments):
+def output_orthologs_header(out, no_file_comments, print_header):
     if not no_file_comments:        
         # Call info
         print(get_call_info(), file=out)
 
     # Header
-    header = ["#query", "orth_type", "species", "orthologs"]
-    print('\t'.join(header), file=out)
+    if print_header == True:
+        header = ["#query", "orth_type", "species", "orthologs"]
+        print('\t'.join(header), file=out)
 
     return
 
@@ -124,18 +134,27 @@ ANNOTATIONS_HEADER = ['Preferred_name',
 ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + BEST_OG_HEADER + ANNOTATIONS_HEADER
 
 ##
-def output_annotations(annots, annot_file, no_file_comments, md5_field, md5_queries):
+def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, md5_queries):
 
+    if resume == True:
+        file_mode = 'a'
+    else:
+        file_mode = 'w'
+        
     start_time = time.time()
     
-    with open(annot_file, 'w') as ANNOTATIONS_OUT:
-        output_annotations_header(ANNOTATIONS_OUT, no_file_comments, md5_field)
+    with open(annot_file, file_mode) as ANNOTATIONS_OUT:
+        output_annotations_header(ANNOTATIONS_OUT, no_file_comments, md5_field, not resume)
 
         qn = 0
-        for hit, annotation in annots:
-            if annotation is not None:
+        for (hit, annotation), exists in annots:
+
+            # exists == False (--resume)
+            
+            if exists == False and annotation is not None:
                 output_annotations_row(ANNOTATIONS_OUT, annotation, md5_field, md5_queries)
-            yield hit, annotation
+                
+            yield (hit, annotation), exists
             qn += 1
         
         elapsed_time = time.time() - start_time
@@ -176,21 +195,22 @@ def output_annotations_row(out, annotation, md5_field, md5_queries):
     return
 
 ##
-def output_annotations_header(out, no_file_comments, md5_field):
+def output_annotations_header(out, no_file_comments, md5_field, print_header):
 
     if not no_file_comments:
         print(get_call_info(), file=out)
 
-    print("#", end="", file=out)
-    print('\t'.join(HIT_HEADER), end="\t", file=out)
+    if print_header == True:
+        print("#", end="", file=out)
+        print('\t'.join(HIT_HEADER), end="\t", file=out)
 
-    print('\t'.join(BEST_OG_HEADER), end="\t", file=out)
+        print('\t'.join(BEST_OG_HEADER), end="\t", file=out)
 
-    annot_header = ANNOTATIONS_HEADER
-    if md5_field == True:
-        annot_header.append("md5")
+        annot_header = ANNOTATIONS_HEADER
+        if md5_field == True:
+            annot_header.append("md5")
 
-    print('\t'.join(annot_header), file=out)
+        print('\t'.join(annot_header), file=out)
 
     return
 

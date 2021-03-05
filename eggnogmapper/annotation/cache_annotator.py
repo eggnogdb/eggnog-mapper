@@ -9,6 +9,8 @@ from ..emapperException import EmapperException
 from ..utils import colorify
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
+from .annotator import parse_annotation_line
+
 
 ##
 def md5_seqs_dict(fasta_file):
@@ -84,32 +86,6 @@ class CacheAnnotator:
             
         return
 
-def parse_annotation_line(line):
-    hit = None
-    annotation = None
 
-    data = list(map(str.strip, line.split("\t")))
-
-    query_name = data[0]
-    best_hit_name = data[1]
-    best_hit_evalue = float(data[2])
-    best_hit_score = float(data[3])
-    hit = [query_name, best_hit_name, best_hit_evalue, best_hit_score]
-
-    annotations = data[11:]
-    narr_og = (data[5], data[6], data[7])
-    best_og = (data[8], data[9], data[10])
-    
-    match_nog_names = data[4].split(",")
-    
-    all_orthologies = None
-    annot_orthologs = None
-    
-    annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-                  annotations,
-                  narr_og, best_og, match_nog_names,
-                  all_orthologies, annot_orthologs)
-    
-    return hit, annotation
 
 ## END

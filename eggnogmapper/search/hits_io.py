@@ -40,11 +40,11 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
     start_time = time.time()
     
     if resume == True:
-        read_mode = 'a'
+        file_mode = 'a'
     else:
-        read_mode = 'w'
+        file_mode = 'w'
 
-    with open(out_file, read_mode) as OUT:
+    with open(out_file, file_mode) as OUT:
 
         # comments
         if not no_file_comments:
@@ -54,7 +54,7 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
                     print('##'+cmd, file=OUT)
 
         # header (only first time, not for further resume)
-        if read_mode == 'w':
+        if file_mode == 'w':
             if outfmt_short == True:
                 print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
             else:

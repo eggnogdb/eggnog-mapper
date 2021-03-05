@@ -606,6 +606,8 @@ def parse_args(parser):
     elif args.pfam_realign == PFAM_REALIGN_REALIGN or args.pfam_realign == PFAM_REALIGN_DENOVO:
         if not args.input:
             parser.error(f'An input fasta file is required (-i) for --pfam_realign {args.pfam_realign}')
+        if args.resume == True:
+            parser.error(f'Resume operation is not compatible with PFAM realign mode {args.pfam_realign}')
     else:
         raise ValueError(f'Invalid --pfam_realign option {args.pfam_realign}')
 

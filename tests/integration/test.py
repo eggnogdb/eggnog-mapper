@@ -8,9 +8,9 @@ import os, shutil
 from .common import run, check_gff, check_fasta, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs, check_pfam
 
 # General eggnog-mapper settings
-GENEPRED_GFF_SUFFIX = '.emapper.genepred.gff'
+GENEPRED_GFF_SUFFIX = '.emapper.gff'
 GENEPRED_FASTA_SUFFIX = '.emapper.genepred.fasta'
-HMM_HITS_SUFFIX = '.emapper.hmm_hits'
+HMM_HITS_SUFFIX = '.emapper.hits'
 SEED_ORTHOLOGS_SUFFIX = '.emapper.seed_orthologs'
 ANNOTATIONS_SUFFIX = '.emapper.annotations'
 ORTHOLOGS_SUFFIX = '.emapper.orthologs'

@@ -14,6 +14,7 @@ from .emapperException import EmapperException
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
 from .genepred.util import create_prots_file
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE
+from .search.hits_io import parse_hits
 from .annotation.annotators import get_annotator, get_cache_annotator
 from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE
 
@@ -67,8 +68,11 @@ class Emapper:
         if itype == ITYPE_GENOME or itype == ITYPE_META or self.decorate_gff != DECORATE_GFF_NONE:
             self._output_files.append(self.genepred_gff_file)
 
-        self.genepred_is_prodigal = (itype == ITYPE_GENOME or itype == ITYPE_META) and genepred == GENEPRED_MODE_PRODIGAL
-        self.genepred_is_blastx = (itype == ITYPE_GENOME or itype == ITYPE_META) and genepred == GENEPRED_MODE_SEARCH
+        self.genepred_is_prodigal = ((itype == ITYPE_GENOME or itype == ITYPE_META) and
+                                     genepred == GENEPRED_MODE_PRODIGAL)
+        
+        self.genepred_is_blastx = ((itype == ITYPE_GENOME or itype == ITYPE_META) and
+                                   genepred == GENEPRED_MODE_SEARCH)
             
         if mode == SEARCH_MODE_NO_SEARCH:
             self._output_files.extend([self.annot_file, self.pfam_file])
@@ -88,13 +92,16 @@ class Emapper:
         if True in files_present and not resume and not override:
             raise EmapperException("Output files detected in disk. Use --resume or --override to continue")
 
-        if override:
+        if override == True:
             for outf in self._output_files:
                 silent_rm(pjoin(self.output_dir, outf))
 
         # Some files are not being resumed and will be ovewritten
-        if resume:
+        if resume == True:
             silent_rm(pjoin(self.output_dir, self.genepred_fasta_file))
+            silent_rm(pjoin(self.output_dir, self.genepred_gff_file))
+            silent_rm(pjoin(self.output_dir, self.no_annot_file))
+            silent_rm(pjoin(self.output_dir, self.pfam_file))
 
         # If using --scratch_dir, change working dir
         # (once finished move them again to output_dir)
@@ -103,9 +110,10 @@ class Emapper:
             
             if resume:
                 for fname in self._output_files:
-                    if pexists(fname):
-                        print("   Copying input file %s to scratch dir %s" % (fname, scratch_dir))
-                        shutil.copy(fname, scratch_dir)
+                    full_fname = pjoin(self.output_dir, fname)
+                    if pexists(full_fname):
+                        print("   Copying input file %s to scratch dir %s" % (full_fname, scratch_dir))
+                        shutil.copy(full_fname, scratch_dir)
             
         else:
             self._current_dir = output_dir
@@ -156,30 +164,40 @@ class Emapper:
     ##
     def annotate(self, args, hits, annotate_hits_table, cache_file):
         annotated_hits = None
+        
         if self.annot == True or self.report_orthologs:
             hits_file = None
 
             if cache_file is not None:
                 if not pexists(cache_file):
                     raise EmaperException(f"Could not find cache file: {cache_file}")
+                
                 annotator = get_cache_annotator(args)
+                
                 if annotator is not None:
                     annotated_hits = annotator.annotate(cache_file,
                                                         pjoin(self._current_dir, self.annot_file),
                                                         pjoin(self._current_dir, self.no_annot_file))
             else:
-                annotator = get_annotator(args, self.annot, self.report_orthologs)
                 
                 annot_in = None # a generator of hits to annotate
+                
                 if annotate_hits_table is not None:
                     if not pexists(annotate_hits_table):
-                        raise EmapperException("Could not find the file with the hits table to annotate: %s" % (annotate_hits_table))
-                    annot_in = annotator.parse_hits(annotate_hits_table) # function which parses the file and yields hits
+                        raise EmapperException(f"Could not find the file with the hits "
+                                               f"table to annotate: {annotate_hits_table}")
+                                               
+                    # function which parses the file and yields hits
+                    annot_in = parse_hits(annotate_hits_table)
+                    
                 elif hits is not None:
                     annot_in = hits
+                    
                 else:
                     raise EmapperException("Could not find hits to annotate.")
 
+                annotator = get_annotator(args, self.annot, self.report_orthologs)
+                
                 if annot_in is not None and annotator is not None:
                     annotated_hits = annotator.annotate(annot_in, 
                                                         pjoin(self._current_dir, self.annot_file),
@@ -249,10 +267,10 @@ class Emapper:
         # If running in scratch, move files to real output dir and clean up
         if self.scratch_dir:
             for fname in self._output_files:
-                pathname = pjoin(self.scratch_dir, fname)
-                if pexists(pathname):
-                    print(" Copying result file %s from scratch to %s" % (pathname, self.output_dir))
-                    shutil.copy(pathname, self.output_dir)
+                full_fname = pjoin(self.scratch_dir, fname)
+                if pexists(full_fname):
+                    print(" Copying result file %s from scratch to %s" % (full_fname, self.output_dir))
+                    shutil.copy(full_fname, self.output_dir)
 
             print(colorify(f"Data in {self.scratch_dir} will be not removed. Please, clear it manually.", 'red'))
 
