@@ -43,19 +43,22 @@ def iter_hits(source, translate, query_type, dbtype, scantype, host, port, serve
     # hmmscan mode
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_HMM:
         return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, 
-                       cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga, silent=silent)
+                       cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga, silent=silent,
+                       skip=skip)
 
     # hmmsearch mode
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_SEQ:
         # host is the fasta_file in this case
         # source is the hmm_file in this case
         return hmmsearch(host, translate, source, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, 
-                         cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga, silent=silent)
+                         cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga, silent=silent,
+                         skip=skip)
 
     # phmmer mode
     elif scantype == SCANTYPE_DISK and query_type == QUERY_TYPE_SEQ and dbtype == DB_TYPE_SEQ:
         return phmmer(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, 
-                      cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga, silent=silent)
+                      cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir, cut_ga=cut_ga, silent=silent,
+                      skip=skip)
     
     elif query_type == QUERY_TYPE_HMM and dbtype == DB_TYPE_HMM:
         raise Exception("HMM to HMM search is not supported.")        
@@ -74,40 +77,40 @@ def safe_cast(v):
 ##
 def hmmscan(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
             score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
-            base_tempdir=None, silent=False):
+            base_tempdir=None, silent=False, skip=None):
     
     cmd = HMMSCAN
     return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus, evalue_thr,
                       score_thr, max_hits, fixed_Z, maxseqlen, cut_ga,
-                      base_tempdir, silent)
+                      base_tempdir, silent, skip)
 
 
 ##
 def hmmsearch(fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
               score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
-              base_tempdir=None, silent=False):
+              base_tempdir=None, silent=False, skip=None):
     
     cmd = HMMSEARCH
     return hmmcommand(cmd, fasta_file, translate, hmm_file, cpus, evalue_thr,
                       score_thr, max_hits, fixed_Z, maxseqlen, cut_ga,
-                      base_tempdir, silent)
+                      base_tempdir, silent, skip)
 
 
 ##
 def phmmer(fasta_file, translate, fasta_target_file, cpus=1, evalue_thr=None,
            score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
-           base_tempdir=None, silent=False):
+           base_tempdir=None, silent=False, skip=None):
     
     cmd = PHMMER
     return hmmcommand(cmd, fasta_file, translate, fasta_target_file, cpus, evalue_thr,
                       score_thr, max_hits, fixed_Z, maxseqlen, cut_ga,
-                      base_tempdir, silent)
+                      base_tempdir, silent, skip)
 
 
 ##
 def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=None,
                score_thr=None, max_hits=None, fixed_Z=None, maxseqlen=None, cut_ga=False,
-               base_tempdir=None, silent=False):
+               base_tempdir=None, silent=False, skip = None):
     
     if not hmmer_cmd:
         raise ValueError(f'{hmmer_cmd} not found in path')
@@ -121,13 +124,15 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     ##
     # Translate FASTA nts to aas if needed
     
-    if translate or maxseqlen is not None:
+    if translate or maxseqlen is not None or skip is not None:
         if translate:
             if silent == False:
                 print('translating query input file')
         Q = NamedTemporaryFile(mode='w', dir=tempdir)
         has_records = False
         for name, seq in iter_fasta_seqs(fasta_file, translate=translate, silent=silent):
+            if skip is not None and name in skip: continue
+            
             if maxseqlen is None or len(seq) <= maxseqlen:
                 has_records = True
                 print(f">{name}\n{seq}", file=Q)
@@ -149,6 +154,8 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
                     print('translating target fasta file')
             R = NamedTemporaryFile(mode='w', dir=tempdir)
             for name, seq in iter_fasta_seqs(hmm_file, translate=translate, silent=silent):
+                if skip is not None and name in skip: continue
+                
                 if maxseqlen is None or len(seq) <= maxseqlen:
                     print(f">{name}\n{seq}", file=R)
                     # Q.write(f">{name}\n{seq}".encode())
