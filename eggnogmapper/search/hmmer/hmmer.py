@@ -9,7 +9,10 @@ import shutil
 
 from os.path import join as pjoin, isdir as pisdir, exists as pexists
 
-from ...common import get_oglevels_file, get_OG_fasta_path, cleanup_og_name, gopen, get_hmmer_databases, get_pfam_clans_file
+from ...common import \
+    get_oglevels_file, get_OG_fasta_path, cleanup_og_name, \
+    gopen, get_hmmer_databases, get_pfam_clans_file
+
 from ...utils import colorify
 
 from .hmmer_server import shutdown_server_by_pid, create_servers, check_servers
@@ -19,7 +22,8 @@ from .hmmer_seqio import iter_fasta_seqs
 from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ
 from .hmmer_setup import setup_hmm_search, SETUP_TYPE_EGGNOG, SETUP_TYPE_CUSTOM, SETUP_TYPE_REMOTE
 from .hmmer_idmap import load_idmap_idx
-from .hmmer_overlaps import process_overlaps, CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS_CLANS, CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS
+from .hmmer_overlaps import process_overlaps, \
+    CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS_CLANS, CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS
 
 class HmmerSearcher:
 
@@ -192,29 +196,6 @@ class HmmerSearcher:
                 shutdown_server_by_pid(master_pid, workers_pids)
             
         return hits
-
-
-    # ##
-    # def get_hits(self):
-    #     return self.hits
-
-    # def get_hits_dict(self):
-    #     hits_dict = None
-        
-    #     if self.hits_dict is not None:
-    #         hits_dict = self.hits_dict
-    #     elif self.hits is not None:
-    #         hits_dict = {hit[0]:hit for hit in self.hits}
-    #         self.hits_dict = hits_dict
-        
-    #     return hits_dict
-
-    # def get_no_hits(self):
-    #     if self.hits is not None and self.queries is not None:
-    #         hit_queries = set([x[0] for x in self.hits])
-    #         self.no_hits = set(self.queries).difference(hit_queries)
-            
-    #     return self.no_hits
     
     ##
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file, silent = False):
@@ -281,16 +262,9 @@ class HmmerSearcher:
             elif not hits and self.report_no_hits == True:
                 print('\t'.join([name] + ['-'] * (len(hits_header) - 1)), file=OUT)
             else:
-
-                # if "CG50_07170" in name:
-                #     print(f"hmmer.py:dump_hmm_matches {hits}")
                 
                 if self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_ALL, CLEAN_OVERLAPS_CLANS]:
-                    # if "CG50_07170" in name:
                     hits = process_overlaps(hits, self.clean_overlaps, CLANS_FILE, idmap_idx)
-
-                    # if "CG50_07170" in name:
-                    #     print(f"hmmer.py:dump_hmm_matches:clean_overlaps {hits}")
 
                 elif self.clean_overlaps is not None and self.clean_overlaps in [CLEAN_OVERLAPS_HMMSEARCH_ALL, CLEAN_OVERLAPS_HMMSEARCH_CLANS]:
                     namedhits.append((name, querylen, hits))
@@ -353,12 +327,17 @@ class HmmerSearcher:
 
         print(colorify("Hit refinement starts now", 'green'))
         start_time = time.time()
-        
-        # print(get_oglevels_file())
-        # og2level = dict([tuple(map(str.strip, line.split('\t')))
-        #                  for line in gopen(get_oglevels_file())])
-        
-        OUT = open(refine_file, "w")
+
+        # Cache previous results if resuming is enabled
+        VISITED = set()
+        if self.resume and pexists(refine_file):
+            print(colorify("Resuming previous run. Reading computed output from %s" % refine_file, 'yellow'))
+            VISITED = set([line.split('\t')[0].strip()
+                           for line in open(refine_file) if not line.startswith('#')])
+            print(str(len(VISITED)) + ' queries skipped')
+            OUT = open(refine_file, 'a')
+        else:
+            OUT = open(refine_file, 'w')
 
         if not self.no_file_comments:
             print(self.get_call_info(), file=OUT)
@@ -368,7 +347,7 @@ class HmmerSearcher:
         sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
         self.queries = set(sequences.keys())
         for qn, r in enumerate(self.process_nog_hits_file(dbname, hits_file, sequences,
-                                                          cpu=self.cpu,
+                                                          VISITED, cpu=self.cpu,
                                                           excluded_taxa=self.excluded_taxa)):
             if qn and (qn % 25 == 0):
                 total_time = time.time() - start_time

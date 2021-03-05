@@ -1,6 +1,7 @@
 ##
 ## CPCantalapiedra 2019
 
+from os.path import isfile as pisfile
 import sys
 import time
 import multiprocessing
@@ -40,6 +41,8 @@ class Annotator:
     go_evidence = go_excluded = None
     pfam_realign = queries_fasta = translate = temp_dir = None
     md5 = None
+
+    resume = None
         
     ##
     def __init__(self, args, annot, report_orthologs):
@@ -76,8 +79,11 @@ class Annotator:
         self.temp_dir = args.temp_dir
         
         self.md5 = args.md5
+
+        self.resume = args.resume
         
         return
+
     
     ##
     def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file):
@@ -114,6 +120,21 @@ class Annotator:
                 ##
                 # Annotations
 
+                # # if resume, load annotations to skip
+                # resume_queries = set()
+                # if self.resume == True:
+                #     if self.annot == True and pisfile(annot_file):
+                #         resume_queries.update(set([line.split("\t")[0].strip() for line
+                #                               in open(annot_file, 'r')
+                #                               if not line.startswith("#")]))
+                #     if self.report_orthologs == True and pisfile(self.orthologs_file):
+                #         resume_queries.update(set([line.split("\t")[0].strip() for line
+                #                               in open(orthologs_file, 'r')
+                #                               if not line.startswith("#")]))
+                # print("annotator.py:annotate")
+                # print(resume_queries)
+                    
+                
                 # Obtain annotations
                 annots_generator = self._annotate(hits_gen_func)
 
@@ -213,25 +234,6 @@ class Annotator:
             pool.close()
             pool.terminate() # it should remove the global eggnog_db variables also
             
-        return
-    
-
-    ##
-    def parse_hits(self, filename):
-        for line in open(filename, 'r'):
-            if line.startswith('#') or not line.strip():
-                continue
-
-            line = list(map(str.strip, line.split('\t')))
-            # query, target, evalue, score
-            if len(line) == 4: # short hits
-                hit = [line[0], line[1], float(line[2]), float(line[3])]
-            elif len(line) == 11:
-                hit = [line[0], line[1], float(line[2]), float(line[3]),
-                       int(line[4]), int(line[5]), int(line[6]), int(line[7]),
-                       float(line[8]), float(line[9]), float(line[10])]
-
-            yield hit
         return
     
     ##

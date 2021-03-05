@@ -19,7 +19,7 @@ from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE
 
 class Emapper:
 
-    genepred_fasta_file = genepred_gff_file = hmm_hits_file = seed_orthologs_file = None
+    genepred_fasta_file = genepred_gff_file = searcher_out_file = seed_orthologs_file = None
     annot_file = orthologs_file = pfam_file = None
     _output_files = None
     
@@ -40,8 +40,10 @@ class Emapper:
         
         # Output and intermediate files
         self.genepred_fasta_file = f"{prefix}.emapper.genepred.fasta"
-        self.genepred_gff_file = f"{prefix}.emapper.genepred.gff"
-        self.hmm_hits_file = f"{prefix}.emapper.hmm_hits"
+        self.genepred_gff_file = f"{prefix}.emapper.gff"
+
+        self.search_out_file = f"{prefix}.emapper.hits"
+        
         self.seed_orthologs_file = f"{prefix}.emapper.seed_orthologs"
         self.annot_file = f"{prefix}.emapper.annotations"
         self.no_annot_file = f"{prefix}.emapper.no_annotations.fasta"
@@ -73,9 +75,10 @@ class Emapper:
         elif mode == SEARCH_MODE_CACHE:
             self._output_files.extend([self.annot_file, self.no_annot_file])            
         elif not annot:
-            self._output_files.extend([self.hmm_hits_file, self.seed_orthologs_file])
+            self._output_files.extend([self.search_out_file, self.seed_orthologs_file])
         else:
-            self._output_files.extend([self.hmm_hits_file, self.seed_orthologs_file, self.annot_file, self.pfam_file])
+            self._output_files.extend([self.search_out_file, self.seed_orthologs_file,
+                                       self.annot_file, self.pfam_file])
 
         if report_orthologs == True:
             self._output_files.append(self.orthologs_file)
@@ -88,6 +91,10 @@ class Emapper:
         if override:
             for outf in self._output_files:
                 silent_rm(pjoin(self.output_dir, outf))
+
+        # Some files are not being resumed and will be ovewritten
+        if resume:
+            silent_rm(pjoin(self.output_dir, self.genepred_fasta_file))
 
         # If using --scratch_dir, change working dir
         # (once finished move them again to output_dir)
@@ -135,7 +142,7 @@ class Emapper:
             searcher_name = searcher.name
             hits = searcher.search(queries_file,
                                    pjoin(self._current_dir, self.seed_orthologs_file),
-                                   pjoin(self._current_dir, self.hmm_hits_file))
+                                   pjoin(self._current_dir, self.search_out_file))
 
             # If gene prediction from the hits obtained in the search step
             # create a fasta file with the inferred proteins

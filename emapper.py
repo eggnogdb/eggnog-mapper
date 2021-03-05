@@ -65,6 +65,13 @@ def create_arg_parser():
     
     pg_exec.add_argument('--cpu', type=int, default=1, metavar='NUM_CPU',
                         help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
+
+    pg_exec.add_argument('--resume', action="store_true",
+                          help=("Resumes a previous emapper run. A file *.emapper.search.hit must "
+                                "exist within the output directory."))
+
+    pg_exec.add_argument('--override', action="store_true",
+                        help="Overwrites output files if they exist.")
     
     ##
     pg_input = parser.add_argument_group('Input Data Options')
@@ -403,13 +410,6 @@ def create_arg_parser():
                         ' output dir when finished. Speed up large computations using network file'
                         ' systems.')
 
-    pg_out.add_argument('--resume', action="store_true",
-                        help="Resumes a previous SEARCH_MODE_HMMER search, skipping reported hits in the output file. "
-                        f"Only SEARCH_MODE_HMMER runs (-m {SEARCH_MODE_HMMER}) can be resumed.")
-        
-    pg_out.add_argument('--override', action="store_true",
-                        help="Overwrites output files if they exist.")
-
     pg_out.add_argument("--temp_dir", default=os.getcwd(), type=existing_dir, metavar='DIR',
                         help="Where temporary files are created. Better if this is a local disk.")
 
@@ -462,6 +462,8 @@ def parse_args(parser):
         args.cpu = multiprocessing.cpu_count()
     multiprocessing.set_start_method("spawn")
 
+    if args.resume == True and args.override == True:
+        parser.error('Only one of --resume or --override is allowed.')        
 
     # translate
     if args.itype in [ITYPE_GENOME, ITYPE_META, ITYPE_PROTS] and args.translate == True:
@@ -498,10 +500,6 @@ def parse_args(parser):
         # Output file required
         if not args.output:
             parser.error('An output project name is required (-o)')
-
-        if args.resume == True:
-            print(colorify("Diamond jobs cannot be resumed. --resume will be ignored.", 'blue'))
-            args.resume = False
             
     elif args.mode == SEARCH_MODE_MMSEQS2:
         mmseqs_db = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
@@ -515,10 +513,6 @@ def parse_args(parser):
         # Output file required
         if not args.output:
             parser.error('An output project name is required (-o)')
-
-        if args.resume == True:
-            print(colorify("MMseqs2 jobs cannot be resumed. --resume will be ignored.", 'blue'))
-            args.resume = False
 
         if args.annotate_hits_table is not None:
             print(colorify(f"--annotate_hits_table will be ignored, due to -m {SEARCH_MODE_MMSEQS2}", 'blue'))

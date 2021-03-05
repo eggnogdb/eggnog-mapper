@@ -1,17 +1,18 @@
 ##
 ## CPCantalapiedra 2019
 
-from os.path import join as pjoin, isdir as pisdir
+from os.path import isdir as pisdir, isfile as pisfile
 import shutil
 import subprocess
 from tempfile import mkdtemp, mkstemp
-import uuid
 
 from ...emapperException import EmapperException
-from ...common import DIAMOND, get_eggnog_dmnd_db, get_call_info, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
+from ...common import DIAMOND, get_eggnog_dmnd_db, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
+
+from ..hits_io import parse_hits, output_hits
 
 SENSMODE_FAST = "fast"
 SENSMODE_MID_SENSITIVE = "mid-sensitive"
@@ -58,10 +59,8 @@ class DiamondSearcher:
     itype = None
     translate = None
     query_gencode = None
-
-    # # Results
-    # queries = hits = no_hits = None
-    # hits_dict = None
+    
+    resume = None
 
     ##
     def __init__(self, args):
@@ -94,6 +93,8 @@ class DiamondSearcher:
         
         self.temp_dir = mkdtemp(prefix='emappertmp_dmdn_', dir=args.temp_dir)
         self.no_file_comments = args.no_file_comments
+
+        self.resume = args.resume
         
         return
 
@@ -104,12 +105,7 @@ class DiamondSearcher:
         return
     
     ##
-    def search(self, in_file, seed_orthologs_file, hits_file = None):
-        # DiamondSearcher does not use the "hits_file"
-        # but we need this wrapper to define the search interface for Emapper
-        return self._search(in_file, seed_orthologs_file)
-
-    def _search(self, in_file, seed_orthologs_file):
+    def search(self, in_file, seed_orthologs_file, hits_file):
         hits_generator = None
         
         if not DIAMOND:
@@ -118,42 +114,30 @@ class DiamondSearcher:
         self.in_file = in_file
         
         try:
-            output_file = pjoin(self.temp_dir, uuid.uuid4().hex)
-            cmd = self.run_diamond(in_file, output_file)
-            hits_generator = self.parse_diamond(output_file)            
-            hits_generator = self.output_diamond(cmd, hits_generator, seed_orthologs_file)
+            cmds = None
+            hits_parser = None
+            if self.resume == True:
+                if pisfile(hits_file):
+                    if pisfile(seed_orthologs_file):
+                        hits_parser = parse_hits(seed_orthologs_file)
+                else:
+                    raise EmapperException(f"Couldn't find hits file {hits_file} to resume.")
+            else:
+                cmds = self.run_diamond(in_file, hits_file)
+                
+            hits_generator = self.parse_diamond(hits_file, hits_parser)            
+            hits_generator = output_hits(cmds, hits_generator,
+                                         seed_orthologs_file, self.resume,
+                                         self.no_file_comments, self.outfmt_short)
 
         except Exception as e:
             raise e
             
         return hits_generator
 
-    # ##
-    # def get_hits(self):
-    #     return self.hits
-
-    # def get_hits_dict(self):
-    #     hits_dict = None
-        
-    #     if self.hits_dict is not None:
-    #         hits_dict = self.hits_dict
-    #     elif self.hits is not None:
-    #         hits_dict = {hit[0]:hit for hit in self.hits}
-    #         self.hits_dict = hits_dict
-        
-    #     return hits_dict
-
-    # ##
-    # def get_no_hits(self):
-    #     if self.hits is not None:
-    #         hit_queries = set([x[0] for x in self.hits])
-    #         self.queries = set({name for name, seq in iter_fasta_seqs(self.in_file)})
-    #         self.no_hits = set(self.queries).difference(hit_queries)
-            
-    #     return self.no_hits
-
     ##
     def run_diamond(self, fasta_file, output_file):
+        cmds = []
         ##
         # search type
         if self.itype == ITYPE_CDS and self.translate == True:
@@ -219,22 +203,35 @@ class DiamondSearcher:
         print(colorify('  '+cmd, 'yellow'))
         try:
             completed_process = subprocess.run(cmd, capture_output=True, check=True, shell=True)
+            cmds.append(cmd)
         except subprocess.CalledProcessError as cpe:
             raise EmapperException("Error running diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
         
-        return cmd
+        return cmds
 
 
     ##
-    def parse_diamond(self, raw_dmnd_file):
+    def parse_diamond(self, raw_dmnd_file, hits_parser):
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            return self._parse_diamond(raw_dmnd_file)
+            return self._parse_diamond(raw_dmnd_file, hits_parser)
         else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-            return self._parse_genepred(raw_dmnd_file)
+            return self._parse_genepred(raw_dmnd_file, hits_parser)
         
     ##
-    def _parse_diamond(self, raw_dmnd_file):        
-        visited = set()
+    def _parse_diamond(self, raw_dmnd_file, hits_parser):        
+
+        # previous hits from resume are yielded
+        last_resumed_query = None
+        if hits_parser is not None:
+            for hit in hits_parser:
+                yield (hit, True) # hit and skip (already exists)
+                last_resumed_query = hit[0]
+
+        # semaphore to start processing new hits
+        last_resumed_query_found = False if last_resumed_query is not None else True
+
+        prev_query = None
+        # parse non-resumed hits
         with open(raw_dmnd_file, 'r') as raw_f:
             for line in raw_f:
                 if not line.strip() or line.startswith('#'):
@@ -243,14 +240,26 @@ class DiamondSearcher:
                 fields = list(map(str.strip, line.split('\t')))
                 # fields are defined in run_diamond
                 # OUTFMT_SHORT = " --outfmt 6 qseqid sseqid evalue bitscore"
-                # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
+                # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch
+                # gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
                 
                 query = fields[0]
+                
+                if last_resumed_query is not None:
+                    if query == last_resumed_query:
+                        last_resumed_query_found = True
+                        continue
+                    else:
+                        if last_resumed_query_found == False:
+                            continue
+                        else:
+                            last_resumed_query = None # start parsing new queries
 
                 # only one result per query
-                if query in visited:
+                if prev_query is not None and query == prev_query:
                     continue
-                visited.add(query)
+                else:
+                    prev_query = query
                 
                 target = fields[1]
 
@@ -270,11 +279,22 @@ class DiamondSearcher:
                     scov = float(fields[13])
                     hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
-                yield hit
+                yield (hit, False) # hit and dont skip (doesnt exist)
         return
 
     ##
-    def _parse_genepred(self, raw_dmnd_file):
+    def _parse_genepred(self, raw_dmnd_file, hits_parser):
+
+        # previous hits from resume are yielded
+        last_resumed_query = None
+        if hits_parser is not None:
+            for hit in hits_parser:
+                yield (hit, True) # hit and skip (already exists)
+                last_resumed_query = hit[0]
+
+        # semaphore to start processing new hits
+        last_resumed_query_found = False if last_resumed_query is not None else True
+        
         curr_query_hits = []
         prev_query = None
         queries_suffixes = {}
@@ -288,13 +308,24 @@ class DiamondSearcher:
                 # fields are defined in run_diamond
                 # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch
                 # gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
+                
+                query = fields[0]
+
+                if last_resumed_query is not None:
+                    if query == last_resumed_query:
+                        last_resumed_query_found = True
+                        continue
+                    else:
+                        if last_resumed_query_found == False:
+                            continue
+                        else:
+                            last_resumed_query = None # start parsing new queries
 
                 target = fields[1]
                 pident = float(fields[2])
                 evalue = float(fields[10])
                 score = float(fields[11])
                 
-                query = fields[0]
                 qstart = int(fields[6])
                 qend = int(fields[7])
                 sstart = int(fields[8])
@@ -313,7 +344,7 @@ class DiamondSearcher:
                             suffix = 0
                             queries_suffixes[query] = suffix
 
-                        yield [f"{hit[0]}_{suffix}"]+hit[1:]
+                        yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
                         curr_query_hits.append(hit)
                         
                 else:
@@ -324,34 +355,12 @@ class DiamondSearcher:
                         suffix = 0
                         queries_suffixes[query] = suffix
                             
-                    yield [f"{hit[0]}_{suffix}"]+hit[1:]
+                    yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
                     curr_query_hits = [hit]
                     
                 prev_query = query
         return
 
-    ##
-    # Receives an iterable of hits to output
-    # and also returns a generator object of hits
-    def output_diamond(self, cmd, hits, out_file):
-        with open(out_file, 'w') as OUT:
-
-            # comments
-            if not self.no_file_comments:
-                print(get_call_info(), file=OUT)
-                print('##'+cmd, file=OUT)
-
-            # header
-            if self.outfmt_short == True:
-                print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
-            else:
-                print('#'+"\t".join("qseqid sseqid evalue bitscore qstart qend sstart send pident qcov scov".split(" ")), file=OUT)
-
-            # rows
-            for hit in hits:
-                print('\t'.join(map(str, hit)), file=OUT)                
-                yield hit
-        return
 
 def hit_does_overlap(hit, hits):
     does_overlap = False
