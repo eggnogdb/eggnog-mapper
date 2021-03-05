@@ -7,13 +7,15 @@ from tempfile import mkdtemp
 import multiprocessing
 import shutil
 
-from os.path import join as pjoin, isdir as pisdir, exists as pexists
+from os.path import join as pjoin, isdir as pisdir, isfile as pisfile
 
 from ...common import \
     get_oglevels_file, get_OG_fasta_path, cleanup_og_name, \
     gopen, get_hmmer_databases, get_pfam_clans_file
 
 from ...utils import colorify
+
+from ..hits_io import parse_hits
 
 from .hmmer_server import shutdown_server_by_pid, create_servers, check_servers
 from .hmmer_search import iter_hits, refine_hit
@@ -135,7 +137,6 @@ class HmmerSearcher:
 
             
         # Search for HMM hits (OG)
-        # if not pexists(hmm_hits_file): This avoids resuming the previous run
         if servers is None:
             hosts = [(dbpath, port)]
         else:
@@ -153,6 +154,8 @@ class HmmerSearcher:
     ##
     def search(self, in_file, seed_orthologs_file, hmm_hits_file):
 
+        hits = None
+        
         print(f"hmmer.py:search DB: {self.db}")
         
         # Prepare HMM database and/or server
@@ -171,7 +174,6 @@ class HmmerSearcher:
             
             
         # Search for HMM hits (OG)
-        # if not pexists(hmm_hits_file): This avoids resuming the previous run
         if servers is None:
             hosts = [(dbpath, port)]
         else:
@@ -184,8 +186,7 @@ class HmmerSearcher:
             print('Skipping seed ortholog detection in "viruses" database')
 
         elif dbname in get_hmmer_databases():
-            if not pexists(seed_orthologs_file):
-                hits = self.refine_matches(dbname, in_file, seed_orthologs_file, hmm_hits_file)
+            hits = self.refine_matches(dbname, in_file, seed_orthologs_file, hmm_hits_file)
 
         else:
             print(f'Could not find {dbname} among eggnog databases. Skipping seed ortholog detection.')
@@ -199,14 +200,14 @@ class HmmerSearcher:
     
     ##
     def dump_hmm_matches(self, in_file, hits_file, dbpath, port, servers, idmap_file, silent = False):
-        hits_header = ("#query_name", "hit", "evalue", "sum_score", "query_length",
+        hits_header = ("query_name", "hit", "evalue", "sum_score", "query_length",
                        "hmmfrom", "hmmto", "seqfrom", "seqto", "query_coverage")
 
         CLANS_FILE = get_pfam_clans_file()
         
         # Cache previous results if resuming is enabled
         VISITED = set()
-        if self.resume and pexists(hits_file):
+        if self.resume and pisfile(hits_file):
             print(colorify("Resuming previous run. Reading computed output from %s" % hits_file, 'yellow'))
             VISITED = set([line.split('\t')[0].strip()
                            for line in open(hits_file) if not line.startswith('#')])
@@ -217,7 +218,8 @@ class HmmerSearcher:
 
         if not self.no_file_comments:
             print(self.get_call_info(), file=OUT)
-            print('# ' + '\t'.join(hits_header), file=OUT)
+            if self.resume == False or not pisfile(hits_file):
+                print('# ' + '\t'.join(hits_header), file=OUT)
         
         total_time = 0
         last_time = time.time()
@@ -295,9 +297,9 @@ class HmmerSearcher:
         # Writes final stats
         elapsed_time = time.time() - start_time
         if not self.no_file_comments:
-            print('# %d queries scanned' % (qn + 1), file=OUT)
-            print('# Total time (seconds): '+str(elapsed_time), file=OUT)
-            print('# Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time)), file=OUT)
+            print('## %d queries scanned' % (qn + 1), file=OUT)
+            print('## Total time (seconds): '+str(elapsed_time), file=OUT)
+            print('## Rate:', "%0.2f q/s" % ((float(qn + 1) / elapsed_time)), file=OUT)
         OUT.close()
         if silent == False:
             print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
@@ -322,32 +324,38 @@ class HmmerSearcher:
 
     ##
     def refine_matches(self, dbname, in_file, refine_file, hits_file):
-        refine_header = map(str.strip, '''#query_name, best_hit_eggNOG_ortholog,
+        refine_header = map(str.strip, '''query_name, best_hit_eggNOG_ortholog,
                             best_hit_evalue, best_hit_score'''.split(','))
 
         print(colorify("Hit refinement starts now", 'green'))
         start_time = time.time()
 
         # Cache previous results if resuming is enabled
-        VISITED = set()
-        if self.resume and pexists(refine_file):
-            print(colorify("Resuming previous run. Reading computed output from %s" % refine_file, 'yellow'))
-            VISITED = set([line.split('\t')[0].strip()
-                           for line in open(refine_file) if not line.startswith('#')])
-            print(str(len(VISITED)) + ' queries skipped')
+        last_resumed_query = None
+        if self.resume == True:
+            if pisfile(hits_file):
+                if pisfile(refine_file):
+                    hits_parser = parse_hits(refine_file)
+                    for hit in hits_parser:
+                        yield hit
+                        last_resumed_query = hit[0]
+            else:
+                raise EmapperException(f"Couldn't find hits file {hits_file} to resume.")
+                
             OUT = open(refine_file, 'a')
         else:
             OUT = open(refine_file, 'w')
 
         if not self.no_file_comments:
             print(self.get_call_info(), file=OUT)
-            print('\t'.join(refine_header), file=OUT)
+            if self.resume == False:
+                print('# ' + '\t'.join(refine_header), file=OUT)
 
         qn = -1 # in case no hits in loop bellow
         sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
         self.queries = set(sequences.keys())
         for qn, r in enumerate(self.process_nog_hits_file(dbname, hits_file, sequences,
-                                                          VISITED, cpu=self.cpu,
+                                                          last_resumed_query, cpu=self.cpu,
                                                           excluded_taxa=self.excluded_taxa)):
             if qn and (qn % 25 == 0):
                 total_time = time.time() - start_time
@@ -367,9 +375,9 @@ class HmmerSearcher:
 
         elapsed_time = time.time() - start_time
         if not self.no_file_comments:
-            print('# %d queries scanned' % (qn + 1), file=OUT)
-            print('# Total time (seconds): '+str(elapsed_time), file=OUT)
-            print('# Rate: '+"%0.2f q/s" % ((float(qn + 1) / elapsed_time)), file=OUT)
+            print('## %d queries scanned' % (qn + 1), file=OUT)
+            print('## Total time (seconds): '+str(elapsed_time), file=OUT)
+            print('## Rate: '+"%0.2f q/s" % ((float(qn + 1) / elapsed_time)), file=OUT)
         OUT.close()
         print(colorify(" Processed queries:%s total_time:%s rate:%s" %\
                        (qn+1, elapsed_time, "%0.2f q/s" % ((float(qn+1) / elapsed_time))), 'lblue'))
@@ -377,21 +385,32 @@ class HmmerSearcher:
 
 
     ##
-    def process_nog_hits_file(self, dbname, hits_file, sequences, skip_queries=None,
+    def process_nog_hits_file(self, dbname, hits_file, sequences, last_resumed_query,
                               cpu=1, excluded_taxa=None):
 
         cmds = []
         visited_queries = set()
 
-        if skip_queries:
-            visited_queries.update(skip_queries)
-
+        # semaphore to start processing new hits
+        last_resumed_query_found = False if last_resumed_query is not None else True
+        
         for line in gopen(hits_file):
             if line.startswith('#'):
                 continue
             
             fields = list(map(str.strip, line.split('\t')))
             seqname = fields[0]
+
+            if last_resumed_query is not None:
+                if seqname == last_resumed_query:
+                    last_resumed_query_found = True
+                    continue
+                else:
+                    if last_resumed_query_found == False:
+                        continue
+                    else:
+                        last_resumed_query = None # start parsing new queries
+                
 
             # if there is no hit (check stderr for possible errors of each specific query)
             if fields[1] == '-':
