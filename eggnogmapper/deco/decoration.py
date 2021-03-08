@@ -12,8 +12,8 @@ DECORATE_GFF_GENEPRED = "yes"
 DECORATE_GFF_FIELD_DEFAULT = "ID"
         
 ##
-def run_gff_decoration(mode, gff_ID_field, is_prodigal, is_blastx, gff_outfile,
-                       predictor, searcher_name, annotated_hits):
+def run_gff_decoration(mode, resume, gff_ID_field, is_prodigal, is_blastx,
+                       gff_outfile, predictor, searcher_name, annotated_hits):
 
     annot_generator = None
     
@@ -23,15 +23,19 @@ def run_gff_decoration(mode, gff_ID_field, is_prodigal, is_blastx, gff_outfile,
         
         # if prodigal, just rename its GFF file, since it won't decorated
         if is_prodigal:
-            shutil.move(predictor.outfile, gff_outfile)
+            if resume == False and predictor is not None:
+                shutil.move(predictor.outfile, gff_outfile)
             annot_generator = annotated_hits
             
 
         # if blastx, create a gff with the hits
         elif is_blastx:
-            rm_suffix = True # rm_suffix is to remove the "_int" added for gene prediction hits (to recover the contig name)
+            # rm_suffix is to remove the "_int" added for
+            # gene prediction hits (to recover the contig name)
+            rm_suffix = True
             annot_generator = create_gff(searcher_name, get_version(),
-                                         annotated_hits, gff_outfile, rm_suffix, gff_ID_field)
+                                         annotated_hits, gff_outfile, resume,
+                                         rm_suffix, gff_ID_field)
 
         else:
             annot_generator = annotated_hits
@@ -39,7 +43,8 @@ def run_gff_decoration(mode, gff_ID_field, is_prodigal, is_blastx, gff_outfile,
     elif mode == DECORATE_GFF_GENEPRED:
 
         if annotated_hits is None and is_prodigal:
-            shutil.move(predictor.outfile, gff_outfile)
+            if resume == False and predictor is not None:
+                shutil.move(predictor.outfile, gff_outfile)
             annot_generator = annotated_hits
             
         elif annotated_hits is None:
@@ -54,7 +59,8 @@ def run_gff_decoration(mode, gff_ID_field, is_prodigal, is_blastx, gff_outfile,
                 rm_suffix = False
 
             annot_generator = create_gff(searcher_name, get_version(),
-                                         annotated_hits, gff_outfile, rm_suffix, gff_ID_field)
+                                         annotated_hits, gff_outfile, resume,
+                                         rm_suffix, gff_ID_field)
 
     else: # decorate user specified file
 
@@ -137,9 +143,27 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 ##
 # Create GFF file by parsing the hits
 ##
-def create_gff(searcher_name, version, annotated_hits, outfile, rm_suffix, gff_ID_field):
-        
-    with open(outfile, 'w') as OUT:
+def create_gff(searcher_name, version, annotated_hits, outfile, resume, rm_suffix, gff_ID_field):
+
+    last_resumed_query = None
+    if resume == True:
+        # find last query in existing file
+        with open(outfile, 'r') as gff_f:
+            for line in gff_f:
+                if line.startswith("#"): continue
+                attrs = line.split("\t")[8].strip()
+                attrs = {f.split("=")[0]:f.split("=")[1] for f in attrs.split(";")}
+                if gff_ID_field in attrs:
+                    last_resumed_query = attrs[gff_ID_field]
+                    
+        file_mode = 'a'
+    else:
+        file_mode = 'w'
+
+    # semaphore to start processing new hits
+    last_resumed_query_found = False if last_resumed_query is not None else True
+    
+    with open(outfile, file_mode) as OUT:
 
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
@@ -153,6 +177,19 @@ def create_gff(searcher_name, version, annotated_hits, outfile, rm_suffix, gff_I
              qstart, qend, sstart, send,
              pident, qcov, scov,
              strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
+
+            # --resume from last query found
+            if last_resumed_query is not None:
+                if query == last_resumed_query:
+                    last_resumed_query_found = True
+                    yield hit, annotation
+                    continue
+                else:
+                    if last_resumed_query_found == False:
+                        yield hit, annotation
+                        continue
+                    else:
+                        last_resumed_query = None # start parsing new queries
 
             if searcher_name is None:
                 attrs.append(f"em_searcher=unk")
