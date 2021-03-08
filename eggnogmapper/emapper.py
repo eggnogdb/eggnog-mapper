@@ -165,7 +165,6 @@ class Emapper:
         annotated_hits = None
         
         if self.annot == True or self.report_orthologs:
-            hits_file = None
 
             if cache_file is not None:
                 if not pexists(cache_file):
