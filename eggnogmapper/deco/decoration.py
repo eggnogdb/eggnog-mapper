@@ -2,8 +2,9 @@
 ## CPCantalapiedra 2021
 
 import shutil
+from sys import stderr as serr
 
-from ..common import get_version
+from ..common import get_version, colorify
 from ..annotation.output import ANNOTATIONS_WHOLE_HEADER
 
 DECORATE_GFF_NONE = "no"
@@ -77,6 +78,8 @@ def run_gff_decoration(mode, resume, gff_ID_field, is_prodigal, is_blastx,
 # Parse a GFF and create a new one adding hits and/or annotations
 def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searcher_name):
 
+    print(colorify(f"Decorating gff file {gff_file}...", 'lgreen'), file=serr)
+
     # 1) Parse GFF
     gff_comments = []
     gff_dict = {}
@@ -145,6 +148,8 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 ##
 def create_gff(searcher_name, version, annotated_hits, outfile, resume, rm_suffix, gff_ID_field):
 
+    print(colorify(f"Decorating gff file {outfile}...", 'lgreen'), file=serr)
+    
     last_resumed_query = None
     if resume == True:
         # find last query in existing file
