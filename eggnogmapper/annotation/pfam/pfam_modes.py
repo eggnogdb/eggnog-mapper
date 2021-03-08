@@ -24,7 +24,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
     all_annotations = None
     
     if pfam_search_mode == PFAM_REALIGN_DENOVO:
-        print(colorify("de novo scan of PFAM domains", 'green'))
+        print(colorify("De novo scan of PFAM domains", 'lgreen'))
 
         all_annotations, queries_pfams = load_all_annotations(annots_generator)
 
@@ -42,7 +42,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
                                           pfam_file)
 
     elif pfam_search_mode == PFAM_REALIGN_REALIGN:
-        print(colorify("re-aligning queries to PFAM domains from orthologs", 'green'))
+        print(colorify("Re-aligning queries to PFAM domains from orthologs", 'lgreen'))
 
         all_annotations, queries_pfams = load_all_annotations(annots_generator)
         

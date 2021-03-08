@@ -176,6 +176,7 @@ class Annotator:
 
 
     def _annotate(self, hits_gen_func, annots_parser):
+        print(colorify(f"Funcional annotation of hits...", "lgreen"), file=sys.stderr)
         if self.dbmem == True:
             annots_generator = self._annotate_dbmem(hits_gen_func, annots_parser)
         else:
