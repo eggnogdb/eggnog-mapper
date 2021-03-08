@@ -65,6 +65,7 @@ class HmmMapper:
         
         s = HmmerSearcher(args)
         s.search_hmm_matches(infile, pjoin(self._current_dir, self.hmm_hits_file))
+        s.clear()
         
         return
     

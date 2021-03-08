@@ -282,6 +282,7 @@ class PfamAligner:
         # hmmscan
         s = HmmerSearcher(self.args)
         s.search_hmm_matches(infile, pfam_file, silent)
+        s.clear()
 
         return
 
