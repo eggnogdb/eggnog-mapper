@@ -98,8 +98,6 @@ class Emapper:
 
         # Some files are not being resumed and will be ovewritten
         if resume == True:
-            silent_rm(pjoin(self.output_dir, self.genepred_fasta_file))
-            silent_rm(pjoin(self.output_dir, self.genepred_gff_file))
             silent_rm(pjoin(self.output_dir, self.no_annot_file))
 
         # If using --scratch_dir, change working dir
@@ -122,10 +120,13 @@ class Emapper:
     
     ##
     def gene_prediction(self, args, infile):
-        queries_file = None
-        predictor = get_predictor(args, self.genepred)
-        if predictor is not None:
-            predictor.predict(infile)
+        predictor = None
+
+        # --resume skips gene prediction to resume from diamond/mmseqs/hmmer hits directly
+        if self.resume == False:
+            predictor = get_predictor(args, self.genepred)
+            if predictor is not None:
+                predictor.predict(infile)
         
         return predictor
 
@@ -155,6 +156,7 @@ class Emapper:
             # create a fasta file with the inferred proteins
             if self.genepred_is_blastx == True:
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
+                silent_rm(fasta_file)
                 hits = create_prots_file(queries_file, hits, fasta_file)
             
         return searcher, searcher_name, hits
