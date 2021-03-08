@@ -4,6 +4,7 @@
 import os
 import subprocess
 from argparse import Namespace
+from collections import defaultdict
 
 from ...common import get_pfam_db, get_call_info, ESL_REFORMAT
 
@@ -12,7 +13,7 @@ from ...search.hmmer.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE
 from ...search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 
 ##
-def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
+def get_hmmscan_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
     usemem = False
     scan_type = SCANTYPE_DISK
     db = hmm_file
@@ -36,7 +37,7 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
                           dbtype = dbtype,
                           qtype = qtype,
                           translate = translate,
-                          resume = False,
+                          resume = resume,
                           no_file_comments = False,
                           maxhits = 0, # unlimited
                           report_no_hits = False,
@@ -53,7 +54,7 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     return pfam_args, infile
 
 ##
-def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
+def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
     usemem = False
     scan_type = SCANTYPE_DISK
     db = fasta_file
@@ -77,7 +78,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
                           dbtype = dbtype,
                           qtype = qtype,
                           translate = translate,
-                          resume = False,
+                          resume = resume,
                           no_file_comments = False,
                           maxhits = 0, # unlimited
                           report_no_hits = False,
@@ -94,7 +95,8 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, translate, temp_dir):
     return pfam_args, infile
     
 ##
-def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port, fasta_file, translate, temp_dir, force_seqdb = False):
+def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
+                  fasta_file, resume, translate, temp_dir, force_seqdb = False):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
 
@@ -184,7 +186,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
                           dbtype = dbtype,
                           qtype = qtype,
                           translate = translate,
-                          resume = False,
+                          resume = resume,
                           no_file_comments = False,
                           maxhits = 0, # unlimited
                           report_no_hits = False,
@@ -220,23 +222,14 @@ def create_fasta_hmmpgmd_db(fasta_file):
 
 
 def parse_pfam_file(pfam_file):
-    pfams = {}
+    pfams = defaultdict(set)
 
     with open(pfam_file, 'r') as pfamf:
         for line in pfamf:
             if line.startswith("#"): continue
             query, pfam, evalue, score, qlen, hmmfrom, hmmto, seqfrom, seqto, qcov = map(str.strip, line.split("\t"))
-
-            # if "CG50_07170" in query:
-            #     print(f"pfam.py:parse_pfam_file: {pfam}")
                 
-            if query in pfams:
-                pfams[query].add(pfam)
-            else:
-                pfams[query] = {pfam}
-                
-            # if "CG50_07170" in query:
-            #     print(f"pfam.py:parse_pfam_file: {pfams}")
+            pfams[query].add(pfam)
 
     return pfams
 

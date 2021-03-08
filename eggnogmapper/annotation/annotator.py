@@ -141,7 +141,7 @@ class Annotator:
                     annots_generator is not None):
                     
                     annots_generator = run_pfam_mode(self.pfam_realign, annots_generator,
-                                                     self.queries_fasta, self.translate,
+                                                     self.queries_fasta, self.resume, self.translate,
                                                      self.cpu, self.num_servers,
                                                      self.num_workers, self.cpus_per_worker,
                                                      self.port, self.end_port,
