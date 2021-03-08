@@ -122,12 +122,12 @@ def group_queries_pfams(queries_pfams_tuples):
 #     return [(x["queries"], x["pfams"]) for x in queries_pfams_keys.values()]
 
 ##
-def wrap_group_queries_pfams(queries_pfams, queries_fasta, pfam_db,
+def wrap_group_queries_pfams(queries_pfams, queries_fasta, pfam_db, resume,
                              translate, temp_dir, pfam_file, data_dir):
     
     for queries_pfams_group in group_queries_pfams(queries_pfams):
         yield (queries_pfams_group, queries_fasta, pfam_db,
-               temp_dir, translate, pfam_file, 1, data_dir)
+               temp_dir, resume, translate, pfam_file, 1, data_dir)
         
         # cpu = 1 since we are already parallelizing
 

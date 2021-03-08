@@ -101,7 +101,6 @@ class Emapper:
             silent_rm(pjoin(self.output_dir, self.genepred_fasta_file))
             silent_rm(pjoin(self.output_dir, self.genepred_gff_file))
             silent_rm(pjoin(self.output_dir, self.no_annot_file))
-            silent_rm(pjoin(self.output_dir, self.pfam_file))
 
         # If using --scratch_dir, change working dir
         # (once finished move them again to output_dir)
