@@ -149,7 +149,7 @@ def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_scor
 def get_member_ogs(name, eggnog_db):
     ogs = None
     match = eggnog_db.get_member_ogs(name)
-    if match:
+    if match is not None and match[0] is not None:
         ogs = [str(x).strip() for x in match[0].split(',')]
     return ogs
 
