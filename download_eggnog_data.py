@@ -186,8 +186,9 @@ if __name__ == "__main__":
 
     parser.add_argument('-d', type=str, dest="hmmer_dbs",
                         help=(
-                            f'Tax ID of eggNOG HMM database to download. e.g. "-H -d 2" for Bacteria. Required if "-H". '
-                            'Available tax IDs can be found at {EGGNOG_DOWNLOADS_URL}.'
+                            'Tax ID of eggNOG HMM database to download. '
+                            'e.g. "-H -d 2" for Bacteria. Required if "-H". '
+                            f'Available tax IDs can be found at {EGGNOG_DOWNLOADS_URL}.'
                         ))
     
     parser.add_argument('-y', action="store_true", dest='allyes',
