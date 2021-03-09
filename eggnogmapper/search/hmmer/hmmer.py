@@ -425,7 +425,7 @@ class HmmerSearcher:
             seq = sequences[seqname]
             visited_queries.add(seqname)
             target_fasta = get_OG_fasta_path(dbname, hitname)
-            print(f"hmmer.py:process_nog_hits_file Target FASTA: {target_fasta}")
+            # print(f"hmmer.py:process_nog_hits_file Target FASTA: {target_fasta}")
             # target_fasta = pjoin(get_fasta_path(), level, "%s.fa" % hitname)
             
             cmds.append([seqname, seq, target_fasta, excluded_taxa, self.phmmer_temp_dir])
