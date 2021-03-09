@@ -204,8 +204,8 @@ class Annotator:
         except EmapperException:
             raise
         except Exception as e:
-            # import traceback
-            # traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             raise EmapperException(f"Error: annotation went wrong. "+str(e))
         finally:
             eggnog_db.close()

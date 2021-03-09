@@ -89,8 +89,8 @@ def annotate_hit_line(arguments, eggnog_db):
                                                             excluded_taxa)
 
                     except Exception as e:
-                        import traceback
-                        traceback.print_exc()
+                        # import traceback
+                        # traceback.print_exc()
                         raise EmapperException(f'Error: orthology retrieval went wrong for hit {hit}. '+str(e))
 
                     ##
