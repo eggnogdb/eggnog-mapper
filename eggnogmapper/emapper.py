@@ -8,7 +8,7 @@ from os.path import exists as pexists
 from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS
+from .common import silent_rm, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
