@@ -26,11 +26,12 @@ SENSMODE_ULTRA_SENSITIVE = "ultra-sensitive"
 SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
 
 ALLOW_OVERLAPS_NONE = "none"
+ALLOW_OVERLAPS_OPPOSITE_STRAND = "strand"
 ALLOW_OVERLAPS_DIFF_FRAME = "diff_frame"
 ALLOW_OVERLAPS_ALL = "all"
         
 ALLOW_OVERLAPS = ALLOW_OVERLAPS_NONE
-OVERLAP_TOL_FRACTION = 1/5
+OVERLAP_TOL_FRACTION = 0
         
 def create_diamond_db(dbprefix, in_fasta):
     cmd = (
@@ -378,20 +379,29 @@ def hit_does_overlap(hit, hits, ALLOW_OVERLAPS):
 
     hitstart = hit[4]
     hitend = hit[5]
+    hit_strand = "+"
     if hitstart > hitend:
         hitend = hit[4]
         hitstart = hit[5]
+        hit_strand = "-"
 
     for o in hits:
         ostart = o[4]
         oend = o[5]
+        o_strand = "+"
         if ostart > oend:
             oend = o[4]
             ostart = o[5]
+            o_strand = "-"
 
+        same_strand = (hit_strand == o_strand)
+
+        if ALLOW_OVERLAPS == ALLOW_OVERLAPS_OPPOSITE_STRAND and not same_strand:
+            continue
+        
         same_frame = (abs(hitstart - ostart) % 3 == 0)
-
-        if ALLOW_OVERLAPS == ALLOW_OVERLAPS_DIFF_FRAME and not same_frame:
+        
+        if ALLOW_OVERLAPS == ALLOW_OVERLAPS_DIFF_FRAME and (not same_strand or not same_frame):
             continue
 
         overlap = get_overlap(hitstart, hitend, ostart, oend)
@@ -424,24 +434,32 @@ def get_overlap(hitstart, hitend, ostart, oend):
     else:
         hittol = (hitend - (hitstart - 1)) * OVERLAP_TOL_FRACTION
         otol = (oend - (ostart - 1)) * OVERLAP_TOL_FRACTION
-        # the tolerance to apply to each end
-        # depends on which sequence overhangs on that specific end
-        if hitstart < ostart:
-            tol1 = hittol
-            tol2 = otol
-        else:
-            tol1 = otol
-            tol2 = hittol
 
-        hang_left = abs(hitstart - ostart)
-        hang_right = abs(hitend - oend)
+        overlap_start = max(hitstart, ostart)
+        overlap_end = min(hitend, oend)
+        overlap = overlap_end - (overlap_start - 1)
 
-        if hang_left > tol1 and hang_right > tol2:
-            overlap = -1 # consider as no overlapping
-        else:
-            overlap_start = max(hitstart, ostart)
-            overlap_end = min(hitend, oend)
-            overlap = overlap_end - (overlap_start - 1)
+        if overlap < min(hittol, otol):
+            overlap = -1
+        
+        # # the tolerance to apply to each end
+        # # depends on which sequence overhangs on that specific end
+        # if hitstart < ostart:
+        #     tol1 = hittol
+        #     tol2 = otol
+        # else:
+        #     tol1 = otol
+        #     tol2 = hittol
+
+        # hang_left = abs(hitstart - ostart)
+        # hang_right = abs(hitend - oend)
+
+        # if hang_left > tol1 and hang_right > tol2:
+        #     overlap = -1 # consider as no overlapping
+        # else:
+        #     overlap_start = max(hitstart, ostart)
+        #     overlap_end = min(hitend, oend)
+        #     overlap = overlap_end - (overlap_start - 1)
             
     return overlap
 
