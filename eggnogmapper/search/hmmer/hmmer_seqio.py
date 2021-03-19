@@ -5,7 +5,7 @@ import re
 import gzip
 
 CLEAN_SEQ = re.compile("[\s\-\.]+")
-def iter_fasta_seqs(source, translate=False, silent=False, trans_table):    
+def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):    
     """Iter seq records in a FASTA file"""
 
     if silent == False:
