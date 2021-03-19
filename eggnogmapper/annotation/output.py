@@ -179,6 +179,9 @@ def output_annotations_row(out, annotation, md5_field, md5_queries):
     
     for h in ANNOTATIONS_HEADER:
         if h in annotations:
+            print("output.py:output_annotations_row")
+            print(h)
+            print(annotations)
             annot_columns.append(",".join(sorted(list(annotations[h]))))
         else:
             annot_columns.append('-')
