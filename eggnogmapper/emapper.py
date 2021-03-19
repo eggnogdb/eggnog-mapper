@@ -134,6 +134,8 @@ class Emapper:
     ##
     def search(self, args, infile, predictor = None):
 
+        queries_file = None
+        
         # determine input file: from prediction or infile
         if predictor is None:
             queries_file = infile
@@ -158,12 +160,17 @@ class Emapper:
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
                 silent_rm(fasta_file)
                 hits = create_prots_file(queries_file, hits, fasta_file, args.translate, args.trans_table)
-            
-        return searcher, searcher_name, hits
+                queries_file = fasta_file
+                if args.translate == True:
+                    args.itype = ITYPE_PROTS
+                else:
+                    args.itype = ITYPE_CDS
+                
+        return searcher, searcher_name, hits, queries_file
     
     
     ##
-    def annotate(self, args, hits, annotate_hits_table, cache_file):
+    def annotate(self, args, hits, annotate_hits_table, queries_file, cache_file):
         annotated_hits = None
         
         if self.annot == True or self.report_orthologs:
@@ -202,7 +209,8 @@ class Emapper:
                     annotated_hits = annotator.annotate(annot_in, 
                                                         pjoin(self._current_dir, self.annot_file),
                                                         pjoin(self._current_dir, self.orthologs_file),
-                                                        pjoin(self._current_dir, self.pfam_file))
+                                                        pjoin(self._current_dir, self.pfam_file),
+                                                        queries_file)
         else:
             annotated_hits = ((hit, None) for hit in hits) # hits generator without annotations
                 
@@ -294,11 +302,11 @@ class Emapper:
         
         ##
         # Step 1. Sequence search
-        searcher, searcher_name, hits = self.search(args, infile, predictor)
+        searcher, searcher_name, hits, queries_file = self.search(args, infile, predictor)
             
         ##
         # Step 2. Annotation
-        annotated_hits = self.annotate(args, hits, annotate_hits_table, cache_dir)
+        annotated_hits = self.annotate(args, hits, annotate_hits_table, queries_file, cache_dir)
 
         ##
         # step 3. Decorate GFF

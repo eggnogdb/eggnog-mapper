@@ -13,11 +13,11 @@ from .annotator import parse_annotation_line
 
 
 ##
-def md5_seqs_dict(fasta_file):
+def md5_seqs_dict(fasta_file, translate, trans_table):
     from hashlib import md5
     md5_queries = {}
 
-    for name, seq in iter_fasta_seqs(fasta_file):
+    for name, seq in iter_fasta_seqs(fasta_file, translate=translate, trans_table=trans_table):
         md5_seq = md5(seq.encode('utf-8')).hexdigest()
         md5_queries[md5_seq] = {"name":name, "seq":seq, "found":0}
 
@@ -30,6 +30,8 @@ class CacheAnnotator:
     
     queries_fasta = None
     temp_dir = None
+
+    translate = trans_table = None
     
     ##
     def __init__(self, args):
@@ -39,6 +41,9 @@ class CacheAnnotator:
         
         self.queries_fasta = args.input
         self.temp_dir = args.temp_dir
+
+        self.translate = args.translate
+        self.trans_table = args.trans_table
         
         return
     
@@ -48,7 +53,7 @@ class CacheAnnotator:
         
         print(colorify("Functional annotation from cached files starts now", 'green'))
 
-        md5_queries = md5_seqs_dict(self.queries_fasta)
+        md5_queries = md5_seqs_dict(self.queries_fasta, self.translate, self.trans_table)
         
         if pexists(cache_file):
             OUT = open(annot_file, "w")

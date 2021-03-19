@@ -39,7 +39,7 @@ class Annotator:
     tax_scope_mode = tax_scope_ids = target_taxa = target_orthologs = excluded_taxa = None
     
     go_evidence = go_excluded = None
-    pfam_realign = queries_fasta = translate = trans_table = temp_dir = None
+    pfam_realign = trans_table = temp_dir = None
     md5 = None
 
     resume = None
@@ -74,9 +74,12 @@ class Annotator:
         
         self.pfam_realign = args.pfam_realign
         
-        self.queries_fasta = args.input
-        self.translate = args.translate
         self.trans_table = args.trans_table
+        self.itype = args.itype
+        
+        print("annotator.py:__init__")
+        print("ITYPE "+str(self.itype))
+        
         self.temp_dir = args.temp_dir
         
         self.md5 = args.md5
@@ -87,7 +90,7 @@ class Annotator:
 
     
     ##
-    def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file):
+    def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file, queries_file):
 
         annots_generator = None
         ncbi = None
@@ -98,7 +101,13 @@ class Annotator:
                 # md5 hashes
                 if self.md5 == True:
                     print(colorify("Creating md5 hashes of input sequences", 'green'))
-                    md5_queries = md5_seqs(self.queries_fasta)
+                    
+                    if self.itype == ITYPE_PROTS:
+                        translate = False
+                    elif self.itype == ITYPE_CDS:
+                        translate = True
+                        
+                    md5_queries = md5_seqs(queries_file, translate, self.trans_table)
                 else:
                     md5_queries = None
 
@@ -140,10 +149,15 @@ class Annotator:
                 if (self.annot == True and
                     self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and
                     annots_generator is not None):
-                    
+
+                    if self.itype == ITYPE_PROTS:
+                        translate = False
+                    elif self.itype == ITYPE_CDS:
+                        translate = True
+                        
                     annots_generator = run_pfam_mode(self.pfam_realign, annots_generator,
-                                                     self.queries_fasta, self.resume,
-                                                     self.translate, self.trans_table,
+                                                     queries_file, self.resume,
+                                                     translate, self.trans_table,
                                                      self.cpu, self.num_servers,
                                                      self.num_workers, self.cpus_per_worker,
                                                      self.port, self.end_port,
@@ -379,11 +393,11 @@ def normalize_target_taxa(target_taxa, ncbi):
     return expanded_taxa
 
 
-def md5_seqs(fasta_file):
+def md5_seqs(fasta_file, translate, trans_table):
     from hashlib import md5
     md5_queries = {}
         
-    for name, seq in iter_fasta_seqs(fasta_file):
+    for name, seq in iter_fasta_seqs(fasta_file, translate=translate, trans_table=trans_table):
         md5_seq = md5(seq.encode('utf-8')).hexdigest()
         md5_queries[name] = md5_seq
             
