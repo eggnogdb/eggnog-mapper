@@ -14,7 +14,7 @@ from ...utils import colorify, translate_cds_to_prots
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
 from ..hits_io import parse_hits, output_hits
-from ..diamond.diamond import hit_does_overlap
+from ..diamond.diamond import hit_does_overlap, ALLOW_OVERLAPS, ALLOW_OVERLAPS_ALL
 
 def create_mmseqs_db(dbprefix, in_fasta):
     cmd = (
@@ -375,16 +375,20 @@ class MMseqs2Searcher:
                 hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
                 if query == prev_query:
-                    if not hit_does_overlap(hit, curr_query_hits):
-                        if query in queries_suffixes:
-                            queries_suffixes[query] += 1
-                            suffix = queries_suffixes[query]
-                        else:
-                            suffix = 0
-                            queries_suffixes[query] = suffix
-                            
+                    if ALLOW_OVERLAPS == ALLOW_OVERLAPS_ALL:
                         yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
-                        curr_query_hits.append(hit)
+                        
+                    else:
+                        if not hit_does_overlap(hit, curr_query_hits, ALLOW_OVERLAPS):
+                            if query in queries_suffixes:
+                                queries_suffixes[query] += 1
+                                suffix = queries_suffixes[query]
+                            else:
+                                suffix = 0
+                                queries_suffixes[query] = suffix
+
+                            yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                            curr_query_hits.append(hit)
                 else:
                     if query in queries_suffixes:
                         queries_suffixes[query] += 1

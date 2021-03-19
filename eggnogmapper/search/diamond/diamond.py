@@ -290,8 +290,6 @@ class DiamondSearcher:
 
     ##
     def _parse_genepred(self, raw_dmnd_file, hits_parser):
-
-
         
         # previous hits from resume are yielded
         last_resumed_query = None
