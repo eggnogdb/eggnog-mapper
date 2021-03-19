@@ -18,7 +18,7 @@ def create_prots_file(infile, hits, outfile):
             qend = hit[5]
 
             # reverse strand
-            if qend > qstart:
+            if qend < qstart:
                 qstart = hit[5]
                 qend = hit[4]
 
