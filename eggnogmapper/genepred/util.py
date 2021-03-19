@@ -17,6 +17,11 @@ def create_prots_file(infile, hits, outfile):
             qstart = hit[4]
             qend = hit[5]
 
+            # reverse strand
+            if qend > qstart:
+                qstart = hit[5]
+                qend = hit[4]
+
             if query_no_suffix in seqs_dict:
                 seq = seqs_dict[query_no_suffix]
                 print(f">{query}\n{seq[qstart-1:qend]}", file=OUT)
