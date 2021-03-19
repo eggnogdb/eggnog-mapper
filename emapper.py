@@ -21,7 +21,8 @@ from eggnogmapper.search.search_modes import \
     SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, \
     SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2, SEARCH_MODE_CACHE
 
-from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_SENSITIVE
+from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_SENSITIVE, \
+    ALLOW_OVERLAPS_NONE, ALLOW_OVERLAPS_ALL, ALLOW_OVERLAPS_DIFF_FRAME, ALLOW_OVERLAPS_OPPOSITE_STRAND
 
 from eggnogmapper.search.hmmer.hmmer_search import \
     QUERY_TYPE_SEQ, QUERY_TYPE_HMM, \
@@ -134,6 +135,23 @@ def create_arg_parser():
                                  "If this parameter is used, Prodigal will run using this training file to analyze the emapper input data. "
                                  f"Only used if --genepred {GENEPRED_MODE_PRODIGAL}."
                              ))
+
+    pg_genepred.add_argument('--allow_overlaps', dest='allow_overlaps', type=str, choices = [ALLOW_OVERLAPS_NONE,
+                                                                                             ALLOW_OVERLAPS_OPPOSITE_STRAND,
+                                                                                             ALLOW_OVERLAPS_DIFF_FRAME,
+                                                                                             ALLOW_OVERLAPS_ALL],
+                             default = ALLOW_OVERLAPS_NONE,
+                             help = ("When using 'blastx'-based genepred (--genepred search --itype genome/metagenome) "
+                                     "this option controls whether overlapping hits are reported or not, "
+                                     "or if only those overlapping hits in a different strand or frame are reported. "
+                                     "Also, the degree of accepted overlap can be controlled with --overlap_tol."))
+
+    pg_genepred.add_argument('--overlap_tol', dest='overlap_tol', type=float, default=0.0, metavar='FLOAT',
+                             help=("This value (0-1) is the proportion such that if (overlap size / hit length) "
+                                   "> overlap_tol, hits are considered to overlap. "
+                                   "e.g: if overlap_tol is 0.0, any overlap is considered as such. "
+                                   "e.g: if overlap_tol is 1.0, one of the hits must overlap entirely to "
+                                   "consider that hits do overlap."))
                              
     ##
     pg_search = parser.add_argument_group('Search Options')

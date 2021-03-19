@@ -5,7 +5,8 @@ import shutil, os, unittest
 from argparse import Namespace
 
 from eggnogmapper.common import DIAMOND, ITYPE_CDS, ITYPE_PROTS
-from eggnogmapper.search.diamond.diamond import DiamondSearcher, SENSMODE_MORE_SENSITIVE
+from eggnogmapper.search.diamond.diamond import DiamondSearcher, SENSMODE_MORE_SENSITIVE, \
+    ALLOW_OVERLAPS_NONE
 
 class Test(unittest.TestCase):
     
@@ -21,6 +22,8 @@ class Test(unittest.TestCase):
         args = Namespace(itype=ITYPE_PROTS,
                          translate=False,
                          trans_table=None,
+                         allow_overlaps=ALLOW_OVERLAPS_NONE,
+                         overlap_tol=0.0,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
@@ -56,6 +59,8 @@ class Test(unittest.TestCase):
         args = Namespace(itype=ITYPE_CDS,
                          translate=False,
                          trans_table=None,
+                         allow_overlaps=ALLOW_OVERLAPS_NONE,
+                         overlap_tol=0.0,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
@@ -92,6 +97,8 @@ class Test(unittest.TestCase):
         args = Namespace(itype=ITYPE_PROTS,
                          translate=False,
                          trans_table=None,
+                         allow_overlaps=ALLOW_OVERLAPS_NONE,
+                         overlap_tol=0.0,
                          dmnd_db="tests/fixtures/eggnog_proteins.dmnd",
                          cpu=2,
                          sensmode=SENSMODE_MORE_SENSITIVE,
