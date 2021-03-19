@@ -69,6 +69,7 @@ class MMseqs2Searcher:
 
         self.itype = args.itype
         self.translate = args.translate
+        self.translation_table = args.trans_table
 
         self.targetdb = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
         self.cpu = args.cpu
@@ -145,7 +146,7 @@ class MMseqs2Searcher:
 
         if self.itype == ITYPE_CDS and self.translate == True:
             handle, query_file = mkstemp(dir = self.temp_dir, text = True)
-            translate_cds_to_prots(fasta_file, query_file)
+            translate_cds_to_prots(fasta_file, query_file, self.translation_table)
         else:
             query_file = fasta_file
             

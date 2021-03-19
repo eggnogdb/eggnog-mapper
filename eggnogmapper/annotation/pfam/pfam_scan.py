@@ -13,7 +13,8 @@ from .pfam_common import filter_fasta_hmm_files, wrap_group_queries_pfams
 from .pfam import PfamAligner, get_hmmscan_args, parse_hmmscan_file
 
 ##
-def pfam_align_parallel_scan(queries_pfams, queries_fasta, resume, translate, cpu, temp_dir, pfam_file):
+def pfam_align_parallel_scan(queries_pfams, queries_fasta, resume, translate, trans_table,
+                             cpu, temp_dir, pfam_file):
     aligned_pfams = None
 
     pool = multiprocessing.Pool(cpu)
@@ -22,7 +23,7 @@ def pfam_align_parallel_scan(queries_pfams, queries_fasta, resume, translate, cp
 
         for alignments in pool.imap(query_pfam_annotate_scan,
                                     wrap_group_queries_pfams(queries_pfams, queries_fasta,
-                                                             get_pfam_db(), resume, translate,
+                                                             get_pfam_db(), resume, translate, trans_table,
                                                              temp_dir, pfam_file, get_data_path())):
             if alignments is not None:
 
@@ -54,7 +55,7 @@ def pfam_align_parallel_scan(queries_pfams, queries_fasta, resume, translate, cp
 ##
 def query_pfam_annotate_scan(arguments):
     (queries_pfams_group, queries_fasta, pfam_db,
-     temp_dir, resume, translate, pfam_file, cpu, data_path) = arguments
+     temp_dir, resume, translate, trans_table, pfam_file, cpu, data_path) = arguments
      
     set_data_path(data_path)
     
@@ -74,7 +75,9 @@ def query_pfam_annotate_scan(arguments):
         P = NamedTemporaryFile(mode='w', dir=temp_dir)
 
         # align queries to the new HMM file
-        pfam_args, infile = get_hmmscan_args(cpu, fasta_file.name, hmm_file.name, resume, translate, temp_dir)
+        pfam_args, infile = get_hmmscan_args(cpu, fasta_file.name, hmm_file.name, resume,
+                                             translate, trans_table, temp_dir)
+        
         pfam_aligner = PfamAligner(pfam_args)
         pfam_aligner.align_whole_pfam(infile, P.name, silent = True)
 

@@ -13,7 +13,7 @@ PFAM_REALIGN_NONE = 'none'
 PFAM_REALIGN_REALIGN = 'realign'
 PFAM_REALIGN_DENOVO = 'denovo'
 
-def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, translate,
+def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, translate, trans_table,
                   cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
                   temp_dir, pfam_file):
 
@@ -32,6 +32,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
                                           queries_fasta,
                                           resume,
                                           translate,
+                                          trans_table,
                                           cpu,
                                           num_servers,
                                           num_workers,
@@ -50,6 +51,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
                                                  queries_fasta,
                                                  resume,
                                                  translate,
+                                                 trans_table,
                                                  cpu,
                                                  temp_dir,
                                                  pfam_file)

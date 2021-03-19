@@ -77,7 +77,7 @@ def create_arg_parser():
     pg_input = parser.add_argument_group('Input Data Options')
 
     pg_input.add_argument('-i', dest="input", metavar='FASTA_FILE', type=existing_file,
-                          help=f'Input FASTA file containing query sequences (proteins by default; see --translate). '
+                          help=f'Input FASTA file containing query sequences (proteins by default; see --itype and --translate). '
                           f'Required unless -m {SEARCH_MODE_NO_SEARCH} and --annotate_hits_table')
 
     pg_input.add_argument('--itype', dest="itype", choices = [ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META],
@@ -85,7 +85,8 @@ def create_arg_parser():
                           help=f'Input type of the data in the file specified in the -i option')
     
     pg_input.add_argument('--translate', action="store_true",
-                          help='Assume input sequences are CDS instead of proteins')
+                          help=('Translate CDS to proteins before search, if --itype CDS. '
+                                'It will also translate blastx hits from --genepred search.'))
 
     pg_input.add_argument('--annotate_hits_table', type=str, metavar='SEED_ORTHOLOGS_FILE',
                           help=f'Annotate TSV formatted table with 4 fields:'
@@ -114,6 +115,7 @@ def create_arg_parser():
                                  f"For Diamond searches, this option corresponds to the --query-gencode option. "
                                  f"For MMseqs2 searches, this option corresponds to the --translation-table option. "
                                  f"For Prodigal, this option corresponds to the -g/--trans_table option. "
+                                 f"It is also used when --translate, check https://biopython.org/docs/1.75/api/Bio.Seq.html#Bio.Seq.Seq.translate. "
                                  f"Default is the corresponding programs defaults. "
                              ))
 
@@ -464,10 +466,6 @@ def parse_args(parser):
 
     if args.resume == True and args.override == True:
         parser.error('Only one of --resume or --override is allowed.')        
-
-    # translate
-    if args.itype in [ITYPE_GENOME, ITYPE_META, ITYPE_PROTS] and args.translate == True:
-        parser.error('"--translate" only can be used with "--itype CDS"')
 
     # Gene prediction
     if args.training_genome is not None and args.training_file is None:
