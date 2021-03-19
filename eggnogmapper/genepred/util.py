@@ -16,20 +16,21 @@ def create_prots_file(infile, hits, outfile):
         for hit in hits:
             query = hit[0]
             query_no_suffix = query[:query.rfind("_")]
-            qstart = hit[4]
-            qend = hit[5]
-
-            # reverse strand
-            if qend < qstart:
-                qstart = hit[5]
-                qend = hit[4]
-                orf = Seq(seq[qstart-1:qend]).reverse_complement()
-                
-            else:
-                orf = Seq(seq[qstart-1:qend])
 
             if query_no_suffix in seqs_dict:
                 seq = seqs_dict[query_no_suffix]
+                qstart = hit[4]
+                qend = hit[5]
+
+                # reverse strand
+                if qend < qstart:
+                    qstart = hit[5]
+                    qend = hit[4]
+                    orf = Seq(seq[qstart-1:qend]).reverse_complement()
+                
+                else:
+                    orf = Seq(seq[qstart-1:qend])
+                    
                 print(f">{query}\n{orf}", file=OUT)
                 
             yield hit
