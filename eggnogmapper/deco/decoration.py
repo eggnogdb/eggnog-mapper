@@ -235,7 +235,14 @@ def sort_annotated_hits(annotated_hit, rm_suffix):
         contig = query[:query.rfind("_")]
     else:
         contig = query
-    return contig, hit[4], hit[5], hit[3]
+        
+    # reverse strand
+    if hit[5] < hit[4]:
+        ret = (contig, hit[5], hit[4], hit[3])
+    else:
+        ret = (contig, hit[4], hit[5], hit[3])
+        
+    return ret
 
 #
 def hit_to_gff(hit, gff_ID_field):
