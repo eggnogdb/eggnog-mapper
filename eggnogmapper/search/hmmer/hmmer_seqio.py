@@ -5,7 +5,7 @@ import re
 import gzip
 
 CLEAN_SEQ = re.compile("[\s\-\.]+")
-def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):    
+def iter_fasta_seqs(source, translate=False, silent=False, trans_table):    
     """Iter seq records in a FASTA file"""
 
     if silent == False:
@@ -37,6 +37,7 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
             elif seq_name:
                 if translate:
                     full_seq = ''.join(seq_chunks)
+                    trans_table = trans_table if trans_table is not None else 1
                     prot = Seq(full_seq, generic_dna).translate(to_stop=True, table=trans_table)
                     if prot is None or prot == "":
                         print(f"No translation found for sequence {seq_name}", file=sys.stderr)
@@ -58,6 +59,7 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
     elif seq_name:
         if translate:
             full_seq = ''.join(seq_chunks)
+            trans_table = trans_table if trans_table is not None else 1
             prot = Seq(full_seq, generic_dna).translate(to_stop=True, table=trans_table)
             yield seq_name, str(prot)
         else:
