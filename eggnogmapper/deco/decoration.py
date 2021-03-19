@@ -282,8 +282,9 @@ def annotation_to_gff(annotation):
 
     for k, v in annotations.items():
         tag = f"em_{k.replace(' ', '_')}"
-        value = ",".join(sorted(list(v)))
-        attrs.append(f"{tag}={value}")
+        if v is not None:
+            value = ",".join(sorted(list(v)))
+            attrs.append(f"{tag}={value}")
         
     return attrs
 
