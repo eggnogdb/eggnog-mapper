@@ -25,8 +25,13 @@ SENSMODE_ULTRA_SENSITIVE = "ultra-sensitive"
 # sens modes in diamond 2.0.4
 SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
 
-OVERLAP_TOL_FRACTION = 1/3
-
+ALLOW_OVERLAPS_NONE = "none"
+ALLOW_OVERLAPS_DIFF_FRAME = "diff_frame"
+ALLOW_OVERLAPS_ALL = "all"
+        
+ALLOW_OVERLAPS = ALLOW_OVERLAPS_NONE
+OVERLAP_TOL_FRACTION = 1/5
+        
 def create_diamond_db(dbprefix, in_fasta):
     cmd = (
         f'{DIAMOND} makedb --in {in_fasta} --db {dbprefix}'
@@ -285,6 +290,8 @@ class DiamondSearcher:
     ##
     def _parse_genepred(self, raw_dmnd_file, hits_parser):
 
+
+        
         # previous hits from resume are yielded
         last_resumed_query = None
         if hits_parser is not None:
@@ -336,16 +343,20 @@ class DiamondSearcher:
                 hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
                 if query == prev_query:
-                    if not hit_does_overlap(hit, curr_query_hits):
-                        if query in queries_suffixes:
-                            queries_suffixes[query] += 1
-                            suffix = queries_suffixes[query]
-                        else:
-                            suffix = 0
-                            queries_suffixes[query] = suffix
-
+                    if ALLOW_OVERLAPS == ALLOW_OVERLAPS_ALL:
                         yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
-                        curr_query_hits.append(hit)
+                        
+                    else:
+                        if not hit_does_overlap(hit, curr_query_hits, ALLOW_OVERLAPS):
+                            if query in queries_suffixes:
+                                queries_suffixes[query] += 1
+                                suffix = queries_suffixes[query]
+                            else:
+                                suffix = 0
+                                queries_suffixes[query] = suffix
+
+                            yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                            curr_query_hits.append(hit)
                         
                 else:
                     if query in queries_suffixes:
@@ -362,7 +373,7 @@ class DiamondSearcher:
         return
 
 
-def hit_does_overlap(hit, hits):
+def hit_does_overlap(hit, hits, ALLOW_OVERLAPS):
     does_overlap = False
 
     hitstart = hit[4]
@@ -378,6 +389,11 @@ def hit_does_overlap(hit, hits):
             oend = o[4]
             ostart = o[5]
 
+        same_frame = (abs(hitstart - ostart) % 3 == 0)
+
+        if ALLOW_OVERLAPS == ALLOW_OVERLAPS_DIFF_FRAME and not same_frame:
+            continue
+
         overlap = get_overlap(hitstart, hitend, ostart, oend)
 
         if overlap is not None and overlap > 0:
@@ -387,51 +403,45 @@ def hit_does_overlap(hit, hits):
     return does_overlap
 
 
-def get_overlap(hitstart, hitend, ostart, oend, allow_diff_frame = False):
+def get_overlap(hitstart, hitend, ostart, oend):
     overlap = None
+    
+    # no overlap
+    if hitend <= ostart:
+        overlap = hitend - ostart
 
-    # if different frame and not allow different frame to compute overlap
-    # return overlap None
-    # If allow different frame is True, overlap will be computed
-    if abs(hitstart - ostart) % 3 != 0 and allow_diff_frame == False:
-        overlap = None
-    else:        
-        # no overlap
-        if hitend <= ostart:
-            overlap = hitend - ostart
+    # no overlap
+    elif hitstart >= oend:
+        overlap = oend - hitstart
 
-        # no overlap
-        elif hitstart >= oend:
-            overlap = oend - hitstart
+    # envelopes
+    elif (hitstart >= ostart and hitend <= oend) or (ostart >= hitstart and oend <= hitend):
+        overlap_start = max(hitstart, ostart)
+        overlap_end = min(hitend, oend)
+        overlap = overlap_end - (overlap_start - 1)
 
-        # envelopes
-        elif (hitstart >= ostart and hitend <= oend) or (ostart >= hitstart and oend <= hitend):
+    # overlap, no envelope
+    else:
+        hittol = (hitend - (hitstart - 1)) * OVERLAP_TOL_FRACTION
+        otol = (oend - (ostart - 1)) * OVERLAP_TOL_FRACTION
+        # the tolerance to apply to each end
+        # depends on which sequence overhangs on that specific end
+        if hitstart < ostart:
+            tol1 = hittol
+            tol2 = otol
+        else:
+            tol1 = otol
+            tol2 = hittol
+
+        hang_left = abs(hitstart - ostart)
+        hang_right = abs(hitend - oend)
+
+        if hang_left > tol1 and hang_right > tol2:
+            overlap = -1 # consider as no overlapping
+        else:
             overlap_start = max(hitstart, ostart)
             overlap_end = min(hitend, oend)
             overlap = overlap_end - (overlap_start - 1)
-
-        # overlap, no envelope
-        else:
-            hittol = (hitend - (hitstart - 1)) * OVERLAP_TOL_FRACTION
-            otol = (oend - (ostart - 1)) * OVERLAP_TOL_FRACTION
-            # the tolerance to apply to each end
-            # depends on which sequence overhangs on that specific end
-            if hitstart < ostart:
-                tol1 = hittol
-                tol2 = otol
-            else:
-                tol1 = otol
-                tol2 = hittol
-
-            hang_left = abs(hitstart - ostart)
-            hang_right = abs(hitend - oend)
-
-            if hang_left > tol1 and hang_right > tol2:
-                overlap = -1 # consider as no overlapping
-            else:
-                overlap_start = max(hitstart, ostart)
-                overlap_end = min(hitend, oend)
-                overlap = overlap_end - (overlap_start - 1)
             
     return overlap
 
