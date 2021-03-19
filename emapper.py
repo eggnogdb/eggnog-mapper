@@ -313,10 +313,10 @@ def create_arg_parser():
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated. Default=0.001')
 
-    pg_annot.add_argument('--seed_ortholog_score', default=60, type=float, metavar='MIN_SCORE',
+    pg_annot.add_argument('--seed_ortholog_score', default=None, type=float, metavar='MIN_SCORE',
                            help='Min bit score expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
-                           ' seed orthologs will not be annotated. Default=60')
+                           ' seed orthologs will not be annotated. Default=(not used)')
     
     pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
