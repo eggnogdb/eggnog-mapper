@@ -45,6 +45,7 @@ class HmmerSearcher:
     dbtype = None
     qtype = None
     translate = None
+    trans_table = None
 
     resume = None
     no_file_comments = None
@@ -83,6 +84,7 @@ class HmmerSearcher:
         self.dbtype = args.dbtype
         self.qtype = args.qtype
         self.translate = args.translate
+        self.trans_table = args.trans_table
 
         self.resume = args.resume
         self.no_file_comments = args.no_file_comments
@@ -255,7 +257,8 @@ class HmmerSearcher:
                                                             cut_ga=self.cut_ga,
                                                             cpus=self.cpu,
                                                             base_tempdir=self.hmmcmd_temp_dir,
-                                                            silent=silent):
+                                                            silent=silent,
+                                                            trans_table=self.trans_table):
 
             if elapsed == -1:
                 # error occurred. hits should contain a single element with the error msg. e.g. hits = ["ERROR_MSG"]
@@ -352,7 +355,7 @@ class HmmerSearcher:
                 print('# ' + '\t'.join(refine_header), file=OUT)
 
         qn = -1 # in case no hits in loop bellow
-        sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate)}
+        sequences = {name: seq for name, seq in iter_fasta_seqs(in_file, translate=self.translate, trans_table=self.trans_table)}
         self.queries = set(sequences.keys())
         for qn, r in enumerate(self.process_nog_hits_file(dbname, hits_file, sequences,
                                                           last_resumed_query, cpu=self.cpu,

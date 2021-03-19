@@ -220,7 +220,7 @@ def timeit(f):
 # Function to translate a fasta file with CDS to a fasta file with prots,
 # stored in a temp file within a specified tempdir
 # CPCantalapiedra 2021
-def translate_cds_to_prots(source, outfile):
+def translate_cds_to_prots(source, outfile, table):
     import gzip
     from pathlib import Path
     from Bio import SeqIO
@@ -234,10 +234,11 @@ def translate_cds_to_prots(source, outfile):
     else:
         _source = iter(source.split("\n"))
 
+    table = table if table is not None else 1
     proteins = (
-        SeqRecord(seq = nuc_rec.seq.translate(to_stop=True),
+        SeqRecord(seq = nuc_rec.seq.translate(to_stop = True, table = table),
                   id=nuc_rec.id,
-                  description="translation of CDS, using default table")
+                  description="translation of CDS, using table "+str(table))
         for nuc_rec in SeqIO.parse(_source, "fasta")
     )
         

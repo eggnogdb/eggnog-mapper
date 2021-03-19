@@ -22,13 +22,14 @@ DB_TYPE_HMM = "hmmdb"
 
 def iter_seq_hits(src, translate, cpus, servers, dbtype, evalue_thr=None,
                   score_thr=None, max_hits=None, maxseqlen=None, fixed_Z=None,
-                  skip=None, cut_ga=False, silent=False):
+                  skip=None, cut_ga=False, silent=False, trans_table=1):
         
     pool = multiprocessing.Pool(cpus)
     sys.stderr.write(f"Searching queries with a pool of {cpus} CPUs\n")
     for r in pool.imap(iter_seq, ([seqnum, name, seq, servers, dbtype, evalue_thr, score_thr, max_hits, maxseqlen, fixed_Z, skip, cut_ga]
                                   for seqnum, (name, seq) in
-                                  enumerate(iter_fasta_seqs(src, translate=translate, silent=silent)))):
+                                  enumerate(iter_fasta_seqs(src, translate=translate,
+                                                            silent=silent, trans_table=trans_table)))):
         yield r
     pool.terminate()
     return

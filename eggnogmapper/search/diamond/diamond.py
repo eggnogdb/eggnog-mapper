@@ -143,7 +143,7 @@ class DiamondSearcher:
         if self.itype == ITYPE_CDS and self.translate == True:
             tool = 'blastp'
             handle, query_file = mkstemp(dir = self.temp_dir, text = True)
-            translate_cds_to_prots(fasta_file, query_file)
+            translate_cds_to_prots(fasta_file, query_file, self.query_gencode)
         elif self.itype == ITYPE_CDS or self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             tool = 'blastx'
             query_file = fasta_file

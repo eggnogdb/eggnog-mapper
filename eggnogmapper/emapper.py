@@ -157,7 +157,7 @@ class Emapper:
             if self.genepred_is_blastx == True:
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
                 silent_rm(fasta_file)
-                hits = create_prots_file(queries_file, hits, fasta_file)
+                hits = create_prots_file(queries_file, hits, fasta_file, args.translate, args.trans_table)
             
         return searcher, searcher_name, hits
     

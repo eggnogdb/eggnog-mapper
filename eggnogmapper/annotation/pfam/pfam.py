@@ -13,7 +13,7 @@ from ...search.hmmer.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE
 from ...search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 
 ##
-def get_hmmscan_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
+def get_hmmscan_args(cpu, fasta_file, hmm_file, resume, translate, trans_table, temp_dir):
     usemem = False
     scan_type = SCANTYPE_DISK
     db = hmm_file
@@ -37,6 +37,7 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
                           dbtype = dbtype,
                           qtype = qtype,
                           translate = translate,
+                          trans_table = trans_table,
                           resume = resume,
                           no_file_comments = False,
                           maxhits = 0, # unlimited
@@ -54,7 +55,7 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
     return pfam_args, infile
 
 ##
-def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
+def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, trans_table, temp_dir):
     usemem = False
     scan_type = SCANTYPE_DISK
     db = fasta_file
@@ -78,6 +79,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
                           dbtype = dbtype,
                           qtype = qtype,
                           translate = translate,
+                          trans_table = trans_table,
                           resume = resume,
                           no_file_comments = False,
                           maxhits = 0, # unlimited
@@ -96,7 +98,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, temp_dir):
     
 ##
 def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
-                  fasta_file, resume, translate, temp_dir, force_seqdb = False):
+                  fasta_file, resume, translate, trans_table, temp_dir, force_seqdb = False):
 
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
 
@@ -186,6 +188,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
                           dbtype = dbtype,
                           qtype = qtype,
                           translate = translate,
+                          trans_table = trans_table,
                           resume = resume,
                           no_file_comments = False,
                           maxhits = 0, # unlimited

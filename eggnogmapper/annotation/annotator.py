@@ -39,7 +39,7 @@ class Annotator:
     tax_scope_mode = tax_scope_ids = target_taxa = target_orthologs = excluded_taxa = None
     
     go_evidence = go_excluded = None
-    pfam_realign = queries_fasta = translate = temp_dir = None
+    pfam_realign = queries_fasta = translate = trans_table = temp_dir = None
     md5 = None
 
     resume = None
@@ -76,6 +76,7 @@ class Annotator:
         
         self.queries_fasta = args.input
         self.translate = args.translate
+        self.trans_table = args.trans_table
         self.temp_dir = args.temp_dir
         
         self.md5 = args.md5
@@ -141,7 +142,8 @@ class Annotator:
                     annots_generator is not None):
                     
                     annots_generator = run_pfam_mode(self.pfam_realign, annots_generator,
-                                                     self.queries_fasta, self.resume, self.translate,
+                                                     self.queries_fasta, self.resume,
+                                                     self.translate, self.trans_table,
                                                      self.cpu, self.num_servers,
                                                      self.num_workers, self.cpus_per_worker,
                                                      self.port, self.end_port,

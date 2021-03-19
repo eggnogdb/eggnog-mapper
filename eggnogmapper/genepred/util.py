@@ -8,7 +8,7 @@ from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 ##
 # Create a fasta file from search hits from blastx-based gene prediction
 
-def create_prots_file(infile, hits, outfile):
+def create_prots_file(infile, hits, outfile, translate, table):
     
     seqs_dict = {name:seq for name, seq in iter_fasta_seqs(infile)}
 
@@ -30,6 +30,10 @@ def create_prots_file(infile, hits, outfile):
                 
                 else:
                     orf = Seq(seq[qstart-1:qend])
+
+                if translate == True:
+                    table = table if table is not None else 1
+                    orf = orf.translate(table = table)
                     
                 print(f">{query}\n{orf}", file=OUT)
                 

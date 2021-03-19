@@ -44,6 +44,11 @@ def create_arg_parser():
     pg_input.add_argument('--translate', action="store_true",
                           help='Assume input sequences are CDS instead of proteins (it has effect only if --qtype seq, and also when -d is a plain FASTA file)')
 
+    pg_input.add_argument('--trans_table', dest='trans_table', type=str, metavar='TRANS_TABLE_CODE',
+                          help=(
+                              f"It is used when --translate, check https://biopython.org/docs/1.75/api/Bio.Seq.html#Bio.Seq.Seq.translate. "
+                          ))
+
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
 
