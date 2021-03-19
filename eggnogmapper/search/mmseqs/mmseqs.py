@@ -172,7 +172,7 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} createdb {fasta_file} {querydb}'
         )
-        if self.itype == ITYPE_PROTS or self.translate == True:
+        if self.itype == ITYPE_PROTS or (self.itype == ITYPE_CDS and self.translate == True):
             cmd += ' --dbtype 1' # aas queries (proteins)
         else:
             cmd += ' --dbtype 2' # nts queries (CDS, contig, ...)
