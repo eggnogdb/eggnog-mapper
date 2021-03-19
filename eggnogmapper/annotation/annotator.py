@@ -77,9 +77,6 @@ class Annotator:
         self.trans_table = args.trans_table
         self.itype = args.itype
         
-        print("annotator.py:__init__")
-        print("ITYPE "+str(self.itype))
-        
         self.temp_dir = args.temp_dir
         
         self.md5 = args.md5
