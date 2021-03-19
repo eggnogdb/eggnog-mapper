@@ -8,7 +8,7 @@ import multiprocessing
 from collections import defaultdict, Counter
 
 from ..emapperException import EmapperException
-from ..common import get_call_info, get_data_path
+from ..common import get_call_info, get_data_path, ITYPE_PROTS, ITYPE_CDS
 from ..utils import colorify
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
