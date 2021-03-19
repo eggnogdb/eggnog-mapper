@@ -1,6 +1,8 @@
 ##
 ## CPCantalapiedra 2020
 
+from Bio.Seq import Seq
+
 from ..search.hmmer.hmmer_seqio import iter_fasta_seqs
 
 ##
@@ -21,10 +23,14 @@ def create_prots_file(infile, hits, outfile):
             if qend < qstart:
                 qstart = hit[5]
                 qend = hit[4]
+                orf = Seq(seq[qstart-1:qend]).reverse_complement()
+                
+            else:
+                orf = Seq(seq[qstart-1:qend])
 
             if query_no_suffix in seqs_dict:
                 seq = seqs_dict[query_no_suffix]
-                print(f">{query}\n{seq[qstart-1:qend]}", file=OUT)
+                print(f">{query}\n{orf}", file=OUT)
                 
             yield hit
             
