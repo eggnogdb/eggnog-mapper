@@ -178,10 +178,7 @@ def output_annotations_row(out, annotation, md5_field, md5_queries):
     annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
     
     for h in ANNOTATIONS_HEADER:
-        if h in annotations:
-            print("output.py:output_annotations_row")
-            print(h)
-            print(annotations)
+        if h in annotations and annotations[h] is not None:
             annot_columns.append(",".join(sorted(list(annotations[h]))))
         else:
             annot_columns.append('-')
