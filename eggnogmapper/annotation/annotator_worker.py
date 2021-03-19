@@ -139,8 +139,11 @@ def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_scor
     """
     if hit_name == '-' or hit_name == 'ERROR':
         return True
-    
-    if hit_score < threshold_score or hit_evalue > threshold_evalue:
+
+    if threshold_evalue is not None and hit_evalue is not None and hit_evalue > threshold_evalue:
+        return True
+
+    if threshold_score is not None and hit_score is not None and hit_score < threshold_score:
         return True
     
     return False
