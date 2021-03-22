@@ -59,55 +59,62 @@ def create_arg_parser():
                         help="show version and exit.")
 
     parser.add_argument('--list_taxa', action="store_true",
-                        help="List taxa available for --tax_scope, and exit")
+                        help="List taxa available for --tax_scope/--tax_scope_mode, and exit")
 
     ##
     pg_exec = parser.add_argument_group('Execution Options')
     
     pg_exec.add_argument('--cpu', type=int, default=1, metavar='NUM_CPU',
-                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
+                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 1")
 
     pg_exec.add_argument('--resume', action="store_true",
-                          help=("Resumes a previous emapper run. A file *.emapper.search.hit must "
-                                "exist within the output directory."))
+                          help=("Resumes a previous emapper run, skipping results in existing output files."))
 
     pg_exec.add_argument('--override', action="store_true",
-                        help="Overwrites output files if they exist.")
+                        help=(
+                            "Overwrites output files if they exist. "
+                            "By default, execution is aborted if conflicting files are detected."))
     
     ##
     pg_input = parser.add_argument_group('Input Data Options')
 
     pg_input.add_argument('-i', dest="input", metavar='FASTA_FILE', type=existing_file,
                           help=f'Input FASTA file containing query sequences (proteins by default; see --itype and --translate). '
-                          f'Required unless -m {SEARCH_MODE_NO_SEARCH} and --annotate_hits_table')
+                          f'Required unless -m {SEARCH_MODE_NO_SEARCH}.')
 
     pg_input.add_argument('--itype', dest="itype", choices = [ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META],
                           default=ITYPE_PROTS,
-                          help=f'Input type of the data in the file specified in the -i option')
+                          help=f'Type of data in the input (-i) file.')
     
     pg_input.add_argument('--translate', action="store_true",
-                          help=('Translate CDS to proteins before search, if --itype CDS. '
-                                'It will also translate blastx hits from --genepred search.'))
+                          help=('When --itype CDS, translate CDS to proteins before search. '
+                                'When --itype genome/metagenome and --genepred search, '
+                                'translate predicted CDS from blastx hits to proteins.'))
 
     pg_input.add_argument('--annotate_hits_table', type=str, metavar='SEED_ORTHOLOGS_FILE',
                           help=f'Annotate TSV formatted table with 4 fields:'
-                          f' query, hit, evalue, score. Requires -m {SEARCH_MODE_NO_SEARCH}.')
+                          f' query, hit, evalue, score. '
+                          f' Usually, a .seed_orthologs file from a previous emapper.py run. '
+                          f' Requires -m {SEARCH_MODE_NO_SEARCH}.')
 
     pg_input.add_argument('-c', '--cache', dest="cache_file", metavar='FILE', type=existing_file,
                           help=f'File containing annotations and md5 hashes of queries, to be used as cache. '
                           f'Required if -m {SEARCH_MODE_CACHE}')
         
     pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
-                          help='Path to eggnog-mapper databases.') # DATA_PATH in eggnogmapper.commons
+                          help=('Path to eggnog-mapper databases. '
+                                'By default, "data/" or the path specified in the '
+                                'environment variable EGGNOG_DATA_DIR.')) # DATA_PATH in eggnogmapper.commons
 
     ##
     pg_genepred = parser.add_argument_group('Gene Prediction Options')
+    
     pg_genepred.add_argument('--genepred', dest='genepred', type=str, choices = [GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL],
                               default = GENEPRED_MODE_SEARCH,
                               help=(
-                                  f'This applied when --itype {ITYPE_GENOME} or --itype {ITYPE_META}. '
-                                  f'{GENEPRED_MODE_SEARCH}: gene prediction is inferred from hits obtained from the search step. '
-                                  f'{GENEPRED_MODE_PRODIGAL}: gene prediction is performed from proteins predicted using prodigal. '
+                                  f'This is applied when --itype {ITYPE_GENOME} or --itype {ITYPE_META}. '
+                                  f'{GENEPRED_MODE_SEARCH}: gene prediction is inferred from Diamond/MMseqs2 blastx hits. '
+                                  f'{GENEPRED_MODE_PRODIGAL}: gene prediction is performed using Prodigal. '
                               ))
 
     pg_genepred.add_argument('--trans_table', dest='trans_table', type=str, metavar='TRANS_TABLE_CODE',
@@ -381,14 +388,14 @@ def create_arg_parser():
                           default="all",
                           help='defines what type of orthologs (in relation to the seed ortholog) should be used for functional transfer')
 
-    pg_annot.add_argument('--target_taxa', type=str, 
+    pg_annot.add_argument('--target_taxa', type=str, metavar="LIST_OF_TAX_IDS", 
                           default=None,
-                          help=("Only orthologs from the specified taxa and all its descendants "
+                          help=("Only orthologs from the specified comma-separated list of taxa and all its descendants "
                                 "will be used for annotation transference. By default, all taxa are used."))
 
-    pg_annot.add_argument('--excluded_taxa', type=str,
+    pg_annot.add_argument('--excluded_taxa', type=str, metavar="LIST_OF_TAX_IDS",
                           default=None, 
-                          help=('Orthologs from the specified taxa and all its descendants will not be '
+                          help=('Orthologs from the specified comma-separated list of taxa and all its descendants will not be '
                                 'used for annotation transference. By default, no taxa is excluded.'))
 
     pg_annot.add_argument("--report_orthologs", action="store_true",
