@@ -1,6 +1,7 @@
 ##
 ## CPCantalapiedra 2019
 
+import os
 from os.path import isdir as pisdir, isfile as pisfile
 import shutil
 import subprocess
@@ -219,7 +220,7 @@ class DiamondSearcher:
             raise EmapperException("Error running diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
         finally:
             if handle is not None:
-                handle.close()
+                os.close(handle)
         
         return cmds
 
