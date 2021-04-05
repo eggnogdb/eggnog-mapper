@@ -4,6 +4,7 @@
 from os.path import join as pjoin, isdir as pisdir, isfile as pisfile
 import shutil
 import subprocess
+from sys import stderr as sys_stderr
 from tempfile import mkdtemp, mkstemp
 import uuid
 
@@ -104,7 +105,11 @@ class MMseqs2Searcher:
     ##
     def clear(self):
         if self.temp_dir is not None and pisdir(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
+            try:
+                shutil.rmtree(self.temp_dir)
+            except OSError as err:
+                print(f"Warning: OS error while removing {self.temp_dir}", file = sys_stderr)
+                print(f"OS error: {err}", file = sys_stderr)
         return
 
     ##
@@ -150,26 +155,31 @@ class MMseqs2Searcher:
     def run_mmseqs(self, fasta_file, querydb, targetdb, resultdb, bestresultdb):
         cmds = []
 
-        if self.itype == ITYPE_CDS and self.translate == True:
-            handle, query_file = mkstemp(dir = self.temp_dir, text = True)
-            translate_cds_to_prots(fasta_file, query_file, self.translation_table)
-        else:
-            query_file = fasta_file
-            
-        cmd = self.createdb(query_file, querydb)
-        cmds.append(cmd)
+        handle = None
+        try:
+            if self.itype == ITYPE_CDS and self.translate == True:
+                handle, query_file = mkstemp(dir = self.temp_dir, text = True)
+                translate_cds_to_prots(fasta_file, query_file, self.translation_table)
+            else:
+                query_file = fasta_file
 
-        cmd = self.search_step(querydb, targetdb, resultdb)
-        cmds.append(cmd)
-
-        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            cmd = self.filterdb_step(resultdb, bestresultdb)
+            cmd = self.createdb(query_file, querydb)
             cmds.append(cmd)
-        else:
-            bestresultdb = resultdb
 
-        cmd = self.convertalis_step(querydb, targetdb, bestresultdb)
-        cmds.append(cmd)
+            cmd = self.search_step(querydb, targetdb, resultdb)
+            cmds.append(cmd)
+
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                cmd = self.filterdb_step(resultdb, bestresultdb)
+                cmds.append(cmd)
+            else:
+                bestresultdb = resultdb
+
+            cmd = self.convertalis_step(querydb, targetdb, bestresultdb)
+            cmds.append(cmd)
+        finally:
+            if handle is not None:
+                handle.close()
 
         return bestresultdb, cmds
 

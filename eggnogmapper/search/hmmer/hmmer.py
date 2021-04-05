@@ -116,9 +116,18 @@ class HmmerSearcher:
     ##
     def clear(self):
         if self.hmmcmd_temp_dir is not None and pisdir(self.hmmcmd_temp_dir):
-            shutil.rmtree(self.hmmcmd_temp_dir)
+            try:
+                shutil.rmtree(self.hmmcmd_temp_dir)
+            except OSError as err:
+                print(f"Warning: OS error while removing {self.hmmcmd_temp_dir}", file = sys.stderr)
+                print(f"OS error: {err}", file = sys.stderr)
+                
         if self.phmmer_temp_dir is not None and pisdir(self.phmmer_temp_dir):
-            shutil.rmtree(self.phmmer_temp_dir)
+            try:
+                shutil.rmtree(self.phmmer_temp_dir)
+            except OSError as err:
+                print(f"Warning: OS error while removing {self.phmmer_temp_dir}", file = sys.stderr)
+                print(f"OS error: {err}", file = sys.stderr)
         return
     
     ##

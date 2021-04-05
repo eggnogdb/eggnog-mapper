@@ -3,8 +3,10 @@
 
 from os.path import isfile
 from os.path import join as pjoin
+from os.path import isdir as pisdir
 import shutil
 import subprocess
+from sys import stderr as sys_stderr
 from tempfile import mkdtemp
 
 from ..emapperException import EmapperException
@@ -59,7 +61,7 @@ class ProdigalPredictor:
                     print(colorify(f'Warning: --training_file {self.training_file} already exists. '
                                    f'Training will be skipped, and prediction will be run using the existing training file.', 'red'))                                    
                 else:
-                    cmd = self.run_training(self.training_genome, self.training_file, self.outdir)
+                    cmd = self.run_training(self.training_genome, self.training_file)
 
             # Gene prediction
             cmd = self.run_prodigal(in_file, self.outdir)
@@ -71,10 +73,15 @@ class ProdigalPredictor:
         return
 
     def clear(self):
-        shutil.rmtree(self.outdir)
+        if self.outdir is not None and pisdir(self.outdir):
+            try:
+                shutil.rmtree(self.outdir)
+            except OSError as err:
+                print(f"Warning: OS error while removing {self.outdir}", file = sys_stderr)
+                print(f"OS error: {err}", file = sys_stderr)
         return
 
-    def run_training(self, in_file, training_file, outdir):
+    def run_training(self, in_file, training_file):
         cmd = (
             f'{PRODIGAL} -i {in_file} -t {training_file}'
         )

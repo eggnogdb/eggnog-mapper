@@ -4,6 +4,7 @@
 from os.path import isdir as pisdir, isfile as pisfile
 import shutil
 import subprocess
+from sys import stderr as sys_stderr
 from tempfile import mkdtemp, mkstemp
 
 from ...emapperException import EmapperException
@@ -105,7 +106,11 @@ class DiamondSearcher:
     ##
     def clear(self):
         if self.temp_dir is not None and pisdir(self.temp_dir):
-            shutil.rmtree(self.temp_dir)
+            try:
+                shutil.rmtree(self.temp_dir)
+            except OSError as err:
+                print(f"Warning: OS error while removing {self.temp_dir}", file = sys_stderr)
+                print(f"OS error: {err}", file = sys_stderr)
         return
     
     ##
@@ -142,6 +147,8 @@ class DiamondSearcher:
     ##
     def run_diamond(self, fasta_file, output_file):
         cmds = []
+
+        handle = None
         ##
         # search type
         if self.itype == ITYPE_CDS and self.translate == True:
@@ -210,6 +217,9 @@ class DiamondSearcher:
             cmds.append(cmd)
         except subprocess.CalledProcessError as cpe:
             raise EmapperException("Error running diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
+        finally:
+            if handle is not None:
+                handle.close()
         
         return cmds
 
