@@ -1,6 +1,7 @@
 ##
 ## CPCantalapiedra 2019
 
+import os
 from os.path import join as pjoin, isdir as pisdir, isfile as pisfile
 import shutil
 import subprocess
@@ -179,7 +180,7 @@ class MMseqs2Searcher:
             cmds.append(cmd)
         finally:
             if handle is not None:
-                handle.close()
+                os.close(handle)
 
         return bestresultdb, cmds
 
