@@ -69,6 +69,7 @@ def annotate_hit_line(arguments, eggnog_db):
                 match_nogs, match_nogs_names, narr_ogs, best_ogs = parse_nogs(match_nogs,
                                                                               tax_scope_mode,
                                                                               tax_scope_ids)
+                
                 if best_ogs is None:
                     pass
                 else:

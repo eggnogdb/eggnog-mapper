@@ -1,62 +1,40 @@
 ##
 
 def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
-    
+
+    ##
     # Try to setup orthology using best OG
+
+    # First, obtain all OGs from bestOG to the narrowestOG
+    best_ogs_pos = min([all_nogs.index(best_og) for best_og in best_ogs])
+    annot_ogs = all_nogs[best_ogs_pos:]
     
-    orthology = __setup_orthology(member, best_ogs, eggnog_db)
+    orthology = __setup_orthology(member, annot_ogs, eggnog_db)
     if orthology is not None and len(orthology) > 0:
         all_orthologs = __load_orthology(orthology)
         best_OG = None
     else:
 
         ##
-        # If no orthology was obtained from best OG, try using other NOGs in its vicinity
+        # If no orthology was obtained from best OG and its children OG,
+        # try looking for a valid ortholog from best OG to root (bottom-top)
 
-        # 1) Split the list of OGs from the best OGs, in 2 parts:
-        # - bot_top_nogs: bottom-top NOGs from the best OGs
-        # - top_bot_nogs: top-bottom NOGs from the best OGs
-        
-        best_ogs_indexes = [all_nogs.index(best_og) for best_og in best_ogs]
-        
-        if min(best_ogs_indexes) <= len(all_nogs):
-            bot_top_nogs = all_nogs[:min(best_ogs_indexes)]
-            bot_top_nogs.reverse()
-        else:
-            bot_top_nogs = []
-        
-        if max(best_ogs_indexes) + 1 <= len(all_nogs) - 1:
-            top_bot_nogs = all_nogs[max(best_ogs_indexes) + 1:]
-        else:
-            top_bot_nogs = []
+        if best_ogs_pos > 0:
+            bot_top_nogs = all_nogs[:best_ogs_pos]
+            bot_top_nogs.reverse() # bottom-top order
 
-        # 2) Iterate alternatively from one list to the other trying to find
-        # the closesest NOG to the best OGs which yields a valid orthology
-        if len(top_bot_nogs) > 0:
-            curr_list = top_bot_nogs
-            prev_list = bot_top_nogs
-        else:
-            curr_list = bot_top_nogs
-            prev_list = []
-            
-        while len(curr_list) > 0:
-            nog = curr_list[0]
-            orthology = __setup_orthology(member, [nog], eggnog_db)
+            while len(bot_top_nogs) > 0:
+                nog = bot_top_nogs[0]
+                orthology = __setup_orthology(member, [nog], eggnog_db)
 
-            # If a valid orthology is found, the new best OG will be this NOG
-            if orthology is not None and len(orthology) > 0:
-                all_orthologs = __load_orthology(orthology)
-                best_OG = nog
-                break
+                # If a valid orthology is found, the new best OG will be this NOG
+                if orthology is not None and len(orthology) > 0:
+                    all_orthologs = __load_orthology(orthology)
+                    best_OG = nog
+                    break
 
-            # If no valid orthology was found, keep looping alternatively the 2 lists
-            if len(prev_list) > 0:
-                tmp_list = prev_list
-                prev_list = curr_list[1:]
-                curr_list = tmp_list
-            # If one list was already depleted, iterate over the remaining list
-            else:
-                curr_list = curr_list[1:]
+                # If no valid orthology was found, keep looping bottom-top
+                bot_top_nogs = bot_top_nogs[1:]
 
         ##
         # If no orthology was found after iterating over all the NOGs, use the seed ortholog for annotation
@@ -108,14 +86,14 @@ def __load_orthology(orthology):
             
     return all_orthologs
 
-def __setup_orthology(member, best_ogs, eggnog_db):
+def __setup_orthology(member, ogs, eggnog_db):
     orthology = {}
     
     member_as_set = set([member])
 
-    best_ogs_tax_ids = set([best_og[1] for best_og in best_ogs])
+    ogs_tax_ids = set([og[1] for og in ogs])
     
-    for level, _side1, _side2 in eggnog_db.get_member_events(member.strip(), best_ogs_tax_ids):
+    for level, _side1, _side2 in eggnog_db.get_member_events(member.strip(), ogs_tax_ids):
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
 
