@@ -105,14 +105,16 @@ def annotate_hit_line(arguments, eggnog_db):
 
                     else:
                         annotations = {}
+                    
+                    match_nogs_descriptions = get_ogs_descriptions(match_nogs, eggnog_db)
 
-                    best_og_descriptions = get_ogs_descriptions(best_ogs, eggnog_db)
-                    narr_og_descriptions = get_ogs_descriptions(narr_ogs, eggnog_db)
+                    # best_ogs[0] because all best_ogs MUST HAVE the same tax lvl
+                    max_annot_lvl = best_ogs[0][2].split("@")[1]
 
                     annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                                   annotations,
-                                  narr_og_descriptions,
-                                  best_og_descriptions,
+                                  match_nogs_descriptions,
+                                  max_annot_lvl,
                                   match_nogs_names,
                                   all_orthologies, annot_orthologs)
         
@@ -162,18 +164,16 @@ def get_ogs_descriptions(nogs, eggnog_db):
     og_name = None
     cat = None
     desc = None
-    for nog in nogs:
+    
+    for nog in reversed(nogs):
         nog_id, nog_tax_id, nog_name, nog_depth = nog
         nog_cat, nog_desc = get_og_description(nog_id, nog_tax_id, eggnog_db)
 
-        if og_name is None:
+        if nog_desc != "-":
             og_name = nog_name
             cat = nog_cat
             desc = nog_desc
-        else:
-            og_name = " / ".join([og_name, nog_name])
-            cat = " / ".join([cat, nog_cat])
-            desc = " / ".join([desc, nog_desc])
+            break
             
     return (og_name, cat, desc)
 
