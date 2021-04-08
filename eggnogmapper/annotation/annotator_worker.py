@@ -171,8 +171,8 @@ def get_ogs_descriptions(nogs, eggnog_db):
 
         if nog_desc != "-":
             og_name = nog_name
-            cat = nog_cat
-            desc = nog_desc
+            cat = nog_cat.replace('\n', '')
+            desc = nog_desc.replace('\n', '')
             break
             
     return (og_name, cat, desc)
