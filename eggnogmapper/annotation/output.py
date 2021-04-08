@@ -169,7 +169,7 @@ def output_annotations_row(out, annotation, md5_field, md5_queries):
 
     annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
                      ",".join(match_nog_names), str(max_annot_lvl),
-                     og_cat.replace('\n', ''), og_desc.replace('\n', ' ')]
+                     og_cat, og_desc]
     
     for h in ANNOTATIONS_HEADER:
         if h in annotations and annotations[h] is not None:
