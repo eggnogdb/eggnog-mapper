@@ -314,7 +314,7 @@ def parse_annotations(annot, annot_file, report_orthologs, orthologs_file):
                 # just yield that query already exists in file
                 query_name = line[0]
                 if prev_query is not None and query_name != prev_query:
-                    annotation = (prev_query, None, None, None, None,
+                    annotation = (prev_query, None, None, None,
                                   None, None, None, None, None)
                     yield annotation
 
@@ -322,7 +322,7 @@ def parse_annotations(annot, annot_file, report_orthologs, orthologs_file):
                 
             # last query
             if prev_query is not None:
-                annotation = (prev_query, None, None, None, None,
+                annotation = (prev_query, None, None, None,
                               None, None, None, None, None)
                 yield annotation
                 
@@ -345,13 +345,14 @@ def parse_annotation_line(line):
     
     annotations = defaultdict(Counter)
     
-    for i, field in enumerate(data[11:]):
+    for i, field in enumerate(data[8:]):
         if i < len(ANNOTATIONS_HEADER):
             field_name = ANNOTATIONS_HEADER[i]
             annotations[field_name] = field.split(",")
         
-    narr_og = (data[5], data[6], data[7])
-    best_og = (data[8], data[9], data[10])
+    og_cat_desc = ("-", data[5], data[6])
+
+    max_annot_lvl = data[7]
     
     match_nog_names = data[4].split(",")
     
@@ -360,7 +361,7 @@ def parse_annotation_line(line):
     
     annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                   annotations,
-                  narr_og, best_og, match_nog_names,
+                  og_cat_desc, max_annot_lvl, match_nog_names,
                   all_orthologies, annot_orthologs)
     
     return hit, annotation

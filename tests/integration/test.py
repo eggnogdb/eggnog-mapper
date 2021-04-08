@@ -140,10 +140,12 @@ class Test(unittest.TestCase):
     
     def test_emapper_no_search(self):
         '''
-        Tests annotation (-m no_search) of an existing hits table, and reports orthologs (--report_orthologs, --target_orthologs, --target_taxa and --excluded_taxa)
+        Tests annotation (-m no_search) of an existing hits table, 
+        and reports orthologs (--report_orthologs, --target_orthologs, --target_taxa and --excluded_taxa)
         '''
-        ('./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_output.emapper.seed_orthologs '
-         '--data_dir tests/fixtures --output_dir tmp -o tmp --report_orthologs --target_orthologs one2one --target_taxa 72274,1123487 --excluded_taxa 205918,1395571')
+        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_output.emapper.seed_orthologs
+        # --data_dir tests/fixtures --output_dir tmp -o tmp --report_orthologs --target_orthologs one2one
+        # --target_taxa 72274,1123487 --excluded_taxa 205918,1395571
         
         ##
         # Setup test
@@ -271,7 +273,8 @@ class Test(unittest.TestCase):
         '''
         Tests the use of scratch_dir
         '''
-        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures -d bact -o bact --output_dir tmp --scratch_dir tmp_scratch
+        # ./emapper.py -m hmmer -i tests/fixtures/test_queries.fa --data_dir tests/fixtures
+        # -d bact -o bact --output_dir tmp --scratch_dir tmp_scratch
         
         ##
         # Setup test
@@ -353,7 +356,8 @@ class Test(unittest.TestCase):
         '''
         Tests --pfam_realign realign
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_realign realign
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures
+        # --output_dir tmp -o test --pfam_realign realign
         
         ##
         # Setup test
@@ -412,7 +416,8 @@ class Test(unittest.TestCase):
         '''
         Tests --pfam_realign denovo
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp -o test --pfam_realign denovo
+        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures
+        # --output_dir tmp -o test --pfam_realign denovo
         
         ##
         # Setup test
@@ -676,7 +681,8 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with mmseqs with GFF decoration
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --decorate_gff yes --data_dir tests/fixtures
+        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search \
+        # --decorate_gff yes --data_dir tests/fixtures \
         # -m mmseqs --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o test --output_dir tmp
         
         ##
@@ -734,7 +740,9 @@ class Test(unittest.TestCase):
         '''
         Test decoration of existing GFF file from seed_orthologs file and annotations
         '''
-        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs --data_dir tests/fixtures
+        # ./emapper.py -m no_search 
+        # --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs
+        # --data_dir tests/fixtures 
         # --decorate_gff tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff --output_dir tmp -o test
         
         ##
@@ -791,7 +799,8 @@ class Test(unittest.TestCase):
         '''
         Test decoration of existing GFF file from seed_orthologs file (short format) and annotations
         '''
-        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs.short --data_dir tests/fixtures
+        # ./emapper.py -m no_search --data_dir tests/fixtures 
+        # --annotate_hits_table tests/fixtures/decorate_gff/decorate_file/test.emapper.seed_orthologs.short
         # --decorate_gff tests/fixtures/decorate_gff/decorate_file/test.emapper.genepred.gff --output_dir tmp -o test
         
         ##

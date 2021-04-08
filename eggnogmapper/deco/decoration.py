@@ -269,16 +269,16 @@ def annotation_to_gff(annotation):
     attrs = []
     (query_name, best_hit_name, best_hit_evalue, best_hit_score,
      annotations,
-     (narr_og_name, narr_og_cat, narr_og_desc),
-     (best_og_name, best_og_cat, best_og_desc),
+     (og_name, og_cat, og_desc),
+     max_annot_lvl,
      match_nog_names,
      all_orthologies, annot_orthologs) = annotation
     
     match_nog_names = ",".join(match_nog_names)
     attrs.append(f"em_OGs={match_nog_names}")
-    attrs.append(f"em_best_OG_name={best_og_name}")
-    attrs.append(f"em_best_OG_cat={best_og_cat}")
-    attrs.append(f"em_best_OG_desc={best_og_desc}")
+    attrs.append(f"em_COG_cat={og_cat}")
+    attrs.append(f"em_desc={og_desc}")
+    attrs.append(f"em_max_annot_lvl={max_annot_lvl}")
 
     for k, v in annotations.items():
         tag = f"em_{k.replace(' ', '_')}"

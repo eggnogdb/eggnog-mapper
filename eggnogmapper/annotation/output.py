@@ -46,8 +46,8 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments):
 def output_orthologs_row(out, annotation, ncbi):
     (query_name, best_hit_name, best_hit_evalue, best_hit_score,
      annotations,
-     (narr_og_name, narr_og_cat, narr_og_desc),
-     (best_og_name, best_og_cat, best_og_desc),
+     (og_name, og_cat, og_desc),
+     max_annot_lvl,
      match_nog_names,
      all_orthologies, annot_orthologs) = annotation
 
@@ -109,13 +109,9 @@ HIT_HEADER = ["query",
               "evalue",
               "score",
               "eggNOG_OGs",
-              "narr_OG_name",
-              "narr_OG_cat",
-              "narr_OG_desc"]
-
-BEST_OG_HEADER = ["best_OG_name",
-                  "best_OG_cat",
-                  "best_OG_desc"]
+              "max_annot_lvl",
+              "COG_category",
+              "Description"]
 
 ANNOTATIONS_HEADER = ['Preferred_name',
                       'GOs',
@@ -131,7 +127,7 @@ ANNOTATIONS_HEADER = ['Preferred_name',
                       'BiGG_Reaction',
                       'PFAMs']
 
-ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + BEST_OG_HEADER + ANNOTATIONS_HEADER
+ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + ANNOTATIONS_HEADER
 
 ##
 def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, md5_queries):
@@ -166,16 +162,14 @@ def output_annotations_row(out, annotation, md5_field, md5_queries):
 
     (query_name, best_hit_name, best_hit_evalue, best_hit_score,
      annotations,
-     (narr_og_name, narr_og_cat, narr_og_desc),
-     (best_og_name, best_og_cat, best_og_desc),
+     (og_name, og_cat, og_desc),
+     max_annot_lvl,
      match_nog_names,
      all_orthologies, annot_orthologs) = annotation
 
     annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
-                     ",".join(match_nog_names), 
-                     narr_og_name, narr_og_cat.replace('\n', ''), narr_og_desc.replace('\n', ' ')]
-            
-    annot_columns.extend([best_og_name, best_og_cat.replace('\n', ''), best_og_desc.replace('\n', ' ')])
+                     ",".join(match_nog_names), str(max_annot_lvl),
+                     og_cat.replace('\n', ''), og_desc.replace('\n', ' ')]
     
     for h in ANNOTATIONS_HEADER:
         if h in annotations and annotations[h] is not None:
@@ -202,11 +196,8 @@ def output_annotations_header(out, no_file_comments, md5_field, print_header):
 
     if print_header == True:
         print("#", end="", file=out)
-        print('\t'.join(HIT_HEADER), end="\t", file=out)
-
-        print('\t'.join(BEST_OG_HEADER), end="\t", file=out)
-
-        annot_header = ANNOTATIONS_HEADER
+        
+        annot_header = ANNOTATIONS_WHOLE_HEADER
         if md5_field == True:
             annot_header.append("md5")
 

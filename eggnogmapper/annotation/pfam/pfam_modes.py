@@ -70,8 +70,8 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
             if exists == False:
                 (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                  annotations,
-                 (narr_og_name, narr_og_cat, narr_og_desc),
-                 (best_og_name, best_og_cat, best_og_desc),
+                 (og_name, og_cat, og_desc),
+                 max_annot_lvl,
                  match_nog_names,
                  all_orthologies, annot_orthologs) = annotation
             
@@ -97,8 +97,8 @@ def load_all_annotations(annots_generator):
         if exists == False:
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
              annotations,
-             (narr_og_name, narr_og_cat, narr_og_desc),
-             (best_og_name, best_og_cat, best_og_desc),
+             (og_name, og_cat, og_desc),
+             max_annot_lvl,
              match_nog_names,
              all_orthologies, annot_orthologs) = annotation
             
