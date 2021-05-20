@@ -356,13 +356,16 @@ class Test(unittest.TestCase):
         '''
         Tests --pfam_realign realign
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures
+
+        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_pfam_groups.seed_orthologs
+        # -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures
         # --output_dir tmp -o test --pfam_realign realign
         
         ##
         # Setup test
         
         in_file = "tests/fixtures/test_pfam_groups.fa"
+        seeds_file = "tests/fixtures/test_pfam_groups.seed_orthologs"
         data_dir = "tests/fixtures"
         outdir = "tests/integration/out"
         outprefix = "test"
@@ -382,7 +385,10 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_realign realign'
+        cmd = (
+            f'./emapper.py -m no_search --annotate_hits_table {seeds_file} -i {in_file} --data_dir {data_dir} '
+            f'--output_dir {outdir} -o {outprefix} --pfam_realign realign'
+        )
 
         # print(f"\t{cmd}")
 
@@ -416,13 +422,16 @@ class Test(unittest.TestCase):
         '''
         Tests --pfam_realign denovo
         '''
-        # ./emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures
+
+        # ./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_pfam_groups.seed_orthologs
+        # -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures
         # --output_dir tmp -o test --pfam_realign denovo
         
         ##
         # Setup test
         
         in_file = "tests/fixtures/test_pfam_groups.fa"
+        seeds_file = "tests/fixtures/test_pfam_groups.seed_orthologs"
         data_dir = "tests/fixtures"
         outdir = "tests/integration/out"
         outprefix = "test"
@@ -442,7 +451,10 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = f'./emapper.py -m diamond -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix} --pfam_realign denovo'
+        cmd = (
+            f'./emapper.py -m no_search --annotate_hits_table {seeds_file} -i {in_file} --data_dir {data_dir} '
+            f'--output_dir {outdir} -o {outprefix} --pfam_realign denovo'
+        )
 
         # print(f"\t{cmd}")
 

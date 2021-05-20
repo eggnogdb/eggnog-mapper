@@ -67,7 +67,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
         for (hit, annotation), exists in all_annotations:
 
             # if --resume and annotation exists, skip pfam realignment            
-            if exists == False:
+            if exists == False and annotation is not None:
                 (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                  annotations,
                  (og_name, og_cat, og_desc),
@@ -94,7 +94,7 @@ def load_all_annotations(annots_generator):
         all_annotations.append(((hit, annotation), exists))
 
         # if --resume and annotation exists, skip pfam realignment
-        if exists == False:
+        if exists == False and annotation is not None:
             (query_name, best_hit_name, best_hit_evalue, best_hit_score,
              annotations,
              (og_name, og_cat, og_desc),
