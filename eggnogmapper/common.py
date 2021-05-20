@@ -138,7 +138,7 @@ def get_version():
             raise
     else:
         if p.returncode == 0:
-            _version += "-{}".format(bytes.decode(out).rstrip())
+            _version += f"-{bytes.decode(out).rstrip()}"
         else:
             # If tags were not available
             # Use a short hash for the current commit (e.g. b2d12f4)
@@ -146,7 +146,9 @@ def get_version():
             out, err = p.communicate()
 
             if p.returncode == 0:
-                _version += "-{}".format(bytes.decode(out).rstrip())
+                # prefix also with __VERSION__
+                # https://github.com/eggnogdb/eggnog-mapper/issues/302
+                _version += f"-{__VERSION__}-{bytes.decode(out).rstrip()}"
     if _version != '':
         version = 'emapper' + _version
     else:
