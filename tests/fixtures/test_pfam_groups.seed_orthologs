@@ -1,0 +1,12 @@
+## Thu May 20 10:26:54 2021
+## emapper-2.1.2-2-g69c8afd
+## /data/eggnog-mapper-test/eggnog-mapper/emapper.py -m diamond -i tests/fixtures/test_pfam_groups.fa --data_dir tests/fixtures --output_dir tmp_borrar -o test --pfam_realign realign
+##
+##/data/eggnog-mapper-test/eggnog-mapper/eggnogmapper/bin/diamond blastp -d /data/eggnog-mapper-test/eggnog-mapper/tests/fixtures/eggnog_proteins.dmnd -q /data/eggnog-mapper-test/eggnog-mapper/tests/fixtures/test_pfam_groups.fa --threads 1 -o /data/eggnog-mapper-test/eggnog-mapper/tmp_borrar/test.emapper.hits  --sensitive -e 0.001 --top 3  --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp
+#qseqid	sseqid	evalue	bitscore	qstart	qend	sstart	send	pident	qcov	scov
+1000565.METUNv1_03812	1000565.METUNv1_03812	9.6e-207	714.5	1	363	1	363	100.0	100.0	100.0
+1000565.METUNv1_03812_2	1000565.METUNv1_03812	9.6e-207	714.5	1	363	1	363	100.0	100.0	100.0
+362663.ECP_0061	362663.ECP_0061	0.0	1624.8	1	783	1	783	100.0	100.0	100.0
+## 3 queries scanned
+## Total time (seconds): 0.0066852569580078125
+## Rate: 448.75 q/s
