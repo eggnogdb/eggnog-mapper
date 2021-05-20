@@ -13,7 +13,7 @@ from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer.hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
 from eggnogmapper.search.hmmer.hmmer_setup import setup_custom_db, DEFAULT_PORT, DEFAULT_END_PORT
-from eggnogmapper.search.hmmer.hmmer_server import load_server, server_functional, create_servers
+from eggnogmapper.search.hmmer.hmmer_server import create_servers
 
 __description__ = ('A server for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
@@ -78,6 +78,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
+    multiprocessing.set_start_method("spawn")
 
     # cpus per worker
     total_workers = args.num_workers * args.num_servers

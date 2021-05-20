@@ -52,7 +52,8 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-    
+    multiprocessing.set_start_method("spawn")
+        
     return args
 
 def get_version():
@@ -75,7 +76,7 @@ if __name__ == "__main__":
         worker_db = None
     
         print(colorify(f"Loading worker at localhost, port {args.port}, connecting to {args.host}", 'green'))
-        worker_db = load_worker(args.host, args.port, args.cpu)
+        worker_db = load_worker(args.port, args.cpu)
     
         ready = False
         for _ in range(TIMEOUT_LOAD_SERVER):

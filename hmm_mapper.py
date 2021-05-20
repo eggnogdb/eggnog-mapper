@@ -159,6 +159,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
+    multiprocessing.set_start_method("spawn")
 
     if args.usemem == True:
         total_workers = args.num_workers * args.num_servers

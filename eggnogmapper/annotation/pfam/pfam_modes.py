@@ -45,7 +45,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
     elif pfam_search_mode == PFAM_REALIGN_REALIGN:
         print(colorify("Re-aligning queries to PFAM domains from orthologs", 'lgreen'))
 
-        all_annotations, queries_pfams = load_all_annotations(annots_generator)
+        all_annotations, queries_pfams = load_all_annotations(annots_generator, with_pfam_only = True)
         
         aligned_pfams = pfam_align_parallel_scan(queries_pfams,
                                                  queries_fasta,
@@ -85,7 +85,7 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
     return
 
 ##
-def load_all_annotations(annots_generator):
+def load_all_annotations(annots_generator, with_pfam_only = False):
 
     all_annotations = []
     queries_pfams = []
@@ -104,6 +104,9 @@ def load_all_annotations(annots_generator):
             
             if "PFAMs" in annotations:
                 queries_pfams.append((query_name, list(annotations["PFAMs"])))
+            else:
+                if with_pfam_only == False:
+                    queries_pfams.append((query_name, []))
         
     return all_annotations, queries_pfams
 
