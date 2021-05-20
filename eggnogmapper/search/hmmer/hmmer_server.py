@@ -7,7 +7,6 @@ import time
 import subprocess
 from multiprocessing import Process
 import signal
-import traceback
 
 from ...common import HMMPGMD, TIMEOUT_LOAD_SERVER
 from ...utils import colorify
@@ -74,6 +73,8 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
             servers.append((sdbpath, sport, master_pid, workers_pids))
             fails = 0
         except Exception as e:
+            import traceback
+            traceback.print_exc()
             fails += 1
             print(colorify(f"Could not create server number {num_server+1}/{num_servers}. Fails: {fails}", 'red'))
             if fails >= MAX_CREATE_SERVER_FAILS:
@@ -169,6 +170,7 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
                         
                 get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
         except Exception as e:
+            # import traceback
             # traceback.print_exc()
             # print(e)
             return False
@@ -183,7 +185,41 @@ def safe_exit(a, b):
         CHILD_PROC.kill()
     sys.exit(0)
 
-def load_worker(master_host, worker_port, cpu, output=None, silent = False):
+
+# These __start_master_subprocess and __start_worker_subprocess
+# were formerly functions embedded within load_server and load_worker,
+# but using "spawn" as multiprocessing context, instead of default ("fork" for Unix, "spawn" for windows, ...),
+# hinders its use do to pickeability
+def __start_master_subprocess(client_port, worker_port, dbtype, dbpath, silent, output):
+    if not output:
+        OUT = open(os.devnull, 'w')
+    else:
+        OUT = output
+        
+    cmd = HMMPGMD + f' --master --cport {client_port} --wport {worker_port} --{dbtype} {dbpath}'
+    if silent == False:
+        print(colorify(f"Loading master: {cmd}", 'orange'))
+    CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
+    while 1:
+        time.sleep(60)
+    return
+
+def __start_worker_subprocess(worker_port, cpus_per_worker, silent, output):
+    if not output:
+        OUT = open(os.devnull, 'w')
+    else:
+        OUT = output
+        
+    cmd = HMMPGMD + f' --worker localhost --wport {worker_port} --cpu {cpus_per_worker}'
+    if silent == False:
+        print(colorify(f"Loading worker: {cmd}", 'orange'))
+    CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
+    while 1:
+        time.sleep(60)
+    return
+
+
+def load_worker(worker_port, cpu, output=None, silent = False):
     global CHILD_PID, WORKERS
     if not output:
         OUT = open(os.devnull, 'w')
@@ -192,23 +228,16 @@ def load_worker(master_host, worker_port, cpu, output=None, silent = False):
         
     signal.signal(signal.SIGINT, safe_exit)
     signal.signal(signal.SIGTERM, safe_exit)
-              
-    def start_worker():
-        cmd = HMMPGMD + f' --worker {master_host} --wport {worker_port} --cpu {cpu}'
-        if silent == False:
-            print(colorify(f"Loading worker: {cmd}", 'orange'))
-        CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
-        while 1:
-            time.sleep(60)
-            
-    worker = Process(target=start_worker)
+    
+    worker = Process(target=__start_worker_subprocess, args=(worker_port, cpu, silent, output))
     worker.start()
     WORKERS = [worker]
     
     return worker
 
+
 def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1, output=None, dbtype=DB_TYPE_HMM, is_worker = True, silent = False):
-    global CHILD_PID, MASTER, WORKERS
+    global MASTER, WORKERS
     if not output:
         OUT = open(os.devnull, 'w')
     else:
@@ -217,25 +246,10 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1
     signal.signal(signal.SIGINT, safe_exit)
     signal.signal(signal.SIGTERM, safe_exit)
 
-    def start_master():
-        cmd = HMMPGMD + f' --master --cport {client_port} --wport {worker_port} --{dbtype} {dbpath}'
-        if silent == False:
-            print(colorify(f"Loading master: {cmd}", 'orange'))
-        CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
-        while 1:
-            time.sleep(60)
-
-    def start_worker():
-        cmd = HMMPGMD + f' --worker localhost --wport {worker_port} --cpu {cpus_per_worker}'
-        if silent == False:
-            print(colorify(f"Loading worker: {cmd}", 'orange'))
-        CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
-        while 1:
-            time.sleep(60)
-
     if silent == False:
         print(f"Creating hmmpgmd server at port {client_port} ...")
-    MASTER = Process(target=start_master)
+    # MASTER = Process(target=start_master)
+    MASTER = Process(target=__start_master_subprocess, args=(client_port, worker_port, dbtype, dbpath, silent, output))
     MASTER.start()
 
     if is_worker == True and num_workers > 0:
@@ -243,7 +257,7 @@ def load_server(dbpath, client_port, worker_port, cpus_per_worker, num_workers=1
             print(f"Creating hmmpgmd workers ({num_workers}) at port {worker_port} ...")
         WORKERS = []
         for i in range(num_workers):
-            worker = Process(target=start_worker)
+            worker = Process(target=__start_worker_subprocess, args=(worker_port, cpus_per_worker, silent, output))
             worker.start()
             WORKERS.append(worker)
             
@@ -283,11 +297,11 @@ def shutdown_server_by_pid(MASTER, WORKERS):
     
     return
 
+
 def shutdown_server():
     global MASTER, WORKERS
     shutdown_server_by_pid(MASTER, WORKERS)
-    return
- 
+    return 
     
     
 def alive(p):

@@ -99,7 +99,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, trans_table
 ##
 def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
                   fasta_file, resume, translate, trans_table, temp_dir, force_seqdb = False):
-
+    
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
 
     # port, end_port, num_servers, num_workers, cpus_per_worker are not really used
