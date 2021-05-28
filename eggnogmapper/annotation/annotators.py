@@ -13,10 +13,10 @@ def get_cache_annotator(args):
     return annotator
 
 ##
-def get_annotator(args, annot, report_orthologs):
+def get_annotator(args, annot, excel, report_orthologs):
     annotator = None
 
-    annotator = Annotator(args, annot, report_orthologs)
+    annotator = Annotator(args, annot, excel, report_orthologs)
     
     return annotator
 

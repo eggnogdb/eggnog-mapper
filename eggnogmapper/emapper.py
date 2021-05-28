@@ -32,7 +32,7 @@ class Emapper:
     override = resume = None
 
     ##
-    def __init__(self, itype, genepred, mode, annot, report_orthologs, decorate_gff,
+    def __init__(self, itype, genepred, mode, annot, excel, report_orthologs, decorate_gff,
                  prefix, output_dir, scratch_dir, resume, override):
 
         #
@@ -50,11 +50,13 @@ class Emapper:
         self.no_annot_file = f"{prefix}.emapper.no_annotations.fasta"
         self.orthologs_file = f"{prefix}.emapper.orthologs"
         self.pfam_file = f"{prefix}.emapper.pfam"
+        self.excel_file = f"{prefix}.emapper.annotations.xlsx"
 
         self.genepred = genepred
         self.mode = mode
         
         self.annot = annot
+        self.excel = excel
         self.report_orthologs = report_orthologs
         self.decorate_gff = decorate_gff
         self.resume = resume
@@ -84,6 +86,9 @@ class Emapper:
             self._output_files.extend([self.search_out_file, self.seed_orthologs_file,
                                        self.annot_file, self.pfam_file])
 
+        if annot == True and excel == True:
+            self._output_files.append(self.excel_file)
+            
         if report_orthologs == True:
             self._output_files.append(self.orthologs_file)
 
@@ -99,6 +104,7 @@ class Emapper:
         # Some files are not being resumed and will be ovewritten
         if resume == True:
             silent_rm(pjoin(self.output_dir, self.no_annot_file))
+            silent_rm(pjoin(self.output_dir, self.excel_file))
 
         # If using --scratch_dir, change working dir
         # (once finished move them again to output_dir)
@@ -203,11 +209,12 @@ class Emapper:
                 else:
                     raise EmapperException("Could not find hits to annotate.")
 
-                annotator = get_annotator(args, self.annot, self.report_orthologs)
+                annotator = get_annotator(args, self.annot, self.excel, self.report_orthologs)
                 
                 if annot_in is not None and annotator is not None:
                     annotated_hits = annotator.annotate(annot_in, 
                                                         pjoin(self._current_dir, self.annot_file),
+                                                        pjoin(self._current_dir, self.excel_file),
                                                         pjoin(self._current_dir, self.orthologs_file),
                                                         pjoin(self._current_dir, self.pfam_file),
                                                         queries_file)
