@@ -419,9 +419,6 @@ def create_arg_parser():
                                 'ignoring the --pfam_transfer option. '
                                 f'Check hmmer options (--num_servers, --num_workers, --port, --end_port) '
                                 'to change how the hmmpgmd server is run. '))
-
-    pg_annot.add_argument("--excel", action="store_true",
-                          help="Output annotations also in .xlsx format.")
     
     pg_annot.add_argument("--md5", action="store_true",
                           help="Adds the md5 hash of each query as an additional field in annotations output files.")
@@ -458,6 +455,9 @@ def create_arg_parser():
     pg_out.add_argument('--decorate_gff_ID_field', type=str, default=DECORATE_GFF_FIELD_DEFAULT,
                         help=("Change the field used in GFF files as ID of the feature. "
                               f"Default: {DECORATE_GFF_FIELD_DEFAULT}"))
+
+    pg_out.add_argument("--excel", action="store_true",
+                        help="Output annotations also in .xlsx format.")
         
     return parser
 
