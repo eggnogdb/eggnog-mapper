@@ -45,10 +45,11 @@ class Annotator:
     resume = None
         
     ##
-    def __init__(self, args, annot, report_orthologs):
+    def __init__(self, args, annot, excel, report_orthologs):
 
         self.annot = annot
         self.report_orthologs = report_orthologs
+        self.excel = excel
 
         self.dbmem = args.dbmem
         
@@ -87,7 +88,7 @@ class Annotator:
 
     
     ##
-    def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file, queries_file):
+    def annotate(self, hits_gen_func, annot_file, excel_file, orthologs_file, pfam_file, queries_file):
 
         annots_generator = None
         ncbi = None
@@ -170,6 +171,15 @@ class Annotator:
                                                                  self.no_file_comments,
                                                                  md5_field,
                                                                  md5_queries)
+
+                    if self.excel == True:
+                        annots_generator = output.output_excel(annots_generator,
+                                                               excel_file,
+                                                               self.resume,
+                                                               self.no_file_comments,
+                                                               md5_field,
+                                                               md5_queries)
+                        
                     
                 if self.report_orthologs == True:
                     annots_generator = output.output_orthologs(annots_generator,

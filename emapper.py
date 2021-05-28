@@ -420,6 +420,9 @@ def create_arg_parser():
                                 f'Check hmmer options (--num_servers, --num_workers, --port, --end_port) '
                                 'to change how the hmmpgmd server is run. '))
 
+    pg_annot.add_argument("--excel", action="store_true",
+                          help="Output annotations also in .xlsx format.")
+    
     pg_annot.add_argument("--md5", action="store_true",
                           help="Adds the md5 hash of each query as an additional field in annotations output files.")
 
@@ -655,7 +658,7 @@ if __name__ == "__main__":
         print('# emapper.py ', ' '.join(sys.argv[1:]))
             
         emapper = Emapper(args.itype, args.genepred, args.mode, (not args.no_annot),
-                          args.report_orthologs, args.decorate_gff,
+                          args.excel, args.report_orthologs, args.decorate_gff,
                           args.output, args.output_dir, args.scratch_dir,
                           args.resume, args.override)
         
