@@ -1,10 +1,2 @@
-## Thu Apr  8 18:57:52 2021
-## emapper-2.1.1-1-1-gea7440a
-## ./emapper.py -m no_search --annotate_hits_table tests/fixtures/test_output.emapper.seed_orthologs --data_dir tests/fixtures --output_dir tmp -o tmp --report_orthologs --target_orthologs one2one --target_taxa 72274,1123487 --excluded_taxa 205918,1395571
-##
-#query	seed_ortholog	evalue	score	eggNOG_OGs	max_annot_lvl	COG_category	Description	Preferred_name	GOs	EC	KEGG_ko	KEGG_Pathway	KEGG_Module	KEGG_Reaction	KEGG_rclass	BRITE	KEGG_TC	CAZy	BiGG_Reaction	PFAMs
-1000565.METUNv1_03812	1000565.METUNv1_03812	9.6e-207	714.5	COG0012@1|root,COG0012@2|Bacteria,1MVM4@1224|Proteobacteria,2VJ1W@28216|Betaproteobacteria,2KUD2@206389|Rhodocyclales	206389|Rhodocyclales	J	ATPase that binds to both the 70S ribosome and the 50S ribosomal subunit in a nucleotide-independent manner	-	-	-	-	-	-	-	-	-	-	-	-	MMR_HSR1,YchF-GTPase_C
+1000565.METUNv1_03812	1000565.METUNv1_03812	9.6e-207	714.5	COG0012@1|root,COG0012@2|Bacteria,1MVM4@1224|Proteobacteria,2VJ1W@28216|Betaproteobacteria,2KUD2@206389|Rhodocyclales	206389|Rhodocyclales	J	ATPase that binds to both the 70S ribosome and the 50S ribosomal subunit in a nucleotide-independent manner	-	-	-	-	-	-	-	-	-	-	-	-	-
 362663.ECP_0061	362663.ECP_0061	0.0	1624.8	COG0417@1|root,COG0417@2|Bacteria,1MVY9@1224|Proteobacteria,1RMQ1@1236|Gammaproteobacteria,3XPER@561|Escherichia	1236|Gammaproteobacteria	L	DNA polymerase	polB	-	2.7.7.7	ko:K02336	-	-	-	-	ko00000,ko01000,ko03400	-	-	-	DNA_pol_B,DNA_pol_B_exo1
-## 2 queries scanned
-## Total time (seconds): 0.8411827087402344
-## Rate: 2.38 q/s
