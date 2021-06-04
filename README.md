@@ -19,12 +19,10 @@ https://github.com/jhcepas/eggnog-mapper/wiki
 
 If you use this software, please cite:
 ```
-
-[1] Fast genome-wide functional annotation through orthology assignment by
-     eggNOG-mapper. Jaime Huerta-Cepas, Kristoffer Forslund, Luis Pedro Coelho,
-     Damian Szklarczyk, Lars Juhl Jensen, Christian von Mering and Peer Bork.
-     Mol Biol Evol (2017). [doi:
-     10.1093/molbev/msx148](https://doi.org/10.1093/molbev/msx148)
+[1] eggNOG-mapper v2: functional annotation, orthology assignments, and domain 
+      prediction at the metagenomic scale. Carlos P. Cantalapiedra, 
+      Ana Hernandez-Plaza, Ivica Letunic, Peer Bork, Jaime Huerta-Cepas.
+      biorxiv (2021). doi: https://doi.org/10.1101/2021.06.03.446934
 
 [2] eggNOG 5.0: a hierarchical, functionally and phylogenetically annotated
       orthology resource based on 5090 organisms and 2502 viruses. Jaime
