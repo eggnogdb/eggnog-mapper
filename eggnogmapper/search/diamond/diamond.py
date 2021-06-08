@@ -46,7 +46,7 @@ class DiamondSearcher:
     
     # Command
     cpu = tool = dmnd_db = temp_dir = no_file_comments = None
-    matrix = gapopen = gapextend = None
+    matrix = frameshift = gapopen = gapextend = None
     block_size = index_chunks = None
 
     # Filters
@@ -85,6 +85,7 @@ class DiamondSearcher:
         self.subject_cov = args.subject_cover
 
         self.matrix = args.matrix
+        self.frameshift = args.dmnd_frameshift
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
         self.block_size = args.dmnd_block_size
@@ -182,6 +183,7 @@ class DiamondSearcher:
 
         if self.query_gencode: cmd += f' --query-gencode {self.query_gencode}'
         if self.matrix: cmd += f' --matrix {self.matrix}'
+        if self.frameshift is not None: cmd += f' --frameshift {self.frameshift}'
         if self.gapopen: cmd += f' --gapopen {self.gapopen}'
         if self.gapextend: cmd += f' --gapextend {self.gapextend}'
         if self.block_size: cmd += f' --block-size {self.block_size}'
