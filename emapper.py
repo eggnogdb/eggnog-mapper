@@ -213,6 +213,9 @@ def create_arg_parser():
                             choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
                             default=None, help='Scoring matrix')
 
+    pg_diamond.add_argument('--dmnd_frameshift', dest='dmnd_frameshift', type=int, default=None, 
+                            help='Diamond --frameshift/-F option. Not used by default. Recommended by diamond: 15.')
+    
     pg_diamond.add_argument('--gapopen', dest='gapopen', type=int, default=None, 
                             help='Gap open penalty')
 
