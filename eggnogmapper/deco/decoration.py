@@ -95,7 +95,7 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 
             g_start = int(g_start)
             g_end = int(g_end)
-            g_score = float(g_score)
+            g_score = "." if g_score == "." else float(g_score)
 
             attrs_list = [attr for attr in g_attrs.split(";") if attr is not None and attr != ""]
             record_key = [attr.split("=")[1] for attr in attrs_list
