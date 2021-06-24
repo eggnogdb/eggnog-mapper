@@ -139,8 +139,8 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 
         for comment in gff_comments:
             print(comment, file=OUT)
-
-        for v in sorted(gff_dict.values(), key=lambda x: (x[0], x[3], x[4], x[5])):
+            
+        for v in sorted(gff_dict.values(), key=lambda x: (x[0], x[3], x[4], 0 if x[5] == "." else x[5], x[-1])):
             fields = v[:-1]
             attrs_list = ";".join(v[-1])
             fields = fields + [attrs_list]
