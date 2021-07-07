@@ -3,6 +3,7 @@
 
 import shutil
 from sys import stderr as serr
+from collections import defaultdict
 
 from ..common import get_version, colorify
 from ..annotation.output import ANNOTATIONS_WHOLE_HEADER
@@ -82,7 +83,7 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 
     # 1) Parse GFF
     gff_comments = []
-    gff_dict = {}
+    gff_dict = defaultdict(list)
     with open(gff_file, 'r') as gff_f:
         for line in gff_f:
             if line.startswith("##gff-version"): continue
@@ -107,28 +108,29 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
             else:
                 continue
 
-            gff_dict[record_key] = [g_seqid, g_source, g_type, g_start, g_end,
-                                    g_score, g_strand, g_phase, attrs_list]
+            gff_dict[record_key].append([g_seqid, g_source, g_type, g_start, g_end,
+                                         g_score, g_strand, g_phase, attrs_list])
 
     # 2) Parse annotated hits and yield them again
     for hit, annotation in parse_annotations(annotated_hits):
         query = hit[0]
         if query in gff_dict:
-            attrs_list = gff_dict[query][8]
-            # include hit
-            if hit is not None:
-                (query, target, evalue, score,
-                 qstart, qend, sstart, send,
-                 pident, qcov, scov,
-                 strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
+            for gff_record in gff_dict[query]:
+                attrs_list = gff_record[8]
+                # include hit
+                if hit is not None:
+                    (query, target, evalue, score,
+                     qstart, qend, sstart, send,
+                     pident, qcov, scov,
+                     strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
 
-                attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
-                
-            # include annotations
-            if annotation is not None:
-                attrs = annotation_to_gff(annotation)
-                
-                attrs_list.extend(attrs)
+                    attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
+
+                # include annotations
+                if annotation is not None:
+                    attrs = annotation_to_gff(annotation)
+
+                    attrs_list.extend(attrs)
 
         yield hit, annotation
 
@@ -140,7 +142,10 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
         for comment in gff_comments:
             print(comment, file=OUT)
             
-        for v in sorted(gff_dict.values(), key=lambda x: (x[0], x[3], x[4], 0 if x[5] == "." else x[5], x[-1])):
+        # create a generator to transform the dict of lists to a list of lists
+        # then sort and print to output file
+        for v in sorted((v for val in gff_dict.values() for v in val),
+                        key=lambda x: (x[0], x[3], x[4], 0 if x[5] == "." else x[5], x[-1])):
             fields = v[:-1]
             attrs_list = ";".join(v[-1])
             fields = fields + [attrs_list]
