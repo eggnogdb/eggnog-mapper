@@ -21,6 +21,8 @@ except ImportError:
     __VERSION__ = 'unknown'
     __DB_VERSION__ = 'unknown'
 
+MP_START_METHOD = "spawn" # spawn or fork
+    
 # Input types
 ITYPE_CDS = "CDS"
 ITYPE_PROTS = "proteins"
