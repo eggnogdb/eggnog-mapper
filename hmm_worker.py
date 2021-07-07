@@ -8,7 +8,7 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
-from eggnogmapper.common import TIMEOUT_LOAD_SERVER
+from eggnogmapper.common import TIMEOUT_LOAD_SERVER, MP_START_METHOD
 from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer.hmmer_server import load_worker
@@ -52,7 +52,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-    multiprocessing.set_start_method("spawn")
+    multiprocessing.set_start_method(MP_START_METHOD)
         
     return args
 
@@ -63,7 +63,8 @@ def get_citation():
     return __author__+" "+__license__+" : "+__description__
 
 if __name__ == "__main__":
-
+    __spec__ = None
+    
     parser = create_arg_parser()
     args = parse_args(parser)
 
