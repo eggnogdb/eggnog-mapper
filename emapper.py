@@ -43,7 +43,7 @@ from eggnogmapper.annotation.tax_scopes.tax_scopes import \
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
     get_version, get_full_version_info, get_citation, get_call_info, \
-    ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
+    ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META, MP_START_METHOD
 
 
 __description__ = ('A program for bulk functional annotation of novel '
@@ -493,7 +493,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-    multiprocessing.set_start_method("spawn")
+    multiprocessing.set_start_method(MP_START_METHOD)
 
     if args.resume == True and args.override == True:
         parser.error('Only one of --resume or --override is allowed.')        
@@ -650,7 +650,7 @@ def parse_args(parser):
 
 
 if __name__ == "__main__":
-
+    __spec__ = None
     try:
         start_time = time.time()
         
