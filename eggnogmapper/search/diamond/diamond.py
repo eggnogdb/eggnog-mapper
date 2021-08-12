@@ -17,6 +17,7 @@ from ..hmmer.hmmer_seqio import iter_fasta_seqs
 from ..hits_io import parse_hits, output_hits
 
 SENSMODE_FAST = "fast"
+SENSMODE_DEFAULT = "default"
 SENSMODE_MID_SENSITIVE = "mid-sensitive"
 SENSMODE_SENSITIVE = "sensitive"
 SENSMODE_MORE_SENSITIVE = "more-sensitive"
@@ -25,7 +26,7 @@ SENSMODE_ULTRA_SENSITIVE = "ultra-sensitive"
 # sens modes in diamond 0.9.24
 # SENSMODES = [SENSMODE_FAST, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE]
 # sens modes in diamond 2.0.4
-SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
+SENSMODES = [SENSMODE_DEFAULT, SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
         
 def create_diamond_db(dbprefix, in_fasta):
     cmd = (
@@ -80,6 +81,7 @@ class DiamondSearcher:
         self.cpu = args.cpu
 
         self.sensmode = args.sensmode
+        self.iterate = args.dmnd_iterate
         
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
@@ -173,7 +175,10 @@ class DiamondSearcher:
             f'--threads {self.cpu} -o {output_file} '
         )
         
-        if self.sensmode != SENSMODE_FAST: cmd += f' --{self.sensmode}'
+        if self.sensmode != SENSMODE_DEFAULT: cmd += f' --{self.sensmode}'
+
+        if self.iterate is not None and self.iterate == True:
+            cmd += f' --iterate'
 
         if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
         if self.score_thr is not None: cmd += f' --min-score {self.score_thr}'
