@@ -207,7 +207,21 @@ def create_arg_parser():
 
     pg_diamond.add_argument('--sensmode', dest='sensmode', 
                             choices = SENSMODES, 
-                            default=SENSMODE_SENSITIVE, help='Sensitive mode')
+                            default=SENSMODE_SENSITIVE,
+                            help=(
+                                "Diamond's sensitivity mode. "
+                                "Note that emapper's default is "+SENSMODE_SENSITIVE+", "
+                                "which is different from diamond's default, which can "
+                                "be activated with --sensmode default."
+                            ))
+
+    pg_diamond.add_argument('--dmnd_iterate', dest='dmnd_iterate', action="store_true",
+                            help=(
+                                "Activates the --iterate option of diamond for iterative searches, "
+                                "from faster, less sensitive modes, up to the sensitivity specified with --sensmode. "
+                                "Available since diamond 2.0.11."
+                            ))
+                            
         
     pg_diamond.add_argument('--matrix', dest='matrix', 
                             choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
