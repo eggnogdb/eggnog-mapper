@@ -152,9 +152,6 @@ def server_up(host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     result = sock.connect_ex((host, port))
     sock.close()
-    
-    print(f"server_up: {host}:{port} {result}")
-    
     if result == 0:
         return True
     else:
@@ -171,6 +168,9 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
                 with open("tests/fixtures/hmmer_custom_dbs/bact.short.hmm", 'r') as hmmfile:
                     for line in hmmfile:
                         testhmm += line
+
+                print("server_functional: qtype HMM testing...")
+                print(testhmm)
                         
                 get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
         except Exception as e:
