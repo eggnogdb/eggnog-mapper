@@ -111,7 +111,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
     cpus_per_worker = cpus_per_worker
     
     # If query number < 100, use hmmscan
-    if query_number < 1:
+    if query_number < 100:
         usemem = False
         scan_type = SCANTYPE_DISK
         db = get_pfam_db()
@@ -121,7 +121,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
         clean_overlaps = "clans"
 
     # if query number between 100 and 15000, use hmmpgmd (hmmscan)
-    elif query_number >= 1 and query_number < 1:
+    elif query_number >= 100 and query_number < 15000:
 
         # if not mapfile(fasta_file):
         #     create_fasta_hmmpgmd_db(fasta_file)
