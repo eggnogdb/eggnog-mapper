@@ -133,6 +133,8 @@ def setup_custom_seqdb(db, scantype, silent = False):
 
 ##
 def setup_remote_db(db, dbtype, qtype):
+
+    print("setup_remote_db")
     
     if dbtype == DB_TYPE_HMM:
         dbname, dbpath, host, port, idmap_file = setup_remote_hmmdb(db, dbtype, qtype)
@@ -171,6 +173,9 @@ def setup_remote_hmmdb(db, dbtype, qtype):
 
 ##
 def setup_remote_seqdb(db, dbtype, qtype):
+
+    print("setup_remote_seqdb")
+    
     if ":" in db:
         dbname, host, port = map(str.strip, db.split(":"))
         dbpath = host
