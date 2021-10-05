@@ -13,7 +13,7 @@ from ...common import \
     get_oglevels_file, get_OG_fasta_path, cleanup_og_name, \
     gopen, get_hmmer_databases, get_pfam_clans_file
 
-from ..emapperException import EmapperException
+from ...emapperException import EmapperException
 
 from ...utils import colorify
 
