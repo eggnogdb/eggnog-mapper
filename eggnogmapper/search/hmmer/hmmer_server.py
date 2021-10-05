@@ -173,6 +173,10 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
                 print(testhmm)
                         
                 get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
+
+            else:
+                raise Exception(f"Unrecognized qtype: {qtype}")
+            
         except Exception as e:
             # import traceback
             # traceback.print_exc()
