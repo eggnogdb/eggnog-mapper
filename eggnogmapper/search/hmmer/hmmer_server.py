@@ -178,9 +178,9 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
                 raise Exception(f"Unrecognized qtype: {qtype}")
             
         except Exception as e:
-            # import traceback
-            # traceback.print_exc()
-            # print(e)
+            import traceback
+            traceback.print_exc()
+            print(e)
             return False
         else:
             return True
