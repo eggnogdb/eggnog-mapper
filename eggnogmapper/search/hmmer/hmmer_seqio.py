@@ -50,6 +50,9 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
             seq_name = line[1:].split()[0].strip()
             seq_chunks = []
         else:
+            print("ERROR")
+            print(line)
+            print(seq_name)
             if seq_name is None:
                 raise Exception("Error reading sequences: Wrong format.")
             seq_chunks.append(re.sub(CLEAN_SEQ, '', line))
