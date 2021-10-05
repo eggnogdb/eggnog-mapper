@@ -25,6 +25,7 @@ def check_servers(dbtype, qtype, dbpath, host, port, servers_list):
     servers = []
     functional = 0
     if servers_list is not None:
+        print("check_servers: servers_list")
         with open(servers_list, 'r') as servers_fn:
             for line in servers_fn:
                 host, port = map(str.strip, line.split(":"))
