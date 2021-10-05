@@ -40,7 +40,10 @@ class HmmerSearcher:
     num_workers = None
     cpus_per_worker = None
     scantype = None
+    setup_type = None
+    servers = None
 
+    servers_list = None
     db = None
     dbtype = None
     qtype = None
@@ -128,36 +131,42 @@ class HmmerSearcher:
             except OSError as err:
                 print(f"Warning: OS error while removing {self.phmmer_temp_dir}", file = sys.stderr)
                 print(f"OS error: {err}", file = sys.stderr)
+
+        # Shutdown server, If a temp local server was set up
+        if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
+            for dbpath, port, master_pid, workers_pids in self.servers:
+                shutdown_server_by_pid(master_pid, workers_pids)
+                
+                
         return
     
     ##
     def search_hmm_matches(self, in_file, hmm_hits_file, silent = False):
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype,
-                                                                                        self.port, self.end_port, self.servers_list, silent)
-
-        servers = None
-        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
-            dbpath, host, port, servers = create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                         self.num_servers, self.num_workers, self.cpus_per_worker,
-                                                         silent)
+        dbname, dbpath, host, port, end_port, idmap_file, self.setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype,
+                                                                                             self.port, self.end_port, self.servers_list, silent)
+        
+        if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
+            dbpath, host, port, self.servers = create_servers(self.dbtype, dbpath, host, port, end_port,
+                                                              self.num_servers, self.num_workers, self.cpus_per_worker,
+                                                              silent)
             
-        elif setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
-            dbpath, host, port, servers = check_servers(self.dbtype, self.qtype, dbpath, host, port, self.servers_list)
+        elif self.setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
+            dbpath, host, port, self.servers = check_servers(self.dbtype, self.qtype, dbpath, host, port, self.servers_list)
 
             
         # Search for HMM hits (OG)
-        if servers is None:
+        if self.servers is None:
             hosts = [(dbpath, port)]
         else:
-            hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
+            hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in self.servers] # I cannot use master_db and workers for later multiprocessing
             
         self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file, silent)
 
         # Shutdown server, If a temp local server was set up
-        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
-            for dbpath, port, master_pid, workers_pids in servers:
+        if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
+            for dbpath, port, master_pid, workers_pids in self.servers:
                 shutdown_server_by_pid(master_pid, workers_pids)
             
         return
@@ -170,25 +179,24 @@ class HmmerSearcher:
         print(f"hmmer.py:search DB: {self.db}")
         
         # Prepare HMM database and/or server
-        dbname, dbpath, host, port, end_port, idmap_file, setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype,
-                                                                                        self.port, self.end_port, self.servers_list)
+        dbname, dbpath, host, port, end_port, idmap_file, self.setup_type = setup_hmm_search(self.db, self.scantype, self.dbtype, self.qtype,
+                                                                                             self.port, self.end_port, self.servers_list)
 
         print(f"hmmer.py:search DB: {self.db}, name {dbname}, path {dbpath}, host {host}, port {port}, endport {end_port}, idmap {idmap_file}")
+        
+        if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
+            dbpath, host, port, self.servers = create_servers(self.dbtype, dbpath, host, port, end_port,
+                                                              self.num_servers, self.num_workers, self.cpus_per_worker)
 
-        servers = None
-        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
-            dbpath, host, port, servers = create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                         self.num_servers, self.num_workers, self.cpus_per_worker)
-
-        elif setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
-            dbpath, host, port, servers = check_servers(self.dbtype, self.qtype, dbpath, host, port, self.servers_list)
+        elif self.setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
+            dbpath, host, port, self.servers = check_servers(self.dbtype, self.qtype, dbpath, host, port, self.servers_list)
             
             
         # Search for HMM hits (OG)
-        if servers is None:
+        if self.servers is None:
             hosts = [(dbpath, port)]
         else:
-            hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in servers] # I cannot use master_db and workers for later multiprocessing
+            hosts = [(dbpath, port) for dbpath, port, master_pid, workers_pids in self.servers] # I cannot use master_db and workers for later multiprocessing
             
         self.dump_hmm_matches(in_file, hmm_hits_file, dbpath, port, hosts, idmap_file)
         
@@ -203,8 +211,8 @@ class HmmerSearcher:
             print(f'Could not find {dbname} among eggnog databases. Skipping seed ortholog detection.')
 
         # Shutdown server, If a temp local server was set up
-        if (setup_type == SETUP_TYPE_EGGNOG or setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
-            for dbpath, port, master_pid, workers_pids in servers:
+        if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
+            for dbpath, port, master_pid, workers_pids in self.servers:
                 shutdown_server_by_pid(master_pid, workers_pids)
             
         return hits
