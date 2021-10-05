@@ -120,7 +120,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
         qtype = QUERY_TYPE_SEQ
         clean_overlaps = "clans"
 
-    # if query number between 100 and 15000, use hmmpgmd (hmmsearch)
+    # if query number between 100 and 15000, use hmmpgmd (hmmscan)
     elif query_number >= 100 and query_number < 15000:
 
         # if not mapfile(fasta_file):
@@ -202,6 +202,9 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
                           Z = 40000000,
                           temp_dir = temp_dir,
                           excluded_taxa = None)
+
+    # debug
+    print(pfam_args)
     
     # return usemem, num_servers, num_workers, cpus_per_worker, scan_type, db, infile, dbtype, qtype    
     return pfam_args, infile
