@@ -22,7 +22,7 @@ from .hmmer_search import iter_hits, refine_hit
 from .hmmer_seqio import iter_fasta_seqs
 
 from .hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK
-from .hmmer_search_hmmpgmd import DB_TYPE_HMM
+from .hmmer_search_hmmpgmd import QUERY_TYPE_HMM, DB_TYPE_HMM
 from .hmmer_setup import setup_hmm_search, SETUP_TYPE_EGGNOG, SETUP_TYPE_CUSTOM, SETUP_TYPE_REMOTE
 from .hmmer_idmap import load_idmap_idx
 from .hmmer_overlaps import process_overlaps, \
@@ -85,11 +85,12 @@ class HmmerSearcher:
         
         self.db = args.db
         self.servers_list = args.servers_list
+
+        if args.qtype == QUERY_TYPE_HMM and args.dbtype == DB_TYPE_HMM:
+            raise Exception("HMM to HMM search is not supported.")
+        
         self.dbtype = args.dbtype
         self.qtype = args.qtype
-
-        if self.qtype == self.dbtype and self.dbtype == DB_TYPE_HMM:
-            raise Exception("HMM to HMM search is not supported.")
         
         self.translate = args.translate
         self.trans_table = args.trans_table
