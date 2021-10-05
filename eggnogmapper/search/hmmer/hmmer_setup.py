@@ -191,8 +191,6 @@ def setup_remote_seqdb(db, dbtype, qtype):
     if not pexists(idmap_file):
         raise EmapperException(f"db idmap file {idmap_file} file not found")
 
-    print(f"{dbname} - {dbpath} - {host} - {port} - {idmap_file}")
-
     return dbname, dbpath, host, port, idmap_file
 
 ## END
