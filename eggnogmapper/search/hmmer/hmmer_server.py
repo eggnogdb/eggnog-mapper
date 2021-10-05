@@ -163,7 +163,7 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
                 get_hits("test", "TESTSEQ", host, port, dbtype, qtype=qtype)
             elif qtype == QUERY_TYPE_HMM:
 
-                from hmm_qtype_test_data import test_hmm
+                from .hmm_qtype_test_data import test_hmm
                 testhmm = test_hmm
 
                 # testhmm = ""
