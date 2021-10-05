@@ -152,6 +152,9 @@ def server_up(host, port):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     result = sock.connect_ex((host, port))
     sock.close()
+    
+    print(f"server_up: {host}:{port} {result}")
+    
     if result == 0:
         return True
     else:
