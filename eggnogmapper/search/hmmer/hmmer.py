@@ -144,7 +144,6 @@ class HmmerSearcher:
                                                          silent)
             
         elif setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
-            print("check_servers")
             dbpath, host, port, servers = check_servers(self.dbtype, self.qtype, dbpath, host, port, self.servers_list)
 
             

@@ -25,7 +25,6 @@ def check_servers(dbtype, qtype, dbpath, host, port, servers_list):
     servers = []
     functional = 0
     if servers_list is not None:
-        print("check_servers: servers_list")
         with open(servers_list, 'r') as servers_fn:
             for line in servers_fn:
                 host, port = map(str.strip, line.split(":"))
@@ -164,10 +163,13 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
                 get_hits("test", "TESTSEQ", host, port, dbtype, qtype=qtype)
             elif qtype == QUERY_TYPE_HMM:
 
-                testhmm = ""
-                with open("tests/fixtures/hmmer_custom_dbs/bact.short.hmm", 'r') as hmmfile:
-                    for line in hmmfile:
-                        testhmm += line
+                from hmm_qtype_test_data import test_hmm
+                testhmm = test_hmm
+
+                # testhmm = ""
+                # with open("tests/fixtures/hmmer_custom_dbs/bact.short.hmm", 'r') as hmmfile:
+                #     for line in hmmfile:
+                #         testhmm += line
 
                 print("server_functional: qtype HMM testing...")
                 print(testhmm)
