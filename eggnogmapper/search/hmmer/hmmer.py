@@ -13,6 +13,8 @@ from ...common import \
     get_oglevels_file, get_OG_fasta_path, cleanup_og_name, \
     gopen, get_hmmer_databases, get_pfam_clans_file
 
+from ..emapperException import EmapperException
+
 from ...utils import colorify
 
 from ..hits_io import parse_hits
@@ -87,7 +89,7 @@ class HmmerSearcher:
         self.servers_list = args.servers_list
 
         if args.qtype == QUERY_TYPE_HMM and args.dbtype == DB_TYPE_HMM:
-            raise Exception("HMM to HMM search is not supported.")
+            raise EmapperException("HMM to HMM search is not supported.")
         
         self.dbtype = args.dbtype
         self.qtype = args.qtype
