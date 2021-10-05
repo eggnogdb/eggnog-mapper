@@ -67,7 +67,6 @@ class HmmMapper:
         try:
             s.search_hmm_matches(infile, pjoin(self._current_dir, self.hmm_hits_file))
         except Exception as e:
-            print(e)
             raise(e)
         finally:
             s.clear()
