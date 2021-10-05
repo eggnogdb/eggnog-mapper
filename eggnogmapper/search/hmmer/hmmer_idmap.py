@@ -24,7 +24,7 @@ def load_idmap_idx(idmap_file):
         if not _line.strip():
             continue
         try:
-            fields = map(str, _line.strip().split(' '))
+            fields = list(map(str, _line.strip().split(' ')))
             _seqid = fields[0]
             _seqname = fields[1]
         except ValueError:
