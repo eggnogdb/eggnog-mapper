@@ -21,7 +21,14 @@ except ImportError:
     __VERSION__ = 'unknown'
     __DB_VERSION__ = 'unknown'
 
-MP_START_METHOD = "spawn" # spawn or fork
+# Multiprocessing start method
+# check
+# https://docs.python.org/3/library/multiprocessing.html
+# section "Contexts and start methods"
+MP_START_METHOD_SPAWN = "spawn" # Available on Unix and Windows. The default on Windows and macOS.
+MP_START_METHOD_FORK = "fork" # Available on Unix only. The default on Unix.
+MP_START_METHOD_FORKSERVER = "forkserver" # Available on Unix platforms which support passing file descriptors over Unix pipes.
+MP_START_METHOD_DEFAULT = MP_START_METHOD_SPAWN
     
 # Input types
 ITYPE_CDS = "CDS"

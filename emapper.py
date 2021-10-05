@@ -43,7 +43,8 @@ from eggnogmapper.annotation.tax_scopes.tax_scopes import \
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_db, \
     get_version, get_full_version_info, get_citation, get_call_info, \
-    ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META, MP_START_METHOD
+    ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META, \
+    MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER
 
 
 __description__ = ('A program for bulk functional annotation of novel '
@@ -67,6 +68,10 @@ def create_arg_parser():
     pg_exec.add_argument('--cpu', type=int, default=1, metavar='NUM_CPU',
                         help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 1")
 
+    pg_exec.add_argument('--mp_start_method', type=str, default=MP_START_METHOD_DEFAULT,
+                         choices = [MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER], 
+                         help="Sets the python multiprocessing start method. Check https://docs.python.org/3/library/multiprocessing.html. Only use if the default method is not working properly in your OS. Default: "+str(MP_START_METHOD_DEFAULT))
+
     pg_exec.add_argument('--resume', action="store_true",
                           help=("Resumes a previous emapper run, skipping results in existing output files."))
 
@@ -84,7 +89,7 @@ def create_arg_parser():
 
     pg_input.add_argument('--itype', dest="itype", choices = [ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META],
                           default=ITYPE_PROTS,
-                          help=f'Type of data in the input (-i) file.')
+                          help=f'Type of data in the input (-i) file. Default: '+str(ITYPE_PROTS))
     
     pg_input.add_argument('--translate', action="store_true",
                           help=('When --itype CDS, translate CDS to proteins before search. '
@@ -507,7 +512,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-    multiprocessing.set_start_method(MP_START_METHOD)
+    multiprocessing.set_start_method(args.mp_start_method)
 
     if args.resume == True and args.override == True:
         parser.error('Only one of --resume or --override is allowed.')        

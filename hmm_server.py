@@ -8,7 +8,9 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
-from eggnogmapper.common import TIMEOUT_LOAD_SERVER, MP_START_METHOD
+from eggnogmapper.common import TIMEOUT_LOAD_SERVER, \
+    MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER
+
 from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer.hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, SCANTYPE_MEM
@@ -32,6 +34,10 @@ def create_arg_parser():
     
     pg_exec.add_argument('--cpu', type=int, default=1, metavar='NUM_CPU',
                         help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
+
+    pg_exec.add_argument('--mp_start_method', type=str, default=MP_START_METHOD_DEFAULT,
+                         choices = [MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER], 
+                         help="Sets the python multiprocessing start method. Check https://docs.python.org/3/library/multiprocessing.html. Only use if the default method is not working properly in your OS. Default: "+str(MP_START_METHOD_DEFAULT))
 
     ##
     pg_server = parser.add_argument_group('HMM Server Options')
@@ -78,7 +84,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-    multiprocessing.set_start_method(MP_START_METHOD)
+    multiprocessing.set_start_method(args.mp_start_method)
 
     # cpus per worker
     total_workers = args.num_workers * args.num_servers
