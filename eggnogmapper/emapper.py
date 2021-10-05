@@ -156,9 +156,13 @@ class Emapper:
         hits = None
         if searcher is not None:
             searcher_name = searcher.name
-            hits = searcher.search(queries_file,
-                                   pjoin(self._current_dir, self.seed_orthologs_file),
-                                   pjoin(self._current_dir, self.search_out_file))
+            try:
+                hits = searcher.search(queries_file,
+                                       pjoin(self._current_dir, self.seed_orthologs_file),
+                                       pjoin(self._current_dir, self.search_out_file))
+            except Exception as e:
+                searcher.clear()
+                raise(e)
 
             # If gene prediction from the hits obtained in the search step
             # create a fasta file with the inferred proteins
