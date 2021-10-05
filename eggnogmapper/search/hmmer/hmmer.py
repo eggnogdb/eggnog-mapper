@@ -89,7 +89,7 @@ class HmmerSearcher:
         self.servers_list = args.servers_list
 
         if args.qtype == QUERY_TYPE_HMM and args.dbtype == DB_TYPE_HMM:
-            raise EmapperException("HMM to HMM search is not supported.")
+            raise EmapperException("ERROR: HMM to HMM search is not supported.")
         
         self.dbtype = args.dbtype
         self.qtype = args.qtype
