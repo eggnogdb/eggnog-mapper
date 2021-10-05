@@ -13,6 +13,7 @@ from ...utils import colorify
 
 from .hmmer_search_hmmpgmd import get_hits
 from .hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ, QUERY_TYPE_HMM
+from .hmm_qtype_test_data import test_hmm
 
 CHILD_PROC = None
 MASTER = None
@@ -162,19 +163,7 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
             if qtype == QUERY_TYPE_SEQ:
                 get_hits("test", "TESTSEQ", host, port, dbtype, qtype=qtype)
             elif qtype == QUERY_TYPE_HMM:
-
-                from .hmm_qtype_test_data import test_hmm
-                testhmm = test_hmm
-
-                # testhmm = ""
-                # with open("tests/fixtures/hmmer_custom_dbs/bact.short.hmm", 'r') as hmmfile:
-                #     for line in hmmfile:
-                #         testhmm += line
-
-                print("server_functional: qtype HMM testing...")
-                print(testhmm)
-                        
-                get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
+                get_hits("test", test_hmm, host, port, dbtype, qtype=qtype)
 
             else:
                 raise Exception(f"Unrecognized qtype: {qtype}")
