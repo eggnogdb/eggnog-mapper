@@ -121,7 +121,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
         clean_overlaps = "clans"
 
     # if query number between 100 and 15000, use hmmpgmd (hmmscan)
-    elif query_number >= 1 and query_number < 15000:
+    elif query_number >= 1 and query_number < 1:
 
         # if not mapfile(fasta_file):
         #     create_fasta_hmmpgmd_db(fasta_file)
