@@ -53,6 +53,7 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
             if seq_name is None:
                 raise Exception("Error reading sequences: Wrong format.")
             seq_chunks.append(re.sub(CLEAN_SEQ, '', line))
+        print(seq_name)
 
     # return last sequence
     if seq_name and not seq_chunks:
