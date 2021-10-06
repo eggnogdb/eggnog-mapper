@@ -23,7 +23,8 @@ from eggnogmapper.search.search_modes import \
 
 from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_SENSITIVE, \
     ALLOW_OVERLAPS_NONE, ALLOW_OVERLAPS_ALL, ALLOW_OVERLAPS_DIFF_FRAME, ALLOW_OVERLAPS_OPPOSITE_STRAND, \
-    DMND_ITERATE_YES, DMND_ITERATE_NO, DMND_ITERATE_DEFAULT
+    DMND_ITERATE_YES, DMND_ITERATE_NO, DMND_ITERATE_DEFAULT, \
+    DMND_ALGO_AUTO, DMND_ALGO_0, DMND_ALGO_1, DMND_ALGO_CTG, DMND_ALGO_DEFAULT
 
 from eggnogmapper.search.hmmer.hmmer_search import \
     QUERY_TYPE_SEQ, QUERY_TYPE_HMM, \
@@ -207,6 +208,13 @@ def create_arg_parser():
 
     ##
     pg_diamond = parser.add_argument_group('Diamond Search Options')
+
+    pg_diamond.add_argument('--dmnd_algo', dest="dmnd_algo", choices = [DMND_ALGO_AUTO, DMND_ALGO_0, DMND_ALGO_1, DMND_ALGO_CTG],
+                            default = DMND_ALGO_DEFAULT,
+                            help=("Diamond's --algo option, which can be tuned to search small query sets. "
+                                  "By default, it is adjusted automatically. "
+                                  f"However, the {DMND_ALGO_CTG} option should be activated manually. "
+                            ))
 	
     pg_diamond.add_argument('--dmnd_db', dest="dmnd_db", metavar='DMND_DB_FILE',
 		            help="Path to DIAMOND-compatible database")
@@ -221,7 +229,8 @@ def create_arg_parser():
                                 "be activated with --sensmode default."
                             ))
 
-    pg_diamond.add_argument('--dmnd_iterate', dest='dmnd_iterate', choices = [DMND_ITERATE_YES, DMND_ITERATE_NO], default = DMND_ITERATE_DEFAULT,
+    pg_diamond.add_argument('--dmnd_iterate', dest='dmnd_iterate', choices = [DMND_ITERATE_YES, DMND_ITERATE_NO],
+                            default = DMND_ITERATE_DEFAULT,
                             help=(
                                 f"--dmnd_iterate {DMND_ITERATE_YES} --> activates the --iterate option of diamond for iterative searches, "
                                 f"from faster, less sensitive modes, up to the sensitivity specified with --sensmode. "
