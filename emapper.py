@@ -220,11 +220,12 @@ def create_arg_parser():
                                 "be activated with --sensmode default."
                             ))
 
-    pg_diamond.add_argument('--dmnd_iterate', dest='dmnd_iterate', action="store_true",
+    pg_diamond.add_argument('--dmnd_iterate', dest='dmnd_iterate', choices = [DMND_ITERATE_YES, DMND_ITERATE_NO], default = DMND_ITERATE_DEFAULT,
                             help=(
-                                "Activates the --iterate option of diamond for iterative searches, "
-                                "from faster, less sensitive modes, up to the sensitivity specified with --sensmode. "
-                                "Available since diamond 2.0.11."
+                                f"--dmnd_iterate {DMND_ITERATE_YES} --> activates the --iterate option of diamond for iterative searches, "
+                                f"from faster, less sensitive modes, up to the sensitivity specified with --sensmode. "
+                                f"Available since diamond 2.0.11. --dmnd_iterate {DMND_ITERATE_NO} --> disables the --iterate mode. "
+                                f"Default: {DMND_ITERATE_DEFAULT}"
                             ))
                             
         

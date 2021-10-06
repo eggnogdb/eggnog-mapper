@@ -27,6 +27,11 @@ SENSMODE_ULTRA_SENSITIVE = "ultra-sensitive"
 # SENSMODES = [SENSMODE_FAST, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE]
 # sens modes in diamond 2.0.4
 SENSMODES = [SENSMODE_DEFAULT, SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
+
+# Diamond --iterate flag will be controlled with --dmnd_iterate, with next options
+DMND_ITERATE_YES = "yes"
+DMND_ITERATE_NO = "no"
+DMND_ITERATE_DEFAULT = DMND_ITERATE_YES
         
 def create_diamond_db(dbprefix, in_fasta):
     cmd = (
@@ -177,7 +182,7 @@ class DiamondSearcher:
         
         if self.sensmode != SENSMODE_DEFAULT: cmd += f' --{self.sensmode}'
 
-        if self.iterate is not None and self.iterate == True:
+        if self.iterate is not None and self.iterate == DMND_ITERATE_YES:
             cmd += f' --iterate'
 
         if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
