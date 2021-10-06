@@ -32,6 +32,13 @@ SENSMODES = [SENSMODE_DEFAULT, SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_S
 DMND_ITERATE_YES = "yes"
 DMND_ITERATE_NO = "no"
 DMND_ITERATE_DEFAULT = DMND_ITERATE_YES
+
+# Diamond --algo option, which can be changed to increase performance when searching small query sets
+DMND_ALGO_AUTO = "auto"
+DMND_ALGO_0 = "0"
+DMND_ALGO_1 = "1"
+DMND_ALGO_CTG = "ctg"
+DMND_ALGO_DEFAULT = DMND_ALGO_AUTO
         
 def create_diamond_db(dbprefix, in_fasta):
     cmd = (
@@ -88,6 +95,7 @@ class DiamondSearcher:
         self.sensmode = args.sensmode
         self.iterate = args.dmnd_iterate
         self.ignore_warnings = args.dmnd_ignore_warnings
+        self.algo = args.dmnd_algo
         
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
@@ -188,6 +196,9 @@ class DiamondSearcher:
 
         if self.ignore_warnings is not None and self.ignore_warnings == True:
             cmd += f' --ignore-warnings'
+
+        if self.algo is not None and self.algo != DMND_ALGO_AUTO:
+            cmnd += f' --algo {self.algo}'
 
         if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
         if self.score_thr is not None: cmd += f' --min-score {self.score_thr}'
