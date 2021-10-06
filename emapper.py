@@ -214,6 +214,7 @@ def create_arg_parser():
                             help=("Diamond's --algo option, which can be tuned to search small query sets. "
                                   "By default, it is adjusted automatically. "
                                   f"However, the {DMND_ALGO_CTG} option should be activated manually. "
+                                  "If you plan to search a small input set of sequences, use --dmnd_algo ctg to make it faster."
                             ))
 	
     pg_diamond.add_argument('--dmnd_db', dest="dmnd_db", metavar='DMND_DB_FILE',
