@@ -228,7 +228,6 @@ def create_arg_parser():
                                 f"Available since diamond 2.0.11. --dmnd_iterate {DMND_ITERATE_NO} --> disables the --iterate mode. "
                                 f"Default: {DMND_ITERATE_DEFAULT}"
                             ))
-                            
         
     pg_diamond.add_argument('--matrix', dest='matrix', 
                             choices = ['BLOSUM62', 'BLOSUM90','BLOSUM80','BLOSUM50','BLOSUM45','PAM250','PAM70','PAM30'], 
@@ -254,6 +253,12 @@ def create_arg_parser():
                                 "Diamond output will include only qseqid sseqid evalue and score. "
                                 "This could help obtain better performance, if also no --pident, --query_cover or --subject_cover thresholds are used. "
                                 "This option is ignored when the diamond search is run in blastx mode for gene prediction (see --genepred)."
+                            ))
+
+    pg_diamond.add_argument('--dmnd_ignore_warnings', action="store_true",
+                            help=(
+                                "Diamond --ignore-warnings option. "
+                                "It avoids Diamond stopping due to warnings (e.g. when a protein contains only ATGC symbols."
                             ))
     
     ##
