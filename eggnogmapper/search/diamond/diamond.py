@@ -87,6 +87,7 @@ class DiamondSearcher:
 
         self.sensmode = args.sensmode
         self.iterate = args.dmnd_iterate
+        self.ignore_warnings = args.dmnd_ignore_warnings
         
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
@@ -184,6 +185,9 @@ class DiamondSearcher:
 
         if self.iterate is not None and self.iterate == DMND_ITERATE_YES:
             cmd += f' --iterate'
+
+        if self.ignore_warnings is not None and self.ignore_warnings == True:
+            cmd +=f ' --ignore-warnings'
 
         if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
         if self.score_thr is not None: cmd += f' --min-score {self.score_thr}'
