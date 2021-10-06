@@ -187,7 +187,7 @@ class DiamondSearcher:
             cmd += f' --iterate'
 
         if self.ignore_warnings is not None and self.ignore_warnings == True:
-            cmd +=f ' --ignore-warnings'
+            cmd += f' --ignore-warnings'
 
         if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
         if self.score_thr is not None: cmd += f' --min-score {self.score_thr}'
