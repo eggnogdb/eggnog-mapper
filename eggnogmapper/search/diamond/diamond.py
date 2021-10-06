@@ -198,7 +198,7 @@ class DiamondSearcher:
             cmd += f' --ignore-warnings'
 
         if self.algo is not None and self.algo != DMND_ALGO_AUTO:
-            cmnd += f' --algo {self.algo}'
+            cmd += f' --algo {self.algo}'
 
         if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
         if self.score_thr is not None: cmd += f' --min-score {self.score_thr}'
