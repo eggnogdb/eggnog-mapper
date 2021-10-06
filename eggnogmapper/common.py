@@ -221,8 +221,8 @@ If you use this software, please cite:
 
 [1] eggNOG-mapper v2: functional annotation, orthology assignments, and domain 
       prediction at the metagenomic scale. Carlos P. Cantalapiedra, 
-      Ana Hernandez-Plaza, Ivica Letunic, Peer Bork, Jaime Huerta-Cepas.
-      biorxiv (2021). doi: https://doi.org/10.1101/2021.06.03.446934
+      Ana Hernandez-Plaza, Ivica Letunic, Peer Bork, Jaime Huerta-Cepas. 2021.
+      Molecular Biology and Evolution, msab293, https://doi.org/10.1093/molbev/msab293
 
 [2] eggNOG 5.0: a hierarchical, functionally and phylogenetically annotated
       orthology resource based on 5090 organisms and 2502 viruses. Jaime
@@ -241,8 +241,9 @@ If you use this software, please cite:
     elif 'diamond' in addons:
         CITATION += """
 
-[3] Fast and Sensitive Protein Alignment using DIAMOND. Buchfink B, Xie C,
-       Huson DH. 2015. Nat. Methods 12, 59–60. https://doi.org/10.1038/nmeth.3176
+[3] Sensitive protein alignments at tree-of-life scale using DIAMOND.
+       Buchfink B, Reuter K, Drost HG. 2021.
+       Nature Methods 18, 366–368 (2021). https://doi.org/10.1038/s41592-021-01101-x
 """
     elif 'mmseqs' in addons:
         CITATION += """
