@@ -4,7 +4,7 @@
 import os
 
 from .pfam_common import filter_fasta_file
-from .pfam import PfamAligner, get_pfam_args, parse_pfam_file, parse_hmmsearch_file
+from .pfam import PfamAligner, get_pfam_args
 
 ##
 def pfam_align_denovo(queries_pfams, queries_fasta, resume, translate, trans_table,
