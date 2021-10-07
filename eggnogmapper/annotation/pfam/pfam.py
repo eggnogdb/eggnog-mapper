@@ -7,6 +7,7 @@ from argparse import Namespace
 from collections import defaultdict
 
 from ...common import get_pfam_db, get_call_info, ESL_REFORMAT
+from ...emapperException import EmapperException
 
 from ...search.hmmer.hmmer import HmmerSearcher
 from ...search.hmmer.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
@@ -227,7 +228,7 @@ def create_fasta_hmmpgmd_db(fasta_file):
 
 
 
-def parse_pfam_file(pfam_file):
+def parse_hmmscan_file(pfam_file):
     pfams = defaultdict(set)
 
     with open(pfam_file, 'r') as pfamf:
@@ -254,24 +255,6 @@ def parse_hmmsearch_file(pfam_file):
 
     return pfams
 
-def parse_hmmscan_file(pfam_file):
-    pfams = {}
-
-    with open(pfam_file, 'r') as pfamf:
-        for line in pfamf:
-            if line.startswith("#"): continue
-            query, pfam, evalue, score, qlen, hmmfrom, hmmto, seqfrom, seqto, qcov = map(str.strip, line.split("\t"))
-                
-            if query in pfams:
-                pfams[query].add(pfam)
-            else:
-                pfams[query] = {pfam}
-
-            # if "CG50_08330" in query:
-            #     print(f"pfam.py:parse_hmm_scan_file: {pfams}")
-
-    return pfams
-
 ##
 class PfamAligner:
 
@@ -294,5 +277,19 @@ class PfamAligner:
             raise(e)
 
         return
+
+    ##
+    def parse_pfam_file(self, pfam_file):
+        
+        aligned_pfams = None
+        if args.qtype == QUERY_TYPE_SEQ:
+            aligned_pfams = parse_hmmscan_file(pfam_file)
+        elif args.qtype == DB_TYPE_HMM:
+            aligned_pfams = parse_hmmsearch_file(pfam_file)
+        else:
+            raise EmapperException(f"Unrecognized query type {args.qtype} for pfam search.")
+        
+        return aligned_pfams
+                                
 
 ## END
