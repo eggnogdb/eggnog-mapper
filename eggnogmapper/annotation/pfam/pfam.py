@@ -284,7 +284,7 @@ class PfamAligner:
         aligned_pfams = None
         if self.args.qtype == QUERY_TYPE_SEQ:
             aligned_pfams = parse_hmmscan_file(pfam_file)
-        elif self.args.qtype == DB_TYPE_HMM:
+        elif self.args.qtype == QUERY_TYPE_HMM:
             aligned_pfams = parse_hmmsearch_file(pfam_file)
         else:
             raise EmapperException(f"Unrecognized query type {self.args.qtype} for pfam search.")
