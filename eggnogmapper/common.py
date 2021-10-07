@@ -172,27 +172,31 @@ def get_db_version():
 
 def get_diamond_version():
     dmnd_version = None
-    cmd = f"{LOCAL_DIAMOND} --version"
+    cmd = f"{DIAMOND} --version"
     try:
         completed_process = run(cmd, capture_output=True, check=True, shell=True)
-    except CalledProcessError as cpe:
-        raise EmapperException("Error running local diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
 
-    if completed_process is not None:
-        dmnd_version = f"Local diamond version: {completed_process.stdout.decode('utf-8').strip()}"
+        if completed_process is not None:
+            dmnd_version = f"Diamond version found: {completed_process.stdout.decode('utf-8').strip()}"
+            
+    except CalledProcessError as cpe:
+        print("Couldn't find diamond: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1], file = sys.stderr)
+        dmnd_version = "Diamond was not found."
     
     return dmnd_version
 
 def get_mmseqs_version():
     mmseqs_version = None
-    cmd = f"{LOCAL_MMSEQS2} version"
+    cmd = f"{MMSEQS2} version"
     try:
         completed_process = run(cmd, capture_output=True, check=True, shell=True)
-    except CalledProcessError as cpe:
-        raise EmapperException("Error running local mmseqs: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
 
-    if completed_process is not None:
-        mmseqs_version = f"Local MMseqs2 version: {completed_process.stdout.decode('utf-8').strip()}"
+        if completed_process is not None:
+            mmseqs_version = f"MMseqs2 version found: {completed_process.stdout.decode('utf-8').strip()}"
+            
+    except CalledProcessError as cpe:
+        print("Couldn't find MMseqs2: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1], file = sys.stderr)
+        mmseqs_version = "MMseqs2 was not found."
 
     return mmseqs_version
 
