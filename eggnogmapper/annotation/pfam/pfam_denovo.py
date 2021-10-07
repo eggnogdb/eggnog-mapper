@@ -19,9 +19,11 @@ def pfam_align_denovo(queries_pfams, queries_fasta, resume, translate, trans_tab
     # align those queries to whole PFAM to carry out a de novo annotation
     pfam_args, infile = get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
                                       fasta_file.name, resume, translate, trans_table, temp_dir, force_seqdb = True)
+
     pfam_aligner = PfamAligner(pfam_args)
     pfam_aligner.align_whole_pfam(infile, pfam_file, silent = True)
-    aligned_pfams = parse_pfam_file(pfam_file)
+    aligned_pfams = pfam_aligner.parse_pfam_file(pfam_file)
+    
 
     if fasta_file is not None:
         fasta_file.close()

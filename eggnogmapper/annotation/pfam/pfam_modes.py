@@ -61,9 +61,6 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
 
     ##
     # 2) Add found pfams to annotations output
-
-    # DEBUG
-    print(aligned_pfams)
     
     if aligned_pfams is not None and all_annotations is not None:
         
@@ -77,10 +74,6 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
                  max_annot_lvl,
                  match_nog_names,
                  all_orthologies, annot_orthologs) = annotation
-
-                # DEBUG
-                print(query_name)
-                print(str(query_name in aligned_pfams))
             
                 if query_name in aligned_pfams:
                     annotations["PFAMs"] = Counter(aligned_pfams[query_name])
