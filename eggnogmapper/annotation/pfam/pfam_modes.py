@@ -77,7 +77,6 @@ def run_pfam_mode(pfam_search_mode, annots_generator, queries_fasta, resume, tra
             
                 if query_name in aligned_pfams:
                     annotations["PFAMs"] = Counter(aligned_pfams[query_name])
-                    print(annotations["PFAMs"])
                 else:
                     annotations["PFAMs"] = None
                 
