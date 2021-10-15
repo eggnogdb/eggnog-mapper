@@ -51,6 +51,8 @@ def output_orthologs_row(out, annotation, ncbi):
      match_nog_names,
      all_orthologies, annot_orthologs) = annotation
 
+    best_hit_name_id = best_hit_name.split(".")[1]
+
     all_orthologies["annot_orthologs"] = annot_orthologs
 
     seed_shown = False # show seed ortholog only once for each query
@@ -78,7 +80,7 @@ def output_orthologs_row(out, annotation, ncbi):
             print(orth_names)
             print(best_hit_name)
             print("-")
-            if len(orth_names) == 1 and orth_names[0].split(".")[1] in {best_hit_name, f"*{best_hit_name}"} and seed_shown == False:
+            if len(orth_names) == 1 and orth_names[0] in {best_hit_name_id, f"*{best_hit_name_id}"} and seed_shown == False:
                 print("seed found")
                 row = [query_name, "seed ortholog", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
                 seed_shown = True
