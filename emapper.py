@@ -54,9 +54,13 @@ __description__ = ('A program for bulk functional annotation of novel '
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                      argparse.RawDescriptionHelpFormatter):
+    pass
+
 def create_arg_parser():
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=CustomFormatter)
 
     parser.add_argument('-v', '--version', action='store_true',
                         help="show version and exit.")
@@ -68,11 +72,11 @@ def create_arg_parser():
     pg_exec = parser.add_argument_group('Execution Options')
     
     pg_exec.add_argument('--cpu', type=int, default=1, metavar='NUM_CPU',
-                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 1")
+                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs.")
 
     pg_exec.add_argument('--mp_start_method', type=str, default=MP_START_METHOD_DEFAULT,
                          choices = [MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER], 
-                         help="Sets the python multiprocessing start method. Check https://docs.python.org/3/library/multiprocessing.html. Only use if the default method is not working properly in your OS. Default: "+str(MP_START_METHOD_DEFAULT))
+                         help="Sets the python multiprocessing start method. Check https://docs.python.org/3/library/multiprocessing.html. Only use if the default method is not working properly in your OS.")
 
     pg_exec.add_argument('--resume', action="store_true",
                           help=("Resumes a previous emapper run, skipping results in existing output files."))
@@ -91,7 +95,7 @@ def create_arg_parser():
 
     pg_input.add_argument('--itype', dest="itype", choices = [ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META],
                           default=ITYPE_PROTS,
-                          help=f'Type of data in the input (-i) file. Default: '+str(ITYPE_PROTS))
+                          help=f'Type of data in the input (-i) file.')
     
     pg_input.add_argument('--translate', action="store_true",
                           help=('When --itype CDS, translate CDS to proteins before search. '
@@ -178,8 +182,7 @@ def create_arg_parser():
                                f'{SEARCH_MODE_MMSEQS2}: search seed orthologs using MMseqs2 (-i is required). '
                                f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required). '
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required, unless --no_annot). '
-                               f'{SEARCH_MODE_CACHE}: skip seed orthologs search and annotate based on cached results (-i and -c are required). '
-                               f'Default:{SEARCH_MODE_DIAMOND}'
+                               f'{SEARCH_MODE_CACHE}: skip seed orthologs search and annotate based on cached results (-i and -c are required).'
                            ))
 
     ##
@@ -187,24 +190,24 @@ def create_arg_parser():
 
     pg_diamond_mmseqs.add_argument('--pident', dest='pident', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal to the given percentage of identity (0-100). Default=(not used). '
+                                       f'Report only alignments above or equal to the given percentage of identity (0-100).'
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
     pg_diamond_mmseqs.add_argument('--query_cover', dest='query_cover', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal the given percentage of query cover (0-100). Default=(not used). '
+                                       f'Report only alignments above or equal the given percentage of query cover (0-100).'
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
     pg_diamond_mmseqs.add_argument('--subject_cover', dest='subject_cover', type=float, default=None,
                                    help=(
-                                       f'Report only alignments above or equal the given percentage of subject cover (0-100). Default=(not used). '
+                                       f'Report only alignments above or equal the given percentage of subject cover (0-100).'
                                        f'No effect if -m {SEARCH_MODE_HMMER}.'))
     
     pg_diamond_mmseqs.add_argument('--evalue', dest='evalue', type=float, default=0.001,
-                                   help='Report only alignments below or equal the e-value threshold. Default=0.001')
+                                   help='Report only alignments below or equal the e-value threshold.')
 
     pg_diamond_mmseqs.add_argument('--score', dest='score', type=float, default=None,
-                                   help='Report only alignments above or equal the score threshold. Default=(not used)')
+                                   help='Report only alignments above or equal the score threshold.')
 
     ##
     pg_diamond = parser.add_argument_group('Diamond Search Options')
@@ -236,7 +239,6 @@ def create_arg_parser():
                                 f"--dmnd_iterate {DMND_ITERATE_YES} --> activates the --iterate option of diamond for iterative searches, "
                                 f"from faster, less sensitive modes, up to the sensitivity specified with --sensmode. "
                                 f"Available since diamond 2.0.11. --dmnd_iterate {DMND_ITERATE_NO} --> disables the --iterate mode. "
-                                f"Default: {DMND_ITERATE_DEFAULT}"
                             ))
         
     pg_diamond.add_argument('--matrix', dest='matrix', 
@@ -278,13 +280,13 @@ def create_arg_parser():
 		           help="Path to MMseqs2-compatible database")
 
     pg_mmseqs.add_argument('--start_sens', dest='start_sens', default=3, type=float, metavar='START_SENS',
-                           help="Starting sensitivity. Default=3")
+                           help="Starting sensitivity.")
 
     pg_mmseqs.add_argument('--sens_steps', dest='sens_steps', default=3, type=int, metavar='SENS_STEPS',
-                           help="Number of sensitivity steps. Default=3")
+                           help="Number of sensitivity steps.")
 
     pg_mmseqs.add_argument('--final_sens', dest='final_sens', default=7, type=float, metavar='FINAL_SENS',
-                           help="Final sensititivy step. Default=7")
+                           help="Final sensititivy step.")
 
     pg_mmseqs.add_argument('--mmseqs_sub_mat', dest='mmseqs_sub_mat', default=None, type=str, metavar='SUBS_MATRIX',
                            help="Matrix to be used for --sub-mat MMseqs2 search option. Default=default used by MMseqs2")
@@ -302,13 +304,11 @@ def create_arg_parser():
                                 "If --servers_list is specified, host and port from -d option will be ignored.")
     
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
-                          help="Type of input data (-i). "
-                          f"Default: {QUERY_TYPE_SEQ}")
+                          help="Type of input data (-i).")
 
     pg_hmmer.add_argument('--dbtype', dest="dbtype",
                           choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
-                          help="Type of data in DB (-db). "
-                          f"Default: {DB_TYPE_HMM}")
+                          help="Type of data in DB (-db).")
 
     pg_hmmer.add_argument('--usemem', action="store_true",
                           help='''Use this option to allocate the whole database (-d) in memory using hmmpgmd.
@@ -326,7 +326,6 @@ def create_arg_parser():
 
     pg_hmmer.add_argument('--num_servers', dest='num_servers', type=int, default=1, metavar="NUM_SERVERS",
                           help=("When using --usemem, specify the number of servers to fire up."
-                                " By default, only 1 server is used. "
                                 "Note that cpus specified with --cpu will be distributed among servers and workers."
                                 " Also used for --pfam_realign modes."))
     
@@ -338,17 +337,17 @@ def create_arg_parser():
                                 "Also used for --pfam_realign modes."))
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
-                          help="Max number of hits to report (0 to report all). Default=1.")
+                          help="Max number of hits to report (0 to report all).")
 
     pg_hmmer.add_argument('--report_no_hits', action="store_true",
                           help="Whether queries without hits should be included in the output table.")
 
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
-                          help="Ignore query sequences larger than `maxseqlen`. Default=5000")
+                          help="Ignore query sequences larger than `maxseqlen`.")
 
     pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
                           help='Fixed database size used in phmmer/hmmscan'
-                          ' (allows comparing e-values among databases). Default=40,000,000')
+                          ' (allows comparing e-values among databases).')
 
     pg_hmmer.add_argument('--cut_ga', action="store_true",
                           help=("Adds the --cut_ga to hmmer commands (useful for "
@@ -377,12 +376,12 @@ def create_arg_parser():
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
-                           ' seed orthologs will not be annotated. Default=0.001')
+                           ' seed orthologs will not be annotated.')
 
     pg_annot.add_argument('--seed_ortholog_score', default=None, type=float, metavar='MIN_SCORE',
                            help='Min bit score expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
-                           ' seed orthologs will not be annotated. Default=(not used)')
+                           ' seed orthologs will not be annotated.')
     
     pg_annot.add_argument("--tax_scope", type=str, default='auto', 
                           help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
@@ -492,9 +491,7 @@ def create_arg_parser():
                         ))
 
     pg_out.add_argument('--decorate_gff_ID_field', type=str, default=DECORATE_GFF_FIELD_DEFAULT,
-                        help=("Change the field used in GFF files as ID of the feature. "
-                              f"Default: {DECORATE_GFF_FIELD_DEFAULT}"))
-
+                        help="Change the field used in GFF files as ID of the feature.")
     pg_out.add_argument("--excel", action="store_true",
                         help="Output annotations also in .xlsx format.")
         
