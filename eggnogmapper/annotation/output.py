@@ -79,6 +79,9 @@ def output_orthologs_row(out, annotation, ncbi):
             # change the output format of seed ortholog
             print(orth_names[0])
             print(best_hit_name_id)
+            print(len(orth_names))
+            print(orth_names[0] in {best_hit_name_id, f"*{best_hit_name_id}"})
+            print(seed_shown)
             print("-")
             if len(orth_names) == 1 and orth_names[0] in {best_hit_name_id, f"*{best_hit_name_id}"} and seed_shown == False:
                 print("seed found")
