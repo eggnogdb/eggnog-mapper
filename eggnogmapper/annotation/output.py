@@ -53,6 +53,8 @@ def output_orthologs_row(out, annotation, ncbi):
 
     all_orthologies["annot_orthologs"] = annot_orthologs
 
+    seed_shown = False # show seed ortholog only once for each query
+    
     for target in all_orthologies:
         if target == "all": continue
         if target == "annot_orthologs": continue
@@ -72,7 +74,13 @@ def output_orthologs_row(out, annotation, ncbi):
                     orth_name = f"*{orth_name}"
                 orth_names.append(orth_name)
 
-            row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+            # change the output format of seed ortholog
+            if len(orth_names) == 1 and orth_names[0] == best_hit_name and seed_shown == False:
+                row = [query_name, "seed ortholog", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+                seed_shown = True
+            else:
+                row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+                
             print('\t'.join(row), file=out)
     return
 
