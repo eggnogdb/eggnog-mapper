@@ -75,6 +75,9 @@ def output_orthologs_row(out, annotation, ncbi):
                 orth_names.append(orth_name)
 
             # change the output format of seed ortholog
+            print(orth_names)
+            print(best_hit_name)
+            print("-")
             if len(orth_names) == 1 and orth_names[0] in {best_hit_name, f"*{best_hit_name}"} and seed_shown == False:
                 print("seed found")
                 row = [query_name, "seed ortholog", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
