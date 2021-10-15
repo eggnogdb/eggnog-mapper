@@ -78,7 +78,7 @@ def output_orthologs_row(out, annotation, ncbi):
             print(orth_names)
             print(best_hit_name)
             print("-")
-            if len(orth_names) == 1 and orth_names[0] in {best_hit_name, f"*{best_hit_name}"} and seed_shown == False:
+            if len(orth_names) == 1 and orth_names[0].split(".")[1] in {best_hit_name, f"*{best_hit_name}"} and seed_shown == False:
                 print("seed found")
                 row = [query_name, "seed ortholog", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
                 seed_shown = True
