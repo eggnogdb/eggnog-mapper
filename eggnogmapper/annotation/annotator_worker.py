@@ -179,19 +179,11 @@ def get_ogs_descriptions(nogs, eggnog_db):
 
 def get_og_description(og, tax_id, eggnog_db):
     best = ['-', '-', '-']
-
-    # DEBUG
-    print(og)
-    print(tax_id)
     
     for og, nm, desc, cat in eggnog_db.get_ogs_description(og, tax_id):
         desc = desc.strip()
         if desc and desc != 'N/A' and desc != 'NA':
             best = [nm, cat, desc]
-            
-            #DEBUG
-            print(best)
-            
             break
     
     return best[1], best[2]
