@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os, sys
-from argparse import ArgumentParser
+import argparse
 
 from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_base_dbpath
 from eggnogmapper.common import pexists, set_data_path, get_data_path, existing_dir, HMMPRESS
@@ -14,6 +14,10 @@ if sys.version_info < (3,7):
 BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
 EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
 EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
+
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                      argparse.RawDescriptionHelpFormatter):
+    pass
 
 def run(cmd):
     print(colorify(cmd, 'cyan'))
@@ -166,11 +170,10 @@ def download_hmm_database(level, dbname, dbpath):
     
     return
 
-
 ##
 # MAIN
 if __name__ == "__main__":
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=CustomFormatter)
 
     parser.add_argument('-D', action="store_true", dest='skip_diamond',
                         help='Do not install the diamond database')
