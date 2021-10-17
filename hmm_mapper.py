@@ -18,14 +18,17 @@ from eggnogmapper.hmm_mapper import HmmMapper
 from eggnogmapper.search.hmmer.hmmer_search import QUERY_TYPE_SEQ, QUERY_TYPE_HMM, DB_TYPE_SEQ, DB_TYPE_HMM
 from eggnogmapper.search.hmmer.hmmer_setup import DEFAULT_PORT, DEFAULT_END_PORT
 
-
 __description__ = ('A program wrapping HMM in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                      argparse.RawDescriptionHelpFormatter):
+    pass
+
 def create_arg_parser():
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=CustomFormatter)
 
     parser.add_argument('--version', action='store_true',
                         help="show version and exit.")
@@ -34,26 +37,25 @@ def create_arg_parser():
     pg_exec = parser.add_argument_group('Execution Options')
     
     pg_exec.add_argument('--cpu', type=int, default=1, metavar='NUM_CPU',
-                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
+                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs.")
 
     pg_exec.add_argument('--mp_start_method', type=str, default=MP_START_METHOD_DEFAULT,
                          choices = [MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER], 
-                         help="Sets the python multiprocessing start method. Check https://docs.python.org/3/library/multiprocessing.html. Only use if the default method is not working properly in your OS. Default: "+str(MP_START_METHOD_DEFAULT))
+                         help="Sets the python multiprocessing start method. Check https://docs.python.org/3/library/multiprocessing.html. Only use if the default method is not working properly in your OS.")
     
     ##
     pg_input = parser.add_argument_group('Input Data Options')
 
     pg_input.add_argument('-i', dest="input", metavar='FASTA_FILE', type=existing_file,
                           help=f'Input with queries. Either a FASTA file with sequences (proteins by default; see --translate)'
-                          ' or a HMM file with profiles (--qtype hmm)')
+                          ' or a HMM file with profiles (--qtype hmm).')
 
     pg_input.add_argument('--translate', action="store_true",
-                          help='Assume input sequences are CDS instead of proteins (it has effect only if --qtype seq, and also when -d is a plain FASTA file)')
+                          help='Assume input sequences are CDS instead of proteins (it has effect only if --qtype seq, and also when -d is a plain FASTA file).')
 
     pg_input.add_argument('--trans_table', dest='trans_table', type=str, metavar='TRANS_TABLE_CODE',
                           help=(
-                              f"It is used when --translate, check https://biopython.org/docs/1.75/api/Bio.Seq.html#Bio.Seq.Seq.translate. "
-                          ))
+                              f"It is used when --translate, check https://biopython.org/docs/1.75/api/Bio.Seq.html#Bio.Seq.Seq.translate."))
 
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
@@ -68,13 +70,11 @@ def create_arg_parser():
                                 "If --servers_list is specified, host and port from -d option will be ignored.")
         
     pg_hmmer.add_argument('--qtype',  choices=[QUERY_TYPE_HMM, QUERY_TYPE_SEQ], default=QUERY_TYPE_SEQ,
-                       help="Type of input data (-i). "
-                          f"Default: {QUERY_TYPE_SEQ}")
+                       help="Type of input data (-i).")
 
     pg_hmmer.add_argument('--dbtype', dest="dbtype",
                        choices=[DB_TYPE_HMM, DB_TYPE_SEQ], default=DB_TYPE_HMM,
-                       help="Type of data in DB (-d). "
-                          f"Default: {DB_TYPE_HMM}")
+                       help="Type of data in DB (-d).")
 
     pg_hmmer.add_argument('--usemem', action="store_true",
                     help='''Use this option to allocate the whole database (-d) in memory using hmmpgmd.
@@ -97,26 +97,26 @@ def create_arg_parser():
                           " By default, cpus specified with --cpu will be distributed among servers and workers.")
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
-                        help="Max number of hits to report (0 to report all). Default=1.")
+                        help="Max number of hits to report (0 to report all).")
 
     pg_hmmer.add_argument('--report_no_hits', action="store_true",
                         help="Whether queries without hits should be included in the output table.")
 
     pg_hmmer.add_argument('--hmm_maxseqlen', dest='maxseqlen', type=int, default=5000, metavar='MAXSEQLEN',
-                        help="Ignore query sequences larger than `maxseqlen`. Default=5000")
+                        help="Ignore query sequences larger than `maxseqlen`")
         
     pg_hmmer.add_argument('--hmm_evalue', dest='evalue', default=None, type=float, metavar='MIN_E-VALUE',
-                          help="E-value threshold. For example, -hmm_evalue 0.001. Default=10")
+                          help="E-value threshold. For example, -hmm_evalue 0.001.")
 
     pg_hmmer.add_argument('--hmm_score', dest='score', default=None, type=float, metavar='MIN_SCORE',
-                          help="Bit score threshold. For example, --hmm_score 20. Default=None")
+                          help="Bit score threshold. For example, --hmm_score 20.")
 
     pg_hmmer.add_argument('--hmm_qcov', dest='qcov', type=float, metavar='MIN_QCOV',
-                        help="min query coverage (from 0 to 1). Default=(disabled)")
+                        help="min query coverage (from 0 to 1).")
 
     pg_hmmer.add_argument('--Z', dest='Z', type=float, default=40000000, metavar='DB_SIZE',
                         help='Fixed database size used in phmmer/hmmscan'
-                        ' (allows comparing e-values among databases). Default=40,000,000')
+                        ' (allows comparing e-values among databases).')
 
     pg_hmmer.add_argument('--cut_ga', action="store_true",
                           help="Adds the --cut_ga to hmmer commands (useful for Pfam mappings, for example). See hmmer documentation.")
