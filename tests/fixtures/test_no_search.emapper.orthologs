@@ -1,3 +1,4 @@
+#query	orth_type	species	orthologs
 1000565.METUNv1_03812	one2one	Aromatoleum aromaticum EbN1(76114)	ebA4139
 1000565.METUNv1_03812	one2one	Azoarcus sp. BH72(62928)	azo0752
 1000565.METUNv1_03812	one2one	Azoarcus sp. KH32C(748247)	AZKH_0690
@@ -377,7 +378,6 @@
 362663.ECP_0061	one2one	marine gamma proteobacterium HTCC2143(247633)	GP2143_14671
 362663.ECP_0061	one2one	marine gamma proteobacterium HTCC2148(247634)	GPB2148_2486
 362663.ECP_0061	one2many	Alteromonadales bacterium TW-7(156578)	ATW7_09016,ATW7_09021
-362663.ECP_0061	one2many	Endozoicomonas montiporae(1027273)	GZ77_06950,GZ77_06975
 362663.ECP_0061	one2many	Endozoicomonas montiporae(1027273)	GZ77_06950,GZ77_06975
 362663.ECP_0061	one2many	Marinobacterium stanieri S30(1042375)	AFPL01000045_gene1053,AFPL01000051_gene192
 362663.ECP_0061	one2many	Photobacterium aphoticum(754436)	JCM19237_4567,JCM19237_4568,JCM19237_4569
