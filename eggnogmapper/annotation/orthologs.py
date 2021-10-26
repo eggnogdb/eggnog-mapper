@@ -16,7 +16,7 @@ def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
     
     orthology = __setup_orthology(member, annot_ogs, eggnog_db)
     if orthology is not None and len(orthology) > 0:
-        all_orthologs = __load_orthology(orthology)
+        all_orthologs = __load_orthology(member, orthology)
         best_OG = None
     else:
 
@@ -34,7 +34,7 @@ def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
 
                 # If a valid orthology is found, the new best OG will be this NOG
                 if orthology is not None and len(orthology) > 0:
-                    all_orthologs = __load_orthology(orthology)
+                    all_orthologs = __load_orthology(member, orthology)
                     best_OG = nog
                     break
 
@@ -46,7 +46,8 @@ def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
         
         if orthology is None or len(orthology) == 0:
             all_orthologs = {
-                "one2one": {member},
+                "seed": {member},
+                "one2one": set(),
                 "one2many": set(),
                 "many2many": set(),
                 "many2one": set(),
@@ -59,11 +60,12 @@ def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
 
 def __load_orthology(orthology):
     all_orthologs = {
+        "seed": {member},
         "one2one": set(),
         "one2many": set(),
         "many2many": set(),
         "many2one": set(),
-        "all": set(),
+        "all": {member},
     } # each set contains a list of taxa.sequence items
     
     # k: (species, list_of_co-orthologs_species)
@@ -96,11 +98,19 @@ def __setup_orthology(member, ogs, eggnog_db):
     
     member_as_set = set([member])
 
+    print("orthologs.py:__setup_orthology")
+    print(member)
+    print(ogs)
+
     ogs_tax_ids = set([og[1] for og in ogs])
     
     for level, _side1, _side2 in eggnog_db.get_member_events(member.strip(), ogs_tax_ids):
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
+
+        print(level)
+        print(side1)
+        print(side2)
 
         # filter by taxa (by species)
         by_sp1 = __by_species(side1)#, query_taxa)
