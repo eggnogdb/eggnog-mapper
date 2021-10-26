@@ -115,6 +115,10 @@ def __setup_orthology(member, ogs, eggnog_db):
         # filter by taxa (by species)
         by_sp1 = __by_species(side1)#, query_taxa)
         by_sp2 = __by_species(side2)#, query_taxa)
+
+        print("BY SPECIES")
+        print(by_sp1)
+        print(by_sp2)
         
         # merge by coorthologs
         __set_coorthologs(by_sp1, by_sp2, member_as_set, orthology)
