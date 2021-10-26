@@ -74,19 +74,34 @@ def output_orthologs_row(out, annotation, ncbi):
                 orth_name = orth.split(".")[1]
                 if orth in annot_orthologs:
                     orth_name = f"*{orth_name}"
-                orth_names.append(orth_name)
 
-            # change the output format of seed ortholog
-            if len(orth_names) == 1 and orth_names[0] in {best_hit_name_id, f"*{best_hit_name_id}"}:
-                if seed_shown == False:
-                    row = [query_name, "seed", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
-                    seed_shown = True
-                # else: DON'T SHOW AGAIN THE SEED
-                #     pass
-            else:
+                # if it is the seed, show it separately, and only once
+                if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
+                    if seed_shown == False:
+                        row = [query_name, "seed", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+                        print('\t'.join(row), file=out)
+                        seed_shown = True
+                    # else: DON'T SHOW AGAIN THE SEED
+                    #     pass                    
+                else:
+                    orth_names.append(orth_name)
+
+            if len(orth_names) > 0:
                 row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+                print('\t'.join(row), file=out)
                 
-            print('\t'.join(row), file=out)
+            # # change the output format of seed ortholog
+            # if len(orth_names) == 1 and orth_names[0] in {best_hit_name_id, f"*{best_hit_name_id}"}:
+            #     if seed_shown == False:
+            #         row = [query_name, "seed", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+            #         seed_shown = True
+            #     # else: DON'T SHOW AGAIN THE SEED
+            #     #     pass
+            # else:
+            #     row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+                
+                
+            # print('\t'.join(row), file=out)
     return
 
 ##
