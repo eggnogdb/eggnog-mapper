@@ -2,6 +2,11 @@
 
 def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
 
+    print("orthologs.py: get_member_orthologs")
+    print(member)
+    print(best_ogs)
+    print(all_nogs)
+
     ##
     # Try to setup orthology using best OG
 
