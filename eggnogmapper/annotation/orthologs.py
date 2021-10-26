@@ -2,11 +2,6 @@
 
 def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
 
-    # print("orthologs.py: get_member_orthologs")
-    # print(member)
-    # print(best_ogs)
-    # print(all_nogs)
-
     ##
     # Try to setup orthology using best OG
 
@@ -66,11 +61,6 @@ def __load_orthology(member, orthology):
         "all": set(),
     } # each set contains a list of taxa.sequence items
 
-    # print("orthologs.py:__load_orthology")
-    # print("INITIAL ORTHOLOGY")
-    # print(member)
-    # print(orthology)
-
     # member
     # e.g. 1041607.K0KSN3
 
@@ -116,10 +106,6 @@ def __load_orthology(member, orthology):
 
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
-
-    # print("orthologs.py:__load_orthology")
-    # print("FINAL ORTHOLOGS")
-    # print(all_orthologs)
             
     return all_orthologs
 
@@ -128,35 +114,19 @@ def __setup_orthology(member, ogs, eggnog_db):
     
     member_as_set = set([member])
 
-    # print("orthologs.py:__setup_orthology")
-    # print(member)
-    # print(ogs)
-
     ogs_tax_ids = set([og[1] for og in ogs])
     
     for level, _side1, _side2 in eggnog_db.get_member_events(member.strip(), ogs_tax_ids):
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
 
-        # print(level)
-        # print(side1)
-        # print(side2)
-
         # filter by taxa (by species)
         by_sp1 = __by_species(side1)#, query_taxa)
         by_sp2 = __by_species(side2)#, query_taxa)
-
-        # print("BY SPECIES")
-        # print(by_sp1)
-        # print(by_sp2)
         
         # merge by coorthologs
         __set_coorthologs(by_sp1, by_sp2, member_as_set, orthology)
         __set_coorthologs(by_sp2, by_sp1, member_as_set, orthology)
-
-    # print("orthologs.py:__setup_orthology")
-    # print("FINAL ORTHOLOGY")
-    # print(orthology)
     
     return orthology
 
