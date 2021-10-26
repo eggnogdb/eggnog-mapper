@@ -52,8 +52,6 @@ def output_orthologs_row(out, annotation, ncbi):
      all_orthologies, annot_orthologs) = annotation
 
     best_hit_name_id = best_hit_name.split(".")[1]
-    
-    print(f"BEST_HIT_NAME_ID: {best_hit_name_id}")
 
     all_orthologies["annot_orthologs"] = annot_orthologs
 
@@ -78,19 +76,12 @@ def output_orthologs_row(out, annotation, ncbi):
                     orth_name = f"*{orth_name}"
 
                 # if it is the seed, show it separately, and only once
-
-                print(f"ORTH_NAME: {orth_name}")
-                
                 if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
-                    
-                    print(f"SEED_FOUND")
                     
                     if seed_shown == False:
                         row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
                         print('\t'.join(row), file=out)
                         seed_shown = True
-                        
-                        print(f"SEED_PRINTED")
                         
                     # else: DON'T SHOW AGAIN THE SEED
                     #     pass                    
@@ -98,24 +89,9 @@ def output_orthologs_row(out, annotation, ncbi):
                     orth_names.append(orth_name)
 
             if len(orth_names) > 0:
-                
-                print(f"PRINT ORTH_NAMES: {orth_names}")
-                
                 row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
                 print('\t'.join(row), file=out)
                 
-            # # change the output format of seed ortholog
-            # if len(orth_names) == 1 and orth_names[0] in {best_hit_name_id, f"*{best_hit_name_id}"}:
-            #     if seed_shown == False:
-            #         row = [query_name, "seed", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
-            #         seed_shown = True
-            #     # else: DON'T SHOW AGAIN THE SEED
-            #     #     pass
-            # else:
-            #     row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
-                
-                
-            # print('\t'.join(row), file=out)
     return
 
 ##
