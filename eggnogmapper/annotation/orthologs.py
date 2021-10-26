@@ -46,8 +46,7 @@ def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
         
         if orthology is None or len(orthology) == 0:
             all_orthologs = {
-                "seed": {member},
-                "one2one": set(),
+                "one2one": {member},
                 "one2many": set(),
                 "many2many": set(),
                 "many2one": set(),
@@ -60,21 +59,43 @@ def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
 
 def __load_orthology(member, orthology):
     all_orthologs = {
-        "seed": {member},
         "one2one": set(),
         "one2many": set(),
         "many2many": set(),
         "many2one": set(),
-        "all": {member},
+        "all": set(),
     } # each set contains a list of taxa.sequence items
 
-    print("orthologs.py:__load_orthology")
-    print("INITIAL ORTHOLOGY")
-    print(member)
-    print(orthology)
-    
-    # k: (species, list_of_co-orthologs_species)
+    # print("orthologs.py:__load_orthology")
+    # print("INITIAL ORTHOLOGY")
+    # print(member)
+    # print(orthology)
+
+    # member
+    # e.g. 1041607.K0KSN3
+
+    # orthology
+    # k: (species, (tuple_of_co-orthologs))
     # v: set of species with orthologs:  set((species1, list_orths), (species2, list_orths), ...)
+
+    # e.g. of many2one relationship
+    # {
+    #     ('1041607', ('1041607.K0KPV8', '1041607.K0KSN3')): {
+    #         ('27289', ('27289.XP_003672691.1',)),
+    #         ('4956', ('4956.XP_002498479.1',)),
+    #         ('381046', ('381046.XP_002553862.1',)),
+    #         ('28985', ('28985.XP_453001.1',)),
+    #         ('113608', ('113608.XP_003687705.1',)),
+    #         ('588726', ('588726.J7S748',)),
+    #         ('27288', ('27288.XP_003673468.1',)),
+    #         ('36033', ('36033.XP_001645185.1',)),
+    #         ('4932', ('4932.YGR015C',)),
+    #         ('5478', ('5478.XP_446354.1',)),
+    #         ('432096', ('432096.XP_003958079.1',)),
+    #         ('4950', ('4950.XP_003681095.1',))
+    #     }
+    # }
+    
     for k, v in orthology.items():
 
         all_orthologs['all'].update(k[1])
@@ -96,9 +117,9 @@ def __load_orthology(member, orthology):
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
 
-    print("orthologs.py:__load_orthology")
-    print("FINAL ORTHOLOGS")
-    print(all_orthologs)
+    # print("orthologs.py:__load_orthology")
+    # print("FINAL ORTHOLOGS")
+    # print(all_orthologs)
             
     return all_orthologs
 
