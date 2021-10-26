@@ -90,6 +90,10 @@ def __load_orthology(member, orthology):
 
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
+
+    print("orthologs.py:__load_orthology")
+    print("FINAL ORTHOLOGS")
+    print(all_orthologs)
             
     return all_orthologs
 
@@ -98,9 +102,9 @@ def __setup_orthology(member, ogs, eggnog_db):
     
     member_as_set = set([member])
 
-    print("orthologs.py:__setup_orthology")
-    print(member)
-    print(ogs)
+    # print("orthologs.py:__setup_orthology")
+    # print(member)
+    # print(ogs)
 
     ogs_tax_ids = set([og[1] for og in ogs])
     
@@ -108,17 +112,17 @@ def __setup_orthology(member, ogs, eggnog_db):
         side1 = [m.split('.', 1) for m in _side1.split(',')]
         side2 = [m.split('.', 1) for m in _side2.split(',')]
 
-        print(level)
-        print(side1)
-        print(side2)
+        # print(level)
+        # print(side1)
+        # print(side2)
 
         # filter by taxa (by species)
         by_sp1 = __by_species(side1)#, query_taxa)
         by_sp2 = __by_species(side2)#, query_taxa)
 
-        print("BY SPECIES")
-        print(by_sp1)
-        print(by_sp2)
+        # print("BY SPECIES")
+        # print(by_sp1)
+        # print(by_sp2)
         
         # merge by coorthologs
         __set_coorthologs(by_sp1, by_sp2, member_as_set, orthology)
