@@ -86,7 +86,7 @@ def output_orthologs_row(out, annotation, ncbi):
                     print(f"SEED_FOUND")
                     
                     if seed_shown == False:
-                        row = [query_name, "seed", f"{taxname}({taxid})", ",".join(sorted(orth_names))]
+                        row = [query_name, "seed", f"{taxname}({taxid})", orth_name)]
                         print('\t'.join(row), file=out)
                         seed_shown = True
                         
