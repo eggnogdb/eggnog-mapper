@@ -67,6 +67,11 @@ def __load_orthology(member, orthology):
         "many2one": set(),
         "all": {member},
     } # each set contains a list of taxa.sequence items
+
+    print("orthologs.py:__load_orthology")
+    print("INITIAL ORTHOLOGY")
+    print(member)
+    print(orthology)
     
     # k: (species, list_of_co-orthologs_species)
     # v: set of species with orthologs:  set((species1, list_orths), (species2, list_orths), ...)
@@ -128,9 +133,9 @@ def __setup_orthology(member, ogs, eggnog_db):
         __set_coorthologs(by_sp1, by_sp2, member_as_set, orthology)
         __set_coorthologs(by_sp2, by_sp1, member_as_set, orthology)
 
-    print("orthologs.py:__setup_orthology")
-    print("FINAL ORTHOLOGY")
-    print(orthology)
+    # print("orthologs.py:__setup_orthology")
+    # print("FINAL ORTHOLOGY")
+    # print(orthology)
     
     return orthology
 
