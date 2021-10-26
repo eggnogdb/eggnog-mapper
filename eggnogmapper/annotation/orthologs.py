@@ -2,10 +2,10 @@
 
 def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
 
-    print("orthologs.py: get_member_orthologs")
-    print(member)
-    print(best_ogs)
-    print(all_nogs)
+    # print("orthologs.py: get_member_orthologs")
+    # print(member)
+    # print(best_ogs)
+    # print(all_nogs)
 
     ##
     # Try to setup orthology using best OG
@@ -117,9 +117,9 @@ def __load_orthology(member, orthology):
             all_orthologs[otype].update(k[1])
             all_orthologs[otype].update(co2)
 
-    # print("orthologs.py:__load_orthology")
-    # print("FINAL ORTHOLOGS")
-    # print(all_orthologs)
+    print("orthologs.py:__load_orthology")
+    print("FINAL ORTHOLOGS")
+    print(all_orthologs)
             
     return all_orthologs
 
