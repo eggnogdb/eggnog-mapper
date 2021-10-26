@@ -128,7 +128,13 @@ def annotate_hit_line(arguments, eggnog_db):
 
 
 def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa):
+    print("annotator_worker.py:_filter_orthologs")
+    print(target_orthologs)
+    
     orthologs = sorted(all_orthologies[target_orthologs])
+
+    print(orthologs)
+    
     if excluded_taxa is not None:
         orthologs = [o for o in orthologs if int(o.split(".")[0]) not in excluded_taxa]
     if target_taxa is not None:
