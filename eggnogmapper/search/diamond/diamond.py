@@ -186,7 +186,7 @@ class DiamondSearcher:
         #prepare command
         cmd = (
             f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
-            f'--threads {self.cpu} -o {output_file} '
+            f'--threads {self.cpu} -o {output_file} --tmpdir {self.temp_dir}'
         )
         
         if self.sensmode != SENSMODE_DEFAULT: cmd += f' --{self.sensmode}'
