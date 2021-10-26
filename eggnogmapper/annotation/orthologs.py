@@ -58,7 +58,7 @@ def get_member_orthologs(member, best_ogs, all_nogs, eggnog_db):
     return all_orthologs, best_OG
 
 
-def __load_orthology(orthology):
+def __load_orthology(member, orthology):
     all_orthologs = {
         "seed": {member},
         "one2one": set(),
