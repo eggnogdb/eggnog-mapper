@@ -276,10 +276,7 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
             if annotation is not None:
                 attrs.extend(annotation_to_gff(annotation))
 
-            if rm_suffix:
-                contig = query[:query.rfind("_")]
-            else:
-                contig = query
+            contig = query[:query.rfind("_")]
                 
             fields = "\t".join((str(x) for x in [contig, "eggNOG-mapper", "CDS", qstart, qend,
                                                  score, strand, phase, ";".join(attrs)]))
