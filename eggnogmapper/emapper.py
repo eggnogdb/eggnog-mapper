@@ -167,16 +167,6 @@ class Emapper:
             # If gene prediction from the hits obtained in the search step
             # create a fasta file with the inferred proteins
             if self.genepred_is_blastx == True:
-                # modify coordinates of seed_orthologs mappings to positions relative to the ORFs
-                # instead of relative to the contigs
-                print(colorify("Parsing seed orthologs...", "red"))
-                with open(pjoin(self._current_dir, self.seed_orthologs_file), 'r') as seeds_f:
-                    for line in seeds_f:
-                        if line.startswith("#"):
-                            print(line)
-                            continue
-                        print(line)
-                        break
                 # create fasta file of predicted CDS
                 print(colorify("Crafting fasta file of CDS ...", "red"))
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
