@@ -268,7 +268,7 @@ class MMseqs2Searcher:
             
         else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             # parse_genepred (without coordinate change)
-           hits_generator = self._parse_genepred(raw_mmseqs_file)
+            hits_generator = self._parse_genepred(raw_mmseqs_file)
             # generate gff (with original coordinates)
             hits_generator = create_blastx_hits_gff(hits_generator, gff_outfile, self.name, self.gff_ID_field)
             # change_hits_coordinates (to use them for the .seed_orthologs file)
