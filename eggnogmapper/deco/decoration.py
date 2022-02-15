@@ -245,7 +245,7 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
             (query, target, evalue, score,
              qstart, qend, sstart, send,
              pident, qcov, scov,
-             strand, phase, attrs) = decoration.hit_to_gff(hit, gff_ID_field)
+             strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
 
             if searcher_name is None:
                 attrs.append(f"em_searcher=unk")
