@@ -229,6 +229,41 @@ def create_gff(searcher_name, version, annotated_hits, outfile, resume, rm_suffi
             yield hit, annotation
     return
 
+
+# Create the gff for the hits
+def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field):
+
+    print(colorify(f"Creating gff file {outfile}...", 'lgreen'), file=serr)
+
+    version = get_version()
+
+    with open(outfile, file_mode) as OUT:
+        print("##gff-version 3", file=OUT)
+        print(f"## created with {version}", file=OUT)
+
+        for hit, skip in hits_generator:
+            (query, target, evalue, score,
+             qstart, qend, sstart, send,
+             pident, qcov, scov,
+             strand, phase, attrs) = decoration.hit_to_gff(hit, gff_ID_field)
+
+            if searcher_name is None:
+                attrs.append(f"em_searcher=unk")
+            else:
+                attrs.append(f"em_searcher={searcher_name}")
+
+            contig = query[:query.rfind("_")]
+
+            fields = "\t".join((str(x) for x in [contig, "eggNOG-mapper", "CDS", qstart, qend,
+                                                 score, strand, phase, ";".join(attrs)]))
+
+            print(fields, file=OUT)
+
+            yield hit, skip          
+
+    return
+    
+
 #
 def parse_annotations(annotated_hits):
     for hit, annotation in annotated_hits:
