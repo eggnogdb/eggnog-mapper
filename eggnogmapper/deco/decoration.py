@@ -71,14 +71,12 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
     # REFACTOR: this should go outside this function
     # which should receive already a translation dictionary
     if translation_file is not None:
+        translation_table = {}
         with open(translation_file, 'r') as t_f:
             for line in t_f:
                 if line.startswith(">"):
-                    print(line)
                     annot_id = line.split(" ")[0][1:]
                     gff_id = line.split("ID=")[1].split(";")[0]
-                    print(annot_id)
-                    print(gff_id)
                     translation_table[annot_id] = gff_id
                     
                 else:
