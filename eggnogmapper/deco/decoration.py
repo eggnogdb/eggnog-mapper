@@ -251,6 +251,8 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
     
     print(colorify(f"Creating {searcher_name} gff file {outfile}...", 'lgreen'), file=serr)
 
+    version = get_version()
+    
     with open(outfile, 'w') as OUT:
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
