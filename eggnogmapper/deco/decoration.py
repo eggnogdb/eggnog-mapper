@@ -33,9 +33,6 @@ def run_gff_decoration(mode, resume, gff_ID_field,
             annot_generator = decorate_gff(gff_genepred_file, gff_ID_field,
                                            gff_outfile, annotated_hits,
                                            get_version(), searcher_name, gff_genepred_fasta)
-            # annot_generator = decorate_prodigal_gff(annotated_hits)
-            # annot_generator = decorate_blastx_gff(annotated_hits, gff_outfile, searcher_name, gff_ID_field)
-            
 
         elif is_blastx:
             annot_generator = decorate_blastx_gff(annotated_hits, gff_outfile, searcher_name, gff_ID_field)
@@ -77,11 +74,8 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
                 if line.startswith(">"):
                     annot_id = line.split(" ")[0][1:]
                     gff_id = line.split("ID=")[1].split(";")[0]
-                    translation_table[annot_id] = gff_id
-                    
-                else:
-                    continue
-    
+                    translation_table[annot_id] = gff_id                    
+                # else: continue
 
     # 2) Parse GFF
     gff_comments = []
@@ -130,11 +124,13 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
                      qstart, qend, sstart, send,
                      pident, qcov, scov,
                      strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
-                    
+
+                    # if there is a translation table, add the emapper query ID also as
+                    # an attribute
                     if translation_table is None:
                         attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
                     else:
-                        attrs_list.extend(f"em_ID={query}")
+                        attrs_list.append(f"em_ID={query}")
 
                 # include annotations
                 if annotation is not None:
@@ -319,9 +315,6 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
             yield hit, annotation            
     
     return
-
-def decorate_prodigal_gff(annotated_hits):
-    return annotated_hits
 
 #
 def parse_hits(hits):
