@@ -101,8 +101,6 @@ def change_hit_coordinates(hit):
     else:
         qstart = qstart - (qend - 1)
         qend = 1
-    newhit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]    
-    newhit = (newhit, False)
-    return newhit
+    return [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
 ## END

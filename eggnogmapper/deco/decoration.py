@@ -242,6 +242,9 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
         print(f"## created with {version}", file=OUT)
 
         for hit, skip in hits_generator:
+            print("decoration.py hit")
+            print(hit)
+            print(skip)
             (query, target, evalue, score,
              qstart, qend, sstart, send,
              pident, qcov, scov,
