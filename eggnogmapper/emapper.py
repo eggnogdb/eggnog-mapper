@@ -169,7 +169,7 @@ class Emapper:
             if self.genepred_is_blastx == True:
                 # modify coordinates of seed_orthologs mappings to positions relative to the ORFs
                 # instead of relative to the contigs
-                print(colorify("Parsing seed orthologs...", "Red"))
+                print(colorify("Parsing seed orthologs...", "red"))
                 with open(pjoin(self._current_dir, self.seed_orthologs_file), 'r') as seeds_f:
                     for line in seeds_f:
                         if line.startswith("#"):
@@ -178,7 +178,7 @@ class Emapper:
                         print(line)
                         break
                 # create fasta file of predicted CDS
-                print(colorify("Crafting fasta file of CDS ...", "Red"))
+                print(colorify("Crafting fasta file of CDS ...", "red"))
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
                 silent_rm(fasta_file)
                 hits = create_prots_file(queries_file, hits, fasta_file, args.translate, args.trans_table)
