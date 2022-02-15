@@ -263,11 +263,12 @@ class MMseqs2Searcher:
     def parse_mmseqs(self, raw_mmseqs_file, hits_parser, gff_outfile):
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
             hits_generator = self._parse_mmseqs(raw_mmseqs_file, hits_parser)
+            # False parameter means only wrap but don't compute new coordinates
             hits_generator = change_hits_coordinates(hits_generator, False)
             
         else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             # parse_genepred (without coordinate change)
-            hits_generator = self._parse_genepred(raw_mmseqs_file)
+           hits_generator = self._parse_genepred(raw_mmseqs_file)
             # generate gff (with original coordinates)
             hits_generator = create_blastx_hits_gff(hits_generator, gff_outfile, self.name, self.gff_ID_field)
             # change_hits_coordinates (to use them for the .seed_orthologs file)
@@ -342,17 +343,7 @@ class MMseqs2Searcher:
         return
 
     ##
-    def _parse_genepred(self, raw_mmseqs_file, hits_parser):
-        
-        # previous hits from resume are yielded
-        last_resumed_query = None
-        if hits_parser is not None:
-            for hit in hits_parser:
-                yield (hit, True) # hit and skip (already exists)
-                last_resumed_query = hit[0]
-
-        # semaphore to start processing new hits
-        last_resumed_query_found = False if last_resumed_query is not None else True
+    def _parse_genepred(self, raw_mmseqs_file):
         
         curr_query_hits = []
         prev_query = None
@@ -369,17 +360,6 @@ class MMseqs2Searcher:
                 #qstart,qend,tstart,tend,evalue,bits,qcov,tcov"'
 
                 query = fields[0]
-                
-                if last_resumed_query is not None:
-                    if query == last_resumed_query:
-                        last_resumed_query_found = True
-                        continue
-                    else:
-                        if last_resumed_query_found == False:
-                            continue
-                        else:
-                            last_resumed_query = None # start parsing new queries
-                
                 pident = float(fields[2])
                 evalue = float(fields[8])
                 score = float(fields[9])
@@ -394,7 +374,7 @@ class MMseqs2Searcher:
                     (self.subject_cov is not None and scov < self.subject_cov)):
                     continue
                 
-                query = fields[0]
+                # query = fields[0]
                 target = fields[1]
                 length = int(fields[3])
                 qstart = int(fields[4])
