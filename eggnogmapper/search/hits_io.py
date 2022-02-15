@@ -66,13 +66,16 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
         # rows
         # (hit, skip): hits are wrapped in a tuple with a boolean flag
         # to be output or not
-        for hit, skip in hits:
+        # 20220215: now we include also the orig_hit (original hit) with
+        # coordinates relatve to contig if comes from blastx searches
+        # whereas "hit" will have the hit with ORF relative coordinates
+        for hit, skip, orig_hit in hits:
             # only print the hit if not already present and --resume
             if skip == False:
                 print('\t'.join(map(str, hit)), file=OUT)
 
             # always yield the hit
-            yield hit
+            yield orig_hit
             qn += 1
             
         elapsed_time = time.time() - start_time
@@ -85,9 +88,12 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
 
 # Post process the hits before writing them to the .seed_orthologs file
 # since we want coordinates relative to the ORFs, NO relative to the contigs
-def change_hits_coordinates(hits_generator):
+def change_hits_coordinates(hits_generator, compute):
     for hit, skip in hits_generator:
-        yield (change_hit_coordinates(hit), skip)
+        if compute == True:
+            yield (change_hit_coordinates(hit), skip, hit)
+        else:
+            yield (hit, skip, hit)
     return
 
 def change_hit_coordinates(hit):

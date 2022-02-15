@@ -159,7 +159,7 @@ class DiamondSearcher:
             else:
                 cmds = self.run_diamond(in_file, hits_file)
                 
-            hits_generator = self.parse_diamond(hits_file, hits_parser, gff_outfile)            
+            hits_generator = self.parse_diamond(hits_file, hits_parser, gff_outfile)
             hits_generator = output_hits(cmds, hits_generator,
                                          seed_orthologs_file, self.resume,
                                          self.no_file_comments, self.outfmt_short)
@@ -262,15 +262,19 @@ class DiamondSearcher:
     ##
     def parse_diamond(self, raw_dmnd_file, hits_parser, gff_outfile):
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            return self._parse_diamond(raw_dmnd_file, hits_parser)
+            hits_generator = self._parse_diamond(raw_dmnd_file, hits_parser)
+            # False parameter means only wrap but don't compute new coordinates
+            hits_generator = change_hits_coordinates(hits_generator, False)
+            
         else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             # parse_genepred (without coordinate change)
             hits_generator = self._parse_genepred(raw_dmnd_file)
             # generate gff (with original coordinates)
             hits_generator = create_blastx_hits_gff(hits_generator, gff_outfile, self.name, self.gff_ID_field)
             # change_hits_coordinates (to use them for the .seed_orthologs file)
-            hits_generator = change_hits_coordinates(hits_generator)
-            return hits_generator
+            hits_generator = change_hits_coordinates(hits_generator, True)
+            
+        return hits_generator
         
     ##
     def _parse_diamond(self, raw_dmnd_file, hits_parser):        
