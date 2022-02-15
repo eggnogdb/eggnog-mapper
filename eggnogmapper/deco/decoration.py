@@ -30,12 +30,13 @@ def run_gff_decoration(mode, resume, gff_ID_field,
     elif mode == DECORATE_GFF_GENEPRED:
 
         if is_prodigal:
-            annot_generator = decorate_prodigal_gff(annotated_hits)
+            annot_generator = decorate_gff(gff_genepred_file, gff_ID_field,
+                                           gff_outfile, annotated_hits,
+                                           get_version(), searcher_name)
+            # annot_generator = decorate_prodigal_gff(annotated_hits)
+            
 
         elif is_blastx:
-            # annot_generator = decorate_gff(gff_genepred_file, gff_ID_field,
-            #                                gff_outfile, annotated_hits,
-            #                                get_version(), searcher_name)
             annot_generator = decorate_blastx_gff(annotated_hits, gff_outfile, searcher_name, gff_ID_field)
 
         else: # proteins, CDS, seeds
@@ -55,9 +56,6 @@ def run_gff_decoration(mode, resume, gff_ID_field,
                                        get_version(), searcher_name)
 
     return annot_generator
-
-def decorate_prodigal_gff(annotated_hits):
-    return annotated_hits
 
 
 
@@ -295,6 +293,9 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
             yield hit, annotation            
     
     return
+
+def decorate_prodigal_gff(annotated_hits):
+    return annotated_hits
 
 #
 def parse_hits(hits):
