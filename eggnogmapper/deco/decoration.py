@@ -51,7 +51,7 @@ def run_gff_decoration(mode, resume, gff_ID_field,
             
         annot_generator = decorate_gff(mode, gff_ID_field,
                                        gff_outfile, annotated_hits,
-                                       get_version(), searcher_name)
+                                       get_version(), searcher_name, None)
 
     return annot_generator
 
