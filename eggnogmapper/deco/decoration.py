@@ -68,18 +68,18 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 
     # 1) Parse translation file, if any
     translation_table = None
-    # REFACTOR: this should go outside this .py file
-    # to emapper.py when predictor is not None
-    # before calling this module, passing already a translation dictionary
+    # REFACTOR: this should go outside this function
+    # which should receive already a translation dictionary
     if translation_file is not None:
         with open(translation_file, 'r') as t_f:
             for line in t_f:
                 if line.startswith(">"):
                     print(line)
-                    annot_id = line.split(" ")[0][:1]
+                    annot_id = line.split(" ")[0][1:]
                     gff_id = line.split("ID=")[1].split(";")[0]
                     print(annot_id)
                     print(gff_id)
+                    translation_table[annot_id] = gff_id
                     
                 else:
                     continue
@@ -118,8 +118,13 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
     # 3) Parse annotated hits and yield them again
     for hit, annotation in parse_annotations(annotated_hits):
         query = hit[0]
-        if query in gff_dict:
-            for gff_record in gff_dict[query]:
+        if translation_table is None:
+            gff_id = query
+        else:
+            gff_id = translation_table[query]
+            
+        if gff_id in gff_dict:
+            for gff_record in gff_dict[gff_id]:
                 attrs_list = gff_record[8]
                 # include hit
                 if hit is not None:
