@@ -260,7 +260,7 @@ class MMseqs2Searcher:
 
     
     ##
-    def parse_mmseqs(self, raw_mmseqs_file, hits_parser):
+    def parse_mmseqs(self, raw_mmseqs_file, hits_parser, gff_outfile):
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
             return self._parse_mmseqs(raw_mmseqs_file, hits_parser)
         else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
