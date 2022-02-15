@@ -130,8 +130,11 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
                      qstart, qend, sstart, send,
                      pident, qcov, scov,
                      strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
-
-                    attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
+                    
+                    if translation_table is None:
+                        attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
+                    else:
+                        attrs_list.extend(f"em_ID={query}")
 
                 # include annotations
                 if annotation is not None:
