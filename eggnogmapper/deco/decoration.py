@@ -16,7 +16,7 @@ DECORATE_GFF_FIELD_DEFAULT = "ID"
 ##
 def run_gff_decoration(mode, resume, gff_ID_field,
                        is_prodigal, is_blastx,
-                       gff_genepred_file, gff_outfile,
+                       gff_genepred_file, gff_genepred_fasta, gff_outfile,
                        predictor, searcher_name, annotated_hits):
 
     annot_generator = None
@@ -32,7 +32,7 @@ def run_gff_decoration(mode, resume, gff_ID_field,
         if is_prodigal:
             annot_generator = decorate_gff(gff_genepred_file, gff_ID_field,
                                            gff_outfile, annotated_hits,
-                                           get_version(), searcher_name)
+                                           get_version(), searcher_name, gff_genepred_fasta)
             # annot_generator = decorate_prodigal_gff(annotated_hits)
             # annot_generator = decorate_blastx_gff(annotated_hits, gff_outfile, searcher_name, gff_ID_field)
             
@@ -62,11 +62,30 @@ def run_gff_decoration(mode, resume, gff_ID_field,
 
 ##
 # Parse a GFF and create a new one adding hits and/or annotations
-def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searcher_name):
+def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searcher_name, translation_file):
 
     print(colorify(f"Decorating gff file {gff_file}...", 'lgreen'), file=serr)
 
-    # 1) Parse GFF
+    # 1) Parse translation file, if any
+    translation_table = None
+    # REFACTOR: this should go outside this .py file
+    # to emapper.py when predictor is not None
+    # before calling this module, passing already a translation dictionary
+    if translation_file is not None:
+        with open(translation_file, 'r') as t_f:
+            for line in t_f:
+                if line.startswith(">"):
+                    print(line)
+                    annot_id = line.split(" ")[0][:1]
+                    gff_id = line.split("ID=")[1].split(";")[0]
+                    print(annot_id)
+                    print(gff_id)
+                    
+                else:
+                    continue
+    
+
+    # 2) Parse GFF
     gff_comments = []
     gff_dict = defaultdict(list)
     with open(gff_file, 'r') as gff_f:
@@ -96,7 +115,7 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
             gff_dict[record_key].append([g_seqid, g_source, g_type, g_start, g_end,
                                          g_score, g_strand, g_phase, attrs_list])
 
-    # 2) Parse annotated hits and yield them again
+    # 3) Parse annotated hits and yield them again
     for hit, annotation in parse_annotations(annotated_hits):
         query = hit[0]
         if query in gff_dict:
@@ -119,7 +138,7 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 
         yield hit, annotation
 
-    # 3) Output GFF
+    # 4) Output GFF
     with open(outfile, 'w') as OUT:
         print("##gff-version 3", file=OUT)
         print(f"## decorated with {version}", file=OUT)
