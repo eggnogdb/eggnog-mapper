@@ -367,16 +367,8 @@ class DiamondSearcher:
                 pident = float(fields[2])
                 evalue = float(fields[10])
                 score = float(fields[11])
-                
                 qstart = int(fields[6])
                 qend = int(fields[7])
-                if qstart <= qend:
-                    qend = qend - (qstart - 1)
-                    qstart = 1
-                else:
-                    qstart = qstart - (qend - 1)
-                    qend = 1
-                    
                 sstart = int(fields[8])
                 send = int(fields[9])
                 qcov = float(fields[12])
@@ -386,7 +378,8 @@ class DiamondSearcher:
 
                 if query == prev_query:
                     if self.allow_overlaps == ALLOW_OVERLAPS_ALL:
-                        yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                        yield change_hit_coordinates(hit, suffix)
+                        # yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
                         
                     else:
                         if not hit_does_overlap(hit, curr_query_hits, self.allow_overlaps, self.overlap_tol):
@@ -397,7 +390,8 @@ class DiamondSearcher:
                                 suffix = 0
                                 queries_suffixes[query] = suffix
 
-                            yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                            yield change_hit_coordinates(hit, suffix)
+                            # yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
                             curr_query_hits.append(hit)
                         
                 else:
@@ -407,12 +401,27 @@ class DiamondSearcher:
                     else:
                         suffix = 0
                         queries_suffixes[query] = suffix
-                            
-                    yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+
+                    yield change_hit_coordinates(hit, suffix)
+                    # yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
                     curr_query_hits = [hit]
                     
                 prev_query = query
         return
+
+
+def change_hit_coordinates(hit, suffix):
+    [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov] = hit
+    query = f"{query}_{suffix}"
+    if qstart <= qend:
+        qend = qend - (qstart - 1)
+        qstart = 1
+    else:
+        qstart = qstart - (qend - 1)
+        qend = 1
+    newhit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]    
+    newhit = (newhit, False)
+    return newhit
 
 #
 ALLOW_OVERLAPS_NONE = "none"
