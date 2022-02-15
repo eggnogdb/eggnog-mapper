@@ -254,6 +254,8 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
             else:
                 attrs.append(f"em_searcher={searcher_name}")
 
+            print(query)
+            print(query.rfind("_"))
             contig = query[:query.rfind("_")]
 
             fields = "\t".join((str(x) for x in [contig, "eggNOG-mapper", "CDS", qstart, qend,
