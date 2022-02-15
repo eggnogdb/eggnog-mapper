@@ -228,7 +228,7 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
         print(f"## created with {version}", file=OUT)
 
         for hit, skip in sorted(parse_hits(hits_generator),
-                                key=lambda hit: sort_hits(hit, True):
+                                key=lambda hit: sort_hits(hit, True)):
             (query, target, evalue, score,
              qstart, qend, sstart, send,
              pident, qcov, scov,
