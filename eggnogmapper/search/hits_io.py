@@ -85,7 +85,7 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
 
 # Post process the hits before writing them to the .seed_orthologs file
 # since we want coordinates relative to the ORFs, NO relative to the contigs
-def change_hits_coordinates(self, hits_generator):
+def change_hits_coordinates(hits_generator):
     for hit, skip in hits_generator:
         yield (change_hit_coordinates(hit), skip)
     return
