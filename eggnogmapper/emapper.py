@@ -237,7 +237,7 @@ class Emapper:
     def decorate_gff_f(self, args, predictor, searcher_name, annotated_hits):
 
         gff_outfile = pjoin(self._current_dir, self.deco_gff_file)
-        gff_genepred_file = pjoin(self._current_dir, self.genepred_gff_file)
+        gff_genepred_file = predictor.outgff
         
         annotated_hits = run_gff_decoration(self.decorate_gff, self.resume, args.decorate_gff_ID_field,
                                             self.genepred_is_prodigal, self.genepred_is_blastx,
