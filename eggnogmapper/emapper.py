@@ -41,7 +41,7 @@ class Emapper:
         
         # Output and intermediate files
         self.genepred_fasta_file = f"{prefix}.emapper.genepred.fasta"
-        self.genepred_gff_file = f"{prefix}.emapper.gff"
+        self.genepred_gff_file = f"{prefix}.emapper.genepred.gff"
 
         self.search_out_file = f"{prefix}.emapper.hits"
         
@@ -51,6 +51,7 @@ class Emapper:
         self.orthologs_file = f"{prefix}.emapper.orthologs"
         self.pfam_file = f"{prefix}.emapper.pfam"
         self.excel_file = f"{prefix}.emapper.annotations.xlsx"
+        self.deco_gff_file = f"{prefix}.emapper.decorated.gff"
 
         self.genepred = genepred
         self.mode = mode
@@ -66,9 +67,10 @@ class Emapper:
         self.itype = itype
         if itype == ITYPE_GENOME or itype == ITYPE_META:
             self._output_files.append(self.genepred_fasta_file)
+            self._output_files.append(self.genepred_gff_file)            
             
-        if itype == ITYPE_GENOME or itype == ITYPE_META or self.decorate_gff != DECORATE_GFF_NONE:
-            self._output_files.append(self.genepred_gff_file)
+        if self.decorate_gff != DECORATE_GFF_NONE:
+            self._output_files.append(self.deco_gff_file)
 
         self.genepred_is_prodigal = ((itype == ITYPE_GENOME or itype == ITYPE_META) and
                                      genepred == GENEPRED_MODE_PRODIGAL)
