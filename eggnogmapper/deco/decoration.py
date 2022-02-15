@@ -33,7 +33,10 @@ def run_gff_decoration(mode, resume, gff_ID_field,
             annot_generator = decorate_prodigal_gff(annotated_hits)
 
         elif is_blastx:
-            annot_generator = decorate_blastx_gff(annotated_hits, gff_outfile, searcher_name, gff_ID_field)
+            annot_generator = decorate_gff(gff_genepred_file, gff_ID_field,
+                                           gff_outfile, annotated_hits,
+                                           get_version(), searcher_name)
+            # annot_generator = decorate_blastx_gff(annotated_hits, gff_outfile, searcher_name, gff_ID_field)
 
         else: # proteins, CDS, seeds
             rm_suffix = False
@@ -224,7 +227,8 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
 
-        for hit, skip in hits_generator:
+        for hit, skip in sorted(parse_hits(hits_generator),
+                                key=lambda hit: sort_hits(hit, True):
             (query, target, evalue, score,
              qstart, qend, sstart, send,
              pident, qcov, scov,
@@ -287,7 +291,28 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
     
     return
 
+#
+def parse_hits(hits):
+    for hit, skip in hits:
+        if len(hit) == 4:
+            hit = hit + [-1, -1, -1, -1,
+                         ".", ".", "."]
+        yield hit, skipe
+    return
 
+def sort_hits(currhit):
+    hit, skip = currhit
+    query = hit[0]
+    if rm_suffix == True:
+        contig = query[:query.rfind("_")]
+    else:
+        contig = query
+    # reverse strand
+    if hit[5] < hit[4]:
+        ret = (contig, hit[5], hit[4], hit[3])
+    else:
+        ret = (contig, hit[4], hit[5], hit[3])
+    return ret
 
 #
 def parse_annotations(annotated_hits):
