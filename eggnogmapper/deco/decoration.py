@@ -242,20 +242,16 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
         print(f"## created with {version}", file=OUT)
 
         for hit, skip in hits_generator:
-            print(hit)
             (query, target, evalue, score,
              qstart, qend, sstart, send,
              pident, qcov, scov,
              strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
-            print(query)
 
             if searcher_name is None:
                 attrs.append(f"em_searcher=unk")
             else:
                 attrs.append(f"em_searcher={searcher_name}")
-
-            print(query)
-            print(query.rfind("_"))
+                
             contig = query[:query.rfind("_")]
 
             fields = "\t".join((str(x) for x in [contig, "eggNOG-mapper", "CDS", qstart, qend,
@@ -263,7 +259,7 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
 
             print(fields, file=OUT)
 
-            yield hit, skip          
+            yield (hit, skip)
 
     return
     
