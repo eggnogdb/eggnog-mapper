@@ -298,7 +298,7 @@ class Emapper:
         print(colorify('Done', 'green'))
         for fname in self._output_files:
             pathname = pjoin(self.output_dir, fname)            
-            colorify('Result files:', 'yellow')
+            print(colorify('Result files:', 'yellow'))
             if pexists(pathname):
                 print("   %s" % (pathname))
                 
