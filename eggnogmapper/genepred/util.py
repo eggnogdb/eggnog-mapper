@@ -14,9 +14,7 @@ def create_prots_file(infile, hits, outfile, translate, table):
 
     with open(outfile, 'w') as OUT:
         for hit in hits:
-            print(hit)
             query = hit[0]
-            print(query)
             query_no_suffix = query[:query.rfind("_")]
 
             if query_no_suffix in seqs_dict:
