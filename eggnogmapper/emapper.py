@@ -281,6 +281,7 @@ class Emapper:
         # Clear things
         if predictor is not None:
             shutil.move(predictor.outprots, pjoin(self._current_dir, self.genepred_fasta_file))
+            shutil.move(predictor.outgff, pjoin(self._current_dir, self.genepred_gff_file))
             predictor.clear() # removes gene predictor output directory
         if searcher is not None:
             searcher.clear()

@@ -25,23 +25,13 @@ def run_gff_decoration(mode, resume, gff_ID_field, is_prodigal, is_blastx,
         
         # if prodigal, just rename its GFF file, since it won't decorated
         if is_prodigal:
-            if resume == False and predictor is not None:
-                shutil.move(predictor.outfile, gff_outfile)
+            # if resume == False and predictor is not None:
+            #     shutil.move(predictor.outfile, gff_outfile)
             annot_generator = annotated_hits
-            
-
-        # if blastx, create a gff with the hits
-        elif is_blastx:
-            # GFF already created during search
-            annot_generator = annotated_hits
-            # rm_suffix is to remove the "_int" added for
-            # gene prediction hits (to recover the contig name)
-            # rm_suffix = True
-            # annot_generator = create_gff(searcher_name, get_version(),
-            #                              annotated_hits, gff_outfile, resume,
-            #                              rm_suffix, gff_ID_field)
 
         else:
+            # if blastx, GFF already created during search
+            # if no prodigal, nor blastx, don't create gff
             annot_generator = annotated_hits
 
     elif mode == DECORATE_GFF_GENEPRED:
