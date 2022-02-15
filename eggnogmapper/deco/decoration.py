@@ -127,10 +127,10 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
 
                     # if there is a translation table, add the emapper query ID also as
                     # an attribute
-                    if translation_table is None:
-                        attrs_list.extend(attrs[1:]) # excluding ID which already exists in the GFF attrs
-                    else:
+                    if translation_table is not None:
                         attrs_list.append(f"em_ID={query}")
+                        
+                    attrs_list.extend(attrs[1:]) # excluding ID
 
                 # include annotations
                 if annotation is not None:
