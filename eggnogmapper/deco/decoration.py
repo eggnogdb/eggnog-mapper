@@ -300,7 +300,7 @@ def parse_hits(hits):
         yield hit, skip
     return
 
-def sort_hits(currhit):
+def sort_hits(currhit, rm_suffix):
     hit, skip = currhit
     query = hit[0]
     if rm_suffix == True:
