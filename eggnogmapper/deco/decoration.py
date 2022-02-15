@@ -14,43 +14,29 @@ DECORATE_GFF_GENEPRED = "yes"
 DECORATE_GFF_FIELD_DEFAULT = "ID"
         
 ##
-def run_gff_decoration(mode, resume, gff_ID_field, is_prodigal, is_blastx,
-                       gff_outfile, predictor, searcher_name, annotated_hits):
+def run_gff_decoration(mode, resume, gff_ID_field,
+                       is_prodigal, is_blastx,
+                       gff_genepred_file, gff_outfile,
+                       predictor, searcher_name, annotated_hits):
 
     annot_generator = None
     
     ##
     # Generate GFF data to decorate
     if mode == DECORATE_GFF_NONE:
-        
-        # if prodigal, just rename its GFF file, since it won't decorated
-        if is_prodigal:
-            # if resume == False and predictor is not None:
-            #     shutil.move(predictor.outfile, gff_outfile)
-            annot_generator = annotated_hits
-
-        else:
-            # if blastx, GFF already created during search
-            # if no prodigal, nor blastx, don't create gff
-            annot_generator = annotated_hits
+        # Do nothing, just return the hits and annotations
+        annot_generator = annotated_hits
 
     elif mode == DECORATE_GFF_GENEPRED:
 
-        if annotated_hits is None and is_prodigal:
-            if resume == False and predictor is not None:
-                shutil.move(predictor.outfile, gff_outfile)
-            annot_generator = annotated_hits
-            
-        elif annotated_hits is None:
-            print("Hits are required to create a GFF.")
-            annot_generator = annotated_hits
-            
-        else:
-            # rm_suffix is to remove the "_int" added for gene prediction hits (to recover the contig name)
-            if is_prodigal or is_blastx:
-                rm_suffix = True
-            else:
-                rm_suffix = False
+        if is_prodigal:
+            annot_generator = decorate_prodigal_gff(annotated_hits)
+
+        elif is_blastx:
+            annot_generator = decorate_blastx_gff(annotated_hits, gff_outfile, searcher_name, gff_ID_field)
+
+        else: # proteins, CDS, seeds
+            rm_suffix = False
 
             annot_generator = create_gff(searcher_name, get_version(),
                                          annotated_hits, gff_outfile, resume,
@@ -66,6 +52,11 @@ def run_gff_decoration(mode, resume, gff_ID_field, is_prodigal, is_blastx,
                                        get_version(), searcher_name)
 
     return annot_generator
+
+def decorate_prodigal_gff(annotated_hits):
+    return annotated_hits
+
+
 
 ##
 # Parse a GFF and create a new one adding hits and/or annotations
@@ -254,7 +245,50 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
             yield (hit, skip)
 
     return
+
+
+def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
     
+    print(colorify(f"Creating {searcher_name} gff file {outfile}...", 'lgreen'), file=serr)
+
+    with open(outfile, 'w') as OUT:
+        print("##gff-version 3", file=OUT)
+        print(f"## created with {version}", file=OUT)
+
+        # The sorted function breaks the generators flow
+        # but here it is necessary to sort the gff records by position
+        for hit, annotation in sorted(parse_annotations(annotated_hits),
+                                      key=lambda hit: sort_annotated_hits(hit, True)):
+
+            (query, target, evalue, score,
+             qstart, qend, sstart, send,
+             pident, qcov, scov,
+             strand, phase, attrs) = hit_to_gff(hit, gff_ID_field)
+
+            if searcher_name is None:
+                attrs.append(f"em_searcher=unk")
+            else:
+                attrs.append(f"em_searcher={searcher_name}")
+
+            # include annotations
+            if annotation is not None:
+                attrs.extend(annotation_to_gff(annotation))
+
+            if rm_suffix:
+                contig = query[:query.rfind("_")]
+            else:
+                contig = query
+                
+            fields = "\t".join((str(x) for x in [contig, "eggNOG-mapper", "CDS", qstart, qend,
+                                                 score, strand, phase, ";".join(attrs)]))
+            
+            print(fields, file=OUT)
+
+            yield hit, annotation            
+    
+    return
+
+
 
 #
 def parse_annotations(annotated_hits):
