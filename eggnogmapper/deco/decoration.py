@@ -297,7 +297,7 @@ def parse_hits(hits):
         if len(hit) == 4:
             hit = hit + [-1, -1, -1, -1,
                          ".", ".", "."]
-        yield hit, skipe
+        yield hit, skip
     return
 
 def sort_hits(currhit):
