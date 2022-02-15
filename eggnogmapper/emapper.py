@@ -167,6 +167,18 @@ class Emapper:
             # If gene prediction from the hits obtained in the search step
             # create a fasta file with the inferred proteins
             if self.genepred_is_blastx == True:
+                # modify coordinates of seed_orthologs mappings to positions relative to the ORFs
+                # instead of relative to the contigs
+                print(colorify("Parsing seed orthologs...", "Red"))
+                with open(pjoin(self._current_dir, self.seed_orthologs_file), 'r') as seeds_f:
+                    for line in seeds_f:
+                        if line.startswith("#"):
+                            print(line)
+                            continue
+                        print(line)
+                        break
+                # create fasta file of predicted CDS
+                print(colorify("Crafting fasta file of CDS ...", "Red"))
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
                 silent_rm(fasta_file)
                 hits = create_prots_file(queries_file, hits, fasta_file, args.translate, args.trans_table)
@@ -296,9 +308,9 @@ class Emapper:
         ##
         # Finalize and exit
         print(colorify('Done', 'green'))
+        print(colorify('Result files:', 'yellow'))
         for fname in self._output_files:
-            pathname = pjoin(self.output_dir, fname)            
-            print(colorify('Result files:', 'yellow'))
+            pathname = pjoin(self.output_dir, fname)
             if pexists(pathname):
                 print("   %s" % (pathname))
                 
