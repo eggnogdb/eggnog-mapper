@@ -227,6 +227,8 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
 
+        # The sorted function breaks the generators flow
+        # but here it is necessary to sort the gff records by position
         for hit, skip in sorted(parse_hits(hits_generator),
                                 key=lambda hit: sort_hits(hit, True)):
             (query, target, evalue, score,
@@ -261,10 +263,13 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
 
+
+        # No need to sort, hits were already sorted in create_blastx_hits_gff
+        for hit, annotation in annotated_hits:
         # The sorted function breaks the generators flow
         # but here it is necessary to sort the gff records by position
-        for hit, annotation in sorted(parse_annotations(annotated_hits),
-                                      key=lambda hit: sort_annotated_hits(hit, True)):
+        # for hit, annotation in sorted(parse_annotations(annotated_hits),
+        #                               key=lambda hit: sort_annotated_hits(hit, True)):
 
             (query, target, evalue, score,
              qstart, qend, sstart, send,
