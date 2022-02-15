@@ -11,11 +11,11 @@ from tempfile import mkdtemp, mkstemp
 from ...emapperException import EmapperException
 from ...common import DIAMOND, get_eggnog_dmnd_db, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 from ...utils import colorify, translate_cds_to_prots
+from ...deco.decoration import create_blastx_hits_gff
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
 from ..hits_io import parse_hits, output_hits, change_hits_coordinates
-from ../../deco/decoration import create_blastx_hits_gff
 
 SENSMODE_FAST = "fast"
 SENSMODE_DEFAULT = "default"
