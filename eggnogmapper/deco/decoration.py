@@ -33,7 +33,7 @@ def run_gff_decoration(mode, resume, gff_ID_field, is_prodigal, is_blastx,
         # if blastx, create a gff with the hits
         elif is_blastx:
             # GFF already created during search
-            pass
+            annot_generator = annotated_hits
             # rm_suffix is to remove the "_int" added for
             # gene prediction hits (to recover the contig name)
             # rm_suffix = True
