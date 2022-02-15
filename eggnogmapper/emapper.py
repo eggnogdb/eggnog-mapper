@@ -159,7 +159,8 @@ class Emapper:
             try:
                 hits = searcher.search(queries_file,
                                        pjoin(self._current_dir, self.seed_orthologs_file),
-                                       pjoin(self._current_dir, self.search_out_file))
+                                       pjoin(self._current_dir, self.search_out_file),
+                                       pjoin(self._current_dir, self.genepred_gff_file))
             except Exception as e:
                 searcher.clear()
                 raise(e)

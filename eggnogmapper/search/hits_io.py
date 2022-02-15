@@ -82,4 +82,24 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
             print('## Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
     return
 
+
+# Post process the hits before writing them to the .seed_orthologs file
+# since we want coordinates relative to the ORFs, NO relative to the contigs
+def change_hits_coordinates(self, hits_generator):
+    for hit, skip in hits_generator:
+        yield (change_hit_coordinates(hit), skip)
+    return
+
+def change_hit_coordinates(hit):
+    [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov] = hit
+    if qstart <= qend:
+        qend = qend - (qstart - 1)
+        qstart = 1
+    else:
+        qstart = qstart - (qend - 1)
+        qend = 1
+    newhit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]    
+    newhit = (newhit, False)
+    return newhit
+
 ## END
