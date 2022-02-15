@@ -98,13 +98,13 @@ class ProdigalPredictor:
         return cmd
     
     def run_prodigal(self, in_file, outdir):
-        self.outfile = pjoin(outdir, "output.gff")
+        self.outgff = pjoin(outdir, "output.gff")
         self.outprots = pjoin(outdir, "output.faa")
         self.outcds = pjoin(outdir, "output.fna")
         self.outorfs = pjoin(outdir, "output.orfs")
         cmd = (
             f'{PRODIGAL} -i {in_file} -p {self.pmode} '
-            f'-o {self.outfile} -f gff '
+            f'-o {self.outgff} -f gff '
             f'-a {self.outprots} -d {self.outcds} '
             f'-s {self.outorfs}'
         )
