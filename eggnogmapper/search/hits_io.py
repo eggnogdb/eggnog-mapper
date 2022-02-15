@@ -71,7 +71,9 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
             if skip == False:
                 print('\t'.join(map(str, hit)), file=OUT)
 
-            # always yield the hit    
+            # always yield the hit
+            print("hits_io Yeilding hit")
+            print(hit)
             yield hit
             qn += 1
             
