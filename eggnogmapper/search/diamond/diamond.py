@@ -370,6 +370,13 @@ class DiamondSearcher:
                 
                 qstart = int(fields[6])
                 qend = int(fields[7])
+                if qstart <= qend:
+                    qend = qend - (qstart - 1)
+                    qstart = 1
+                else:
+                    qstart = qstart - (qend - 1)
+                    qend = 1
+                    
                 sstart = int(fields[8])
                 send = int(fields[9])
                 qcov = float(fields[12])
