@@ -74,6 +74,7 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
             # always yield the hit
             print("hits_io Yeilding hit")
             print(hit)
+            print(skip)
             yield hit
             qn += 1
             
