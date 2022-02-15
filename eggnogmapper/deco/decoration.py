@@ -237,7 +237,7 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
 
     version = get_version()
 
-    with open(outfile, file_mode) as OUT:
+    with open(outfile, 'w') as OUT:
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
 
