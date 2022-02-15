@@ -171,7 +171,7 @@ class Emapper:
             # create a fasta file with the inferred proteins
             if self.genepred_is_blastx == True:
                 # create fasta file of predicted CDS
-                print(colorify("Crafting fasta file of CDS ...", "red"))
+                print(colorify("Crafting fasta file of CDS ...", "lgreen"))
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
                 silent_rm(fasta_file)
                 hits = create_prots_file(queries_file, hits, fasta_file, args.translate, args.trans_table)
