@@ -16,7 +16,7 @@ from ...deco.decoration import create_blastx_hits_gff
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import output_seeds, change_seeds_coordinates
+from ..hits_io import output_seeds, change_seeds_coordinates, recover_seeds_coordinates
 from ..diamond.diamond import hit_does_overlap, ALLOW_OVERLAPS_ALL
 
 def create_mmseqs_db(dbprefix, in_fasta):
