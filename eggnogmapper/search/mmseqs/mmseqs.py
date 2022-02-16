@@ -275,17 +275,7 @@ class MMseqs2Searcher:
         return cmd
     
     ##
-    def _parse_mmseqs(self, raw_mmseqs_file, hits_parser):
-
-        # previous hits from resume are yielded
-        last_resumed_query = None
-        if hits_parser is not None:
-            for hit in hits_parser:
-                yield (hit, True) # hit and skip (already exists)
-                last_resumed_query = hit[0]
-
-        # semaphore to start processing new hits
-        last_resumed_query_found = False if last_resumed_query is not None else True
+    def _parse_mmseqs(self, raw_mmseqs_file):
 
         prev_query = None
         # parse non-resumed hits
@@ -337,7 +327,7 @@ class MMseqs2Searcher:
                 send = int(fields[7])
 
                 hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
-                yield (hit, False) # hit and dont skip (doesnt exist)
+                yield hit # hit
         return
 
     ##
@@ -384,7 +374,7 @@ class MMseqs2Searcher:
 
                 if query == prev_query:
                     if self.allow_overlaps == ALLOW_OVERLAPS_ALL:
-                        yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                        yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                         
                     else:
                         if not hit_does_overlap(hit, curr_query_hits, self.allow_overlaps, self.overlap_tol):
@@ -395,7 +385,7 @@ class MMseqs2Searcher:
                                 suffix = 0
                                 queries_suffixes[query] = suffix
 
-                            yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                            yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                             curr_query_hits.append(hit)
                 else:
                     if query in queries_suffixes:
@@ -405,7 +395,7 @@ class MMseqs2Searcher:
                         suffix = 0
                         queries_suffixes[query] = suffix
                             
-                    yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                    yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                     curr_query_hits = [hit]
                     
                 prev_query = query    
