@@ -161,15 +161,20 @@ class Emapper:
             try:
                 hits = searcher.search(queries_file,
                                        pjoin(self._current_dir, self.seed_orthologs_file),
-                                       pjoin(self._current_dir, self.search_out_file),
-                                       pjoin(self._current_dir, self.genepred_gff_file))
+                                       pjoin(self._current_dir, self.search_out_file))
             except Exception as e:
                 searcher.clear()
                 raise(e)
 
             # If gene prediction from the hits obtained in the search step
-            # create a fasta file with the inferred proteins
+            # create GFF and FASTA of predicted CDS/proteins
             if self.genepred_is_blastx == True:
+                
+                # create GFF of predicted CDS
+                print(colorify("Crafting GFF file of CDS ...", "lgreen"))
+                gff_outfile = pjoin(self._current_dir, self.genepred_gff_file)
+                hits = create_blastx_hits_gff(hits, gff_outfile, searcher_name, args.decorate_gff_ID_field)
+                
                 # create fasta file of predicted CDS
                 print(colorify("Crafting fasta file of CDS ...", "lgreen"))
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
