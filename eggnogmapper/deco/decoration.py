@@ -318,11 +318,11 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
 
 #
 def parse_hits(hits):
-    for hit, skip in hits:
+    for hit in hits:
         if len(hit) == 4:
             hit = hit + [-1, -1, -1, -1,
                          ".", ".", "."]
-        yield hit, skip
+        yield hit
     return
 
 def sort_hits(currhit, rm_suffix):
