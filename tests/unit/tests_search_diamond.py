@@ -135,7 +135,7 @@ class Test(unittest.TestCase):
         searcher = DiamondSearcher(args)
         
         seed_orthologs_file = "tests/fixtures/test_diamond_blastp.out"
-        parsed = searcher.parse_diamond(seed_orthologs_file, None, None)
+        parsed = searcher._parse_diamond(seed_orthologs_file)
 
         # convert generator to list and
         # remove the boolean of --resume mode
