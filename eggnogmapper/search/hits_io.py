@@ -64,6 +64,7 @@ def output_seeds(cmds, hits, out_file, resume, no_file_comments, outfmt_short, c
             
         qn = 0
         for hit in hits:
+            # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
             if change_seeds_coords == True:
                 orig_hit = hit
                 hit = change_seed_coords(orig_hit)
