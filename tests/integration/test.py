@@ -490,11 +490,11 @@ class Test(unittest.TestCase):
         # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal --data_dir tests/fixtures
         # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
 
-        rm -r tmp; mkdir tmp;
-        emapper.py -i tests/fixtures/genepred_contig/contig.fna \
-            --itype metagenome --genepred prodigal --data_dir tests/fixtures \
-            -m diamond --sensmode sensitive --no_annot \
-            --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
+        # rm -r tmp; mkdir tmp;
+        # emapper.py -i tests/fixtures/genepred_contig/contig.fna \
+        #     --itype metagenome --genepred prodigal --data_dir tests/fixtures \
+        #     -m diamond --sensmode sensitive --no_annot \
+        #     --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
         
         ##
         # Setup test
