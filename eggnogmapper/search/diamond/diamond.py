@@ -135,7 +135,7 @@ class DiamondSearcher:
         return
     
     ##
-    def search(self, in_file, seed_orthologs_file, hits_file, gff_outfile):
+    def search(self, in_file, seed_orthologs_file, hits_file):
         hits_generator = None
         
         if not DIAMOND:
@@ -157,11 +157,11 @@ class DiamondSearcher:
 
             # 2) parse search hits to seeds orthologs
             if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-                hits_generator = self._parse_diamond(raw_dmnd_file)
+                hits_generator = self._parse_diamond(hits_file)
                 
             else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
                 # parse_genepred (without coordinate change)
-                hits_generator = self._parse_genepred(raw_dmnd_file)
+                hits_generator = self._parse_genepred(hits_file)
 
                 
             # 3) output seeds

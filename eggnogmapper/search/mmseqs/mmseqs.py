@@ -16,7 +16,7 @@ from ...deco.decoration import create_blastx_hits_gff
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import parse_hits, output_hits, change_hits_coordinates
+from ..hits_io import output_seeds, change_seeds_coordinates
 from ..diamond.diamond import hit_does_overlap, ALLOW_OVERLAPS_ALL
 
 def create_mmseqs_db(dbprefix, in_fasta):
@@ -117,7 +117,7 @@ class MMseqs2Searcher:
         return
 
     ##
-    def search(self, in_file, seed_orthologs_file, hits_file, gff_outfile):
+    def search(self, in_file, seed_orthologs_file, hits_file):
         hits_generator = None
         
         if not MMSEQS2:
@@ -127,12 +127,11 @@ class MMseqs2Searcher:
         
         try:
             cmds = None
-            hits_parser = None
+
+            # 1) either resume from previous hits or run diamond to generate the hits
             if self.resume == True:
                 if pisfile(hits_file):
-                    if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-                        if pisfile(seed_orthologs_file):
-                            hits_parser = parse_hits(seed_orthologs_file)
+                    pass
                 else:
                     raise EmapperException(f"Couldn't find hits file {hits_file} to resume.")
             else:
@@ -146,16 +145,38 @@ class MMseqs2Searcher:
                 alignmentsdb, cmds = self.run_mmseqs(in_file, querydb,
                                                      self.targetdb, resultdb, bestresultdb)
                 shutil.copyfile(f'{alignmentsdb}.m8', hits_file)
+
                 
-            hits_generator = self.parse_mmseqs(hits_file, hits_parser, gff_outfile)
-            hits_generator = output_hits(cmds, hits_generator,
-                                         seed_orthologs_file, self.resume,
-                                         self.no_file_comments, False)
+            # 2) parse search hits to seeds orthologs
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                hits_generator = self._parse_mmseqs(hits_file)
+                
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+                # parse_genepred (without coordinate change)
+                hits_generator = self._parse_genepred(hits_file)
+
+            # 3) output seeds
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                hits_generator = output_seeds(cmds, hits_generator,
+                                             seed_orthologs_file, self.resume,
+                                              self.no_file_comments, False)
+                
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+
+                # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
+                hits_generator = change_seeds_coordinates(hits_generator)
+                
+                hits_generator = output_seeds(cmds, hits_generator,
+                                             seed_orthologs_file, self.resume,
+                                              self.no_file_comments, False)
+                
+                hits_generator = recover_seeds_coordinates(hits_generator)                
 
         except Exception as e:
             raise e
             
         return hits_generator
+    
     
     def run_mmseqs(self, fasta_file, querydb, targetdb, resultdb, bestresultdb):
         cmds = []
@@ -257,24 +278,6 @@ class MMseqs2Searcher:
         except subprocess.CalledProcessError as cpe:
             raise EmapperException("Error running 'mmseqs convertalis': "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])        
         return cmd
-
-    
-    ##
-    def parse_mmseqs(self, raw_mmseqs_file, hits_parser, gff_outfile):
-        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            hits_generator = self._parse_mmseqs(raw_mmseqs_file, hits_parser)
-            # False parameter means only wrap but don't compute new coordinates
-            hits_generator = change_hits_coordinates(hits_generator, False)
-            
-        else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-            # parse_genepred (without coordinate change)
-            hits_generator = self._parse_genepred(raw_mmseqs_file)
-            # generate gff (with original coordinates)
-            hits_generator = create_blastx_hits_gff(hits_generator, gff_outfile, self.name, self.gff_ID_field)
-            # change_hits_coordinates (to use them for the .seed_orthologs file)
-            hits_generator = change_hits_coordinates(hits_generator, True)
-            
-        return hits_generator
     
     ##
     def _parse_mmseqs(self, raw_mmseqs_file, hits_parser):
