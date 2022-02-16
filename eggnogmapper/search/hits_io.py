@@ -7,7 +7,7 @@ from ..common import get_call_info
 
 ##
 # Generator of hits from filename
-def parse_hits(filename):
+def parse_seeds(filename):
     for line in open(filename, 'r'):
         if line.startswith('#') or not line.strip():
             continue
@@ -36,7 +36,7 @@ def parse_hits(filename):
 ##
 # Receives an iterable of hits to output
 # and also returns a generator object of hits
-def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
+def output_seeds(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
     start_time = time.time()
     
     if resume == True:
@@ -88,12 +88,9 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
 
 # Post process the hits before writing them to the .seed_orthologs file
 # since we want coordinates relative to the ORFs, NO relative to the contigs
-def change_hits_coordinates(hits_generator, compute):
-    for hit, skip in hits_generator:
-        if compute == True:
-            yield (change_hit_coordinates(hit), skip, hit)
-        else:
-            yield (hit, skip, hit)
+def change_seeds_coordinates(hits_generator):
+    for hit in hits_generator:
+            yield (change_hit_coordinates(hit), hit)
     return
 
 def change_hit_coordinates(hit):
@@ -105,5 +102,10 @@ def change_hit_coordinates(hit):
         qstart = qstart - (qend - 1)
         qend = 1
     return [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
+
+def recover_seeds_coordinates(hits_generator):
+    for hit, orig_hit in hits_generator:
+            yield orig_hit
+    return
 
 ## END

@@ -15,7 +15,7 @@ from ...deco.decoration import create_blastx_hits_gff
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import parse_hits, output_hits, change_hits_coordinates
+from ..hits_io import output_seeds, change_seeds_coordinates
 
 SENSMODE_FAST = "fast"
 SENSMODE_DEFAULT = "default"
@@ -145,24 +145,41 @@ class DiamondSearcher:
         
         try:
             cmds = None
-            hits_parser = None
+            
+            # 1) either resume from previous hits or run diamond to generate the hits
             if self.resume == True:
                 if pisfile(hits_file):
-                    if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-                        if pisfile(seed_orthologs_file):
-                            hits_parser = parse_hits(seed_orthologs_file)
-                    # else:
-                    # Cannot resume seed_orthologs_file due to
-                    # the coordinates change when using gene prediction
+                    pass
                 else:
                     raise EmapperException(f"Couldn't find hits file {hits_file} to resume.")
             else:
                 cmds = self.run_diamond(in_file, hits_file)
+
+            # 2) parse search hits to seeds orthologs
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                hits_generator = self._parse_diamond(raw_dmnd_file)
                 
-            hits_generator = self.parse_diamond(hits_file, hits_parser, gff_outfile)
-            hits_generator = output_hits(cmds, hits_generator,
-                                         seed_orthologs_file, self.resume,
-                                         self.no_file_comments, self.outfmt_short)
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+                # parse_genepred (without coordinate change)
+                hits_generator = self._parse_genepred(raw_dmnd_file)
+
+                
+            # 3) output seeds
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                hits_generator = output_seeds(cmds, hits_generator,
+                                             seed_orthologs_file, self.resume,
+                                             self.no_file_comments, self.outfmt_short)
+                
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+
+                # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
+                hits_generator = change_seeds_coordinates(hits_generator)
+                
+                hits_generator = output_seeds(cmds, hits_generator,
+                                             seed_orthologs_file, self.resume,
+                                             self.no_file_comments, self.outfmt_short)
+                
+                hits_generator = recover_seeds_coordinates(hits_generator)
 
         except Exception as e:
             raise e
@@ -257,37 +274,9 @@ class DiamondSearcher:
                 os.close(handle)
         
         return cmds
-
-
-    ##
-    def parse_diamond(self, raw_dmnd_file, hits_parser, gff_outfile):
-        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            hits_generator = self._parse_diamond(raw_dmnd_file, hits_parser)
-            # False parameter means only wrap but don't compute new coordinates
-            hits_generator = change_hits_coordinates(hits_generator, False)
-            
-        else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-            # parse_genepred (without coordinate change)
-            hits_generator = self._parse_genepred(raw_dmnd_file)
-            # generate gff (with original coordinates)
-            hits_generator = create_blastx_hits_gff(hits_generator, gff_outfile, self.name, self.gff_ID_field)
-            # change_hits_coordinates (to use them for the .seed_orthologs file)
-            hits_generator = change_hits_coordinates(hits_generator, True)
-            
-        return hits_generator
         
     ##
-    def _parse_diamond(self, raw_dmnd_file, hits_parser):        
-
-        # previous hits from resume are yielded
-        last_resumed_query = None
-        if hits_parser is not None:
-            for hit in hits_parser:
-                yield (hit, True) # hit and skip (already exists)
-                last_resumed_query = hit[0]
-
-        # semaphore to start processing new hits
-        last_resumed_query_found = False if last_resumed_query is not None else True
+    def _parse_diamond(self, raw_dmnd_file):        
 
         prev_query = None
         # parse non-resumed hits
@@ -303,16 +292,6 @@ class DiamondSearcher:
                 # gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
                 
                 query = fields[0]
-                
-                if last_resumed_query is not None:
-                    if query == last_resumed_query:
-                        last_resumed_query_found = True
-                        continue
-                    else:
-                        if last_resumed_query_found == False:
-                            continue
-                        else:
-                            last_resumed_query = None # start parsing new queries
 
                 # only one result per query
                 if prev_query is not None and query == prev_query:
@@ -338,7 +317,7 @@ class DiamondSearcher:
                     scov = float(fields[13])
                     hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
-                yield (hit, False) # hit and dont skip (doesnt exist)
+                yield hit # hit
         return
 
     ##
@@ -374,7 +353,7 @@ class DiamondSearcher:
 
                 if query == prev_query:
                     if self.allow_overlaps == ALLOW_OVERLAPS_ALL:
-                        yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                        yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                         
                     else:
                         if not hit_does_overlap(hit, curr_query_hits, self.allow_overlaps, self.overlap_tol):
@@ -385,7 +364,7 @@ class DiamondSearcher:
                                 suffix = 0
                                 queries_suffixes[query] = suffix
 
-                            yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                            yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                             curr_query_hits.append(hit)
                         
                 else:
@@ -396,7 +375,7 @@ class DiamondSearcher:
                         suffix = 0
                         queries_suffixes[query] = suffix
 
-                    yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                    yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                     curr_query_hits = [hit]
                     
                 prev_query = query
