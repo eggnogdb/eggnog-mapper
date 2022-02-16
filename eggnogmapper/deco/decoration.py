@@ -326,7 +326,7 @@ def parse_hits(hits):
     return
 
 def sort_hits(currhit, rm_suffix):
-    hit, skip = currhit
+    hit = currhit
     query = hit[0]
     if rm_suffix == True:
         contig = query[:query.rfind("_")]
