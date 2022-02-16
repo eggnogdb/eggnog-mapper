@@ -164,7 +164,7 @@ class MMseqs2Searcher:
                 
             hits_generator = output_seeds(cmds, hits_generator,
                                           seed_orthologs_file, self.resume,
-                                          self.no_file_comments, self.outfmt_short,
+                                          self.no_file_comments, False,
                                           change_seeds_coords)
 
         except Exception as e:
