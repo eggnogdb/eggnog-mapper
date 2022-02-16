@@ -249,8 +249,8 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
 
         # The sorted function breaks the generators flow
         # but here it is necessary to sort the gff records by position
-        for hit, skip in sorted(parse_hits(hits_generator),
-                                key=lambda hit: sort_hits(hit, True)):
+        for hit in sorted(parse_hits(hits_generator),
+                          key=lambda hit: sort_hits(hit, True)):
             (query, target, evalue, score,
              qstart, qend, sstart, send,
              pident, qcov, scov,
@@ -268,7 +268,7 @@ def create_blastx_hits_gff(hits_generator, outfile, searcher_name, gff_ID_field)
 
             print(fields, file=OUT)
 
-            yield (hit, skip)
+            yield hit
 
     return
 
