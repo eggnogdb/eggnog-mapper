@@ -250,7 +250,7 @@ class Emapper:
             gff_genepred_fasta = None
         
         
-        annotated_hits = run_gff_decoration(self.decorate_gff, self.resume, args.decorate_gff_ID_field,
+        annotated_hits = run_gff_decoration(self.decorate_gff, args.decorate_gff_ID_field,
                                             self.genepred_is_prodigal, self.genepred_is_blastx,
                                             gff_genepred_file, gff_genepred_fasta, gff_outfile,
                                             predictor, searcher_name, annotated_hits)
