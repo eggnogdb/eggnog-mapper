@@ -172,14 +172,13 @@ class DiamondSearcher:
                                               change_seeds_coords)
                 
             else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-                change_seeds_coords = True
                 # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
+                change_seeds_coords = True
                 # hits_generator = change_seeds_coordinates(hits_generator)
-                
                 hits_generator = output_seeds(cmds, hits_generator,
                                              seed_orthologs_file, self.resume,
-                                             self.no_file_comments, self.outfmt_short)
-                
+                                              self.no_file_comments, self.outfmt_short,
+                                              change_seeds_coords)
                 # hits_generator = recover_seeds_coordinates(hits_generator)
 
         except Exception as e:
