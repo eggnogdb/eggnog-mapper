@@ -16,7 +16,7 @@ from .genepred.util import create_prots_file
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE
 from .search.hits_io import parse_seeds
 from .annotation.annotators import get_annotator, get_cache_annotator
-from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE
+from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE, create_blastx_hits_gff
 
 class Emapper:
 

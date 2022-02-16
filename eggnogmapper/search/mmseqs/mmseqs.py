@@ -12,7 +12,6 @@ import uuid
 from ...common import MMSEQS2, get_eggnog_mmseqs_db, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 from ...emapperException import EmapperException
 from ...utils import colorify, translate_cds_to_prots
-from ...deco.decoration import create_blastx_hits_gff
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
