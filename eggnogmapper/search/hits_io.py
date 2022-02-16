@@ -36,7 +36,7 @@ def parse_seeds(filename):
 ##
 # Receives an iterable of hits to output
 # and also returns a generator object of hits
-def output_seeds(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
+def output_seeds(cmds, hits, out_file, resume, no_file_comments, outfmt_short, change_seeds_coords = False):
     start_time = time.time()
     
     if resume == True:
@@ -63,16 +63,14 @@ def output_seeds(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
             
             
         qn = 0
-        # rows
-        # (hit, skip): hits are wrapped in a tuple with a boolean flag
-        # to be output or not
-        # 20220215: now we include also the orig_hit (original hit) with
-        # coordinates relatve to contig if comes from blastx searches
-        # whereas "hit" will have the hit with ORF relative coordinates
-        for hit, skip, orig_hit in hits:
-            # only print the hit if not already present and --resume
-            if skip == False:
-                print('\t'.join(map(str, hit)), file=OUT)
+        for hit in hits:
+            if change_seeds_coords == True:
+                orig_hit = hit
+                hit = change_seed_coords(orig_hit)
+            else:
+                orig_hit = hit
+
+            print('\t'.join(map(str, hit)), file=OUT)
 
             # always yield the hit
             yield orig_hit
@@ -93,7 +91,7 @@ def change_seeds_coordinates(hits_generator):
             yield (change_hit_coordinates(hit), hit)
     return
 
-def change_hit_coordinates(hit):
+def change_seed_coords(hit):
     [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov] = hit
     if qstart <= qend:
         qend = qend - (qstart - 1)
