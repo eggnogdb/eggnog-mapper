@@ -171,7 +171,7 @@ class DiamondSearcher:
                 change_seeds_coords = True
                 
             hits_generator = output_seeds(cmds, hits_generator,
-                                          seed_orthologs_file, self.resume,
+                                          seed_orthologs_file, 
                                           self.no_file_comments, self.outfmt_short,
                                           change_seeds_coords)
 
@@ -273,7 +273,7 @@ class DiamondSearcher:
     def _parse_diamond(self, raw_dmnd_file):        
 
         prev_query = None
-        # parse non-resumed hits
+        # parse hits
         with open(raw_dmnd_file, 'r') as raw_f:
             for line in raw_f:
                 if not line.strip() or line.startswith('#'):

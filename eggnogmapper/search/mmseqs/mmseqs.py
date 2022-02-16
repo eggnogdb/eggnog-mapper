@@ -163,7 +163,7 @@ class MMseqs2Searcher:
                 change_seeds_coords = True
                 
             hits_generator = output_seeds(cmds, hits_generator,
-                                          seed_orthologs_file, self.resume,
+                                          seed_orthologs_file, 
                                           self.no_file_comments, False,
                                           change_seeds_coords)
 
@@ -278,7 +278,7 @@ class MMseqs2Searcher:
     def _parse_mmseqs(self, raw_mmseqs_file):
 
         prev_query = None
-        # parse non-resumed hits
+        # parse hits
         with open(raw_mmseqs_file, 'r') as raw_f:
             for line in raw_f:
                 if not line.strip() or line.startswith('#'):
@@ -288,16 +288,6 @@ class MMseqs2Searcher:
                 # check fields in convertalis_step()
         
                 query = fields[0]
-
-                if last_resumed_query is not None:
-                    if query == last_resumed_query:
-                        last_resumed_query_found = True
-                        continue
-                    else:
-                        if last_resumed_query_found == False:
-                            continue
-                        else:
-                            last_resumed_query = None # start parsing new queries
                             
                 # only one result per query
                 if prev_query is not None and query == prev_query:

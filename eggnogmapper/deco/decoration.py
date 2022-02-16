@@ -283,7 +283,6 @@ def decorate_blastx_gff(annotated_hits, outfile, searcher_name, gff_ID_field):
         print("##gff-version 3", file=OUT)
         print(f"## created with {version}", file=OUT)
 
-
         # No need to sort, hits were already sorted in create_blastx_hits_gff
         for hit, annotation in annotated_hits:
         # The sorted function breaks the generators flow

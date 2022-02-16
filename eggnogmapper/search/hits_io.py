@@ -36,15 +36,10 @@ def parse_seeds(filename):
 ##
 # Receives an iterable of hits to output
 # and also returns a generator object of hits
-def output_seeds(cmds, hits, out_file, resume, no_file_comments, outfmt_short, change_seeds_coords = False):
+def output_seeds(cmds, hits, out_file, no_file_comments, outfmt_short, change_seeds_coords = False):
     start_time = time.time()
-    
-    if resume == True:
-        file_mode = 'a'
-    else:
-        file_mode = 'w'
 
-    with open(out_file, file_mode) as OUT:
+    with open(out_file, 'w') as OUT:
 
         # comments
         if not no_file_comments:
@@ -53,18 +48,19 @@ def output_seeds(cmds, hits, out_file, resume, no_file_comments, outfmt_short, c
                 for cmd in cmds:
                     print('##'+cmd, file=OUT)
 
-        # header (only first time, not for further resume)
-        if file_mode == 'w':
-            if outfmt_short == True:
-                print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
-            else:
-                print('#'+"\t".join(("qseqid sseqid evalue bitscore qstart qend "
-                                     "sstart send pident qcov scov").split(" ")), file=OUT)
+        # header
+        if outfmt_short == True:
+            print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
+        else:
+            print('#'+"\t".join(("qseqid sseqid evalue bitscore qstart qend "
+                                 "sstart send pident qcov scov").split(" ")), file=OUT)
             
             
         qn = 0
         for hit in hits:
             # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
+            # this is done mainly for blastx hits, for which we want to register the ORF-relative coordinates in the seeds
+            # but use the contig-relative coordinates for the GFF
             if change_seeds_coords == True:
                 orig_hit = hit
                 hit = change_seed_coords(orig_hit)
