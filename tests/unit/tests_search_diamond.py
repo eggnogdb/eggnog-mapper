@@ -139,7 +139,7 @@ class Test(unittest.TestCase):
 
         # convert generator to list and
         # remove the boolean of --resume mode
-        parsed = [x[0] for x in parsed]
+        parsed = [x for x in parsed]
         
         expected = [['1000565.METUNv1_03812', '1000565.METUNv1_03812', 1.9e-207, 716.8],
                     ['362663.ECP_0061', '362663.ECP_0061', 0.0, 1636.3]]
