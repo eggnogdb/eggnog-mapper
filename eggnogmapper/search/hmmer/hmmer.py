@@ -181,7 +181,7 @@ class HmmerSearcher:
         
     ##
     def search(self, in_file, seed_orthologs_file, hmm_hits_file, gff_outfile):
-        # gff_outfile was added to accomplish with the Searcher.search interface
+        # gff_outfile was added to comply with the Searcher.search interface
         # but it is not currently used by the hmmer searcher
 
         hits = None

@@ -44,7 +44,8 @@ class Test(unittest.TestCase):
                          outfmt_short=True,
                          temp_dir="tests/unit/out/",
                          no_file_comments=None,
-                         resume=False)
+                         resume=False,
+                         decorate_gff_ID_field=None)
         
         fasta_file = "tests/fixtures/test_queries.fa"
         output_file = "tests/unit/out/test_run_diamond_blastp.seed_orthologs"
@@ -85,7 +86,8 @@ class Test(unittest.TestCase):
                          outfmt_short=True,
                          temp_dir="tests/unit/out/",
                          no_file_comments=None,
-                         resume=False)
+                         resume=False,
+                         decorate_gff_ID_field=None)
         
         fasta_file = "tests/fixtures/test_queries.fna"
         output_file = "tests/unit/out/test_run_diamond_blastx.seed_orthologs"
@@ -127,7 +129,8 @@ class Test(unittest.TestCase):
                          outfmt_short=True,
                          temp_dir="tests/unit/out/",
                          no_file_comments=None,
-                         resume=False)
+                         resume=False,
+                         decorate_gff_ID_field=None)
         
         searcher = DiamondSearcher(args)
         
