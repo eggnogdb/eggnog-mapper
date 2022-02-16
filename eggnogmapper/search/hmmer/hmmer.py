@@ -17,7 +17,7 @@ from ...emapperException import EmapperException
 
 from ...utils import colorify
 
-from ..hits_io import parse_hits
+from ..hits_io import parse_seeds
 
 from .hmmer_server import shutdown_server_by_pid, create_servers, check_servers
 from .hmmer_search import iter_hits, refine_hit
@@ -180,9 +180,7 @@ class HmmerSearcher:
         return
         
     ##
-    def search(self, in_file, seed_orthologs_file, hmm_hits_file, gff_outfile):
-        # gff_outfile was added to comply with the Searcher.search interface
-        # but it is not currently used by the hmmer searcher
+    def search(self, in_file, seed_orthologs_file, hmm_hits_file):
 
         hits = None
         
@@ -365,7 +363,7 @@ class HmmerSearcher:
         if self.resume == True:
             if pisfile(hits_file):
                 if pisfile(refine_file):
-                    hits_parser = parse_hits(refine_file)
+                    hits_parser = parse_seeds(refine_file)
                     for hit in hits_parser:
                         yield hit
                         last_resumed_query = hit[0]
