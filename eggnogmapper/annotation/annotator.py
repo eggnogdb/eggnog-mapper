@@ -142,8 +142,7 @@ class Annotator:
                 ##
                 # PFAM realign
                 # Note that this needs all the annotations at once,
-                # and therefore breaks the generators pipeline and
-                # it is incompatible with --resume
+                # and therefore breaks the generators pipeline
                 if (self.annot == True and
                     self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and
                     annots_generator is not None):
