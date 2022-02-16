@@ -559,11 +559,11 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with diamond
         '''
-        rm -r tmp_test; mkdir tmp_test;
-        emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search \
-            --data_dir tests/fixtures \
-            -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd \
-            -o test --output_dir tmp_test
+        # rm -r tmp_test; mkdir tmp_test;
+        # emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search \
+        #     --data_dir tests/fixtures \
+        #     -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd \
+        #     -o test --output_dir tmp_test
         
         ##
         # Setup test
