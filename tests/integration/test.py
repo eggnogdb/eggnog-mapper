@@ -8,7 +8,7 @@ import os, shutil
 from .common import run, check_gff, check_fasta, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs, check_pfam
 
 # General eggnog-mapper settings
-GENEPRED_GFF_SUFFIX = '.emapper.gff'
+GENEPRED_GFF_SUFFIX = '.emapper.genepred.gff'
 GENEPRED_FASTA_SUFFIX = '.emapper.genepred.fasta'
 HMM_HITS_SUFFIX = '.emapper.hits'
 SEED_ORTHOLOGS_SUFFIX = '.emapper.seed_orthologs'
@@ -489,6 +489,12 @@ class Test(unittest.TestCase):
         '''
         # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal --data_dir tests/fixtures
         # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
+
+        rm -r tmp; mkdir tmp;
+        emapper.py -i tests/fixtures/genepred_contig/contig.fna \
+            --itype metagenome --genepred prodigal --data_dir tests/fixtures \
+            -m diamond --sensmode sensitive --no_annot \
+            --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
         
         ##
         # Setup test
