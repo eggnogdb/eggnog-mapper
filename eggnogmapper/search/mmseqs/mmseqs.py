@@ -15,7 +15,7 @@ from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import output_seeds, change_seeds_coordinates, recover_seeds_coordinates
+from ..hits_io import output_seeds
 from ..diamond.diamond import hit_does_overlap, ALLOW_OVERLAPS_ALL
 
 def create_mmseqs_db(dbprefix, in_fasta):
@@ -154,22 +154,18 @@ class MMseqs2Searcher:
                 # parse_genepred (without coordinate change)
                 hits_generator = self._parse_genepred(hits_file)
 
+
             # 3) output seeds
             if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-                hits_generator = output_seeds(cmds, hits_generator,
-                                             seed_orthologs_file, self.resume,
-                                              self.no_file_comments, False)
-                
+                change_seeds_coords = False
             else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-
                 # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
-                hits_generator = change_seeds_coordinates(hits_generator)
+                change_seeds_coords = True
                 
-                hits_generator = output_seeds(cmds, hits_generator,
-                                             seed_orthologs_file, self.resume,
-                                              self.no_file_comments, False)
-                
-                hits_generator = recover_seeds_coordinates(hits_generator)                
+            hits_generator = output_seeds(cmds, hits_generator,
+                                          seed_orthologs_file, self.resume,
+                                          self.no_file_comments, self.outfmt_short,
+                                          change_seeds_coords)
 
         except Exception as e:
             raise e
