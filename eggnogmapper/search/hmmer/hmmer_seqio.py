@@ -12,8 +12,11 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
         sys.stderr.write(f"Parsing fasta file {source}...\n")
     if translate:
         from Bio.Seq import Seq
-        from Bio.Alphabet import generic_dna
-        
+        try:
+            from Bio.Alphabet import generic_dna
+        except ImportError:
+            generic_dna = None
+            
     from pathlib import Path
     
     if os.path.isfile(source) or Path(source).is_file():
@@ -38,7 +41,12 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
                 if translate:
                     full_seq = ''.join(seq_chunks)
                     trans_table = trans_table if trans_table is not None else 1
-                    prot = Seq(full_seq, generic_dna).translate(to_stop=True, table=trans_table)
+                    
+                    if generic_dna is not None:
+                        prot = Seq(full_seq, generic_dna).translate(to_stop=True, table=trans_table)
+                    else:
+                        prot = Seq(full_seq).translate(to_stop=True, table=trans_table)
+                        
                     if prot is None or prot == "":
                         print(f"No translation found for sequence {seq_name}", file=sys.stderr)
                     else:
@@ -60,7 +68,10 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
         if translate:
             full_seq = ''.join(seq_chunks)
             trans_table = trans_table if trans_table is not None else 1
-            prot = Seq(full_seq, generic_dna).translate(to_stop=True, table=trans_table)
+            if generic_dna is not None:
+                prot = Seq(full_seq, generic_dna).translate(to_stop=True, table=trans_table)
+            else:
+                prot = Seq(full_seq).translate(to_stop=True, table=trans_table)
             yield seq_name, str(prot)
         else:
             yield seq_name, ''.join(seq_chunks)
