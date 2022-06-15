@@ -267,29 +267,30 @@ def shutdown_server_by_pid(MASTER, WORKERS):
 
     import psutil
     
-    try:
-        # This is killing THIS python script also, and is UNIX dependent
-        # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
+    # This is killing THIS python script also, and is UNIX dependent
+    # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
 
-        for worker in WORKERS:
+    for worker in WORKERS:
+        try:
             parent = psutil.Process(worker.pid)
             for child in parent.children(recursive=True):  # or parent.children() for recursive=False
                 child.kill()
             parent.kill()
+        except Exception as e:
+            print("warning: could not kill hmmpgmd worker --> " + e.msg)
 
-    except (OSError, AttributeError):
-        print("warning: could not kill hmmpgmd worker")
-        pass
+        except (OSError, AttributeError):
+            print("warning: could not kill hmmpgmd worker")
+            pass
     
     try:
-
         parent = psutil.Process(MASTER.pid)
         for child in parent.children(recursive=True):  # or parent.children() for recursive=False
             child.kill()
         parent.kill()
                 
     except Exception as e:
-        print(e)
+        print("warning: could not kill hmmpgmd master --> " + e.msg)
     except (OSError, AttributeError):
         print("warning: could not kill hmmpgmd master")
         pass

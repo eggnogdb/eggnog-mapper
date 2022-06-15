@@ -144,6 +144,7 @@ class HmmerSearcher:
         if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             for dbpath, port, master_pid, workers_pids in self.servers:
                 shutdown_server_by_pid(master_pid, workers_pids)
+            self.servers = []
                 
                 
         return
@@ -176,6 +177,7 @@ class HmmerSearcher:
         if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             for dbpath, port, master_pid, workers_pids in self.servers:
                 shutdown_server_by_pid(master_pid, workers_pids)
+            self.servers = []
             
         return
         
@@ -222,6 +224,7 @@ class HmmerSearcher:
         if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             for dbpath, port, master_pid, workers_pids in self.servers:
                 shutdown_server_by_pid(master_pid, workers_pids)
+            self.servers = []
             
         return hits
     

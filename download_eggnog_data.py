@@ -139,7 +139,7 @@ def download_hmm_database(level, dbname, dbpath):
         'echo "hmmpress-ing HMMs... " && '
         f'{HMMPRESS} {dbname}.hmm && '
         'echo "generating idmap file... " && '
-        f'cat {dbname}.hmm | grep "^NAME" | sed -e "s/^NAME *//" | awk \'{{print NR"\t"$0}}\' > {dbname}.hmm.idmap && '
+        f'cat {dbname}.hmm | grep "^NAME" | sed -e "s/^NAME *//" | awk \'{{print NR" "$0}}\' > {dbname}.hmm.idmap && '
         'echo "removing single OG hmm files... " && '
         f'echo ./*hmm | xargs rm; '
     )
