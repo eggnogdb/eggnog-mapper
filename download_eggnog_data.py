@@ -3,8 +3,9 @@
 import os, sys
 import argparse
 
-from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_dmnd_db, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_base_dbpath
+from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_base_dbpath
 from eggnogmapper.common import pexists, set_data_path, get_data_path, existing_dir, HMMPRESS
+from eggnogmapper.search.search_modes import get_eggnog_dmnd_db, SEARCH_MODE_DIAMOND, SEARCH_MODE_NOVEL_FAMS
 from eggnogmapper.utils import ask, ask_name, colorify
 from eggnogmapper.version import __DB_VERSION__
 
@@ -14,6 +15,7 @@ if sys.version_info < (3,7):
 BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
 EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
 EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
+NOVEL_FAMS_BASE_URL = f'http://eggnogdb.embl.de/download/novel_fams'
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
@@ -63,6 +65,18 @@ def download_diamond_db(data_path):
         f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O eggnog_proteins.dmnd.gz {url} && '
         f'echo Decompressing... && '
         f'gunzip eggnog_proteins.dmnd.gz {gunzip_flag()}'
+    )
+    run(cmd)
+
+##
+# Novel fams diamond DBs
+def download_novel_fams_diamond_db(data_path):
+    url = NOVEL_FAMS_BASE_URL + '/novel_fams.dmnd.gz'
+    cmd = (
+        f'cd {data_path} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O novel_fams.dmnd.gz {url} && '
+        f'echo Decompressing... && '
+        f'gunzip novel_fams.dmnd.gz {gunzip_flag()}'
     )
     run(cmd)
 
@@ -178,6 +192,9 @@ if __name__ == "__main__":
     parser.add_argument('-D', action="store_true", dest='skip_diamond',
                         help='Do not install the diamond database')
 
+    parser.add_argument('-F', action="store_true", dest='novel_fams',
+                        help='Install the novel families diamond database, required for "emapper.py -m novel_fams"')
+
     parser.add_argument('-P', action="store_true", dest='pfam',
                         help='Install the Pfam database, required for de novo annotation or realignment')
 
@@ -249,7 +266,7 @@ if __name__ == "__main__":
     ##
     # Diamond DB
     
-    if not args.skip_diamond and (args.force or not pexists(get_eggnog_dmnd_db())):
+    if not args.skip_diamond and (args.force or not pexists(get_eggnog_dmnd_db(None, SEARCH_MODE_DIAMOND, data_path))):
         if args.allyes or ask("Download diamond database (~4GB after decompression)?") == 'y':
             print(colorify(f'Downloading fasta files " at {data_path}...', 'green'))
             download_diamond_db(data_path)
@@ -258,6 +275,18 @@ if __name__ == "__main__":
     else:
         if not args.quiet:
             print(colorify('Skipping diamond database (or already present). Use -f to force download', 'lblue'))
+
+            
+    ## Novel fams diamond DB
+    if args.novel_fams and (args.force or not pexists(get_eggnog_dmnd_db(None, SEARCH_MODE_NOVEL_FAMS, data_path))):
+        if args.allyes or ask("Download novel families diamond database (1.3GB after decompression)?") == 'y':
+            print(colorify(f'Downloading novel families files " at {data_path}...', 'green'))
+            download_novel_fams_diamond_db(data_path)
+        else:
+            print('Skipping')
+    else:
+        if not args.quiet:
+            print(colorify('Skipping novel families diamond database (or already present). Use -F and -f to force download', 'lblue'))
 
 
     ## PFAM

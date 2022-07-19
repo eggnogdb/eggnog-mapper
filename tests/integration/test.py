@@ -79,6 +79,71 @@ class Test(unittest.TestCase):
         
         return
 
+
+    def test_emapper_novel_fams(self):
+        '''
+        Test annotation using novel families (-m novel_fams) command
+        '''
+        # ./emapper.py -m novel_fams -i tests/fixtures/novel_fams/novel_fams_queries.fa --data_dir tests/fixtures/novel_fams
+        # --output_dir tmp -o test
+        # --dmnd_db tests/fixtures/novel_fams/novel_fams.dmnd
+
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/novel_fams/novel_fams_queries.fa"
+        data_dir = "tests/fixtures/novel_fams"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
+        obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
+        
+        exp_seed_orthologs = os.path.join(data_dir, 'test.emapper.seed_orthologs')
+        exp_annotations = os.path.join(data_dir, 'test.emapper.annotations')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = f'./emapper.py -m novel_fams -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix}'
+        cmd += f' --dmnd_db tests/fixtures/novel_fams/novel_fams.dmnd'
+
+        # print(f"\t{cmd}")
+
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+        
+        # Check alignment phase: detection of seed orthologs
+        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+        
+        # Check annotation phase
+        check_annotations(obs_annotations, exp_annotations)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+
+    
+
     def test_emapper_mmseqs(self):
         '''
         Tests the whole emapper (-m mmseqs) command

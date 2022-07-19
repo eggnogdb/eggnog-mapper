@@ -12,7 +12,6 @@ import errno
 from subprocess import Popen, PIPE, run, CalledProcessError
 
 from .utils import colorify
-from .emapperException import EmapperException
 
 try:
     from .version import __VERSION__
@@ -58,7 +57,6 @@ DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
 def get_eggnogdb_file(): return pjoin(DATA_PATH, "eggnog.db")
 def get_ncbitaxadb_file(): return pjoin(DATA_PATH, "eggnog.taxa.db")
-def get_eggnog_dmnd_db(): return pjoin(DATA_PATH, "eggnog_proteins.dmnd")
 def get_eggnog_mmseqs_dbpath(): return pjoin(DATA_PATH, "mmseqs")
 def get_eggnog_mmseqs_db(): return pjoin(DATA_PATH, "mmseqs", "mmseqs.db")
 def get_pfam_dbpath(): return pjoin(DATA_PATH, "pfam")
@@ -214,8 +212,7 @@ def get_db_present(level):
 
 def get_citation(addons=['hmmer']):
     EXAMPLE = """
-e.g. Functional annotation was performed using %s [1]
- based on eggNOG orthology data [2]. Sequence searches were performed using [3].
+e.g. Functional annotation was performed using eggNOG-mapper (version %s) [1]
 """%get_version()
     
     CITATION = """
@@ -227,34 +224,47 @@ If you use this software, please cite:
       prediction at the metagenomic scale. Carlos P. Cantalapiedra, 
       Ana Hernandez-Plaza, Ivica Letunic, Peer Bork, Jaime Huerta-Cepas. 2021.
       Molecular Biology and Evolution, msab293, https://doi.org/10.1093/molbev/msab293
+"""
 
+    if 'novel_fams' in addons:
+        CITATION += """
+[2] Functional and evolutionary significance of unknown genes from uncultivated taxa. 
+        Álvaro Rodríguez del Río, Joaquín Giner-Lamia, Carlos P. Cantalapiedra, 
+        Jorge Botas, Ziqi Deng, Ana Hernández-Plaza, Lucas Paoli, Thomas S.B. Schmidt, 
+        Shinichi Sunagawa, Peer Bork, Luis Pedro Coelho, Jaime Huerta-Cepas. 
+        2022. bioRxiv 2022.01.26.477801. https://doi.org/10.1101/2022.01.26.477801
+"""
+        EXAMPLE += " based on novel families from [2]."
+    else:
+        CITATION += """
 [2] eggNOG 5.0: a hierarchical, functionally and phylogenetically annotated
       orthology resource based on 5090 organisms and 2502 viruses. Jaime
       Huerta-Cepas, Damian Szklarczyk, Davide Heller, Ana Hernandez-Plaza,
       Sofia K Forslund, Helen Cook, Daniel R Mende, Ivica Letunic, Thomas
       Rattei, Lars J Jensen, Christian von Mering and Peer Bork. Nucleic Acids
       Research, Volume 47, Issue D1, 8 January 2019, Pages D309-D314,
-      https://doi.org/10.1093/nar/gky1085 """
+      https://doi.org/10.1093/nar/gky1085 
+"""
+        EXAMPLE += " based on eggNOG orthology data [2]."
 
     if 'hmmer' in addons:
         CITATION += """
-
 [3] Accelerated Profile HMM Searches. 
        Eddy SR. 2011. PLoS Comput. Biol. 7:e1002195. 
 """
     elif 'diamond' in addons:
         CITATION += """
-
 [3] Sensitive protein alignments at tree-of-life scale using DIAMOND.
        Buchfink B, Reuter K, Drost HG. 2021.
        Nature Methods 18, 366–368 (2021). https://doi.org/10.1038/s41592-021-01101-x
 """
     elif 'mmseqs' in addons:
         CITATION += """
-
 [3] MMseqs2 enables sensitive protein sequence searching for the analysis of massive data sets.
        Steinegger M & Söding J. 2017. Nat. Biotech. 35, 1026–1028. https://doi.org/10.1038/nbt.3988
 """
+
+    EXAMPLE += " Sequence searches were performed using [3]."
 
     if 'prodigal' in addons:
         CITATION += """
