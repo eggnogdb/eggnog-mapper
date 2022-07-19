@@ -9,7 +9,7 @@ from sys import stderr as sys_stderr
 from tempfile import mkdtemp, mkstemp
 
 from ...emapperException import EmapperException
-from ...common import DIAMOND, get_eggnog_dmnd_db, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
+from ...common import DIAMOND, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
@@ -79,7 +79,7 @@ class DiamondSearcher:
     resume = None
 
     ##
-    def __init__(self, args):
+    def __init__(self, args, dmnd_db):
         
         self.itype = args.itype
         self.translate = args.translate
@@ -88,7 +88,7 @@ class DiamondSearcher:
         self.allow_overlaps = args.allow_overlaps
         self.overlap_tol = args.overlap_tol
 
-        self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
+        self.dmnd_db = dmnd_db
 
         self.cpu = args.cpu
 

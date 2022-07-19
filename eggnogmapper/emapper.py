@@ -8,14 +8,14 @@ from os.path import exists as pexists
 from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS
+from .common import silent_rm, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS, get_data_path
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
 from .genepred.util import create_prots_file
-from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE
+from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE, SEARCH_MODE_NOVEL_FAMS
 from .search.hits_io import parse_seeds
-from .annotation.annotators import get_annotator, get_cache_annotator
+from .annotation.annotators import get_annotator, get_annotator_novel_fams, get_cache_annotator
 from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE, create_blastx_hits_gff
 
 class Emapper:
@@ -153,7 +153,7 @@ class Emapper:
             args.itype = ITYPE_PROTS
 
         # search
-        searcher = get_searcher(args, self.mode)
+        searcher = get_searcher(args, self.mode, get_data_path())
         searcher_name = None
         hits = None
         if searcher is not None:
@@ -223,7 +223,10 @@ class Emapper:
                 else:
                     raise EmapperException("Could not find hits to annotate.")
 
-                annotator = get_annotator(args, self.annot, self.excel, self.report_orthologs)
+                if self.mode == SEARCH_MODE_NOVEL_FAMS:
+                    annotator = get_annotator_novel_fams(args, self.annot, self.excel, self.report_orthologs)
+                else:
+                    annotator = get_annotator(args, self.annot, self.excel, self.report_orthologs)
                 
                 if annot_in is not None and annotator is not None:
                     annotated_hits = annotator.annotate(annot_in, 

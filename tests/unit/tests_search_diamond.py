@@ -50,7 +50,7 @@ class Test(unittest.TestCase):
         fasta_file = "tests/fixtures/test_queries.fa"
         output_file = "tests/unit/out/test_run_diamond_blastp.seed_orthologs"
                 
-        searcher = DiamondSearcher(args)
+        searcher = DiamondSearcher(args, "tests/fixtures/eggnog_proteins.dmnd")
         cmd = searcher.run_diamond(fasta_file, output_file)[0]
         
         self.assertIsNotNone(cmd)
@@ -92,7 +92,7 @@ class Test(unittest.TestCase):
         fasta_file = "tests/fixtures/test_queries.fna"
         output_file = "tests/unit/out/test_run_diamond_blastx.seed_orthologs"
                 
-        searcher = DiamondSearcher(args)
+        searcher = DiamondSearcher(args, "tests/fixtures/eggnog_proteins.dmnd")
         
         cmd = searcher.run_diamond(fasta_file, output_file)[0]
         
@@ -132,7 +132,7 @@ class Test(unittest.TestCase):
                          resume=False,
                          decorate_gff_ID_field=None)
         
-        searcher = DiamondSearcher(args)
+        searcher = DiamondSearcher(args, "tests/fixtures/eggnog_proteins.dmnd")
         
         seed_orthologs_file = "tests/fixtures/test_diamond_blastp.out"
         parsed = searcher._parse_diamond(seed_orthologs_file)
