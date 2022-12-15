@@ -211,6 +211,12 @@ if __name__ == "__main__":
                             f'Available tax IDs can be found at {EGGNOG_DOWNLOADS_URL}.'
                         ))
     
+    parser.add_argument('--dbname', type=str, dest="dbname",
+                        help=(
+                            'Tax ID of eggNOG HMM database to download. '
+                            f'e.g. "-H -d 2 --dbname \'Bacteria\'" to download Bacteria (taxid 2) to a directory named Bacteria'
+                        ))
+
     parser.add_argument('-y', action="store_true", dest='allyes',
                         help='assume "yes" to all questions')
 
@@ -316,7 +322,12 @@ if __name__ == "__main__":
     if args.hmmer == True:
         if args.allyes or ask(f"Download HMMER database of tax ID {args.hmmer_dbs}?") == 'y':
             
-            dbname = args.hmmer_dbs if args.allyes == True else ask_name('Please, specify a non-empty name for the database (e.g. Bacteria)', args.hmmer_dbs)
+            if args.dbname:
+                dbname = args.dbname
+            elif args.allyes == True:
+                dbname = args.hmmer_dbs
+            else:
+                dbname = ask_name('Please, specify a non-empty name for the database (e.g. Bacteria)', args.hmmer_dbs)
 
             dbspath = get_hmmer_base_dbpath(dbname)
             if args.force or not pexists(dbspath):                    
