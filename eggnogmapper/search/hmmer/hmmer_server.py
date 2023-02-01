@@ -13,6 +13,7 @@ from ...utils import colorify
 
 from .hmmer_search_hmmpgmd import get_hits
 from .hmmer_search import DB_TYPE_SEQ, DB_TYPE_HMM, QUERY_TYPE_SEQ, QUERY_TYPE_HMM
+from .hmm_qtype_test_data import test_hmm
 
 CHILD_PROC = None
 MASTER = None
@@ -162,13 +163,11 @@ def server_functional(host, port, dbtype = DB_TYPE_HMM, qtype = QUERY_TYPE_SEQ):
             if qtype == QUERY_TYPE_SEQ:
                 get_hits("test", "TESTSEQ", host, port, dbtype, qtype=qtype)
             elif qtype == QUERY_TYPE_HMM:
+                get_hits("test", test_hmm, host, port, dbtype, qtype=qtype)
 
-                testhmm = ""
-                with open("tests/fixtures/hmmer_custom_dbs/bact.short.hmm", 'r') as hmmfile:
-                    for line in hmmfile:
-                        testhmm += line
-                        
-                get_hits("test", testhmm, host, port, dbtype, qtype=qtype)
+            else:
+                raise Exception(f"Unrecognized qtype: {qtype}")
+            
         except Exception as e:
             # import traceback
             # traceback.print_exc()
@@ -268,29 +267,30 @@ def shutdown_server_by_pid(MASTER, WORKERS):
 
     import psutil
     
-    try:
-        # This is killing THIS python script also, and is UNIX dependent
-        # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
+    # This is killing THIS python script also, and is UNIX dependent
+    # os.killpg(os.getpgid(WORKER.pid), signal.SIGTERM)
 
-        for worker in WORKERS:
+    for worker in WORKERS:
+        try:
             parent = psutil.Process(worker.pid)
             for child in parent.children(recursive=True):  # or parent.children() for recursive=False
                 child.kill()
             parent.kill()
+        except Exception as e:
+            print("warning: could not kill hmmpgmd worker --> " + e.msg)
 
-    except (OSError, AttributeError):
-        print("warning: could not kill hmmpgmd worker")
-        pass
+        except (OSError, AttributeError):
+            print("warning: could not kill hmmpgmd worker")
+            pass
     
     try:
-
         parent = psutil.Process(MASTER.pid)
         for child in parent.children(recursive=True):  # or parent.children() for recursive=False
             child.kill()
         parent.kill()
                 
     except Exception as e:
-        print(e)
+        print("warning: could not kill hmmpgmd master --> " + e.msg)
     except (OSError, AttributeError):
         print("warning: could not kill hmmpgmd master")
         pass

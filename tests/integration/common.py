@@ -27,7 +27,7 @@ def _load_commented_file(fn):
         for line in f:
             if line.startswith("#"): continue
             _rows.append(line)
-    return _rows    
+    return sorted(_rows)
 
 def load_hmm_hits(hmm_hits_fn):
     '''

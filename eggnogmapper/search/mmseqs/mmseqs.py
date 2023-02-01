@@ -15,7 +15,7 @@ from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import parse_hits, output_hits
+from ..hits_io import output_seeds
 from ..diamond.diamond import hit_does_overlap, ALLOW_OVERLAPS_ALL
 
 def create_mmseqs_db(dbprefix, in_fasta):
@@ -100,6 +100,8 @@ class MMseqs2Searcher:
         self.no_file_comments = args.no_file_comments
 
         self.resume = args.resume
+
+        self.gff_ID_field = args.decorate_gff_ID_field
         
         return
     
@@ -124,11 +126,11 @@ class MMseqs2Searcher:
         
         try:
             cmds = None
-            hits_parser = None
+
+            # 1) either resume from previous hits or run diamond to generate the hits
             if self.resume == True:
                 if pisfile(hits_file):
-                    if pisfile(seed_orthologs_file):
-                        hits_parser = parse_hits(seed_orthologs_file)
+                    pass
                 else:
                     raise EmapperException(f"Couldn't find hits file {hits_file} to resume.")
             else:
@@ -142,16 +144,34 @@ class MMseqs2Searcher:
                 alignmentsdb, cmds = self.run_mmseqs(in_file, querydb,
                                                      self.targetdb, resultdb, bestresultdb)
                 shutil.copyfile(f'{alignmentsdb}.m8', hits_file)
+
                 
-            hits_generator = self.parse_mmseqs(hits_file, hits_parser)
-            hits_generator = output_hits(cmds, hits_generator,
-                                         seed_orthologs_file, self.resume,
-                                         self.no_file_comments, False)
+            # 2) parse search hits to seeds orthologs
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                hits_generator = self._parse_mmseqs(hits_file)
+                
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+                # parse_genepred (without coordinate change)
+                hits_generator = self._parse_genepred(hits_file)
+
+
+            # 3) output seeds
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                change_seeds_coords = False
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+                # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
+                change_seeds_coords = True
+                
+            hits_generator = output_seeds(cmds, hits_generator,
+                                          seed_orthologs_file, 
+                                          self.no_file_comments, False,
+                                          change_seeds_coords)
 
         except Exception as e:
             raise e
             
         return hits_generator
+    
     
     def run_mmseqs(self, fasta_file, querydb, targetdb, resultdb, bestresultdb):
         cmds = []
@@ -253,30 +273,12 @@ class MMseqs2Searcher:
         except subprocess.CalledProcessError as cpe:
             raise EmapperException("Error running 'mmseqs convertalis': "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])        
         return cmd
-
     
     ##
-    def parse_mmseqs(self, raw_mmseqs_file, hits_parser):
-        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            return self._parse_mmseqs(raw_mmseqs_file, hits_parser)
-        else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-            return self._parse_genepred(raw_mmseqs_file, hits_parser)
-    
-    ##
-    def _parse_mmseqs(self, raw_mmseqs_file, hits_parser):
-
-        # previous hits from resume are yielded
-        last_resumed_query = None
-        if hits_parser is not None:
-            for hit in hits_parser:
-                yield (hit, True) # hit and skip (already exists)
-                last_resumed_query = hit[0]
-
-        # semaphore to start processing new hits
-        last_resumed_query_found = False if last_resumed_query is not None else True
+    def _parse_mmseqs(self, raw_mmseqs_file):
 
         prev_query = None
-        # parse non-resumed hits
+        # parse hits
         with open(raw_mmseqs_file, 'r') as raw_f:
             for line in raw_f:
                 if not line.strip() or line.startswith('#'):
@@ -286,16 +288,6 @@ class MMseqs2Searcher:
                 # check fields in convertalis_step()
         
                 query = fields[0]
-
-                if last_resumed_query is not None:
-                    if query == last_resumed_query:
-                        last_resumed_query_found = True
-                        continue
-                    else:
-                        if last_resumed_query_found == False:
-                            continue
-                        else:
-                            last_resumed_query = None # start parsing new queries
                             
                 # only one result per query
                 if prev_query is not None and query == prev_query:
@@ -325,21 +317,11 @@ class MMseqs2Searcher:
                 send = int(fields[7])
 
                 hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
-                yield (hit, False) # hit and dont skip (doesnt exist)
+                yield hit # hit
         return
 
     ##
-    def _parse_genepred(self, raw_mmseqs_file, hits_parser):
-        
-        # previous hits from resume are yielded
-        last_resumed_query = None
-        if hits_parser is not None:
-            for hit in hits_parser:
-                yield (hit, True) # hit and skip (already exists)
-                last_resumed_query = hit[0]
-
-        # semaphore to start processing new hits
-        last_resumed_query_found = False if last_resumed_query is not None else True
+    def _parse_genepred(self, raw_mmseqs_file):
         
         curr_query_hits = []
         prev_query = None
@@ -356,17 +338,6 @@ class MMseqs2Searcher:
                 #qstart,qend,tstart,tend,evalue,bits,qcov,tcov"'
 
                 query = fields[0]
-                
-                if last_resumed_query is not None:
-                    if query == last_resumed_query:
-                        last_resumed_query_found = True
-                        continue
-                    else:
-                        if last_resumed_query_found == False:
-                            continue
-                        else:
-                            last_resumed_query = None # start parsing new queries
-                
                 pident = float(fields[2])
                 evalue = float(fields[8])
                 score = float(fields[9])
@@ -381,7 +352,7 @@ class MMseqs2Searcher:
                     (self.subject_cov is not None and scov < self.subject_cov)):
                     continue
                 
-                query = fields[0]
+                # query = fields[0]
                 target = fields[1]
                 length = int(fields[3])
                 qstart = int(fields[4])
@@ -393,7 +364,7 @@ class MMseqs2Searcher:
 
                 if query == prev_query:
                     if self.allow_overlaps == ALLOW_OVERLAPS_ALL:
-                        yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                        yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                         
                     else:
                         if not hit_does_overlap(hit, curr_query_hits, self.allow_overlaps, self.overlap_tol):
@@ -404,7 +375,7 @@ class MMseqs2Searcher:
                                 suffix = 0
                                 queries_suffixes[query] = suffix
 
-                            yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                            yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                             curr_query_hits.append(hit)
                 else:
                     if query in queries_suffixes:
@@ -414,7 +385,7 @@ class MMseqs2Searcher:
                         suffix = 0
                         queries_suffixes[query] = suffix
                             
-                    yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                    yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                     curr_query_hits = [hit]
                     
                 prev_query = query    

@@ -1,0 +1,3 @@
+#qseqid	sseqid	evalue	bitscore	qstart	qend	sstart	send	pident	qcov	scov
+NOVSQ06D_GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	NOVSQ06D_GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	1.09e-76	213.0	1	147	1	147	100.0	100.0	100.0
+NOVSQ06D_GEM@3300017989_66@3300017989_66_00516@d__Bacteria|p__Omnitrophota	NOVSQ06D_GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	1.09e-76	213.0	1	147	1	147	100.0	100.0	100.0
