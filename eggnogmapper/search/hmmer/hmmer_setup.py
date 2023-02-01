@@ -171,6 +171,7 @@ def setup_remote_hmmdb(db, dbtype, qtype):
 
 ##
 def setup_remote_seqdb(db, dbtype, qtype):
+    
     if ":" in db:
         dbname, host, port = map(str.strip, db.split(":"))
         dbpath = host

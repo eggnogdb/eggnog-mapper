@@ -8,7 +8,8 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.emapperException import EmapperException
-from eggnogmapper.common import TIMEOUT_LOAD_SERVER
+from eggnogmapper.common import TIMEOUT_LOAD_SERVER, \
+    MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER
 from eggnogmapper.utils import colorify
 
 from eggnogmapper.search.hmmer.hmmer_server import load_worker
@@ -18,9 +19,13 @@ __description__ = ('A worker for HMMER3 in-memory searches')
 __author__ = 'Jaime Huerta Cepas'
 __license__ = "GPL v2"
 
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                      argparse.RawDescriptionHelpFormatter):
+    pass
+
 def create_arg_parser():
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=CustomFormatter)
 
     parser.add_argument('--version', action='store_true',
                         help="show version and exit.")
@@ -29,7 +34,11 @@ def create_arg_parser():
     pg_exec = parser.add_argument_group('Execution Options')
     
     pg_exec.add_argument('--cpu', type=int, default=2, metavar='NUM_CPU',
-                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs. Default: 2")
+                        help="Number of CPUs to be used. --cpu 0 to run with all available CPUs.")
+
+    pg_exec.add_argument('--mp_start_method', type=str, default=MP_START_METHOD_DEFAULT,
+                         choices = [MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER], 
+                         help="Sets the python multiprocessing start method. Check https://docs.python.org/3/library/multiprocessing.html. Only use if the default method is not working properly in your OS.")
 
     ##
     pg_master = parser.add_argument_group('HMM Master Server Options')
@@ -52,7 +61,7 @@ def parse_args(parser):
 
     if args.cpu == 0:
         args.cpu = multiprocessing.cpu_count()
-    multiprocessing.set_start_method("spawn")
+    multiprocessing.set_start_method(args.mp_start_method)
         
     return args
 
@@ -63,7 +72,8 @@ def get_citation():
     return __author__+" "+__license__+" : "+__description__
 
 if __name__ == "__main__":
-
+    __spec__ = None
+    
     parser = create_arg_parser()
     args = parse_args(parser)
 

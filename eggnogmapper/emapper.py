@@ -8,15 +8,15 @@ from os.path import exists as pexists
 from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS
+from .common import silent_rm, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS, get_data_path
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
 from .genepred.util import create_prots_file
-from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE
-from .search.hits_io import parse_hits
-from .annotation.annotators import get_annotator, get_cache_annotator
-from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE
+from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE, SEARCH_MODE_NOVEL_FAMS
+from .search.hits_io import parse_seeds
+from .annotation.annotators import get_annotator, get_annotator_novel_fams, get_cache_annotator
+from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE, create_blastx_hits_gff
 
 class Emapper:
 
@@ -32,7 +32,7 @@ class Emapper:
     override = resume = None
 
     ##
-    def __init__(self, itype, genepred, mode, annot, report_orthologs, decorate_gff,
+    def __init__(self, itype, genepred, mode, annot, excel, report_orthologs, decorate_gff,
                  prefix, output_dir, scratch_dir, resume, override):
 
         #
@@ -41,7 +41,7 @@ class Emapper:
         
         # Output and intermediate files
         self.genepred_fasta_file = f"{prefix}.emapper.genepred.fasta"
-        self.genepred_gff_file = f"{prefix}.emapper.gff"
+        self.genepred_gff_file = f"{prefix}.emapper.genepred.gff"
 
         self.search_out_file = f"{prefix}.emapper.hits"
         
@@ -50,11 +50,14 @@ class Emapper:
         self.no_annot_file = f"{prefix}.emapper.no_annotations.fasta"
         self.orthologs_file = f"{prefix}.emapper.orthologs"
         self.pfam_file = f"{prefix}.emapper.pfam"
+        self.excel_file = f"{prefix}.emapper.annotations.xlsx"
+        self.deco_gff_file = f"{prefix}.emapper.decorated.gff"
 
         self.genepred = genepred
         self.mode = mode
         
         self.annot = annot
+        self.excel = excel
         self.report_orthologs = report_orthologs
         self.decorate_gff = decorate_gff
         self.resume = resume
@@ -64,9 +67,10 @@ class Emapper:
         self.itype = itype
         if itype == ITYPE_GENOME or itype == ITYPE_META:
             self._output_files.append(self.genepred_fasta_file)
+            self._output_files.append(self.genepred_gff_file)            
             
-        if itype == ITYPE_GENOME or itype == ITYPE_META or self.decorate_gff != DECORATE_GFF_NONE:
-            self._output_files.append(self.genepred_gff_file)
+        if self.decorate_gff != DECORATE_GFF_NONE:
+            self._output_files.append(self.deco_gff_file)
 
         self.genepred_is_prodigal = ((itype == ITYPE_GENOME or itype == ITYPE_META) and
                                      genepred == GENEPRED_MODE_PRODIGAL)
@@ -84,6 +88,9 @@ class Emapper:
             self._output_files.extend([self.search_out_file, self.seed_orthologs_file,
                                        self.annot_file, self.pfam_file])
 
+        if annot == True and excel == True:
+            self._output_files.append(self.excel_file)
+            
         if report_orthologs == True:
             self._output_files.append(self.orthologs_file)
 
@@ -99,6 +106,7 @@ class Emapper:
         # Some files are not being resumed and will be ovewritten
         if resume == True:
             silent_rm(pjoin(self.output_dir, self.no_annot_file))
+            silent_rm(pjoin(self.output_dir, self.excel_file))
 
         # If using --scratch_dir, change working dir
         # (once finished move them again to output_dir)
@@ -145,18 +153,30 @@ class Emapper:
             args.itype = ITYPE_PROTS
 
         # search
-        searcher = get_searcher(args, self.mode)
+        searcher = get_searcher(args, self.mode, get_data_path())
         searcher_name = None
         hits = None
         if searcher is not None:
             searcher_name = searcher.name
-            hits = searcher.search(queries_file,
-                                   pjoin(self._current_dir, self.seed_orthologs_file),
-                                   pjoin(self._current_dir, self.search_out_file))
+            try:
+                hits = searcher.search(queries_file,
+                                       pjoin(self._current_dir, self.seed_orthologs_file),
+                                       pjoin(self._current_dir, self.search_out_file))
+            except Exception as e:
+                searcher.clear()
+                raise(e)
 
             # If gene prediction from the hits obtained in the search step
-            # create a fasta file with the inferred proteins
+            # create GFF and FASTA of predicted CDS/proteins
             if self.genepred_is_blastx == True:
+                
+                # create GFF of predicted CDS
+                print(colorify("Crafting GFF file of CDS ...", "lgreen"))
+                gff_outfile = pjoin(self._current_dir, self.genepred_gff_file)
+                hits = create_blastx_hits_gff(hits, gff_outfile, searcher_name, args.decorate_gff_ID_field)
+                
+                # create fasta file of predicted CDS
+                print(colorify("Crafting fasta file of CDS ...", "lgreen"))
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
                 silent_rm(fasta_file)
                 hits = create_prots_file(queries_file, hits, fasta_file, args.translate, args.trans_table)
@@ -195,7 +215,7 @@ class Emapper:
                                                f"table to annotate: {annotate_hits_table}")
                                                
                     # function which parses the file and yields hits
-                    annot_in = parse_hits(annotate_hits_table)
+                    annot_in = parse_seeds(annotate_hits_table)
                     
                 elif hits is not None:
                     annot_in = hits
@@ -203,11 +223,15 @@ class Emapper:
                 else:
                     raise EmapperException("Could not find hits to annotate.")
 
-                annotator = get_annotator(args, self.annot, self.report_orthologs)
+                if self.mode == SEARCH_MODE_NOVEL_FAMS:
+                    annotator = get_annotator_novel_fams(args, self.annot, self.excel, self.report_orthologs)
+                else:
+                    annotator = get_annotator(args, self.annot, self.excel, self.report_orthologs)
                 
                 if annot_in is not None and annotator is not None:
                     annotated_hits = annotator.annotate(annot_in, 
                                                         pjoin(self._current_dir, self.annot_file),
+                                                        pjoin(self._current_dir, self.excel_file),
                                                         pjoin(self._current_dir, self.orthologs_file),
                                                         pjoin(self._current_dir, self.pfam_file),
                                                         queries_file)
@@ -220,11 +244,19 @@ class Emapper:
     ##
     def decorate_gff_f(self, args, predictor, searcher_name, annotated_hits):
 
-        gff_outfile = pjoin(self._current_dir, self.genepred_gff_file)
+        gff_outfile = pjoin(self._current_dir, self.deco_gff_file)
+        if predictor is not None:
+            gff_genepred_file = predictor.outgff
+            gff_genepred_fasta = predictor.outprots
+        else:
+            gff_genepred_file = None
+            gff_genepred_fasta = None
         
-        annotated_hits = run_gff_decoration(self.decorate_gff, self.resume, args.decorate_gff_ID_field,
+        
+        annotated_hits = run_gff_decoration(self.decorate_gff, args.decorate_gff_ID_field,
                                             self.genepred_is_prodigal, self.genepred_is_blastx,
-                                            gff_outfile, predictor, searcher_name, annotated_hits)
+                                            gff_genepred_file, gff_genepred_fasta, gff_outfile,
+                                            predictor, searcher_name, annotated_hits)
         
         return annotated_hits
 
@@ -268,6 +300,7 @@ class Emapper:
         # Clear things
         if predictor is not None:
             shutil.move(predictor.outprots, pjoin(self._current_dir, self.genepred_fasta_file))
+            shutil.move(predictor.outgff, pjoin(self._current_dir, self.genepred_gff_file))
             predictor.clear() # removes gene predictor output directory
         if searcher is not None:
             searcher.clear()
@@ -286,9 +319,9 @@ class Emapper:
         ##
         # Finalize and exit
         print(colorify('Done', 'green'))
+        print(colorify('Result files:', 'yellow'))
         for fname in self._output_files:
-            pathname = pjoin(self.output_dir, fname)            
-            colorify('Result files:', 'yellow')
+            pathname = pjoin(self.output_dir, fname)
             if pexists(pathname):
                 print("   %s" % (pathname))
                 

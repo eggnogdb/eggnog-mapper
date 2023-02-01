@@ -45,10 +45,11 @@ class Annotator:
     resume = None
         
     ##
-    def __init__(self, args, annot, report_orthologs):
+    def __init__(self, args, annot, excel, report_orthologs):
 
         self.annot = annot
         self.report_orthologs = report_orthologs
+        self.excel = excel
 
         self.dbmem = args.dbmem
         
@@ -87,7 +88,7 @@ class Annotator:
 
     
     ##
-    def annotate(self, hits_gen_func, annot_file, orthologs_file, pfam_file, queries_file):
+    def annotate(self, hits_gen_func, annot_file, excel_file, orthologs_file, pfam_file, queries_file):
 
         annots_generator = None
         ncbi = None
@@ -141,8 +142,7 @@ class Annotator:
                 ##
                 # PFAM realign
                 # Note that this needs all the annotations at once,
-                # and therefore breaks the generators pipeline and
-                # it is incompatible with --resume
+                # and therefore breaks the generators pipeline
                 if (self.annot == True and
                     self.pfam_realign in [PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO] and
                     annots_generator is not None):
@@ -170,6 +170,15 @@ class Annotator:
                                                                  self.no_file_comments,
                                                                  md5_field,
                                                                  md5_queries)
+
+                    if self.excel == True:
+                        annots_generator = output.output_excel(annots_generator,
+                                                               excel_file,
+                                                               self.resume,
+                                                               self.no_file_comments,
+                                                               md5_field,
+                                                               md5_queries)
+                        
                     
                 if self.report_orthologs == True:
                     annots_generator = output.output_orthologs(annots_generator,
@@ -189,7 +198,7 @@ class Annotator:
 
 
     def _annotate(self, hits_gen_func, annots_parser):
-        print(colorify(f"Funcional annotation of hits...", "lgreen"), file=sys.stderr)
+        print(colorify(f"Functional annotation of hits...", "lgreen"), file=sys.stderr)
         if self.dbmem == True:
             annots_generator = self._annotate_dbmem(hits_gen_func, annots_parser)
         else:

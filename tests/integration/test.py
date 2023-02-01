@@ -8,7 +8,8 @@ import os, shutil
 from .common import run, check_gff, check_fasta, check_seed_orthologs, check_annotations, check_hmm_hits, check_orthologs, check_pfam
 
 # General eggnog-mapper settings
-GENEPRED_GFF_SUFFIX = '.emapper.gff'
+DECORATED_GFF_SUFFIX = '.emapper.decorated.gff'
+GENEPRED_GFF_SUFFIX = '.emapper.genepred.gff'
 GENEPRED_FASTA_SUFFIX = '.emapper.genepred.fasta'
 HMM_HITS_SUFFIX = '.emapper.hits'
 SEED_ORTHOLOGS_SUFFIX = '.emapper.seed_orthologs'
@@ -77,6 +78,71 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         
         return
+
+
+    def test_emapper_novel_fams(self):
+        '''
+        Test annotation using novel families (-m novel_fams) command
+        '''
+        # ./emapper.py -m novel_fams -i tests/fixtures/novel_fams/novel_fams_queries.fa --data_dir tests/fixtures/novel_fams
+        # --output_dir tmp -o test
+        # --dmnd_db tests/fixtures/novel_fams/novel_fams.dmnd
+
+        ##
+        # Setup test
+        
+        in_file = "tests/fixtures/novel_fams/novel_fams_queries.fa"
+        data_dir = "tests/fixtures/novel_fams"
+        outdir = "tests/integration/out"
+        outprefix = "test"
+
+        # Observed and expected files
+        obs_seed_orthologs = os.path.join(outdir, outprefix+SEED_ORTHOLOGS_SUFFIX)
+        obs_annotations = os.path.join(outdir, outprefix+ANNOTATIONS_SUFFIX)
+        
+        exp_seed_orthologs = os.path.join(data_dir, 'test.emapper.seed_orthologs')
+        exp_annotations = os.path.join(data_dir, 'test.emapper.annotations')
+
+        ##
+        # Run test
+        
+        # Remove (just in case) and recreate the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        os.mkdir(outdir)
+
+        cmd = f'./emapper.py -m novel_fams -i {in_file} --data_dir {data_dir} --output_dir {outdir} -o {outprefix}'
+        cmd += f' --dmnd_db tests/fixtures/novel_fams/novel_fams.dmnd'
+
+        # print(f"\t{cmd}")
+
+        st, out, err = run(cmd)
+        if st != 0:
+            # print(out)
+            # print(err)
+            print(out.decode("utf-8"))
+            print(err.decode("utf-8"))
+        assert st == 0 # check exit status is ok
+
+        ##
+        # Check test
+        
+        # Check alignment phase: detection of seed orthologs
+        check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
+        
+        # Check annotation phase
+        check_annotations(obs_annotations, exp_annotations)
+
+        ##
+        # Teardown test
+        
+        # Remove the output dir
+        if os.path.isdir(outdir):
+            shutil.rmtree(outdir)
+        
+        return
+
+    
 
     def test_emapper_mmseqs(self):
         '''
@@ -487,8 +553,11 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with prodigal
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred prodigal --data_dir tests/fixtures
-        # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
+        # rm -r tmp; mkdir tmp;
+        # emapper.py -i tests/fixtures/genepred_contig/contig.fna \
+        #     --itype metagenome --genepred prodigal --data_dir tests/fixtures \
+        #     -m diamond --sensmode sensitive --no_annot \
+        #     --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o test --output_dir tmp
         
         ##
         # Setup test
@@ -555,8 +624,11 @@ class Test(unittest.TestCase):
         '''
         Test gene prediction with diamond
         '''
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --data_dir tests/fixtures
-        # -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd -o out --output_dir tmp
+        # rm -r tmp_test; mkdir tmp_test;
+        # emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search \
+        #     --data_dir tests/fixtures \
+        #     -m diamond --sensmode sensitive --no_annot --dmnd_db tests/fixtures/genepred_contig/contig.dmnd \
+        #     -o test --output_dir tmp_test
         
         ##
         # Setup test
@@ -609,7 +681,6 @@ class Test(unittest.TestCase):
         
         # Check alignment phase: detection of seed orthologs
         check_seed_orthologs(obs_seed_orthologs, exp_seed_orthologs)
-
         ##
         # Teardown test
         
@@ -624,8 +695,11 @@ class Test(unittest.TestCase):
         Test gene prediction with mmseqs
         '''
 
-        # ./emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search --data_dir tests/fixtures
-        # -m mmseqs --no_annot --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db -o out --output_dir tmp
+        # rm -r tmp_test; mkdir tmp_test;
+        # emapper.py -i tests/fixtures/genepred_contig/contig.fna --itype metagenome --genepred search \
+        #     --data_dir tests/fixtures \
+        #     -m mmseqs --no_annot --mmseqs_db tests/fixtures/genepred_contig/contig.mmseqs/contig.0.hits.mmseqs.db \
+        #     -o test --output_dir tmp_test
         
         ##
         # Setup test
@@ -707,7 +781,7 @@ class Test(unittest.TestCase):
         outprefix = "test"
 
         # Observed and expected files
-        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+        obs_genepred_gff = os.path.join(outdir, outprefix+DECORATED_GFF_SUFFIX)
 
         exp_genepred_gff = os.path.join(data_dir, 'decorate_gff', 'blastx_annot', 'out.emapper.genepred.gff')
 
@@ -767,7 +841,7 @@ class Test(unittest.TestCase):
         outprefix = "test"
 
         # Observed and expected files
-        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+        obs_genepred_gff = os.path.join(outdir, outprefix+DECORATED_GFF_SUFFIX)
 
         exp_genepred_gff = os.path.join(data_dir, 'decorate_gff', 'decorate_file', 'out.emapper.genepred.gff')
 
@@ -825,7 +899,7 @@ class Test(unittest.TestCase):
         outprefix = "test"
 
         # Observed and expected files
-        obs_genepred_gff = os.path.join(outdir, outprefix+GENEPRED_GFF_SUFFIX)
+        obs_genepred_gff = os.path.join(outdir, outprefix+DECORATED_GFF_SUFFIX)
 
         exp_genepred_gff = os.path.join(data_dir, 'decorate_gff', 'decorate_file', 'out.emapper.short.genepred.gff')
 

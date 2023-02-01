@@ -9,14 +9,15 @@ from sys import stderr as sys_stderr
 from tempfile import mkdtemp, mkstemp
 
 from ...emapperException import EmapperException
-from ...common import DIAMOND, get_eggnog_dmnd_db, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
+from ...common import DIAMOND, ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META
 from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import parse_hits, output_hits
+from ..hits_io import output_seeds
 
 SENSMODE_FAST = "fast"
+SENSMODE_DEFAULT = "default"
 SENSMODE_MID_SENSITIVE = "mid-sensitive"
 SENSMODE_SENSITIVE = "sensitive"
 SENSMODE_MORE_SENSITIVE = "more-sensitive"
@@ -25,7 +26,19 @@ SENSMODE_ULTRA_SENSITIVE = "ultra-sensitive"
 # sens modes in diamond 0.9.24
 # SENSMODES = [SENSMODE_FAST, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE]
 # sens modes in diamond 2.0.4
-SENSMODES = [SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
+SENSMODES = [SENSMODE_DEFAULT, SENSMODE_FAST, SENSMODE_MID_SENSITIVE, SENSMODE_SENSITIVE, SENSMODE_MORE_SENSITIVE, SENSMODE_VERY_SENSITIVE, SENSMODE_ULTRA_SENSITIVE]
+
+# Diamond --iterate flag will be controlled with --dmnd_iterate, with next options
+DMND_ITERATE_YES = "yes"
+DMND_ITERATE_NO = "no"
+DMND_ITERATE_DEFAULT = DMND_ITERATE_YES
+
+# Diamond --algo option, which can be changed to increase performance when searching small query sets
+DMND_ALGO_AUTO = "auto"
+DMND_ALGO_0 = "0"
+DMND_ALGO_1 = "1"
+DMND_ALGO_CTG = "ctg"
+DMND_ALGO_DEFAULT = DMND_ALGO_AUTO
         
 def create_diamond_db(dbprefix, in_fasta):
     cmd = (
@@ -46,7 +59,7 @@ class DiamondSearcher:
     
     # Command
     cpu = tool = dmnd_db = temp_dir = no_file_comments = None
-    matrix = gapopen = gapextend = None
+    matrix = frameshift = gapopen = gapextend = None
     block_size = index_chunks = None
 
     # Filters
@@ -66,7 +79,7 @@ class DiamondSearcher:
     resume = None
 
     ##
-    def __init__(self, args):
+    def __init__(self, args, dmnd_db):
         
         self.itype = args.itype
         self.translate = args.translate
@@ -75,16 +88,20 @@ class DiamondSearcher:
         self.allow_overlaps = args.allow_overlaps
         self.overlap_tol = args.overlap_tol
 
-        self.dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db()
+        self.dmnd_db = dmnd_db
 
         self.cpu = args.cpu
 
         self.sensmode = args.sensmode
+        self.iterate = args.dmnd_iterate
+        self.ignore_warnings = args.dmnd_ignore_warnings
+        self.algo = args.dmnd_algo
         
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
 
         self.matrix = args.matrix
+        self.frameshift = args.dmnd_frameshift
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
         self.block_size = args.dmnd_block_size
@@ -101,6 +118,8 @@ class DiamondSearcher:
         self.no_file_comments = args.no_file_comments
 
         self.resume = args.resume
+
+        self.gff_ID_field = args.decorate_gff_ID_field
         
         return
 
@@ -125,20 +144,36 @@ class DiamondSearcher:
         
         try:
             cmds = None
-            hits_parser = None
+            
+            # 1) either resume from previous hits or run diamond to generate the hits
             if self.resume == True:
                 if pisfile(hits_file):
-                    if pisfile(seed_orthologs_file):
-                        hits_parser = parse_hits(seed_orthologs_file)
+                    pass
                 else:
                     raise EmapperException(f"Couldn't find hits file {hits_file} to resume.")
             else:
                 cmds = self.run_diamond(in_file, hits_file)
+
+            # 2) parse search hits to seeds orthologs
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                hits_generator = self._parse_diamond(hits_file)
                 
-            hits_generator = self.parse_diamond(hits_file, hits_parser)            
-            hits_generator = output_hits(cmds, hits_generator,
-                                         seed_orthologs_file, self.resume,
-                                         self.no_file_comments, self.outfmt_short)
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+                # parse_genepred (without coordinate change)
+                hits_generator = self._parse_genepred(hits_file)
+
+                
+            # 3) output seeds
+            if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
+                change_seeds_coords = False
+            else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+                # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
+                change_seeds_coords = True
+                
+            hits_generator = output_seeds(cmds, hits_generator,
+                                          seed_orthologs_file, 
+                                          self.no_file_comments, self.outfmt_short,
+                                          change_seeds_coords)
 
         except Exception as e:
             raise e
@@ -169,10 +204,19 @@ class DiamondSearcher:
         #prepare command
         cmd = (
             f'{DIAMOND} {tool} -d {self.dmnd_db} -q {query_file} '
-            f'--threads {self.cpu} -o {output_file} '
+            f'--threads {self.cpu} -o {output_file} --tmpdir {self.temp_dir}'
         )
         
-        if self.sensmode != SENSMODE_FAST: cmd += f' --{self.sensmode}'
+        if self.sensmode != SENSMODE_DEFAULT: cmd += f' --{self.sensmode}'
+
+        if self.iterate is not None and self.iterate == DMND_ITERATE_YES:
+            cmd += f' --iterate'
+
+        if self.ignore_warnings is not None and self.ignore_warnings == True:
+            cmd += f' --ignore-warnings'
+
+        if self.algo is not None and self.algo != DMND_ALGO_AUTO:
+            cmd += f' --algo {self.algo}'
 
         if self.evalue_thr is not None: cmd += f' -e {self.evalue_thr}'
         if self.score_thr is not None: cmd += f' --min-score {self.score_thr}'
@@ -182,6 +226,7 @@ class DiamondSearcher:
 
         if self.query_gencode: cmd += f' --query-gencode {self.query_gencode}'
         if self.matrix: cmd += f' --matrix {self.matrix}'
+        if self.frameshift is not None: cmd += f' --frameshift {self.frameshift}'
         if self.gapopen: cmd += f' --gapopen {self.gapopen}'
         if self.gapextend: cmd += f' --gapextend {self.gapextend}'
         if self.block_size: cmd += f' --block-size {self.block_size}'
@@ -223,30 +268,12 @@ class DiamondSearcher:
                 os.close(handle)
         
         return cmds
-
-
-    ##
-    def parse_diamond(self, raw_dmnd_file, hits_parser):
-        if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            return self._parse_diamond(raw_dmnd_file, hits_parser)
-        else: #self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
-            return self._parse_genepred(raw_dmnd_file, hits_parser)
         
     ##
-    def _parse_diamond(self, raw_dmnd_file, hits_parser):        
-
-        # previous hits from resume are yielded
-        last_resumed_query = None
-        if hits_parser is not None:
-            for hit in hits_parser:
-                yield (hit, True) # hit and skip (already exists)
-                last_resumed_query = hit[0]
-
-        # semaphore to start processing new hits
-        last_resumed_query_found = False if last_resumed_query is not None else True
+    def _parse_diamond(self, raw_dmnd_file):        
 
         prev_query = None
-        # parse non-resumed hits
+        # parse hits
         with open(raw_dmnd_file, 'r') as raw_f:
             for line in raw_f:
                 if not line.strip() or line.startswith('#'):
@@ -259,16 +286,6 @@ class DiamondSearcher:
                 # gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
                 
                 query = fields[0]
-                
-                if last_resumed_query is not None:
-                    if query == last_resumed_query:
-                        last_resumed_query_found = True
-                        continue
-                    else:
-                        if last_resumed_query_found == False:
-                            continue
-                        else:
-                            last_resumed_query = None # start parsing new queries
 
                 # only one result per query
                 if prev_query is not None and query == prev_query:
@@ -294,21 +311,11 @@ class DiamondSearcher:
                     scov = float(fields[13])
                     hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
-                yield (hit, False) # hit and dont skip (doesnt exist)
+                yield hit # hit
         return
 
     ##
-    def _parse_genepred(self, raw_dmnd_file, hits_parser):
-        
-        # previous hits from resume are yielded
-        last_resumed_query = None
-        if hits_parser is not None:
-            for hit in hits_parser:
-                yield (hit, True) # hit and skip (already exists)
-                last_resumed_query = hit[0]
-
-        # semaphore to start processing new hits
-        last_resumed_query_found = False if last_resumed_query is not None else True
+    def _parse_genepred(self, raw_dmnd_file):
         
         curr_query_hits = []
         prev_query = None
@@ -325,22 +332,10 @@ class DiamondSearcher:
                 # gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
                 
                 query = fields[0]
-
-                if last_resumed_query is not None:
-                    if query == last_resumed_query:
-                        last_resumed_query_found = True
-                        continue
-                    else:
-                        if last_resumed_query_found == False:
-                            continue
-                        else:
-                            last_resumed_query = None # start parsing new queries
-
                 target = fields[1]
                 pident = float(fields[2])
                 evalue = float(fields[10])
                 score = float(fields[11])
-                
                 qstart = int(fields[6])
                 qend = int(fields[7])
                 sstart = int(fields[8])
@@ -352,7 +347,7 @@ class DiamondSearcher:
 
                 if query == prev_query:
                     if self.allow_overlaps == ALLOW_OVERLAPS_ALL:
-                        yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                        yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                         
                     else:
                         if not hit_does_overlap(hit, curr_query_hits, self.allow_overlaps, self.overlap_tol):
@@ -363,7 +358,7 @@ class DiamondSearcher:
                                 suffix = 0
                                 queries_suffixes[query] = suffix
 
-                            yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+                            yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                             curr_query_hits.append(hit)
                         
                 else:
@@ -373,8 +368,8 @@ class DiamondSearcher:
                     else:
                         suffix = 0
                         queries_suffixes[query] = suffix
-                            
-                    yield ([f"{hit[0]}_{suffix}"]+hit[1:], False) # hit and doesnt exist
+
+                    yield [f"{hit[0]}_{suffix}"]+hit[1:] # hit
                     curr_query_hits = [hit]
                     
                 prev_query = query

@@ -7,7 +7,7 @@ from ..common import get_call_info
 
 ##
 # Generator of hits from filename
-def parse_hits(filename):
+def parse_seeds(filename):
     for line in open(filename, 'r'):
         if line.startswith('#') or not line.strip():
             continue
@@ -36,15 +36,10 @@ def parse_hits(filename):
 ##
 # Receives an iterable of hits to output
 # and also returns a generator object of hits
-def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
+def output_seeds(cmds, hits, out_file, no_file_comments, outfmt_short, change_seeds_coords = False):
     start_time = time.time()
-    
-    if resume == True:
-        file_mode = 'a'
-    else:
-        file_mode = 'w'
 
-    with open(out_file, file_mode) as OUT:
+    with open(out_file, 'w') as OUT:
 
         # comments
         if not no_file_comments:
@@ -53,26 +48,29 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
                 for cmd in cmds:
                     print('##'+cmd, file=OUT)
 
-        # header (only first time, not for further resume)
-        if file_mode == 'w':
-            if outfmt_short == True:
-                print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
-            else:
-                print('#'+"\t".join(("qseqid sseqid evalue bitscore qstart qend "
-                                     "sstart send pident qcov scov").split(" ")), file=OUT)
+        # header
+        if outfmt_short == True:
+            print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
+        else:
+            print('#'+"\t".join(("qseqid sseqid evalue bitscore qstart qend "
+                                 "sstart send pident qcov scov").split(" ")), file=OUT)
             
             
         qn = 0
-        # rows
-        # (hit, skip): hits are wrapped in a tuple with a boolean flag
-        # to be output or not
-        for hit, skip in hits:
-            # only print the hit if not already present and --resume
-            if skip == False:
-                print('\t'.join(map(str, hit)), file=OUT)
+        for hit in hits:
+            # change seeds coordinates relative to the ORF, not to the contig (to use them for the .seed_orthologs file)
+            # this is done mainly for blastx hits, for which we want to register the ORF-relative coordinates in the seeds
+            # but use the contig-relative coordinates for the GFF
+            if change_seeds_coords == True:
+                orig_hit = hit
+                hit = change_seed_coords(orig_hit)
+            else:
+                orig_hit = hit
 
-            # always yield the hit    
-            yield hit
+            print('\t'.join(map(str, hit)), file=OUT)
+
+            # always yield the hit
+            yield orig_hit
             qn += 1
             
         elapsed_time = time.time() - start_time
@@ -81,5 +79,15 @@ def output_hits(cmds, hits, out_file, resume, no_file_comments, outfmt_short):
             print('## Total time (seconds):', elapsed_time, file=OUT)
             print('## Rate:', "%0.2f q/s" % ((float(qn) / elapsed_time)), file=OUT)
     return
+
+def change_seed_coords(hit):
+    [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov] = hit
+    if qstart <= qend:
+        qend = qend - (qstart - 1)
+        qstart = 1
+    else:
+        qstart = qstart - (qend - 1)
+        qend = 1
+    return [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
 ## END

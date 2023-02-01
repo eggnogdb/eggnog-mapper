@@ -7,6 +7,7 @@ from argparse import Namespace
 from collections import defaultdict
 
 from ...common import get_pfam_db, get_call_info, ESL_REFORMAT
+from ...emapperException import EmapperException
 
 from ...search.hmmer.hmmer import HmmerSearcher
 from ...search.hmmer.hmmer_search import SCANTYPE_MEM, SCANTYPE_DISK, QUERY_TYPE_SEQ, DB_TYPE_HMM, DB_TYPE_SEQ, QUERY_TYPE_HMM
@@ -120,7 +121,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
         qtype = QUERY_TYPE_SEQ
         clean_overlaps = "clans"
 
-    # if query number between 100 and 15000, use hmmpgmd (hmmsearch)
+    # if query number between 100 and 15000, use hmmpgmd (hmmscan)
     elif query_number >= 100 and query_number < 15000:
 
         # if not mapfile(fasta_file):
@@ -202,6 +203,9 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
                           Z = 40000000,
                           temp_dir = temp_dir,
                           excluded_taxa = None)
+
+    # debug
+    print(pfam_args)
     
     # return usemem, num_servers, num_workers, cpus_per_worker, scan_type, db, infile, dbtype, qtype    
     return pfam_args, infile
@@ -224,7 +228,7 @@ def create_fasta_hmmpgmd_db(fasta_file):
 
 
 
-def parse_pfam_file(pfam_file):
+def parse_hmmscan_file(pfam_file):
     pfams = defaultdict(set)
 
     with open(pfam_file, 'r') as pfamf:
@@ -251,24 +255,6 @@ def parse_hmmsearch_file(pfam_file):
 
     return pfams
 
-def parse_hmmscan_file(pfam_file):
-    pfams = {}
-
-    with open(pfam_file, 'r') as pfamf:
-        for line in pfamf:
-            if line.startswith("#"): continue
-            query, pfam, evalue, score, qlen, hmmfrom, hmmto, seqfrom, seqto, qcov = map(str.strip, line.split("\t"))
-                
-            if query in pfams:
-                pfams[query].add(pfam)
-            else:
-                pfams[query] = {pfam}
-
-            # if "CG50_08330" in query:
-            #     print(f"pfam.py:parse_hmm_scan_file: {pfams}")
-
-    return pfams
-
 ##
 class PfamAligner:
 
@@ -284,9 +270,26 @@ class PfamAligner:
 
         # hmmscan
         s = HmmerSearcher(self.args)
-        s.search_hmm_matches(infile, pfam_file, silent)
-        s.clear()
+        try:
+            s.search_hmm_matches(infile, pfam_file, silent)
+        except Exception as e:
+            s.clear()
+            raise(e)
 
         return
+
+    ##
+    def parse_pfam_file(self, pfam_file):
+        
+        aligned_pfams = None
+        if self.args.qtype == QUERY_TYPE_SEQ:
+            aligned_pfams = parse_hmmscan_file(pfam_file)
+        elif self.args.qtype == QUERY_TYPE_HMM:
+            aligned_pfams = parse_hmmsearch_file(pfam_file)
+        else:
+            raise EmapperException(f"Unrecognized query type {self.args.qtype} for pfam search.")
+        
+        return aligned_pfams
+                                
 
 ## END

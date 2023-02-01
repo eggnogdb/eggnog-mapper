@@ -1,3 +1,4 @@
+#query	orth_type	species	orthologs
 1000565.METUNv1_03812	one2one	Aromatoleum aromaticum EbN1(76114)	ebA4139
 1000565.METUNv1_03812	one2one	Azoarcus sp. BH72(62928)	azo0752
 1000565.METUNv1_03812	one2one	Azoarcus sp. KH32C(748247)	AZKH_0690
@@ -5,7 +6,7 @@
 1000565.METUNv1_03812	one2one	Dechloromonas agitata is5(1304883)	KI912532_gene1239
 1000565.METUNv1_03812	one2one	Dechloromonas aromatica RCB(159087)	Daro_3733
 1000565.METUNv1_03812	one2one	Dechlorosoma suillum PS(640081)	Dsui_1039
-1000565.METUNv1_03812	one2one	Methyloversatilis universalis FAM5(1000565)	METUNv1_03812
+1000565.METUNv1_03812	seed	Methyloversatilis universalis FAM5(1000565)	METUNv1_03812
 1000565.METUNv1_03812	one2one	Thauera linaloolentis 47Lol = DSM 12138(1123367)	C666_07595
 1000565.METUNv1_03812	one2one	Thauera sp. 27(305700)	B447_07764
 1000565.METUNv1_03812	one2one	Thauera sp. 63(497321)	C664_16088
@@ -81,7 +82,7 @@
 362663.ECP_0061	one2one	Erwinia typographi(371042)	NG99_21800
 362663.ECP_0061	one2one	Escherichia albertii KF1(1440052)	EAKF1_ch1361
 362663.ECP_0061	one2one	Escherichia albertii TW07627(502347)	ESCAB7627_3201
-362663.ECP_0061	one2one	Escherichia coli 536(362663)	ECP_0061
+362663.ECP_0061	seed	Escherichia coli 536(362663)	ECP_0061
 362663.ECP_0061	one2one	Escherichia coli ATCC 8739(481805)	EcolC_3597
 362663.ECP_0061	one2one	Escherichia coli BL21(DE3)(469008)	B21_00061
 362663.ECP_0061	one2one	Escherichia coli CFT073(199310)	c0071
@@ -378,7 +379,6 @@
 362663.ECP_0061	one2one	marine gamma proteobacterium HTCC2148(247634)	GPB2148_2486
 362663.ECP_0061	one2many	Alteromonadales bacterium TW-7(156578)	ATW7_09016,ATW7_09021
 362663.ECP_0061	one2many	Endozoicomonas montiporae(1027273)	GZ77_06950,GZ77_06975
-362663.ECP_0061	one2many	Escherichia coli 536(362663)	ECP_0061
 362663.ECP_0061	one2many	Marinobacterium stanieri S30(1042375)	AFPL01000045_gene1053,AFPL01000051_gene192
 362663.ECP_0061	one2many	Photobacterium aphoticum(754436)	JCM19237_4567,JCM19237_4568,JCM19237_4569
 362663.ECP_0061	one2many	Plautia stali symbiont(891974)	E05_44490,E05_44500,E05_44510

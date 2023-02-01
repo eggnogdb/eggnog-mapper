@@ -8,6 +8,8 @@ from collections import Counter, defaultdict
 
 def summarize_annotations(seq_names, annotations_fields, target_go_ev, excluded_go_ev, eggnog_db):
 
+    MIN_COUNT_PFAMS = 1
+    MIN_RATE_PFAMS = 0.05
     annotations = defaultdict(Counter)
     
     # for fields in db_sqlite.get_annotations(','.join(['"%s"' % n for n in seq_names])):
@@ -41,6 +43,11 @@ def summarize_annotations(seq_names, annotations_fields, target_go_ev, excluded_
             annotations['Preferred_name'] = [name_candidate]
         else:
             annotations['Preferred_name'] = ['']
+
+    if "PFAMs" in annotations:
+        total_c = len(seq_names)
+        annotations["PFAMs"] = Counter({k: c for k, c in annotations["PFAMs"].items()
+                                        if c > MIN_COUNT_PFAMS and c / total_c > MIN_RATE_PFAMS})
 
     return annotations
 

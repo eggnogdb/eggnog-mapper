@@ -2,7 +2,7 @@
 ## CPCantalapiedra 2021
 
 import os, sys, shutil
-from argparse import ArgumentParser
+import argparse
 
 from eggnogmapper.common import set_data_path, get_data_path, pexists, pjoin, existing_dir
 from eggnogmapper.utils import ask, ask_name, colorify
@@ -17,6 +17,10 @@ def get_eggnog_proteins_file(): return pjoin(get_data_path(), "e5.proteomes.faa"
 def get_eggnog_taxid_info_file(): return pjoin(get_data_path(), "e5.taxid_info.tsv")
 
 BASE_URL = f'http://eggnog5.embl.de/download/eggnog_5.0'
+
+class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
+                      argparse.RawDescriptionHelpFormatter):
+    pass
 
 def run(cmd):
     print(colorify(cmd, 'cyan'))
@@ -110,15 +114,14 @@ def parse_proteins(out_file, proteins_file, taxa_set):
 ##
 # MAIN
 if __name__ == "__main__":
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=CustomFormatter)
 
     parser.add_argument('-m', dest='mode', 
                         choices = ['diamond', 'mmseqs'],
                         default='diamond',
                         help=(
                             'diamond: search seed orthologs using diamond (-i is required). '
-                            'mmseqs: search seed orthologs using MMseqs2 (-i is required). '
-                            'Default:diamond'
+                            'mmseqs: search seed orthologs using MMseqs2 (-i is required).'
                         ))
 
     parser.add_argument('-x', action="store_true", dest='skip_mmseqs_index',
