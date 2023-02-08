@@ -195,10 +195,12 @@ def __start_master_subprocess(client_port, worker_port, dbtype, dbpath, silent, 
     else:
         OUT = output
         
-    cmd = HMMPGMD + f' --master --cport {client_port} --wport {worker_port} --{dbtype} {dbpath}'
+    cmd = HMMPGMD + f' --master --cport {client_port} --wport {worker_port} --{dbtype} '
+    cmd_split = cmd.split()
+    cmd_split.append(f'{dbpath}')
     if silent == False:
-        print(colorify(f"Loading master: {cmd}", 'orange'))
-    CHILD_PROC = subprocess.Popen(cmd.split(), shell=False, stderr=OUT, stdout=OUT)
+        print(colorify(f"Loading master: {' '.join(cmd_split)}", 'orange'))
+    CHILD_PROC = subprocess.Popen(cmd_split, shell=False, stderr=OUT, stdout=OUT)
     while 1:
         time.sleep(60)
     return
