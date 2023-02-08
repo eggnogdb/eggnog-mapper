@@ -20,7 +20,7 @@ from ..diamond.diamond import hit_does_overlap, ALLOW_OVERLAPS_ALL
 
 def create_mmseqs_db(dbprefix, in_fasta):
     cmd = (
-        f'{MMSEQS2} createdb {in_fasta} {dbprefix}'
+        f'{MMSEQS2} createdb \'{in_fasta}\' \'{dbprefix}\''
     )
 
     print(colorify('  '+cmd, 'yellow'))
@@ -33,7 +33,7 @@ def create_mmseqs_db(dbprefix, in_fasta):
 
 def create_mmseqs_index(dbprefix, tmp_dir):
     cmd = (
-        f'{MMSEQS2} createindex {dbprefix} {tmp_dir}'
+        f'{MMSEQS2} createindex \'{dbprefix}\' \'{tmp_dir}\''
     )
 
     print(colorify('  '+cmd, 'yellow'))
@@ -207,7 +207,7 @@ class MMseqs2Searcher:
     def createdb(self, fasta_file, querydb):
         # mmseqs createdb examples/QUERY.fasta queryDB
         cmd = (
-            f'{MMSEQS2} createdb {fasta_file} {querydb}'
+            f'{MMSEQS2} createdb \'{fasta_file}\' \'{querydb}\''
         )
         if self.itype == ITYPE_PROTS or (self.itype == ITYPE_CDS and self.translate == True):
             cmd += ' --dbtype 1' # aas queries (proteins)
@@ -224,7 +224,7 @@ class MMseqs2Searcher:
     def search_step(self, querydb, targetdb, resultdb):
         # mmseqs search queryDB targetDB resultDB tmp
         cmd = (
-            f'{MMSEQS2} search -a true {querydb} {targetdb} {resultdb} {self.temp_dir} '
+            f'{MMSEQS2} search -a true \'{querydb}\' \'{targetdb}\' \'{resultdb}\' \'{self.temp_dir}\' '
             f'--start-sens {self.start_sens} --sens-steps {self.sens_steps} -s {self.final_sens} '
             f'--threads {self.cpu}'
         )
@@ -243,7 +243,7 @@ class MMseqs2Searcher:
     def filterdb_step(self, resultdb, bestresultdb):
         # mmseqs filterdb resultDB bestResultDB --extract-lines 1
         cmd = (
-            f'{MMSEQS2} filterdb {resultdb} {bestresultdb} --threads {self.cpu}'
+            f'{MMSEQS2} filterdb \'{resultdb}\' \'{bestresultdb}\' --threads {self.cpu}'
         )
         cmd += " --extract-lines 1 "
         
@@ -259,7 +259,7 @@ class MMseqs2Searcher:
     def convertalis_step(self, querydb, targetdb, resultdb):
         # mmseqs convertalis queryDB targetDB resultDB resultDB.m8
         cmd = (
-            f'{MMSEQS2} convertalis {querydb} {targetdb} {resultdb} {resultdb}.m8 --threads {self.cpu}'
+            f'{MMSEQS2} convertalis \'{querydb}\' \'{targetdb}\' \'{resultdb}\' \'{resultdb}.m8\' --threads {self.cpu}'
         )
         if self.sub_mat is not None: cmd += f' --sub-mat {self.sub_mat}'
             
