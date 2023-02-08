@@ -6,7 +6,7 @@ import subprocess
 from argparse import Namespace
 from collections import defaultdict
 
-from ...common import get_pfam_db, get_call_info, ESL_REFORMAT
+from ...common import get_pfam_db, get_call_info, ESL_REFORMAT, TIMEOUT_LOAD_SERVER
 from ...emapperException import EmapperException
 
 from ...search.hmmer.hmmer import HmmerSearcher
@@ -31,6 +31,7 @@ def get_hmmscan_args(cpu, fasta_file, hmm_file, resume, translate, trans_table, 
                           end_port = -1,
                           num_servers = -1,
                           num_workers = -1,
+                          timeout_load_server = TIMEOUT_LOAD_SERVER,
                           cpus_per_worker = -1,
                           scan_type = scan_type,
                           db = db,
@@ -73,6 +74,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, trans_table
                           end_port = -1,
                           num_servers = -1,
                           num_workers = -1,
+                          timeout_load_server = TIMEOUT_LOAD_SERVER,
                           cpus_per_worker = -1,
                           scan_type = scan_type,
                           db = db,
@@ -98,7 +100,7 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, trans_table
     return pfam_args, infile
     
 ##
-def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
+def get_pfam_args(cpu, num_servers, num_workers, timeout_load_server, cpus_per_worker, port, end_port,
                   fasta_file, resume, translate, trans_table, temp_dir, force_seqdb = False):
     
     query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
@@ -109,6 +111,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
     end_port = end_port
     num_servers = num_servers
     num_workers = num_workers
+    timeout_load_server = timeout_load_server
     cpus_per_worker = cpus_per_worker
     
     # If query number < 100, use hmmscan
@@ -182,6 +185,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
                           end_port = end_port,
                           num_servers = num_servers,
                           num_workers = num_workers,
+                          timeout_load_server = timeout_load_server,
                           cpus_per_worker = cpus_per_worker,
                           scan_type = scan_type,
                           db = db,
@@ -207,7 +211,7 @@ def get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port
     # debug
     print(pfam_args)
     
-    # return usemem, num_servers, num_workers, cpus_per_worker, scan_type, db, infile, dbtype, qtype    
+    # return usemem, num_servers, num_workers, timeout_load_server, cpus_per_worker, scan_type, db, infile, dbtype, qtype    
     return pfam_args, infile
 
 

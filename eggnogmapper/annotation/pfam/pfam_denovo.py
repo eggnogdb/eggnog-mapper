@@ -8,7 +8,7 @@ from .pfam import PfamAligner, get_pfam_args
 
 ##
 def pfam_align_denovo(queries_pfams, queries_fasta, resume, translate, trans_table,
-                      cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
+                      cpu, num_servers, num_workers, timeout_load_server, cpus_per_worker, port, end_port,
                       temp_dir, pfam_file):
     aligned_pfams = None
     
@@ -17,7 +17,7 @@ def pfam_align_denovo(queries_pfams, queries_fasta, resume, translate, trans_tab
     fasta_file = filter_fasta_file(queries, queries_fasta, temp_dir)
 
     # align those queries to whole PFAM to carry out a de novo annotation
-    pfam_args, infile = get_pfam_args(cpu, num_servers, num_workers, cpus_per_worker, port, end_port,
+    pfam_args, infile = get_pfam_args(cpu, num_servers, num_workers, timeout_load_server, cpus_per_worker, port, end_port,
                                       fasta_file.name, resume, translate, trans_table, temp_dir, force_seqdb = True)
 
     pfam_aligner = PfamAligner(pfam_args)

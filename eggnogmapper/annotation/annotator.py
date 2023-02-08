@@ -33,7 +33,7 @@ class Annotator:
     no_file_comments = cpu = None
 
     # options for pfam hmmpgmd searches
-    num_servers = num_workers = cpus_per_worker = port = end_port = None
+    num_servers = num_workers = timeout_load_server = cpus_per_worker = port = end_port = None
 
     seed_ortholog_score = seed_ortholog_evalue = None
     tax_scope_mode = tax_scope_ids = target_taxa = target_orthologs = excluded_taxa = None
@@ -57,6 +57,7 @@ class Annotator:
         self.cpu = args.cpu
         self.num_servers = args.num_servers
         self.num_workers = args.num_workers
+        self.timeout_load_server = args.timeout_load_server
         self.cpus_per_worker = args.cpus_per_worker
         self.port = args.port
         self.end_port = args.end_port
@@ -156,7 +157,8 @@ class Annotator:
                                                      queries_file, self.resume,
                                                      translate, self.trans_table,
                                                      self.cpu, self.num_servers,
-                                                     self.num_workers, self.cpus_per_worker,
+                                                     self.num_workers, self.timeout_load_server,
+                                                     self.cpus_per_worker,
                                                      self.port, self.end_port,
                                                      self.temp_dir, pfam_file)
                 
