@@ -23,7 +23,7 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
         if source.endswith('.gz'):
             _source = gzip.open(source, "rt")
         else:
-            _source = open(source, "rU")
+            _source = open(source, "r")
     else:
         _source = iter(source.split("\n"))
 
