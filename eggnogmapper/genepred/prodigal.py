@@ -83,7 +83,7 @@ class ProdigalPredictor:
 
     def run_training(self, in_file, training_file):
         cmd = (
-            f'{PRODIGAL} -i {in_file} -t {training_file}'
+            f'{PRODIGAL} -i \'{in_file}\' -t \'{training_file}\''
         )
 
         if self.trans_table is not None:
@@ -103,10 +103,10 @@ class ProdigalPredictor:
         self.outcds = pjoin(outdir, "output.fna")
         self.outorfs = pjoin(outdir, "output.orfs")
         cmd = (
-            f'{PRODIGAL} -i {in_file} -p {self.pmode} '
-            f'-o {self.outgff} -f gff '
-            f'-a {self.outprots} -d {self.outcds} '
-            f'-s {self.outorfs}'
+            f'{PRODIGAL} -i \'{in_file}\' -p {self.pmode} '
+            f'-o \'{self.outgff}\' -f gff '
+            f'-a \'{self.outprots}\' -d \'{self.outcds}\' '
+            f'-s \'{self.outorfs}\''
         )
 
         if self.trans_table is not None:
@@ -119,7 +119,7 @@ class ProdigalPredictor:
             if self.pmode == self.PMODE_META:
                 print(colorify(f'Warning: Ignoring --training_file, because Prodigal does not allow training for -p {self.PMODE_META} ', 'red'))                
             else:
-                cmd += f' -t {self.training_file}'
+                cmd += f' -t \'{self.training_file}\''
 
         print(colorify('  '+cmd, 'yellow'))
         try:
