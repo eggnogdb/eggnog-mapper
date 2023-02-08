@@ -42,7 +42,7 @@ DMND_ALGO_DEFAULT = DMND_ALGO_AUTO
         
 def create_diamond_db(dbprefix, in_fasta):
     cmd = (
-        f'{DIAMOND} makedb --in {in_fasta} --db {dbprefix}'
+        f'{DIAMOND} makedb --in \'{in_fasta}\' --db \'{dbprefix}\''
     )
 
     print(colorify('  '+cmd, 'yellow'))
@@ -203,8 +203,8 @@ class DiamondSearcher:
         ##
         #prepare command
         cmd = (
-            f'{DIAMOND} {tool} -d {self.dmnd_db} -q \'{query_file}\' '
-            f'--threads {self.cpu} -o {output_file} --tmpdir {self.temp_dir}'
+            f'{DIAMOND} {tool} -d \'{self.dmnd_db}\' -q \'{query_file}\' '
+            f'--threads {self.cpu} -o \'{output_file}\' --tmpdir \'{self.temp_dir}\''
         )
         
         if self.sensmode != SENSMODE_DEFAULT: cmd += f' --{self.sensmode}'
