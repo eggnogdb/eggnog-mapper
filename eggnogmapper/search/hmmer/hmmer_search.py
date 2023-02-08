@@ -195,7 +195,7 @@ def hmmcommand(hmmer_cmd, fasta_file, translate, hmm_file, cpus=1, evalue_thr=No
     else:
         cut_ga_p = ""
         
-    cmd = '%s %s --cpu %s -o /dev/null --domtblout %s %s %s' % (
+    cmd = '%s %s --cpu %s -o /dev/null --domtblout \'%s\' \'%s\' \'%s\'' % (
         hmmer_cmd, cut_ga_p, cpus, OUT.name, hmm_file, fasta_file)
     if silent == False:
         print(f'# {cmd}')
@@ -336,7 +336,7 @@ def get_best_hit(target_seq, target_og, excluded_taxa, tempdir):
         raise ValueError('phmmer not found in path')
 
     tempout = pjoin(tempdir, uuid.uuid4().hex)
-    cmd = "%s --cpu 1 --incE 0.001 -E 0.001 -o /dev/null --noali --tblout %s %s %s" %\
+    cmd = "%s --cpu 1 --incE 0.001 -E 0.001 -o /dev/null --noali --tblout \'%s\' \'%s\' \'%s\'" %\
           (PHMMER, tempout, target_seq, target_og)
 
     # print cmd

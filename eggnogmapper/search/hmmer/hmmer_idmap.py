@@ -10,9 +10,9 @@ from ...utils import colorify
 def generate_idmap(dbpath):
     if dbpath.endswith(".h3f"):
         dbpath = dbpath.replace(".h3f", "")
-    cmd = """%s %s | grep -v '#' | sed '/^$/d' | awk '{print $1" "$2}' > %s""" %(HMMSTAT, dbpath, dbpath+'.idmap')
+    cmd = """%s \'%s\' | grep -v '#' | sed '/^$/d' | awk '{print $1" "$2}' > \'%s\'""" %(HMMSTAT, dbpath, dbpath+'.idmap')
     print(colorify(cmd, "cyan"))
-    print(('Generating idmap in '+dbpath+'.idmap'))
+    print(('Generating idmap in \''+dbpath+'.idmap\''))
     return os.system(cmd) == 0
 
 ##

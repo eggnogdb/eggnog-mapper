@@ -7,7 +7,7 @@ import time
 from os.path import exists as pexists
 from os.path import join as pjoin
 
-from ...common import get_db_info, get_data_path, get_hmmer_databases, get_hmmer_dbpath
+from ...common import get_db_info, get_hmmer_databases, get_hmmer_dbpath
 from ...utils import colorify
 from ...emapperException import EmapperException
 
