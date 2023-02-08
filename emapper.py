@@ -47,7 +47,8 @@ from eggnogmapper.common import existing_file, existing_dir, get_data_path, set_
     get_eggnogdb_file, get_eggnog_mmseqs_db, \
     get_version, get_full_version_info, get_citation, get_call_info, \
     ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META, \
-    MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER
+    MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER, \
+    TIMEOUT_LOAD_SERVER
 
 
 __description__ = ('A program for bulk functional annotation of novel '
@@ -337,6 +338,9 @@ def create_arg_parser():
                                 "By default, cpus specified with --cpu will be "
                                 "distributed among servers and workers. "
                                 "Also used for --pfam_realign modes."))
+
+    pg_hmmer.add_argument('--timeout_load_server', dest='timeout_load_server', type=int, default=TIMEOUT_LOAD_SERVER, metavar="TIMEOUT_LOAD_SERVER",
+                          help="Number of attempts to load a server on a specific port. If failed, the next numerical port will be tried.")
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                           help="Max number of hits to report (0 to report all).")

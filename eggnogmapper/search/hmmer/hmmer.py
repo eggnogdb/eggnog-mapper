@@ -79,6 +79,7 @@ class HmmerSearcher:
         self.num_servers = args.num_servers
         self.num_workers = args.num_workers
         self.cpus_per_worker = args.cpus_per_worker
+        self.timeout_load_server = args.timeout_load_server
         
         if self.usemem or ":" in args.db or args.servers_list is not None:
             self.scantype = SCANTYPE_MEM
@@ -159,6 +160,7 @@ class HmmerSearcher:
         if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             dbpath, host, port, self.servers = create_servers(self.dbtype, dbpath, host, port, end_port,
                                                               self.num_servers, self.num_workers, self.cpus_per_worker,
+                                                              self.timeout_load_server,
                                                               silent)
             
         elif self.setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
@@ -196,7 +198,8 @@ class HmmerSearcher:
         
         if (self.setup_type == SETUP_TYPE_EGGNOG or self.setup_type == SETUP_TYPE_CUSTOM) and self.scantype == SCANTYPE_MEM:
             dbpath, host, port, self.servers = create_servers(self.dbtype, dbpath, host, port, end_port,
-                                                              self.num_servers, self.num_workers, self.cpus_per_worker)
+                                                              self.num_servers, self.num_workers, self.cpus_per_worker,
+                                                              self.timeout_load_server)
 
         elif self.setup_type == SETUP_TYPE_REMOTE and self.scantype == SCANTYPE_MEM:
             dbpath, host, port, self.servers = check_servers(self.dbtype, self.qtype, dbpath, host, port, self.servers_list)

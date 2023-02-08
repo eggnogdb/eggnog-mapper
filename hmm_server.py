@@ -72,6 +72,9 @@ def create_arg_parser():
 
     pg_server.add_argument('-o', '--output_servers_list', dest="output_servers_list", type=str, default=None, metavar="FILE",
                            help='Output the list of running servers to FILE.')
+
+    pg_server.add_argument('--timeout_load_server', dest='timeout_load_server', type=int, default=TIMEOUT_LOAD_SERVER, metavar="TIMEOUT_LOAD_SERVER",
+                           help="Number of attempts to load a server on a specific port. If failed, the next numerical port will be tried.")
         
     return parser
 
@@ -136,7 +139,8 @@ if __name__ == "__main__":
         wport = args.wport
 
         dbpath, host, port, servers = create_servers(args.dbtype, dbpath, host, port, end_port,
-                                                     args.num_servers, args.num_workers, args.cpus_per_worker)
+                                                     args.num_servers, args.num_workers, args.cpus_per_worker,
+                                                     args.timeout_load_server)
 
         print(colorify("All servers ready and listening", 'green'))
         if args.output_servers_list is not None:

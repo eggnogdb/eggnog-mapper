@@ -8,7 +8,8 @@ SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
 sys.path.insert(0, SCRIPT_PATH)
 
 from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexists, \
-    MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER
+    MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER, \
+    TIMEOUT_LOAD_SERVER
 
 from eggnogmapper.utils import colorify
 
@@ -95,6 +96,9 @@ def create_arg_parser():
     pg_hmmer.add_argument('--num_workers', dest='num_workers', type=int, default=1, metavar="NUM_WORKERS",
                           help="When using --usemem, specify the number of workers per server (--num_servers) to fire up."
                           " By default, cpus specified with --cpu will be distributed among servers and workers.")
+
+    pg_hmmer.add_argument('--timeout_load_server', dest='timeout_load_server', type=int, default=TIMEOUT_LOAD_SERVER, metavar="TIMEOUT_LOAD_SERVER",
+                           help="Number of attempts to load a server on a specific port. If failed, the next numerical port will be tried.")
 
     pg_hmmer.add_argument('--hmm_maxhits', dest='maxhits', type=int, default=1, metavar='MAXHITS',
                         help="Max number of hits to report (0 to report all).")

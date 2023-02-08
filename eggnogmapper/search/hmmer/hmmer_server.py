@@ -52,7 +52,7 @@ def check_servers(dbtype, qtype, dbpath, host, port, servers_list):
 
 
 ##
-def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker, silent = False):
+def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_workers, cpus_per_worker, timeout_load_server, silent = False):
     if silent == False:
         print(f"create_servers: {dbtype}:{dbpath}:{host}:{port}-{end_port}")
     servers = []
@@ -70,7 +70,7 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
         if silent == False:
             print(f"Creating server number {num_server+1}/{num_servers}")
         try:
-            sdbpath, shost, sport, master_pid, workers_pids = start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype, silent = silent)
+            sdbpath, shost, sport, master_pid, workers_pids = start_server(dbpath, host, sport, end_port, cpus_per_worker, num_workers, dbtype, timeout_load_server, silent = silent)
             servers.append((sdbpath, sport, master_pid, workers_pids))
             fails = 0
         except Exception as e:
@@ -96,7 +96,7 @@ def create_servers(dbtype, dbpath, host, port, end_port, num_servers, num_worker
 
 
 ##
-def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, qtype = QUERY_TYPE_SEQ, silent = False):
+def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbtype, timeout_load_server, qtype = QUERY_TYPE_SEQ, silent = False):
     master_db = worker_db = workers = None
     MAX_PORTS_TO_TRY = 3
     ports_tried = 0
@@ -113,7 +113,7 @@ def start_server(dbpath, host, port, end_port, cpus_per_worker, num_workers, dbt
         # ready = False
         if silent == False:
             print(f"Waiting for server to become ready at {host}:{port} ...")
-        for attempt in range(TIMEOUT_LOAD_SERVER):
+        for attempt in range(timeout_load_server):
             time.sleep(attempt+1)
             if not master_db.is_alive() or not any([worker_db.is_alive() for worker_db in workers]):
                 master_db.terminate()
