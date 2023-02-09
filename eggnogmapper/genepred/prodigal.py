@@ -8,7 +8,7 @@ from os.path import isdir as pisdir
 import shutil
 import subprocess
 from sys import stderr as sys_stderr
-from tempfile import mkdtemp
+from tempfile import mkdtemp, NamedTemporaryFile
 
 from ..emapperException import EmapperException
 from ..common import PRODIGAL, ITYPE_GENOME, ITYPE_META
@@ -102,16 +102,16 @@ class ProdigalPredictor:
 
     #
     def run_prodigal(self, in_file, outdir):
-
-        print(colorify(in_file, 'red'))
         
         if in_file.endswith(".gz"):
-            decomp_fn = pjoin(self.outdir, in_file+'.decomp')
+            # decomp_fn = pjoin(self.outdir, in_file+'.decomp')
             with gzip.open(in_file, 'rb') as f_in:
-                with open(decomp_fn, 'wb') as f_out:
+                # with open(decomp_fn, 'wb') as f_out:
+                with NamedTemporaryFile() as f_out:
                     shutil.copyfileobj(f_in, f_out)
 
-            in_file = decomp_fn
+            # in_file = decomp_fn
+            in_file = f_out.name
         
         
         self.outgff = pjoin(outdir, "output.gff")
