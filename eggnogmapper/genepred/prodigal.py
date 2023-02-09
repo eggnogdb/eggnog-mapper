@@ -81,13 +81,7 @@ class ProdigalPredictor:
                 print(f"OS error: {err}", file = sys_stderr)
         return
 
-    def run_training(self, in_file, training_file):
-
-        print(colorify(in_file, 'red'))
-        
-        if in_file.endswith(".gz") or in_files.endswith(".gz\'"):
-            raise EmapperException("Error running prodigal. gzipped files are not allowed.")
-        
+    def run_training(self, in_file, training_file):        
             
         cmd = (
             f'{PRODIGAL} -i \'{in_file}\' -t \'{training_file}\''
@@ -105,6 +99,12 @@ class ProdigalPredictor:
         return cmd
     
     def run_prodigal(self, in_file, outdir):
+
+        print(colorify(in_file, 'red'))
+        
+        if in_file.endswith(".gz"): # or in_files.endswith(".gz\'"):
+            raise EmapperException("Error running prodigal. gzipped files are not allowed.")
+        
         self.outgff = pjoin(outdir, "output.gff")
         self.outprots = pjoin(outdir, "output.faa")
         self.outcds = pjoin(outdir, "output.fna")
