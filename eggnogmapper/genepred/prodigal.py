@@ -1,6 +1,7 @@
 ##
 ## CPCantalapiedra 2020
 
+import gzip
 from os.path import isfile
 from os.path import join as pjoin
 from os.path import isdir as pisdir
@@ -97,13 +98,21 @@ class ProdigalPredictor:
             raise EmapperException("Error running prodigal: "+cpe.stderr.decode("utf-8").strip().split("\n")[-1])
 
         return cmd
-    
+
+
+    #
     def run_prodigal(self, in_file, outdir):
 
         print(colorify(in_file, 'red'))
         
-        if in_file.endswith(".gz"): # or in_files.endswith(".gz\'"):
-            raise EmapperException("Error running prodigal. gzipped files are not allowed.")
+        if in_file.endswith(".gz"):
+            decomp_fn = pjoin(self.outdir, in_file+'.decomp')
+            with gzip.open(in_file, 'rb') as f_in:
+                with open(decomp_fn, 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+
+            in_file = decomp_fn
+        
         
         self.outgff = pjoin(outdir, "output.gff")
         self.outprots = pjoin(outdir, "output.faa")
