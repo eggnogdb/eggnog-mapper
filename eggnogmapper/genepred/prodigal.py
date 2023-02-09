@@ -82,6 +82,11 @@ class ProdigalPredictor:
         return
 
     def run_training(self, in_file, training_file):
+
+        if in_file.endswith(".gz"):
+            raise EmapperException("Error running prodigal. gzipped files are not allowed.")
+        
+            
         cmd = (
             f'{PRODIGAL} -i \'{in_file}\' -t \'{training_file}\''
         )
