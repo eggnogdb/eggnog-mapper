@@ -104,14 +104,14 @@ class ProdigalPredictor:
     def run_prodigal(self, in_file, outdir):
         
         if in_file.endswith(".gz"):
-            # decomp_fn = pjoin(self.outdir, in_file+'.decomp')
+            decomp_fn = pjoin(self.outdir, in_file+'.decomp')
             with gzip.open(in_file, 'rb') as f_in:
-                # with open(decomp_fn, 'wb') as f_out:
-                with NamedTemporaryFile() as f_out:
+                with open(decomp_fn, 'wb') as f_out:
+                # with NamedTemporaryFile(dir = self.outdir) as f_out:
                     shutil.copyfileobj(f_in, f_out)
 
-            # in_file = decomp_fn
-            in_file = f_out.name
+            in_file = decomp_fn
+            # in_file = f_out.name
         
         
         self.outgff = pjoin(outdir, "output.gff")
