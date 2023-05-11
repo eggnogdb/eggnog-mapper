@@ -130,11 +130,10 @@ class Emapper:
     def gene_prediction(self, args, infile):
         predictor = None
 
+        predictor = get_predictor(args, self.genepred)
         # --resume skips gene prediction to resume from diamond/mmseqs/hmmer hits directly
-        if self.resume == False:
-            predictor = get_predictor(args, self.genepred)
-            if predictor is not None:
-                predictor.predict(infile)
+        if predictor is not None and self.resume == False:
+            predictor.predict(infile)
         
         return predictor
 
@@ -246,12 +245,15 @@ class Emapper:
 
         gff_outfile = pjoin(self._current_dir, self.deco_gff_file)
         if predictor is not None:
-            gff_genepred_file = predictor.outgff
-            gff_genepred_fasta = predictor.outprots
+            if self.resume == True:
+                gff_genepred_file = pjoin(self._current_dir, self.genepred_gff_file)
+                gff_genepred_fasta = pjoin(self._current_dir, self.genepred_fasta_file)
+            else:
+                gff_genepred_file = predictor.outgff
+                gff_genepred_fasta = predictor.outprots
         else:
             gff_genepred_file = None
             gff_genepred_fasta = None
-        
         
         annotated_hits = run_gff_decoration(self.decorate_gff, args.decorate_gff_ID_field,
                                             self.genepred_is_prodigal, self.genepred_is_blastx,
@@ -299,9 +301,10 @@ class Emapper:
         ##
         # Clear things
         if predictor is not None:
-            shutil.move(predictor.outprots, pjoin(self._current_dir, self.genepred_fasta_file))
-            shutil.move(predictor.outgff, pjoin(self._current_dir, self.genepred_gff_file))
-            predictor.clear() # removes gene predictor output directory
+            if self.resume == False: # if self.resume == True there aren't new genepred files to move
+                shutil.move(predictor.outprots, pjoin(self._current_dir, self.genepred_fasta_file))
+                shutil.move(predictor.outgff, pjoin(self._current_dir, self.genepred_gff_file))
+                predictor.clear() # removes gene predictor output directory
         if searcher is not None:
             searcher.clear()
         
