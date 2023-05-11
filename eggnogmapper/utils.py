@@ -230,7 +230,7 @@ def translate_cds_to_prots(source, outfile, table):
         if source.endswith('.gz'):
             _source = gzip.open(source, "rt")
         else:
-            _source = open(source, "rU")
+            _source = open(source, "r")
     else:
         _source = iter(source.split("\n"))
 
