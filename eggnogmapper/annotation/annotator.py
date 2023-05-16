@@ -361,9 +361,9 @@ def parse_annotation_line(line):
             field_name = ANNOTATIONS_HEADER[i]
             annotations[field_name] = field.split(",")
         
-    og_cat_desc = ("-", data[5], data[6])
+    og_cat_desc = ("-", data[6], data[7]) # ("-", data[5], data[6])
 
-    max_annot_lvl = data[7]
+    max_annot_lvl = data[5] # data[7]
     
     match_nog_names = data[4].split(",")
     
