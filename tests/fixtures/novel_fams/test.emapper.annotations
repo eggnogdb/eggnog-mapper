@@ -1,3 +1,2 @@
-#query	target	evalue	score	novel_fam
-NOVSQ06D_GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	1.09e-76	213.0	NOVSQ06D
-NOVSQ06D_GEM@3300017989_66@3300017989_66_00516@d__Bacteria|p__Omnitrophota	GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	1.09e-76	213.0	NOVSQ06D
+NOVSQ06D_GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	1.09e-76	213.0	NOVSQ06D	Cationic antimicrobial peptide (CAMP) resistance|01503,D-Glutamine and D-glutamate metabolism|00471	0.1630794701986755	-	-	-	-	-	True	True	False
+NOVSQ06D_GEM@3300017989_66@3300017989_66_00516@d__Bacteria|p__Omnitrophota	GEM@3300017987_64@3300017987_64_00875@d__Bacteria|p__Omnitrophota	1.09e-76	213.0	NOVSQ06D	Cationic antimicrobial peptide (CAMP) resistance|01503,D-Glutamine and D-glutamate metabolism|00471	0.1630794701986755	-	-	-	-	-	True	True	False

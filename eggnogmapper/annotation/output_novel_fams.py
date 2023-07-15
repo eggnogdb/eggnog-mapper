@@ -20,7 +20,16 @@ HIT_HEADER = ["query",
               "score",
               "novel_fam"]
 
-ANNOTATIONS_HEADER = []
+ANNOTATIONS_HEADER = ["best_neigh_predicted_pathways",
+                      "best_neigh_score",
+                      "plddt",
+                      "best_structural_pdb_matches",
+                      "best_pdb_evalue",
+                      "best_structural_uniprot_matches",
+                      "best_uniprot_evalue",
+                      "has_signal_peptide",
+                      "has_TM_domains",
+                      "is_AMP"]
 
 ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + ANNOTATIONS_HEADER
 
@@ -55,10 +64,17 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
 ##
 def output_annotations_row(out, annotation, md5_field, md5_queries):
 
-    (query_name, best_hit_name, best_hit_evalue, best_hit_score, novel_fam) = annotation
+    annot_columns = [str(x) for x in annotation]
+    
+    # (query_name, best_hit_name, best_hit_evalue, best_hit_score, novel_fam) = annotation
 
-    annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score), novel_fam]
-                    
+    # (query_name, best_hit_name, best_hit_evalue, best_hit_score, novel_fam,
+    #               best_neigh_predicted_pathways, best_neigh_score, plddt, best_structural_pdb_matches,
+    #               best_pdb_evalue, best_structural_uniprot_matches, best_uniprot_evalue,
+    #               has_signal_peptide, has_TM_domains, is_AMP) = annot_columns
+
+    # annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score), novel_fam]
+    
     if md5_field == True:
         query_name = annot_columns[0]
         if query_name in md5_queries:
