@@ -150,9 +150,29 @@ class AnnotatorNovelFams:
             
         return annots_generator
 
+    ##
+    def _load_annots_db(self):
+        import pickle
+        from ..common import get_novel_fams_db_file
+        novel_fams_fn = get_novel_fams_db_file()
+
+        with open(novel_fams_fn, 'rb') as novel_fams_db:
+            novel_fams_dict = pickle.load(novel_fams_db)
+            print(f"Loaded novel fams DB with num of records: {len(novel_fams_dict)}", file = sys.stderr)
+            
+        return novel_fams_dict
+        
     
     ##
     def _annotate(self, hits_gen_func, annots_parser):
+        
+        # Load annotations DB
+        
+        novel_fams_dict = self._load_annots_db()
+
+        
+            
+        # Annotate hits
         
         pool = multiprocessing.Pool(self.cpu)
         chunk_size = 1
@@ -163,7 +183,7 @@ class AnnotatorNovelFams:
         
         try:
             for result in pool.imap(annotate_hit_line,
-                                    self.iter_hit_lines(hits_gen_func, annots_parser),
+                                    self.iter_hit_lines(hits_gen_func, annots_parser, novel_fams_dict),
                                     chunk_size):
                 yield result
 
@@ -180,7 +200,7 @@ class AnnotatorNovelFams:
         return
     
     ##
-    def iter_hit_lines(self, hits_gen_func, annots_parser):
+    def iter_hit_lines(self, hits_gen_func, annots_parser, novel_fams_dict):
 
         curr_annot = None
         if annots_parser is not None:
@@ -204,7 +224,7 @@ class AnnotatorNovelFams:
             yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
                            self.tax_scope_mode, self.tax_scope_ids,
                            self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded, get_data_path(), annotation)
+                           self.go_evidence, self.go_excluded, get_data_path(), annotation, novel_fams_dict)
             
             yield yield_tuple
             
@@ -248,8 +268,23 @@ def parse_annotation_line(line):
     best_hit_score = float(data[3])
     hit = [query_name, best_hit_name, best_hit_evalue, best_hit_score]
     novel_fam = data[4]
+
+    # new annotation fields (202307)
+    best_neigh_predicted_pathways = data[5]
+    best_neigh_score = data[6]
+    plddt = data[7]
+    best_structural_pdb_matches = data[8]
+    best_pdb_evalue = data[9]
+    best_structural_uniprot_matches = data[10]
+    best_uniprot_evalue = data[11]
+    has_signal_peptide = data[12]
+    has_TM_domains = data[13]
+    is_AMP = data[14]
     
-    annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score, novel_fam)
+    annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score, novel_fam,
+                  best_neigh_predicted_pathways, best_neigh_score, plddt, best_structural_pdb_matches,
+                  best_pdb_evalue, best_structural_uniprot_matches, best_uniprot_evalue,
+                  has_signal_peptide, has_TM_domains, is_AMP)
     
     return hit, annotation
 

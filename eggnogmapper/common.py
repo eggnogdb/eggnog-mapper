@@ -56,6 +56,7 @@ PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'eggnogmapper', 'bin'
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
 def get_eggnogdb_file(): return pjoin(DATA_PATH, "eggnog.db")
+def get_novel_fams_db_file(): return pjoin(DATA_PATH, "novel_fams.pkl")
 def get_ncbitaxadb_file(): return pjoin(DATA_PATH, "eggnog.taxa.db")
 def get_eggnog_mmseqs_dbpath(): return pjoin(DATA_PATH, "mmseqs")
 def get_eggnog_mmseqs_db(): return pjoin(DATA_PATH, "mmseqs", "mmseqs.db")
