@@ -15,7 +15,7 @@ if sys.version_info < (3,7):
 BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
 EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
 EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
-NOVEL_FAMS_BASE_URL = f'http://eggnogdb.embl.de/download/novel_fams'
+NOVEL_FAMS_BASE_URL = f'http://eggnogdb.embl.de/download/novel_fams-1.0.1'
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
@@ -79,6 +79,18 @@ def download_novel_fams_diamond_db(data_path):
         f'gunzip novel_fams.dmnd.gz {gunzip_flag()}'
     )
     run(cmd)
+    return
+
+def download_novel_fams_annots_db(data_path):
+    url = NOVEL_FAMS_BASE_URL + '/novel_fams.pkl.gz'
+    cmd = (
+        f'cd {data_path} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O novel_fams.dmnd.gz {url} && '
+        f'echo Decompressing... && '
+        f'gunzip novel_fams.dmnd.gz {gunzip_flag()}'
+    )
+    run(cmd)
+    return
 
 ##
 # MMseqs2 DB
@@ -288,6 +300,7 @@ if __name__ == "__main__":
         if args.allyes or ask("Download novel families diamond database (1.3GB after decompression)?") == 'y':
             print(colorify(f'Downloading novel families files " at {data_path}...', 'green'))
             download_novel_fams_diamond_db(data_path)
+            download_novel_fams_annots_db(data_path)
         else:
             print('Skipping')
     else:
