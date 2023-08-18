@@ -16,9 +16,11 @@ from .utils import colorify
 try:
     from .version import __VERSION__
     from .version import __DB_VERSION__
+    from .version import __NOVEL_FAMS_DB_VERSION__
 except ImportError:
     __VERSION__ = 'unknown'
     __DB_VERSION__ = 'unknown'
+    __NOVEL_FAMS_DB_VERSION__ = 'unknown'    
 
 # Multiprocessing start method
 # check
@@ -127,6 +129,10 @@ def get_full_version_info():
     mmseqs_version = get_mmseqs_version()
     if mmseqs_version is not None:
         version = f"{version} / {mmseqs_version}"
+
+    exp_novel_fams_db_version = __NOVEL_FAMS_DB_VERSION__
+    if exp_novel_fams_db_version is not None:
+        version = f"{version} / Compatible novel families DB version: {exp_novel_fams_db_version}"    
         
     return version
 

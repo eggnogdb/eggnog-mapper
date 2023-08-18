@@ -7,7 +7,7 @@ from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggn
 from eggnogmapper.common import pexists, set_data_path, get_data_path, existing_dir, HMMPRESS
 from eggnogmapper.search.search_modes import get_eggnog_dmnd_db, SEARCH_MODE_DIAMOND, SEARCH_MODE_NOVEL_FAMS
 from eggnogmapper.utils import ask, ask_name, colorify
-from eggnogmapper.version import __DB_VERSION__
+from eggnogmapper.version import __DB_VERSION__, __NOVEL_FAMS_DB_VERSION__
 
 if sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported')
@@ -15,7 +15,7 @@ if sys.version_info < (3,7):
 BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
 EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
 EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
-NOVEL_FAMS_BASE_URL = f'http://eggnogdb.embl.de/download/novel_fams-1.0.1'
+NOVEL_FAMS_BASE_URL = f'http://eggnogdb.embl.de/download/novel_fams-{__NOVEL_FAMS_DB_VERSION__}'
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
