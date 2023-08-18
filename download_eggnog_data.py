@@ -85,9 +85,9 @@ def download_novel_fams_annots_db(data_path):
     url = NOVEL_FAMS_BASE_URL + '/novel_fams.pkl.gz'
     cmd = (
         f'cd {data_path} && '
-        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O novel_fams.dmnd.gz {url} && '
+        f'wget -nH --user-agent=Mozilla/5.0 --relative --no-parent --reject "index.html*" --cut-dirs=4 -e robots=off -O novel_fams.pkl.gz {url} && '
         f'echo Decompressing... && '
-        f'gunzip novel_fams.dmnd.gz {gunzip_flag()}'
+        f'gunzip novel_fams.pkl.gz {gunzip_flag()}'
     )
     run(cmd)
     return
@@ -205,7 +205,7 @@ if __name__ == "__main__":
                         help='Do not install the diamond database')
 
     parser.add_argument('-F', action="store_true", dest='novel_fams',
-                        help='Install the novel families diamond database, required for "emapper.py -m novel_fams"')
+                        help='Install the novel families diamond and annotation databases, required for "emapper.py -m novel_fams"')
 
     parser.add_argument('-P', action="store_true", dest='pfam',
                         help='Install the Pfam database, required for de novo annotation or realignment')
@@ -297,7 +297,7 @@ if __name__ == "__main__":
             
     ## Novel fams diamond DB
     if args.novel_fams and (args.force or not pexists(get_eggnog_dmnd_db(None, SEARCH_MODE_NOVEL_FAMS, data_path))):
-        if args.allyes or ask("Download novel families diamond database (1.3GB after decompression)?") == 'y':
+        if args.allyes or ask("Download novel families diamond and annotation databases (1.3GB after decompression)?") == 'y':
             print(colorify(f'Downloading novel families files " at {data_path}...', 'green'))
             download_novel_fams_diamond_db(data_path)
             download_novel_fams_annots_db(data_path)
@@ -305,7 +305,7 @@ if __name__ == "__main__":
             print('Skipping')
     else:
         if not args.quiet:
-            print(colorify('Skipping novel families diamond database (or already present). Use -F and -f to force download', 'lblue'))
+            print(colorify('Skipping novel families diamond and annotation databases (or already present). Use -F and -f to force download', 'lblue'))
 
 
     ## PFAM
