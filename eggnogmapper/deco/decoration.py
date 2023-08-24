@@ -83,6 +83,7 @@ def decorate_gff(gff_file, gff_ID_field, outfile, annotated_hits, version, searc
     with open(gff_file, 'r') as gff_f:
         for line in gff_f:
             if line.startswith("##gff-version"): continue
+            if line.startswith("##FASTA"): break # hardcoded to avoid Prokka fasta sequences within the GFF. ty github:steven-bioinfo
             if line.startswith("#"):
                 gff_comments.append(line.strip())
                 continue
