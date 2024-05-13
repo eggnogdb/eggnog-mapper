@@ -550,7 +550,7 @@ def parse_args(parser):
         # dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db(args.dmnd_db, args.mode, get_data_path())
         dmnd_db = get_eggnog_dmnd_db(args.dmnd_db, args.mode, get_data_path())
         if not pexists(dmnd_db):
-            print(colorify('DIAMOND database %s not present. Use download_eggnog_database.py to fetch it' % dmnd_db, 'red'))
+            print(colorify('DIAMOND database %s not present. Use download_eggnog_data.py to fetch it' % dmnd_db, 'red'))
             raise EmapperException()
 
         if args.input is not None:
@@ -573,7 +573,7 @@ def parse_args(parser):
     elif args.mode == SEARCH_MODE_MMSEQS2:
         mmseqs_db = args.mmseqs_db if args.mmseqs_db else get_eggnog_mmseqs_db()
         if not pexists(mmseqs_db):
-            print(colorify('MMseqs2 database %s not present. Use download_eggnog_database.py to fetch it' % mmseqs_db, 'red'))
+            print(colorify('MMseqs2 database %s not present. Use download_eggnog_data.py to fetch it' % mmseqs_db, 'red'))
             raise EmapperException()
 
         if not args.input:
@@ -642,7 +642,7 @@ def parse_args(parser):
     # Annotation options
     if args.no_annot == False or args.report_orthologs == True:
         if not pexists(get_eggnogdb_file()) and args.mode != SEARCH_MODE_NOVEL_FAMS:
-            print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_database.py to fetch it', 'red'))
+            print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_data.py to fetch it', 'red'))
             raise EmapperException()
 
         args.tax_scope_ids = parse_tax_scope(args.tax_scope)
