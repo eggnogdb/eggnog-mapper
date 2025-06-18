@@ -58,6 +58,11 @@ def create_arg_parser():
                           help=(
                               f"It is used when --translate, check https://biopython.org/docs/1.75/api/Bio.Seq.html#Bio.Seq.Seq.translate."))
 
+    pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
+                          help=('Path to eggnog-mapper databases. '
+                                'By default, "data/" or the path specified in the '
+                                'environment variable EGGNOG_DATA_DIR.')) # DATA_PATH in eggnogmapper.commons
+
     ##
     pg_hmmer = parser.add_argument_group('HMMER Search Options')
 
@@ -162,6 +167,12 @@ def create_arg_parser():
 def parse_args(parser):
     
     args = parser.parse_args()
+
+    if "EGGNOG_DATA_DIR" in os.environ:
+        set_data_path(os.environ["EGGNOG_DATA_DIR"])
+        
+    if args.data_dir:
+        set_data_path(args.data_dir)
 
     if args.version:
         print(get_version())
