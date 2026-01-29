@@ -12,10 +12,10 @@ from eggnogmapper.version import __DB_VERSION__, __NOVEL_FAMS_DB_VERSION__
 if sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported')
     
-BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
+BASE_URL = f'http://eggnog5.embl.de/download/emapperdb-{__DB_VERSION__}'
 EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
 EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
-NOVEL_FAMS_BASE_URL = f'http://eggnogdb.embl.de/download/novel_fams-{__NOVEL_FAMS_DB_VERSION__}'
+NOVEL_FAMS_BASE_URL = f'http://eggnog5.embl.de/download/novel_fams-{__NOVEL_FAMS_DB_VERSION__}'
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
