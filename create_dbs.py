@@ -5,6 +5,7 @@ import os, sys, shutil
 import argparse
 
 from eggnogmapper.common import set_data_path, get_data_path, pexists, pjoin, existing_dir
+from eggnogmapper.backends import get_backend_names, resolve_backend, DEFAULT_BACKEND
 from eggnogmapper.utils import ask, ask_name, colorify
 from eggnogmapper.search.diamond.diamond import create_diamond_db
 from eggnogmapper.search.mmseqs.mmseqs import create_mmseqs_db, create_mmseqs_index
@@ -16,7 +17,7 @@ if sys.version_info < (3,7):
 def get_eggnog_proteins_file(): return pjoin(get_data_path(), "e5.proteomes.faa")
 def get_eggnog_taxid_info_file(): return pjoin(get_data_path(), "e5.taxid_info.tsv")
 
-BASE_URL = f'http://eggnog5.embl.de/download/eggnog_5.0'
+BASE_URL = f'https://downloads.eggnogdb.org/emapper/eggnog_5.0'
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
@@ -142,6 +143,12 @@ if __name__ == "__main__":
                             'Comma-separated list of tax names to which the proteins belong. e.g. "--taxa Bacteria,Archaea". '
                         ))
 
+    parser.add_argument("--db", dest='db_backend', metavar='BACKEND', type=str,
+                        default=DEFAULT_BACKEND,
+                        choices=get_backend_names(),
+                        help=('Select database backend. '
+                              'Overridden by --data_dir and EGGNOG_DATA_DIR.'))
+
     parser.add_argument("--data_dir", metavar='', type=existing_dir,
                         help='Directory to use for DATA_PATH.')
 
@@ -169,6 +176,8 @@ if __name__ == "__main__":
 
     ##
 
+    set_data_path(resolve_backend(args.db_backend))
+
     if "EGGNOG_DATA_DIR" in os.environ:
         set_data_path(os.environ["EGGNOG_DATA_DIR"])
 
@@ -177,7 +186,7 @@ if __name__ == "__main__":
 
     data_path = get_data_path()
 
-    # http://eggnog5.embl.de/download/eggnog_5.0/e5.proteomes.faa
+    # https://downloads.eggnogdb.org/emapper/eggnog_5.0/e5.proteomes.faa
     if not pexists(get_eggnog_proteins_file()):
         if args.allyes or ask(f"Download eggnog5 proteins to {data_path}? ~9GB (It is required to create new databases)") == 'y':
             print(colorify(f'Downloading eggnog5 proteins file to {data_path}...', 'green'))
@@ -188,7 +197,7 @@ if __name__ == "__main__":
     else:
         print(colorify(f'Using existing eggnog5 proteins file found at {get_eggnog_proteins_file()}', 'green'))
 
-    # http://eggnog5.embl.de/download/eggnog_5.0/e5.taxid_info.tsv
+    # https://downloads.eggnogdb.org/emapper/eggnog_5.0/e5.taxid_info.tsv
     if not pexists(get_eggnog_taxid_info_file()):
         if args.allyes or ask(f"Download eggnog5 taxid info table to {data_path}? (It is required to create new databases)") == 'y':
             print(colorify(f'Downloading eggnog5 taxid info table to {data_path}...', 'green'))

@@ -5,6 +5,7 @@ import argparse
 
 from eggnogmapper.common import get_eggnogdb_file, get_ncbitaxadb_file, get_eggnog_mmseqs_dbpath, get_pfam_dbpath, get_hmmer_base_dbpath
 from eggnogmapper.common import pexists, set_data_path, get_data_path, existing_dir, HMMPRESS
+from eggnogmapper.backends import get_backend_names, resolve_backend, DEFAULT_BACKEND
 from eggnogmapper.search.search_modes import get_eggnog_dmnd_db, SEARCH_MODE_DIAMOND, SEARCH_MODE_NOVEL_FAMS
 from eggnogmapper.utils import ask, ask_name, colorify
 from eggnogmapper.version import __DB_VERSION__, __NOVEL_FAMS_DB_VERSION__
@@ -12,10 +13,13 @@ from eggnogmapper.version import __DB_VERSION__, __NOVEL_FAMS_DB_VERSION__
 if sys.version_info < (3,7):
     sys.exit('Sorry, Python < 3.7 is not supported')
     
-BASE_URL = f'http://eggnogdb.embl.de/download/emapperdb-{__DB_VERSION__}'
-EGGNOG_URL = f'http://eggnog5.embl.de/download/eggnog_5.0/per_tax_level'
-EGGNOG_DOWNLOADS_URL = 'http://eggnog5.embl.de/#/app/downloads'
-NOVEL_FAMS_BASE_URL = f'http://eggnogdb.embl.de/download/novel_fams-{__NOVEL_FAMS_DB_VERSION__}'
+BASE_URL = f'https://downloads.eggnogdb.org/emapper/emapperdb-{__DB_VERSION__}'
+NOVEL_FAMS_BASE_URL = f'https://downloads.eggnogdb.org/emapper/novel_fams-{__NOVEL_FAMS_DB_VERSION__}'
+
+# for hmms
+EGGNOG_URL = f'https://downloads.eggnogdb.org/emapper/eggnog_5.0/per_tax_level'
+EGGNOG_DOWNLOADS_URL = 'https://downloads.eggnogdb.org/emapper/eggnog_5.0'
+
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
@@ -241,10 +245,18 @@ if __name__ == "__main__":
     parser.add_argument('-q', action="store_true", dest='quiet',
                         help='quiet_mode')
 
+    parser.add_argument("--db", dest='db_backend', metavar='BACKEND', type=str,
+                        default=DEFAULT_BACKEND,
+                        choices=get_backend_names(),
+                        help=('Select database backend. '
+                              'Overridden by --data_dir and EGGNOG_DATA_DIR.'))
+
     parser.add_argument("--data_dir", metavar='', type=existing_dir,
                         help='Directory to use for DATA_PATH.')
 
     args = parser.parse_args()
+
+    set_data_path(resolve_backend(args.db_backend))
 
     if "EGGNOG_DATA_DIR" in os.environ:
         set_data_path(os.environ["EGGNOG_DATA_DIR"])

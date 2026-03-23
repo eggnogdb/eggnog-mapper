@@ -11,6 +11,8 @@ from eggnogmapper.common import existing_file, existing_dir, set_data_path, pexi
     MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER, \
     TIMEOUT_LOAD_SERVER
 
+from eggnogmapper.backends import get_backend_names, resolve_backend, DEFAULT_BACKEND
+
 from eggnogmapper.utils import colorify
 
 from eggnogmapper.emapperException import EmapperException
@@ -57,6 +59,12 @@ def create_arg_parser():
     pg_input.add_argument('--trans_table', dest='trans_table', type=str, metavar='TRANS_TABLE_CODE',
                           help=(
                               f"It is used when --translate, check https://biopython.org/docs/1.75/api/Bio.Seq.html#Bio.Seq.Seq.translate."))
+
+    pg_input.add_argument("--db", dest='db_backend', metavar='BACKEND', type=str,
+                          default=DEFAULT_BACKEND,
+                          choices=get_backend_names(),
+                          help=('Select database backend. '
+                                'Overridden by --data_dir and EGGNOG_DATA_DIR.'))
 
     pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
                           help=('Path to eggnog-mapper databases. '
@@ -168,9 +176,11 @@ def parse_args(parser):
     
     args = parser.parse_args()
 
+    set_data_path(resolve_backend(args.db_backend))
+
     if "EGGNOG_DATA_DIR" in os.environ:
         set_data_path(os.environ["EGGNOG_DATA_DIR"])
-        
+
     if args.data_dir:
         set_data_path(args.data_dir)
 

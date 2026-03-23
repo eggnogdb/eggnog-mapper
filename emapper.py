@@ -50,6 +50,8 @@ from eggnogmapper.common import existing_file, existing_dir, get_data_path, set_
     MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER, \
     TIMEOUT_LOAD_SERVER
 
+from eggnogmapper.backends import get_backend_names, resolve_backend, DEFAULT_BACKEND
+
 
 __description__ = ('A program for bulk functional annotation of novel '
                     'sequences using EggNOG database orthology assignments')
@@ -114,6 +116,12 @@ def create_arg_parser():
                           help=f'File containing annotations and md5 hashes of queries, to be used as cache. '
                           f'Required if -m {SEARCH_MODE_CACHE}')
         
+    pg_input.add_argument("--db", dest='db_backend', metavar='BACKEND', type=str,
+                          default=DEFAULT_BACKEND,
+                          choices=get_backend_names(),
+                          help=('Select database backend. '
+                                'Overridden by --data_dir and EGGNOG_DATA_DIR.'))
+
     pg_input.add_argument("--data_dir", metavar='DIR', type=existing_dir,
                           help=('Path to eggnog-mapper databases. '
                                 'By default, "data/" or the path specified in the '
@@ -509,12 +517,14 @@ def parse_args(parser):
     
     args = parser.parse_args()
 
+    set_data_path(resolve_backend(args.db_backend))
+
     if "EGGNOG_DATA_DIR" in os.environ:
         set_data_path(os.environ["EGGNOG_DATA_DIR"])
-    
+
     if args.data_dir:
         set_data_path(args.data_dir)
-        
+
     if args.version:
         version = ""
         try:
