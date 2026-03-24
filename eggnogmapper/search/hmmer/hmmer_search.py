@@ -344,17 +344,18 @@ def get_best_hit(target_seq, target_og, excluded_taxa, tempdir):
     best_hit_found = False
     if status == 0:
         # take the best hit
-        for line in open(tempout):
-            if line.startswith('#'):
-                continue
-            else:
-                fields = line.split()
-                best_hit_name = fields[0]
-                best_hit_evalue = float(fields[4])
-                best_hit_score = float(fields[5])
-                if not excluded_taxa or not best_hit_name.startswith("%s." % (excluded_taxa)):
-                    best_hit_found = True
-                    break
+        with open(tempout) as _f:
+            for line in _f:
+                if line.startswith('#'):
+                    continue
+                else:
+                    fields = line.split()
+                    best_hit_name = fields[0]
+                    best_hit_evalue = float(fields[4])
+                    best_hit_score = float(fields[5])
+                    if not excluded_taxa or not best_hit_name.startswith("%s." % (excluded_taxa)):
+                        best_hit_found = True
+                        break
         os.remove(tempout)
     else:
         raise ValueError('Error running PHMMER')

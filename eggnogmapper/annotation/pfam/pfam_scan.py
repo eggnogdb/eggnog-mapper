@@ -47,7 +47,8 @@ def pfam_align_parallel_scan(queries_pfams, queries_fasta, resume, translate, tr
         traceback.print_exc()
         raise EmapperException(f"Error: annotation went wrong for pfam alignment in parallel. "+str(e))
     finally:
-        pool.terminate()
+        pool.close()
+        pool.join()
 
     return aligned_pfams
 
@@ -70,6 +71,8 @@ def query_pfam_annotate_scan(arguments):
         # create hmmdb
         cmd = f"{HMMPRESS} {hmm_file.name}"
         cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if cp.returncode != 0:
+            raise EmapperException(f"Error: hmmpress failed with return code {cp.returncode}")
         
         # output file for this group
         P = NamedTemporaryFile(mode='w', dir=temp_dir)
@@ -89,7 +92,8 @@ def query_pfam_annotate_scan(arguments):
         # Append contents of output file for this group into pfam_file,
         # which is the file reporting all the pfam hits together
         with open(pfam_file, 'a') as pfamf:
-            pfamf.write(open(P.name, 'r').read())
+            with open(P.name, 'r') as src:
+                pfamf.write(src.read())
 
         P.close()
 

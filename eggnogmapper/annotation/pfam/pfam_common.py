@@ -53,7 +53,7 @@ def filter_fasta_hmm_files(queries_pfams, orig_fasta, orig_hmm, temp_dir):
         H = NamedTemporaryFile(mode='w', dir=temp_dir)
         cmd = f"{HMMFETCH} -f {orig_hmm} {P.name}"
         cp = subprocess.run(cmd, shell=True, stdout=H, stderr=subprocess.DEVNULL)
-        if os.stat(H.name).st_size == 0:
+        if cp.returncode != 0 or os.stat(H.name).st_size == 0:
             H = None
             
     P.close()

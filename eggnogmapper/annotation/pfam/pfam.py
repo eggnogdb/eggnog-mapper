@@ -103,7 +103,8 @@ def get_hmmsearch_args(cpu, fasta_file, hmm_file, resume, translate, trans_table
 def get_pfam_args(cpu, num_servers, num_workers, timeout_load_server, cpus_per_worker, port, end_port,
                   fasta_file, resume, translate, trans_table, temp_dir, force_seqdb = False):
     
-    query_number = len([1 for line in open(fasta_file) if line.startswith(">")])
+    with open(fasta_file) as _f:
+        query_number = sum(1 for line in _f if line.startswith(">"))
 
     # port, end_port, num_servers, num_workers, cpus_per_worker are not really used
     # for SCANTYPE_DISK, only for SCANTYPE_MEM
@@ -226,6 +227,8 @@ def mapfile(fasta_file):
 def create_fasta_hmmpgmd_db(fasta_file):
     cmd = f"{ESL_REFORMAT} hmmpgmd {fasta_file} > {fasta_file}.seqdb"
     cp = subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if cp.returncode != 0:
+        raise EmapperException(f"Error: esl-reformat failed with return code {cp.returncode}")
     # the previous command should create also a f"{fasta_file}.map" file
     
     return mapfile(fasta_file)

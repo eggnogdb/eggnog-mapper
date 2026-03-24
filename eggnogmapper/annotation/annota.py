@@ -36,9 +36,9 @@ def summarize_annotations(seq_names, annotations_fields, target_go_ev, excluded_
                 name_candidate, freq = annotations['Preferred_name'].most_common(1)[0]
             else:
                 freq =  0
-        except:
+        except Exception:
             print(annotations)
-            raise 
+            raise
         if freq >= 2:
             annotations['Preferred_name'] = [name_candidate]
         else:

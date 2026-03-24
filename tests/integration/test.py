@@ -452,7 +452,7 @@ class Test(unittest.TestCase):
         os.mkdir(outdir)
 
         cmd = (
-            f'./emapper.py -m no_search --annotate_hits_table {seeds_file} -i {in_file} --db e5-test'
+            f'./emapper.py -m no_search --annotate_hits_table {seeds_file} -i {in_file} --db e5-test '
             f'--output_dir {outdir} -o {outprefix} --pfam_realign realign'
         )
 
@@ -518,7 +518,7 @@ class Test(unittest.TestCase):
         os.mkdir(outdir)
 
         cmd = (
-            f'./emapper.py -m no_search --annotate_hits_table {seeds_file} -i {in_file} --db e5-test'
+            f'./emapper.py -m no_search --annotate_hits_table {seeds_file} -i {in_file} --db e5-test '
             f'--output_dir {outdir} -o {outprefix} --pfam_realign denovo'
         )
 
@@ -585,7 +585,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred prodigal --db e5-test'
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred prodigal --db e5-test '
                f'-m diamond --sensmode sensitive --no_annot '
                f'--dmnd_db {dmnd_db} '
                f'-o {outprefix} --output_dir {outdir}')
@@ -656,7 +656,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --db e5-test'
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --db e5-test '
                f'-m diamond --sensmode sensitive --no_annot '
                f'--dmnd_db {dmnd_db} '
                f'-o {outprefix} --output_dir {outdir}')
@@ -727,7 +727,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --db e5-test'
+        cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --db e5-test '
                f'-m mmseqs --no_annot '
                f'--mmseqs_db {mmseqs_db} '
                f'-o {outprefix} --output_dir {outdir}')
@@ -794,7 +794,7 @@ class Test(unittest.TestCase):
         os.mkdir(outdir)
 
         cmd = (f'./emapper.py -i {in_file} --itype metagenome --genepred search --decorate_gff yes '
-               f'-m mmseqs --db e5-test'
+               f'-m mmseqs --db e5-test '
                f'--mmseqs_db {mmseqs_db} '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
@@ -853,7 +853,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} --db e5-test'
+        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} --db e5-test '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
 
@@ -911,7 +911,7 @@ class Test(unittest.TestCase):
             shutil.rmtree(outdir)
         os.mkdir(outdir)
 
-        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} --db e5-test'
+        cmd = (f'./emapper.py -m no_search --annotate_hits_table {in_file} --decorate_gff {gff_to_decorate} --db e5-test '
                f'-o {outprefix} --output_dir {outdir}')
         # print(f"\t{cmd}")
         

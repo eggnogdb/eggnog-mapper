@@ -81,13 +81,12 @@ class CacheAnnotator:
                         
             OUT.close()
         else:
-            print(colorify(f"Skipping cached annotation. {cached_annot_fn} file not found", 'orange'))
+            print(colorify(f"Skipping cached annotation. {cache_file} file not found", 'orange'))
 
-        OUT = open(no_annot_file, "w")        
-        for name, seq in [(md5_queries[md5]["name"], md5_queries[md5]["seq"]) for md5 in md5_queries if md5_queries[md5]["found"] == 0]:
-            print(f">{name}", file=OUT)
-            print(seq, file=OUT)
-        OUT.close()
+        with open(no_annot_file, "w") as OUT:
+            for name, seq in [(md5_queries[md5]["name"], md5_queries[md5]["seq"]) for md5 in md5_queries if md5_queries[md5]["found"] == 0]:
+                print(f">{name}", file=OUT)
+                print(seq, file=OUT)
             
         return
 

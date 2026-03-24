@@ -62,13 +62,13 @@ class AnnotDB(object):
 
     def get_member_ogs(self, name):
         curs = self.conn.cursor()
-        curs.execute('SELECT ogs FROM prots WHERE name == ?;', (name,))
+        curs.execute('SELECT ogs FROM prots WHERE name = ?;', (name,))
         return curs.fetchone()
 
 
     def get_ogs_description(self, og, level):
         curs = self.conn.cursor()
-        curs.execute('SELECT og.og, nm, description, COG_categories FROM og WHERE og.og == ? AND og.level == ?', (og, level))
+        curs.execute('SELECT og.og, nm, description, COG_categories FROM og WHERE og.og = ? AND og.level = ?', (og, level))
         return curs.fetchall()
 
 
@@ -78,7 +78,7 @@ class AnnotDB(object):
         for seq in seq_names.split(","):
             seq = seq.replace('"', '')
             curs.execute(("SELECT pname, gos, kegg_ec, kegg_ko, kegg_pathway, kegg_module, kegg_reaction, "
-                          "kegg_rclass, kegg_brite, kegg_tc, kegg_cazy, bigg_reaction, pfam FROM prots WHERE name == ?")
+                          "kegg_rclass, kegg_brite, kegg_tc, kegg_cazy, bigg_reaction, pfam FROM prots WHERE name = ?")
                          , (seq,))
 
             prot_data = curs.fetchone()
@@ -88,37 +88,29 @@ class AnnotDB(object):
         return
 
     def get_pfam_annotations(self, seq_names):
-        cmd = """SELECT pfam
-            FROM prots
-            WHERE name in (%s)
-            """ % seq_names
+        names = [s.replace('"', '').strip() for s in seq_names.split(",")]
+        placeholders = ','.join(['?' for _ in names])
+        cmd = f"SELECT pfam FROM prots WHERE name IN ({placeholders})"
 
         curs = self.conn.cursor()
-        s = curs.execute(cmd)
+        curs.execute(cmd, names)
         return curs.fetchall()
 
     def get_member_events(self, member, target_levels):
         curs = self.conn.cursor()
-        curs.execute('SELECT orthoindex FROM prots WHERE name == ?', (member.strip(),))
+        curs.execute('SELECT orthoindex FROM prots WHERE name = ?', (member.strip(),))
         event_indexes = curs.fetchone()
         if event_indexes is not None and len(event_indexes) > 0:
             if event_indexes[0] is not None:
-                event_indexes = str(event_indexes[0])
-                # if target_levels is not None and len(target_levels) > 0:
-                #     levels = ",".join([f'"{x}"' for x in target_levels])
-                #     db.execute(f'SELECT level, side1, side2 FROM event WHERE i IN ({event_indexes}) AND level IN ({levels})')
-                # else:
-                #     db.execute(f'SELECT level, side1, side2 FROM event WHERE i IN ({event_indexes})')
-
-                # return db.fetchall()
-
-                # this one looks like faster than the code above
-                all_queries = [(int(x),y) for x in event_indexes.split(",") for y in target_levels]
-
-                for query in all_queries:
-                    curs.execute('SELECT level, side1, side2 FROM event WHERE i == ? AND level == ?', query)
-                    all_levels = curs.fetchall()
-                    for level, _side1, _side2 in all_levels:
+                idx_list = str(event_indexes[0]).split(",")
+                level_list = list(target_levels)
+                if idx_list and level_list:
+                    idx_ph = ','.join(['?' for _ in idx_list])
+                    lvl_ph = ','.join(['?' for _ in level_list])
+                    query = f'SELECT level, side1, side2 FROM event WHERE i IN ({idx_ph}) AND level IN ({lvl_ph})'
+                    params = [int(x) for x in idx_list] + level_list
+                    curs.execute(query, params)
+                    for level, _side1, _side2 in curs.fetchall():
                         yield level, _side1, _side2
 
         return

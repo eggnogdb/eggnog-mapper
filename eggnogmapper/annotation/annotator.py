@@ -261,7 +261,7 @@ class Annotator:
             raise EmapperException(f"Error: annotation failed. "+str(e))
         finally:
             pool.close()
-            pool.terminate() # it should remove the global eggnog_db variables also
+            pool.join()
             
         return
     

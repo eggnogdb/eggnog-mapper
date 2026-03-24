@@ -63,7 +63,8 @@ def pfam_align_parallel(annotations, PFAM_COL, queries_fasta, translate, cpu, te
     except Exception as e:
         raise EmapperException(f"Error: annotation went wrong for pfam alignment in parallel. "+str(e))
     finally:
-        pool.terminate()
+        pool.close()
+        pool.join()
 
     return aligned_pfams
 
@@ -95,7 +96,8 @@ def query_pfam_annotate(arguments):
         # Append contents of output file for this group into pfam_file,
         # which is the file reporting all the pfam hits together
         with open(pfam_file, 'a') as pfamf:
-            pfamf.write(open(P.name, 'r').read())
+            with open(P.name, 'r') as src:
+                pfamf.write(src.read())
 
         P.close()
 
