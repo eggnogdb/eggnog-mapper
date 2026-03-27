@@ -13,6 +13,12 @@ def parse_seeds(filename):
             continue
 
         line = list(map(str.strip, line.split('\t')))
+        
+        # output format according to /diamond/diamond.py
+        # OUTFMT_SHORT = " --outfmt 6 qseqid sseqid evalue bitscore"
+        # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
+        #                              0      1      2      3       4       5        6    7      8    9      10    11        12      13
+        # OUTFMT_LONG differs from full hits format!
 
         # short hits
         # query, target, evalue, score
@@ -29,8 +35,22 @@ def parse_seeds(filename):
             hit = [line[0], line[1], float(line[2]), float(line[3]),
                    int(line[4]), int(line[5]), int(line[6]), int(line[7]),
                    float(line[8]), float(line[9]), float(line[10])]
-
-        yield hit
+        
+        # as OUTFMT_LONG does not match len(line) == 11, added len(line) == 14
+        elif len(line) == 14:
+            
+            hit = [line[0], line[1], float(line[10]), float(line[11]),
+                  int(line[6]), int(line[7]), int(line[8]), int(line[9]),
+                  float(line[2]), float(line[12]), float(line[13])]
+        
+        # add error hint
+        try:
+            yield hit
+        except UnboundLocalError:
+            print(f"Error: Could not generate hit from diamond '.hits' table. Table should have 4, 11 or 14 columns but current line has {len(line)} columns")
+            print(f"\t current line: {line}")
+            raise UnboundLocalError
+            
     return
 
 ##
