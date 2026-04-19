@@ -6,12 +6,13 @@ import time
 from ..common import get_call_info
 
 from .ncbitaxa.ncbiquery import get_ncbi
+from .db_sqlite import get_eggnog_db
 
 #############
 # Orthologs
 
 ##
-def output_orthologs(annots, orthologs_file, resume, no_file_comments):
+def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db=None):
     start_time = time.time()
 
     ncbi = get_ncbi(usemem = True)
@@ -20,7 +21,7 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments):
         file_mode = 'a'
     else:
         file_mode = 'w'
-        
+
     with open(orthologs_file, file_mode) as ORTHOLOGS_OUT:
         output_orthologs_header(ORTHOLOGS_OUT, no_file_comments, not resume)
 
@@ -28,10 +29,10 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments):
         for ((hit, annotation), exists) in annots:
 
             # exists == False (--resume)
-            
+
             if exists == False and annotation is not None:
-                output_orthologs_row(ORTHOLOGS_OUT, annotation, ncbi)
-                
+                output_orthologs_row(ORTHOLOGS_OUT, annotation, ncbi, eggnog_db)
+
             yield (hit, annotation), exists
             qn += 1
 
@@ -39,11 +40,11 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments):
         output_orthologs_footer(ORTHOLOGS_OUT, no_file_comments, qn, elapsed_time)
 
     if ncbi is not None: ncbi.close()
-    
+
     return
 
 ##
-def output_orthologs_row(out, annotation, ncbi):
+def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
     (query_name, best_hit_name, best_hit_evalue, best_hit_score,
      annotations,
      (og_name, og_cat, og_desc),
@@ -51,47 +52,84 @@ def output_orthologs_row(out, annotation, ncbi):
      match_nog_names,
      all_orthologies, annot_orthologs) = annotation
 
-    best_hit_name_id = best_hit_name.split(".")[1]
+    int_mode = eggnog_db is not None and eggnog_db._int_mode
+
+    if int_mode:
+        # Decode all protein IDs in all_orthologies + annot_orthologs
+        all_ids = set()
+        all_ids.add(int(best_hit_name))
+        for target, orths in all_orthologies.items():
+            if orths:
+                all_ids.update(orths)
+        if annot_orthologs:
+            all_ids.update(annot_orthologs)
+        id_to_name = eggnog_db.decode_protein_ids(all_ids)
+
+        best_hit_real_name = id_to_name.get(int(best_hit_name), str(best_hit_name))
+        best_hit_name_id = best_hit_real_name.split(".", 1)[1] if "." in best_hit_real_name else best_hit_real_name
+    else:
+        id_to_name = None
+        best_hit_name_id = best_hit_name.split(".")[1]
 
     all_orthologies["annot_orthologs"] = annot_orthologs
 
     seed_shown = False # show seed ortholog only once for each query
-    
+
     for target in all_orthologies:
         if target == "all": continue
         if target == "annot_orthologs": continue
-        
+
         query_target_orths = all_orthologies[target]
         if query_target_orths is None or len(query_target_orths) == 0:
             continue
 
-        orthologs_taxids = set([int(x.split(".")[0]) for x in query_target_orths])
+        if int_mode:
+            # Decode integer IDs to get taxids and names
+            orthologs_taxids = set()
+            orth_by_taxid = {}
+            for o in query_target_orths:
+                name = id_to_name.get(o, "0.unknown")
+                taxid = int(name.split(".")[0])
+                orthologs_taxids.add(taxid)
+                orth_by_taxid.setdefault(taxid, []).append((o, name))
+        else:
+            orthologs_taxids = set([int(x.split(".")[0]) for x in query_target_orths])
+
         orthologs_taxnames = sorted(ncbi.get_taxid_translator(orthologs_taxids).items(), key=lambda x: x[1])
 
         for taxid, taxname in orthologs_taxnames:
             orth_names = []
-            for orth in [x for x in query_target_orths if int(x.split(".")[0]) == taxid]:
-                orth_name = orth.split(".")[1]
-                if orth in annot_orthologs:
-                    orth_name = f"*{orth_name}"
 
-                # if it is the seed, show it separately, and only once
-                if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
-                    
-                    if seed_shown == False:
-                        row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
-                        print('\t'.join(row), file=out)
-                        seed_shown = True
-                        
-                    # else: DON'T SHOW AGAIN THE SEED
-                    #     pass                    
-                else:
-                    orth_names.append(orth_name)
+            if int_mode:
+                orths_for_taxid = orth_by_taxid.get(taxid, [])
+                for orth_id, orth_full_name in orths_for_taxid:
+                    orth_name = orth_full_name.split(".", 1)[1] if "." in orth_full_name else orth_full_name
+                    if orth_id in (annot_orthologs if annot_orthologs else []):
+                        orth_name = f"*{orth_name}"
+                    if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
+                        if seed_shown == False:
+                            row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
+                            print('\t'.join(row), file=out)
+                            seed_shown = True
+                    else:
+                        orth_names.append(orth_name)
+            else:
+                for orth in [x for x in query_target_orths if int(x.split(".")[0]) == taxid]:
+                    orth_name = orth.split(".")[1]
+                    if orth in annot_orthologs:
+                        orth_name = f"*{orth_name}"
+                    if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
+                        if seed_shown == False:
+                            row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
+                            print('\t'.join(row), file=out)
+                            seed_shown = True
+                    else:
+                        orth_names.append(orth_name)
 
             if len(orth_names) > 0:
                 row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
                 print('\t'.join(row), file=out)
-                
+
     return
 
 ##
@@ -154,9 +192,14 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
         file_mode = 'a'
     else:
         file_mode = 'w'
-        
+
+    try:
+        eggnog_db = get_eggnog_db()
+    except Exception:
+        eggnog_db = None
+
     start_time = time.time()
-    
+
     with open(annot_file, file_mode) as ANNOTATIONS_OUT:
         output_annotations_header(ANNOTATIONS_OUT, no_file_comments, md5_field, not resume)
 
@@ -164,19 +207,20 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
         for (hit, annotation), exists in annots:
 
             # exists == False (--resume)
-            
+
             if exists == False and annotation is not None:
-                output_annotations_row(ANNOTATIONS_OUT, annotation, md5_field, md5_queries)
-                
+                output_annotations_row(ANNOTATIONS_OUT, annotation, md5_field, md5_queries,
+                                       eggnog_db=eggnog_db)
+
             yield (hit, annotation), exists
             qn += 1
-        
+
         elapsed_time = time.time() - start_time
         output_annotations_footer(ANNOTATIONS_OUT, no_file_comments, qn, elapsed_time)
     return
 
 ##
-def output_annotations_row(out, annotation, md5_field, md5_queries):
+def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=None):
 
     (query_name, best_hit_name, best_hit_evalue, best_hit_score,
      annotations,
@@ -185,7 +229,13 @@ def output_annotations_row(out, annotation, md5_field, md5_queries):
      match_nog_names,
      all_orthologies, annot_orthologs) = annotation
 
-    annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
+    # In int_mode, translate integer seed_ortholog to real protein name
+    if eggnog_db is not None and eggnog_db._int_mode:
+        seed_display = eggnog_db.get_protein_name(best_hit_name)
+    else:
+        seed_display = best_hit_name
+
+    annot_columns = [query_name, seed_display, str(best_hit_evalue), str(best_hit_score),
                      ",".join(match_nog_names), str(max_annot_lvl),
                      og_cat, og_desc]
     
