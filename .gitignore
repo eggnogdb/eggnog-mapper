@@ -9,3 +9,6 @@ data/*
 !.gitkeep
 *_old
 *old*
+.venv/
+__pycache__/
+*.egg-info/

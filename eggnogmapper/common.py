@@ -82,8 +82,10 @@ def set_data_path(data_path):
 ##
 def cleanup_og_name(name):
     import re
-    # names in the hmm databases are sometiemes not clean eggnog OG names
-    # m = re.search('\w+\.((ENOG41|COG|KOG|arCOG)\w+)\.', name)
+    # v7 OG names (e.g. "UNK.278C@131567|A-1") should pass through unchanged
+    if "@" in name and not re.match(r'.*(ENOG41|COG|KOG|arCOG)', name):
+        return name
+    # v5: names in the hmm databases are sometimes not clean eggnog OG names
     m = re.search('.*((ENOG41|COG|KOG|arCOG)\w+)\.', name)
     if m:
         name = m.groups()[0]
@@ -102,10 +104,6 @@ def get_call_info():
 def get_full_version_info():
 
     version = get_version()
-    
-    exp_db_version = __DB_VERSION__
-    if exp_db_version is not None:
-        version = f"{version} / Expected eggNOG DB version: {exp_db_version}"
 
     db_version = None
     try:
@@ -114,13 +112,9 @@ def get_full_version_info():
         print(colorify(f"There was an error retrieving eggnog-mapper DB data: {e}", 'red'))
         print(colorify("Maybe you need to run download_eggnog_data.py", 'white'))
         db_version = "unknown"
-        
-    if db_version is not None:
-        version = f"{version} / Installed eggNOG DB version: {db_version}"
 
-    if exp_db_version is not None and db_version is not None:
-        if exp_db_version != db_version and db_version != "unknown":
-            print(colorify(f"Warning: expected DB version ({exp_db_version}) is different than the one found ({db_version}).", 'red'))
+    if db_version is not None:
+        version = f"{version} / eggNOG DB version: {db_version}"
 
     dmnd_version = get_diamond_version()
     if dmnd_version is not None:
