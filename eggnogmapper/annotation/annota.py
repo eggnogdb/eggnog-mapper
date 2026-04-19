@@ -55,12 +55,20 @@ def summarize_annotations(seq_names, annotations_fields, target_go_ev, excluded_
 def parse_gos(gos, target_go_ev, excluded_go_ev):
     selected_gos = set()
     for g in gos.strip().split(','):
+        g = g.strip()
         if not g:
             continue
-        gocat, gid, gevidence = list(map(str, g.strip().split('|')))
-        if not target_go_ev or gevidence in target_go_ev:
-            if not excluded_go_ev or gevidence not in excluded_go_ev:
-                selected_gos.add(gid)
+        parts = g.split('|')
+        if len(parts) == 3:
+            # v5 format: CAT|GO:xxxx|EVIDENCE
+            gocat, gid, gevidence = parts
+            if not target_go_ev or gevidence in target_go_ev:
+                if not excluded_go_ev or gevidence not in excluded_go_ev:
+                    selected_gos.add(gid)
+        elif len(parts) == 1:
+            # v7 format: plain GO:xxxx (no category or evidence code)
+            selected_gos.add(g)
+        # else: skip malformed entries
     return selected_gos
     
 ## END
