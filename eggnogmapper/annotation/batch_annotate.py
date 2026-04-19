@@ -9,7 +9,11 @@ All actual annotation logic lives in eggnog-annotator. This module owns
 only the hit parsing and the emapper-specific tuple packaging.
 """
 
+import logging
+
 from eggnog_annotator.e7 import AnnotationEngine, EggnogDB, LineageFilter
+
+logger = logging.getLogger(__name__)
 
 from .annotator_worker import filter_out
 from . import output as output_mod
@@ -107,6 +111,11 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
         try:
             seed_id = int(best_hit_name)
         except ValueError:
+            logger.warning(
+                "Cannot parse integer seed ID from '%s'; skipping hit"
+                " (DB version mismatch?)",
+                best_hit_name,
+            )
             yield ((hit, None), False)
             continue
 
@@ -138,8 +147,11 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
         og_cat = og_info.get("cog_cat", "-")
         og_desc = og_info.get("description", "-")
         max_annot_lvl = og_info.get("level", "-")
-        match_nog_names = [og_name] if og_name else []
-        all_orthologies = {"all": set(orthologs)}
+        match_nog_names = r.get("all_ogs") or ([og_name] if og_name else [])
+        all_orthologies = r.get("ortholog_types", {"all": set(orthologs)})
+        annot_orthologs = sorted(
+            all_orthologies.get(target_orthologs, all_orthologies.get("all", []))
+        )
 
         annotation = (
             query_name,
@@ -151,7 +163,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
             max_annot_lvl,
             match_nog_names,
             all_orthologies,
-            orthologs,
+            annot_orthologs,
         )
 
         yield ((hit, annotation), False)
