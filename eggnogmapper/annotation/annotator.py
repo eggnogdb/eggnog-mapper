@@ -64,6 +64,7 @@ class Annotator:
         self.seed_ortholog_score = args.seed_ortholog_score
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 
+        self.tax_scope = args.tax_scope  # Original value (e.g., "auto", "none", taxid)
         self.tax_scope_mode = args.tax_scope_mode
         self.tax_scope_ids = args.tax_scope_ids
                 
@@ -183,10 +184,15 @@ class Annotator:
                         
                     
                 if self.report_orthologs == True:
+                    try:
+                        _eggnog_db = get_eggnog_db()
+                    except Exception:
+                        _eggnog_db = None
                     annots_generator = output.output_orthologs(annots_generator,
                                                                orthologs_file,
                                                                self.resume,
-                                                               self.no_file_comments)
+                                                               self.no_file_comments,
+                                                               eggnog_db=_eggnog_db)
 
                 # unpack the annotations removing the "exists" or "skip"
                 # boolean used when --resume
@@ -204,7 +210,11 @@ class Annotator:
         if self.dbmem == True:
             annots_generator = self._annotate_dbmem(hits_gen_func, annots_parser)
         else:
-            annots_generator = self._annotate_ondisk(hits_gen_func, annots_parser)
+            eggnog_db = get_eggnog_db(usemem=False)
+            if eggnog_db._int_mode:
+                annots_generator = self._annotate_batched(hits_gen_func, annots_parser, eggnog_db)
+            else:
+                annots_generator = self._annotate_ondisk(hits_gen_func, annots_parser)
         return annots_generator
 
 
@@ -237,6 +247,95 @@ class Annotator:
         return
 
     
+    ##
+    def _annotate_batched(self, hits_gen_func, annots_parser, eggnog_db):
+        """Batch annotation: pre-fetch DB data per batch, CPU work in parallel.
+        Only for v7+ integer-encoded databases.
+        """
+        from .batch_annotate import annotate_batch, get_lineage_cache
+        from .tax_scopes.v7_scope import parse_v7_tax_scope
+
+        # v7 databases use lineage-based filtering instead of OG-level filtering.
+        # Parse tax_scope for v7 mode.
+        v7_tax_scope = None
+        v7_tax_scope_auto = False
+
+        tax_scope = self.tax_scope
+        if tax_scope and tax_scope.lower() not in ("none",):
+            lineage_cache = get_lineage_cache()
+            v7_tax_scope, v7_tax_scope_auto = parse_v7_tax_scope(tax_scope, lineage_cache)
+
+            if v7_tax_scope_auto:
+                print(colorify("Using auto tax_scope: orthologs filtered by seed ortholog's "
+                               "taxonomic domain (Metazoa/Plants/Fungi/Bacteria/Archaea).",
+                               "lblue"), file=sys.stderr)
+            elif v7_tax_scope:
+                print(colorify(f"Using tax_scope lineage filter: {', '.join(sorted(v7_tax_scope))}",
+                               "lblue"), file=sys.stderr)
+
+        batch_size = 1000
+        batch = []
+        pool = None  # CPU work is fast after pre-fetch; pool overhead hurts for small batches
+
+        try:
+            for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
+                # Pass through resumed hits immediately
+                if args_tuple[-1] is not None:  # already annotated
+                    yield ((args_tuple[0], args_tuple[-1]), True)
+                    continue
+
+                batch.append(args_tuple)
+
+                if len(batch) >= batch_size:
+                    yield from annotate_batch(
+                        batch, eggnog_db,
+                        annot=self.annot,
+                        target_orthologs=self.target_orthologs,
+                        target_taxa=self.target_taxa,
+                        excluded_taxa=self.excluded_taxa,
+                        tax_scope_mode=self.tax_scope_mode,
+                        tax_scope_ids=None,  # v7 uses lineage filtering, not OG filtering
+                        go_evidence=self.go_evidence,
+                        go_excluded=self.go_excluded,
+                        seed_ortholog_score=self.seed_ortholog_score,
+                        seed_ortholog_evalue=self.seed_ortholog_evalue,
+                        pool=pool,
+                        v7_tax_scope=v7_tax_scope,
+                        v7_tax_scope_auto=v7_tax_scope_auto,
+                    )
+                    batch = []
+
+            if batch:
+                yield from annotate_batch(
+                    batch, eggnog_db,
+                    annot=self.annot,
+                    target_orthologs=self.target_orthologs,
+                    target_taxa=self.target_taxa,
+                    excluded_taxa=self.excluded_taxa,
+                    tax_scope_mode=self.tax_scope_mode,
+                    tax_scope_ids=None,  # v7 uses lineage filtering, not OG filtering
+                    go_evidence=self.go_evidence,
+                    go_excluded=self.go_excluded,
+                    seed_ortholog_score=self.seed_ortholog_score,
+                    seed_ortholog_evalue=self.seed_ortholog_evalue,
+                    pool=pool,
+                    v7_tax_scope=v7_tax_scope,
+                    v7_tax_scope_auto=v7_tax_scope_auto,
+                )
+
+        except EmapperException:
+            raise
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            raise EmapperException(f"Error: batch annotation failed. "+str(e))
+        finally:
+            if pool is not None:
+                pool.close()
+                pool.join()
+
+        return
+
     ##
     def _annotate_ondisk(self, hits_gen_func, annots_parser):
         
