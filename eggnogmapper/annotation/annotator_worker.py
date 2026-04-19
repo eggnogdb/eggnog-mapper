@@ -87,7 +87,8 @@ def annotate_hit_line(arguments, eggnog_db):
                         annot_orthologs = _filter_orthologs(all_orthologies,
                                                             target_orthologs,
                                                             target_taxa,
-                                                            excluded_taxa)
+                                                            excluded_taxa,
+                                                            eggnog_db=eggnog_db)
 
                     except Exception as e:
                         # import traceback
@@ -108,8 +109,8 @@ def annotate_hit_line(arguments, eggnog_db):
                     
                     match_nogs_descriptions = get_ogs_descriptions(match_nogs, eggnog_db)
 
-                    # best_ogs[0] because all best_ogs MUST HAVE the same tax lvl
-                    max_annot_lvl = best_ogs[0][2].split("@")[1]
+                    # best_ogs[0] is (nog_id, nog_tax_id, nog_name, depth)
+                    max_annot_lvl = best_ogs[0][1]
 
                     annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                                   annotations,
@@ -127,14 +128,24 @@ def annotate_hit_line(arguments, eggnog_db):
     return ((hit, annotation), False)
 
 
-def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa):
-    
+def _filter_orthologs(all_orthologies, target_orthologs, target_taxa, excluded_taxa,
+                      eggnog_db=None):
+
     orthologs = sorted(all_orthologies[target_orthologs])
-    
-    if excluded_taxa is not None:
-        orthologs = [o for o in orthologs if int(o.split(".")[0]) not in excluded_taxa]
-    if target_taxa is not None:
-        orthologs = [o for o in orthologs if int(o.split(".")[0]) in target_taxa]
+
+    if eggnog_db is not None and eggnog_db._int_mode and (excluded_taxa or target_taxa):
+        # Integer mode: use in-memory taxid array (O(1) per lookup)
+        _get_taxid = eggnog_db.get_taxid
+        if excluded_taxa is not None:
+            orthologs = [o for o in orthologs if _get_taxid(o) not in excluded_taxa]
+        if target_taxa is not None:
+            orthologs = [o for o in orthologs if _get_taxid(o) in target_taxa]
+    else:
+        # Legacy mode: parse taxid from "TAXID.PROTNAME" string
+        if excluded_taxa is not None:
+            orthologs = [o for o in orthologs if int(o.split(".")[0]) not in excluded_taxa]
+        if target_taxa is not None:
+            orthologs = [o for o in orthologs if int(o.split(".")[0]) in target_taxa]
     return orthologs
         
 ##
