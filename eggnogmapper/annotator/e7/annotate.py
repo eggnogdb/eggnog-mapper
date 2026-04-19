@@ -15,6 +15,7 @@ Usage:
     # }
 """
 
+import logging
 import os
 import time
 from collections import Counter, defaultdict
@@ -85,13 +86,24 @@ class AnnotationEngine:
         # Get events for this protein
         event_ids = self.db.get_events_for_protein(seed_id)
         if not event_ids:
-            return {"orthologs": [], "annotations": {}, "og_info": None}
+            return {
+                "orthologs": [],
+                "annotations": {},
+                "og_info": None,
+                "ortholog_types": {
+                    "one2one": set(), "one2many": set(),
+                    "many2one": set(), "many2many": set(), "all": set(),
+                },
+                "all_ogs": [],
+            }
 
         # Fetch events
         events = self.db.get_events_bulk(event_ids)
 
         # Collect orthologs from events (simplified: no species grouping)
-        orthologs = self._collect_orthologs(seed_id, events, target_taxa, excluded_taxa)
+        orthologs, ortholog_types = self._collect_orthologs(
+            seed_id, events, target_taxa, excluded_taxa
+        )
 
         # Fetch and summarize annotations
         annotations = {}
@@ -106,6 +118,9 @@ class AnnotationEngine:
             "orthologs": list(orthologs),
             "annotations": annotations,
             "og_info": og_info,
+            "ortholog_types": ortholog_types,
+            # Single-protein path has no prots.ogs lookup; batch path fills this.
+            "all_ogs": [],
         }
 
     def annotate_batch(
@@ -151,17 +166,19 @@ class AnnotationEngine:
 
         # Phase 3: Collect orthologs for each seed (with tax-scope prune)
         t0 = time.time()
-        seed_orthologs = {}
-        all_orthologs = set()
+        seed_orthologs: Dict[int, Set[int]] = {}
+        seed_ortholog_types: Dict[int, Dict[str, Set[int]]] = {}
+        all_orthologs: Set[int] = set()
         for seed_id in seed_ids:
             eids = event_index.get(seed_id, [])
             # Filter events to those in our cache
             seed_events = {eid: events_cache[eid] for eid in eids if eid in events_cache}
             valid_species = self._resolve_valid_species(seed_id)
-            orthologs = self._collect_orthologs(
+            orthologs, ortholog_types = self._collect_orthologs(
                 seed_id, seed_events, target_taxa, excluded_taxa, valid_species,
             )
             seed_orthologs[seed_id] = orthologs
+            seed_ortholog_types[seed_id] = ortholog_types
             all_orthologs.update(orthologs)
         _t(f"p3 collect_orthologs ({len(all_orthologs)})", t0)
 
@@ -225,10 +242,24 @@ class AnnotationEngine:
                 }
                 break
 
+            # Preserve OG name insertion order from _parse_ogs_string
+            all_ogs = [name for name, _level in seed_parsed_ogs.get(seed_id, [])]
+
             results[seed_id] = {
                 "orthologs": list(orthologs),
                 "annotations": annotations,
                 "og_info": og_info,
+                "ortholog_types": seed_ortholog_types.get(
+                    seed_id,
+                    {
+                        "one2one":  set(),
+                        "one2many": set(),
+                        "many2one": set(),
+                        "many2many": set(),
+                        "all":      set(),
+                    },
+                ),
+                "all_ogs": all_ogs,
             }
 
         _t("p6 build_results", t0)
@@ -277,65 +308,139 @@ class AnnotationEngine:
         events: Dict[int, dict],
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
-        valid_species: Optional[set] = None,
-    ) -> Set[int]:
-        """Collect ortholog IDs from events.
+        valid_species: Optional[frozenset] = None,
+    ) -> Tuple[Set[int], Dict[str, Set[int]]]:
+        """Collect ortholog IDs from events, classified by orthology type.
 
-        Simplified approach: collects all proteins from the opposite side
-        of each event where the seed appears. No species grouping.
+        For each speciation event where the seed appears, the proteins on the
+        opposite side are collected and classified by the cardinality of each
+        side *before* species filtering. A protein can appear in multiple typed
+        buckets if it participates in events with different cardinalities.
 
         Args:
             seed_id: Seed protein ID
             events: Dict of event_id -> event data
             target_taxa: Optional taxids to include
             excluded_taxa: Optional taxids to exclude
+            valid_species: Optional frozenset of taxid strings allowed by
+                the lineage scope filter. Produced by
+                ``LineageFilter.get_valid_species_ids()``.
 
         Returns:
-            Set of ortholog protein IDs
+            (orthologs, ortholog_types) where:
+            - orthologs: filtered set of all ortholog protein IDs
+            - ortholog_types: dict with keys "one2one", "one2many",
+              "many2one", "many2many", "all" — each mapping to the subset
+              of filtered orthologs with that relationship to the seed.
         """
-        orthologs = set()
+        typed: Dict[str, Set[int]] = {
+            "one2one":  set(),
+            "one2many": set(),
+            "many2one": set(),
+            "many2many": set(),
+            "all":      set(),
+        }
+
+        # Candidate orthologs per event, keyed by relationship type.
+        # We defer species filtering to a single pass after collecting all
+        # candidates so that out-of-range ID warnings fire only once.
+        candidates: Dict[str, Set[int]] = {
+            "one2one":  set(),
+            "one2many": set(),
+            "many2one": set(),
+            "many2many": set(),
+        }
 
         for event in events.values():
             side1 = event.get("side1")
             side2 = event.get("side2")
             if side1 is None or side2 is None:
                 continue
-            # Convert only when needed
-            if seed_id in side1 or seed_id in side2:
-                orthologs.update(side1)
-                orthologs.update(side2)
 
-        orthologs.discard(seed_id)  # drop the seed itself
+            if seed_id in side1:
+                seed_side, other_side = side1, side2
+            elif seed_id in side2:
+                seed_side, other_side = side2, side1
+            else:
+                continue
 
-        if not orthologs:
-            return orthologs
+            # Classify by UNFILTERED side sizes
+            s, o = len(seed_side), len(other_side)
+            if s == 1 and o == 1:
+                rel = "one2one"
+            elif s == 1 and o > 1:
+                rel = "one2many"
+            elif s > 1 and o == 1:
+                rel = "many2one"
+            else:
+                rel = "many2many"
+
+            candidates[rel].update(other_side)
+
+        # Remove the seed itself from every candidate bucket
+        for bucket in candidates.values():
+            bucket.discard(seed_id)
+
+        all_candidates: Set[int] = set()
+        for bucket in candidates.values():
+            all_candidates.update(bucket)
+
+        if not all_candidates:
+            return typed["all"], typed
 
         taxids = self.db.taxid_array
+
+        # No taxid array → return all candidates unfiltered
         if taxids is None:
-            return orthologs
+            for rel, bucket in candidates.items():
+                typed[rel].update(bucket)
+                typed["all"].update(bucket)
+            return typed["all"], typed
 
         # Combined species filter: auto/scope lineage + manual taxa filters.
         # Scope lineage uses taxid strings; manual filters typically use ints.
         want_scope = valid_species is not None
         want_manual = bool(target_taxa or excluded_taxa)
-        if not want_scope and not want_manual:
-            return orthologs
 
-        filtered = set()
+        _warned_oor = False
+        _oor_count = 0
         n_taxids = len(taxids)
-        for oid in orthologs:
+
+        # Build a set of candidates that pass all filters, then classify
+        # into typed buckets from that filtered set.
+        filtered: Set[int] = set()
+        for oid in all_candidates:
             if oid >= n_taxids:
+                if not _warned_oor:
+                    logging.getLogger(__name__).warning(
+                        "Protein ID %d >= taxid_array length %d; discarding "
+                        "out-of-range orthologs (seed %d). DB may be "
+                        "inconsistent.",
+                        oid,
+                        n_taxids,
+                        seed_id,
+                    )
+                    _warned_oor = True
+                _oor_count += 1
                 continue
-            taxid_int = taxids[oid]
-            if want_scope and str(taxid_int) not in valid_species:
-                continue
-            if want_manual:
-                if excluded_taxa and taxid_int in excluded_taxa:
+            if want_scope or want_manual:
+                taxid_int = taxids[oid]
+                if want_scope and str(taxid_int) not in valid_species:
                     continue
-                if target_taxa and taxid_int not in target_taxa:
-                    continue
+                if want_manual:
+                    if excluded_taxa and taxid_int in excluded_taxa:
+                        continue
+                    if target_taxa and taxid_int not in target_taxa:
+                        continue
             filtered.add(oid)
-        return filtered
+
+        # Distribute filtered proteins into their typed buckets
+        for rel, bucket in candidates.items():
+            typed_bucket = filtered & bucket
+            typed[rel].update(typed_bucket)
+        typed["all"] = filtered
+
+        return typed["all"], typed
 
     def _summarize_annotations(
         self,

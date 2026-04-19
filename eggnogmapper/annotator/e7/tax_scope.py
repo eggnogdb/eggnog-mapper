@@ -7,6 +7,8 @@ This module provides lineage-based filtering of orthologs:
 """
 
 import sqlite3
+from typing import Optional
+
 from ..lineage import LineageCache
 
 # Domain taxids
@@ -150,17 +152,20 @@ class LineageFilter:
                 filtered.append(oid)
         return filtered
 
-    def get_valid_species_ids(self, scope_taxids):
-        """Return the set of species taxids whose lineage intersects `scope_taxids`.
+    def get_valid_species_ids(self, scope_taxids) -> Optional[frozenset]:
+        """Return the frozenset of species taxids whose lineage intersects `scope_taxids`.
 
         Results are memoized per frozenset of scope taxids — useful when
         filtering many orthologs against a small number of distinct scopes.
+        Returns a frozenset so callers cannot accidentally corrupt the cache
+        via mutation.
 
         Args:
             scope_taxids: Iterable of taxid strings (e.g., {"33090"} for Viridiplantae)
 
         Returns:
-            Set of species taxid strings that qualify under the scope
+            Frozenset of species taxid strings that qualify under the scope,
+            or None if scope_taxids is empty.
         """
         if not scope_taxids:
             return None
@@ -174,8 +179,9 @@ class LineageFilter:
         for taxid, lineage in self.lineage_cache.items():
             if lineage & key:
                 out.add(taxid)
-        cache[key] = out
-        return out
+        result = frozenset(out)
+        cache[key] = result
+        return result
 
     def filter_by_taxids(self, species_taxids, seed_taxid=None):
         """Filter species taxids to those matching the taxonomic scope.
