@@ -5,7 +5,7 @@ This module provides bulk query methods for high-throughput annotation.
 """
 
 import sqlite3
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 from ..codec import decode_intlist
 
 
@@ -71,7 +71,9 @@ class EggnogDB:
         )
         max_id = cursor.fetchone()[0] or 0
 
-        # Initialize with zeros
+        # Assumes protein IDs are contiguous from 0..n_prots-1.
+        # If the DB has gaps, slots for missing IDs will hold taxid=0 (ambiguous).
+        # See M3 in PLAN.md for gap-detection work item.
         self._taxids = [0] * (max_id + 1)
 
         cursor = self.conn.execute(
@@ -177,8 +179,8 @@ class EggnogDB:
             - og: OG name
             - og_lca: OG LCA taxid
             - ev_lca: event LCA taxid
-            - side1: set of protein IDs (for fast membership test)
-            - side2: set of protein IDs (for fast membership test)
+            - side1: set of protein IDs (for fast membership test; order not preserved)
+            - side2: set of protein IDs (for fast membership test; order not preserved)
         """
         if not event_ids:
             return {}
@@ -291,7 +293,7 @@ class EggnogDB:
         row = cursor.fetchone()
         return dict(row) if row else None
 
-    def get_og_info_bulk(self, og_pairs) -> Dict[Tuple[str, str], dict]:
+    def get_og_info_bulk(self, og_pairs: Iterable[Tuple[str, str]]) -> List[Tuple]:
         """Get OG metadata for multiple (name, level) pairs.
 
         Uses SQLite IN (?) on name (leveraging the (name, level) composite

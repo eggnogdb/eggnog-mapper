@@ -241,6 +241,7 @@ def parse_tax_scope(tax_scope):
     return scope_taxids if scope_taxids else None, False
 
 
+# Standalone utility — not called internally; exposed for external scripts.
 def resolve_name_to_taxid(name, taxa_db_path):
     """Resolve a taxonomic name to its taxid.
 

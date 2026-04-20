@@ -5,3 +5,4 @@ This module will be populated when migrating v5 support from eggnog-mapper.
 """
 
 # TODO: Migrate v5 annotation path from eggnog-mapper
+raise NotImplementedError("v5 support not yet migrated to eggnog-annotator")

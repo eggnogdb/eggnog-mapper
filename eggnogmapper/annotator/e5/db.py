@@ -5,3 +5,4 @@ This module will be populated when migrating v5 support from eggnog-mapper.
 """
 
 # TODO: Migrate from eggnog-mapper/eggnogmapper/annotation/db_sqlite.py (v5 path)
+raise NotImplementedError("v5 support not yet migrated to eggnog-annotator")

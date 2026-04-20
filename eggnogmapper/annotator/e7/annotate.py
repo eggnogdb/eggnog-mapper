@@ -24,6 +24,8 @@ from typing import Dict, List, Optional, Set, Tuple, Any
 from .db import EggnogDB
 from ..codec import decode_intlist
 
+logger = logging.getLogger(__name__)
+
 # Enable per-phase timing by setting EGGNOG_ANNOTATOR_PROFILE=1
 _PROFILE = os.environ.get("EGGNOG_ANNOTATOR_PROFILE", "0") == "1"
 
@@ -291,7 +293,10 @@ class AnnotationEngine:
         taxids = self.db.taxid_array
         if not taxids or seed_id >= len(taxids):
             return None
-        seed_taxid = str(taxids[seed_id])
+        taxid = taxids[seed_id]
+        if taxid == 0:
+            logger.debug("seed_id %d has taxid=0 (possibly uninitialized slot)", seed_id)
+        seed_taxid = str(taxid)
         if seed_taxid in self._valid_species_by_seed:
             return self._valid_species_by_seed[seed_taxid]
         scope = self.lineage_filter.get_effective_scope(seed_taxid)

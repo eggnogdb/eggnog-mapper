@@ -12,6 +12,9 @@ Used for sp_events.side1, sp_events.side2 (protein ID lists) and
 event_index.events (event ID lists) in eggnog.db.
 """
 
+# encode_intlist is used by eggnog-builder to write BLOBs; not called from this package.
+# decode_intlist is the hot path: called for every event in annotate_batch().
+
 
 def encode_intlist(ids):
     """Encode a list of non-negative integers as a sorted delta-varint BLOB.
