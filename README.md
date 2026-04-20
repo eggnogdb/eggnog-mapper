@@ -32,6 +32,26 @@ If you use this software, please cite:
     47(Database issue): D309–D314. doi: 10.1093/nar/gky1085 
 ```
 
+## Production Notes
+
+### `--target-orthologs` filtering in v7 batch mode
+
+`--target-orthologs` filtering is applied in the v7 batch annotation path
+(`eggnogmapper/annotation/batch_annotate.py`). Accepted values are `all`
+(default), `one2one`, `one2many`, `many2one`, and `many2many`. Orthology type
+is classified per speciation event based on the unfiltered side sizes; only
+events whose type matches the selected value are included in the
+`annot_orthologs` output column.
+
+### Missing taxa.db
+
+If the `taxa.db` file is absent from the data directory, batch annotation now
+raises `EmapperException` with an actionable message that includes the expected
+path. Check that `--data_dir` (or the `EGGNOG_DATA_DIR` environment variable)
+points to a directory containing `eggnog.taxa.db`.
+
+---
+
 Please, cite also the underlying algorithm used for the search step of eggNOG-mapper, and Prodigal if it was used for gene prediction:
 ```
 [HMMER] Accelerated Profile HMM Searches. 

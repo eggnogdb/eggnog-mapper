@@ -172,6 +172,38 @@ python emapper.py -i seqs.fa --target_taxa 9606,10090 -o out
 python emapper.py -i seqs.fa --excluded_taxa 9606 -o out
 ```
 
+### v7 Batch Annotation
+
+When eggnog-mapper uses the v7 annotation engine (`batch_annotate.py`), it
+delegates to `eggnog_annotator.e7.AnnotationEngine` for bulk ortholog lookup and
+functional annotation transfer. This path is active when the database backend
+is `eggnog5` (the default) and `--no_annot` is not set.
+
+#### `--target-orthologs`
+
+Controls which orthology relationship types are used for annotation transfer.
+
+| Value | Description |
+|-------|-------------|
+| `all` | Use all orthologs regardless of relationship type (default) |
+| `one2one` | Only strict one-to-one orthologs |
+| `one2many` | One-to-many orthologs (gene duplication on target side) |
+| `many2one` | Many-to-one orthologs (gene duplication on query side) |
+| `many2many` | Many-to-many orthologs |
+
+Orthology type is determined per speciation event from the unfiltered side
+sizes stored in `sp_events`. All five keys are classified for every event;
+`--target-orthologs` then filters the `annot_orthologs` output column to
+retain only events of the selected type.
+
+```bash
+# Annotate using only strict one-to-one orthologs
+python emapper.py -i seqs.fa --target_orthologs one2one -o out
+
+# Default: use all ortholog types
+python emapper.py -i seqs.fa --target_orthologs all -o out
+```
+
 ### DIAMOND Tuning
 
 ```bash
