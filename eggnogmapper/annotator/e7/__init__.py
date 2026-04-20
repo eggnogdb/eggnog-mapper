@@ -19,7 +19,7 @@ from .tax_scope import (
     VIRIDIPLANTAE,
     CELLULAR_ORGANISMS,
 )
-from .db import EggnogDB
+from .db import EggnogDB, EggnogDBError
 from .annotate import AnnotationEngine, annotate_protein
 from .orthologs import OrthologFinder, DonorTracker
 
@@ -36,6 +36,7 @@ __all__ = [
     "CELLULAR_ORGANISMS",
     # Database
     "EggnogDB",
+    "EggnogDBError",
     # Annotation
     "AnnotationEngine",
     "annotate_protein",

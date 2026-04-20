@@ -6,6 +6,7 @@ This module provides lineage-based filtering of orthologs:
 - "auto" mode selects appropriate scope based on the seed ortholog's taxonomy
 """
 
+import logging
 import sqlite3
 from typing import Optional
 
@@ -259,5 +260,9 @@ def resolve_name_to_taxid(name, taxa_db_path):
         row = cursor.fetchone()
         conn.close()
         return str(row[0]) if row else None
-    except Exception:
+    except sqlite3.OperationalError as exc:
+        logging.getLogger(__name__).error(
+            "resolve_name_to_taxid failed for %r in %s: %s",
+            name, taxa_db_path, exc,
+        )
         return None

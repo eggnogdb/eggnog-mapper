@@ -9,6 +9,10 @@ from typing import Dict, List, Optional, Set, Tuple
 from ..codec import decode_intlist
 
 
+class EggnogDBError(Exception):
+    """Raised when the eggnog database cannot be opened or queried."""
+
+
 class EggnogDB:
     """Database access for v7+ eggNOG databases.
 
@@ -26,12 +30,17 @@ class EggnogDB:
             load_taxids: If True, load protein_names.taxid into memory array
         """
         self.db_path = db_path
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
-        self.conn.row_factory = sqlite3.Row
+        try:
+            self.conn = sqlite3.connect(db_path, check_same_thread=False)
+            self.conn.row_factory = sqlite3.Row
 
-        self._taxids = None
-        if load_taxids:
-            self._load_taxid_array()
+            self._taxids = None
+            if load_taxids:
+                self._load_taxid_array()
+        except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
+            raise EggnogDBError(
+                f"Cannot open eggnog database at '{db_path}': {exc}"
+            ) from exc
 
     @classmethod
     def from_connection(cls, conn, taxid_array=None):
