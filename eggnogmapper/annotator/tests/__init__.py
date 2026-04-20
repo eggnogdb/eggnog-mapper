@@ -1,0 +1,1 @@
+# eggnog-annotator test package
