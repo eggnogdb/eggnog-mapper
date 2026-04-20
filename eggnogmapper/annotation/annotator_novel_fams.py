@@ -1,3 +1,8 @@
+"""NOTE: This module handles novel (unannotated) protein families.
+v7 batch features (--target-orthologs filtering, full OG hierarchy) are NOT
+supported here. This path is experimental and intentionally limited to v5-style output.
+"""
+
 ##
 ## CPCantalapiedra 2019
 
