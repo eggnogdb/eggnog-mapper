@@ -13,6 +13,8 @@ import logging
 
 from eggnog_annotator.e7 import AnnotationEngine, EggnogDB, LineageFilter
 
+from ..emapperException import EmapperException
+
 logger = logging.getLogger(__name__)
 
 from .annotator_worker import filter_out
@@ -37,7 +39,13 @@ def get_lineage_cache():
         from ..common import get_ncbitaxadb_file
         from .tax_scopes.v7_scope import LineageCache
         taxa_db = get_ncbitaxadb_file()
-        _lineage_cache = LineageCache(taxa_db_path=taxa_db)
+        try:
+            _lineage_cache = LineageCache(taxa_db_path=taxa_db)
+        except Exception as exc:
+            raise EmapperException(
+                f"Failed to load lineage cache from {taxa_db}: {exc}. "
+                "Ensure eggnog.taxa.db is present in --data_dir."
+            ) from exc
     return _lineage_cache
 
 
@@ -66,6 +74,10 @@ def _get_engine(annot_db, v7_tax_scope, v7_tax_scope_auto):
     taxid array, so no memory is duplicated. Recreated if scope changes.
     """
     global _engine, _engine_conn_id, _engine_scope_key
+    # scope_key distinguishes: no scope (None), auto scope ("auto"),
+    # and explicit scope (sorted tuple of taxid strings).
+    # Empty v7_tax_scope list maps to None (same as no scope) — correct,
+    # since an empty explicit scope list is effectively unconstrained.
     scope_key = (
         "auto" if v7_tax_scope_auto
         else tuple(sorted(v7_tax_scope)) if v7_tax_scope
