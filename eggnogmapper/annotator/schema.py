@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS sp_events (
     og TEXT,                       -- OG name
     og_lca TEXT,                   -- OG LCA taxid
     ev_lca TEXT,                   -- event LCA taxid
+    sp_overlap REAL,               -- species Jaccard overlap between the two sides
     side1 BLOB NOT NULL,           -- delta-varint protein IDs
     side2 BLOB NOT NULL            -- delta-varint protein IDs
 );

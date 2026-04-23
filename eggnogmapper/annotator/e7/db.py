@@ -179,6 +179,7 @@ class EggnogDB:
             - og: OG name
             - og_lca: OG LCA taxid
             - ev_lca: event LCA taxid
+            - sp_overlap: species Jaccard overlap between the two sides
             - side1: set of protein IDs (for fast membership test; order not preserved)
             - side2: set of protein IDs (for fast membership test; order not preserved)
         """
@@ -192,7 +193,7 @@ class EggnogDB:
             chunk = ids[i:i + BATCH]
             placeholders = ",".join("?" * len(chunk))
             cursor = self.conn.execute(
-                f"SELECT i, name, og, og_lca, ev_lca, side1, side2 "
+                f"SELECT i, name, og, og_lca, ev_lca, sp_overlap, side1, side2 "
                 f"FROM sp_events WHERE i IN ({placeholders})",
                 chunk
             )
@@ -203,6 +204,7 @@ class EggnogDB:
                     "og": row["og"],
                     "og_lca": row["og_lca"],
                     "ev_lca": row["ev_lca"],
+                    "sp_overlap": row["sp_overlap"],
                     "side1": set(decode_intlist(row["side1"])),
                     "side2": set(decode_intlist(row["side2"])),
                 }
