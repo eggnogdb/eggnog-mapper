@@ -113,6 +113,14 @@ class AnnotationEngine:
             annot_data = self.db.get_protein_annotations_bulk(list(orthologs))
             annotations = self._summarize_annotations(annot_data)
 
+        # Preferred_name: seed's own pname takes priority when it is an informative
+        # gene name. Locus IDs and multi-alias entries fall through to consensus.
+        seed_row = self.db.get_protein_annotations_bulk([seed_id]).get(seed_id)
+        if seed_row:
+            seed_pname = (seed_row.get("pname") or "").strip()
+            if self._is_informative_pname(seed_pname):
+                annotations["Preferred_name"] = [seed_pname]
+
         # Get OG info from events
         og_info = self._get_og_info(events)
 
@@ -184,11 +192,13 @@ class AnnotationEngine:
             all_orthologs.update(orthologs)
         _t(f"p3 collect_orthologs ({len(all_orthologs)})", t0)
 
-        # Phase 4: Bulk fetch annotations for all orthologs
+        # Phase 4: Bulk fetch annotations for all orthologs and seeds.
+        # Seeds are fetched so their pname can be used as the primary Preferred_name.
         t0 = time.time()
         annot_cache = {}
-        if all_orthologs:
-            annot_cache = self.db.get_protein_annotations_bulk(list(all_orthologs))
+        all_to_fetch = all_orthologs | set(seed_ids)
+        if all_to_fetch:
+            annot_cache = self.db.get_protein_annotations_bulk(list(all_to_fetch))
         _t("p4 annotations", t0)
 
         # Phase 5: Bulk fetch OG info from prots.ogs field
@@ -215,9 +225,20 @@ class AnnotationEngine:
         for seed_id in seed_ids:
             orthologs = seed_orthologs.get(seed_id, set())
 
-            # Filter annot_cache to this seed's orthologs
+            # Filter annot_cache to this seed's orthologs (seed itself excluded from consensus)
             seed_annots = {oid: annot_cache[oid] for oid in orthologs if oid in annot_cache}
             annotations = self._summarize_annotations(seed_annots) if seed_annots else {}
+
+            # Preferred_name: use the seed's own pname when it is an informative
+            # gene name. The direct DIAMOND hit is the most specific reference;
+            # ortholog consensus can assign a wrong family-level name (e.g. SDC1
+            # to a GAD protein). Locus IDs and multi-alias entries fall through to
+            # the ortholog consensus.
+            seed_annot = annot_cache.get(seed_id)
+            if seed_annot:
+                seed_pname = (seed_annot.get("pname") or "").strip()
+                if self._is_informative_pname(seed_pname):
+                    annotations["Preferred_name"] = [seed_pname]
 
             # Pick the most specific OG we have description for (deepest level
             # appears last in the parsed list)
@@ -534,6 +555,25 @@ class AnnotationEngine:
                     level = "-"
                 result.append((og_name, level))
         return result
+
+    def _is_informative_pname(self, pname: str) -> bool:
+        """Return True if pname is a real gene symbol worth transferring.
+
+        Rejects:
+        - empty string
+        - multi-alias entries (contain a comma, e.g. "TP53,P53")
+        - NCBI locus IDs  (LOC followed by digits, e.g. "LOC104234906")
+        - purely numeric strings (e.g. "11423014")
+        """
+        if not pname:
+            return False
+        if "," in pname:
+            return False
+        if pname.startswith("LOC") and pname[3:].isdigit():
+            return False
+        if pname.isdigit():
+            return False
+        return True
 
     def _parse_gos(self, go_string: str) -> List[str]:
         """Parse GO terms from string, filtering by evidence if needed."""

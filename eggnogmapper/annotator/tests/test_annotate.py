@@ -154,6 +154,59 @@ def test_out_of_range_protein_id_warns(engine, caplog):
 
 
 # ---------------------------------------------------------------------------
+# Preferred_name: seed's own pname takes priority
+# ---------------------------------------------------------------------------
+
+def test_nifh_preferred_name_from_seed(engine):
+    """Preferred_name must come from the seed's own pname when it is a clean name.
+
+    NifH (id=169) has pname='nifH' in the DB. Even though many orthologs also
+    have that name, this test ensures the seed's pname is honoured after the fix
+    that prevents family-level consensus from overriding the direct hit's name.
+    """
+    result = _get_result(engine, NIFH_PROTEIN_ID)
+    pname = result["annotations"].get("Preferred_name")
+    assert pname is not None, "Preferred_name should not be absent for NifH"
+    assert pname == ["nifH"], f"Expected ['nifH'], got {pname}"
+
+
+def test_tp53_preferred_name_falls_back_to_consensus(engine):
+    """When seed pname contains commas (multi-alias), consensus is used instead.
+
+    TP53 seed (id=1381) has pname='TP53,P53'. Because it contains a comma the
+    engine falls back to the ortholog consensus, which yields the clean name 'TP53'.
+    """
+    result = _get_result(engine, TP53_PROTEIN_ID)
+    pname = result["annotations"].get("Preferred_name")
+    assert pname is not None, "Preferred_name should not be absent for TP53"
+    # Consensus from 540 orthologs gives 'TP53' as the dominant clean name
+    assert pname == ["TP53"], f"Expected ['TP53'] from ortholog consensus, got {pname}"
+
+
+@pytest.mark.parametrize("bad_pname", [
+    "",
+    "TP53,P53",        # multi-alias
+    "LOC104234906",    # NCBI locus ID
+    "11423014",        # purely numeric
+])
+def test_is_informative_pname_rejects_bad_names(engine, bad_pname):
+    """_is_informative_pname must return False for non-gene-symbol strings."""
+    assert engine._is_informative_pname(bad_pname) is False, (
+        f"Expected False for pname={bad_pname!r}"
+    )
+
+
+@pytest.mark.parametrize("good_pname", [
+    "nifH", "LeGAD3", "TP53", "ATL2", "ycf4", "GAD4",
+])
+def test_is_informative_pname_accepts_real_names(engine, good_pname):
+    """_is_informative_pname must return True for real gene symbols."""
+    assert engine._is_informative_pname(good_pname) is True, (
+        f"Expected True for pname={good_pname!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Empty early-return test
 # ---------------------------------------------------------------------------
 
