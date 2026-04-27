@@ -171,6 +171,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
 
         annotations = r.get("annotations") or {}
         annotations_confidence = r.get("annotations_confidence") or {}
+        tax_scope_used = r.get("tax_scope_used") or "none"
         og_info = r.get("og_info") or {}
         orthologs = r.get("orthologs") or []
 
@@ -196,6 +197,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
             all_orthologies,
             annot_orthologs,
             annotations_confidence,
+            tax_scope_used,
         )
 
         yield ((hit, annotation), False)

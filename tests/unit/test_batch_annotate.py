@@ -45,6 +45,7 @@ def _make_engine_result(
         "all_ogs": ["CLU_TEST@131567|root", "CLU_TEST@9606|HX-1"],
         "annotations": {"GOs": ["GO:0005515"], "KEGG_ko": ["K00001"]},
         "annotations_confidence": {"GOs": "high", "KEGG_ko": "high"},
+        "tax_scope_used": "Bacteria,Archaea",
         "og_info": {
             "name": "CLU_TEST@131567|root",
             "cog_cat": "O",
@@ -283,12 +284,13 @@ class TestAnnotationTupleStructure:
         (_, annotation), _ = results[0]
         return annotation
 
-    def test_annotation_tuple_has_11_elements(self):
-        """The annotation tuple must have exactly 11 elements (Phase 3C)."""
+    def test_annotation_tuple_has_12_elements(self):
+        """The annotation tuple must have exactly 12 elements
+        (Phase 7.1b appended `tax_scope_used` to the v3 11-tuple)."""
         annotation = self._get_annotation()
         assert annotation is not None, "annotation should not be None for a valid hit"
-        assert len(annotation) == 11, (
-            f"Expected 11-element annotation tuple, got {len(annotation)}: {annotation}"
+        assert len(annotation) == 12, (
+            f"Expected 12-element annotation tuple, got {len(annotation)}: {annotation}"
         )
 
     def test_annotation_element_10_is_confidence_dict(self):
@@ -305,6 +307,16 @@ class TestAnnotationTupleStructure:
                 f"annotations_confidence[{field!r}] must be high/medium/low, "
                 f"got {tier!r}"
             )
+
+    def test_annotation_element_11_is_tax_scope_used(self):
+        """element[11] (tax_scope_used) must be a non-empty string."""
+        annotation = self._get_annotation()
+        assert annotation is not None
+        tax_scope_used = annotation[11]
+        assert isinstance(tax_scope_used, str), (
+            f"annotation[11] must be a str, got {type(tax_scope_used).__name__}"
+        )
+        assert tax_scope_used, "annotation[11] (tax_scope_used) must not be empty"
 
     def test_annotation_tuple_element_5_is_3tuple(self):
         """element[5] (match_nogs_descriptions) must be a 3-tuple: (og_name, cat, desc)."""
