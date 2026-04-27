@@ -21,16 +21,20 @@ from . import output as output_mod
 
 
 def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_score):
-    """Drop a hit before annotation if the seed name is sentinel or it
-    fails score/e-value thresholds. Inlined from the now-deleted
-    annotator_worker module (Phase 2 commit 3)."""
+    """Decide whether a hit should be dropped before annotation.
+
+    Returns ``None`` when the hit survives, otherwise a short reason
+    string used by the optional drop log (Phase 7.1c). The reasons are
+    stable identifiers so users can grep/filter the .dropped file
+    programmatically.
+    """
     if hit_name == "-" or hit_name == "ERROR":
-        return True
+        return "error_seed"
     if threshold_evalue is not None and hit_evalue is not None and hit_evalue > threshold_evalue:
-        return True
+        return "evalue_above_threshold"
     if threshold_score is not None and hit_score is not None and hit_score < threshold_score:
-        return True
-    return False
+        return "score_below_threshold"
+    return None
 
 ANNOTATIONS_HEADER = output_mod.ANNOTATIONS_HEADER
 
@@ -110,11 +114,16 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
                    target_taxa, excluded_taxa, tax_scope_mode,
                    tax_scope_ids, go_evidence, go_excluded,
                    seed_ortholog_score, seed_ortholog_evalue,
-                   pool=None, v7_tax_scope=None, v7_tax_scope_auto=False):
+                   pool=None, v7_tax_scope=None, v7_tax_scope_auto=False,
+                   dropped_writer=None):
     """Annotate a batch of hits using eggnog-annotator.
 
     batch: list of (hit, ...) argument tuples from iter_hit_lines
     pool: ignored (kept for signature compatibility)
+    dropped_writer: optional callable
+        ``dropped_writer(query, reason, seed, evalue, score)`` invoked
+        for every hit dropped before or after the engine runs. Set to
+        ``None`` to disable the drop log (Phase 7.1c).
     Yields ((hit, annotation), False) tuples, same interface as the
     legacy per-hit annotator.
     """
@@ -122,12 +131,17 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
     valid_hits = []
     for args in batch:
         hit = args[0]
+        query_name = hit[0]
         best_hit_name = hit[1]
         best_hit_evalue = float(hit[2])
         best_hit_score = float(hit[3])
 
-        if filter_out(best_hit_name, best_hit_evalue, best_hit_score,
-                       seed_ortholog_evalue, seed_ortholog_score):
+        reason = filter_out(best_hit_name, best_hit_evalue, best_hit_score,
+                            seed_ortholog_evalue, seed_ortholog_score)
+        if reason is not None:
+            if dropped_writer is not None:
+                dropped_writer(query_name, reason, best_hit_name,
+                               best_hit_evalue, best_hit_score)
             yield ((hit, None), False)
             continue
 
@@ -140,10 +154,13 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
                 " (DB version mismatch?)",
                 best_hit_name,
             )
+            if dropped_writer is not None:
+                dropped_writer(query_name, "non_integer_seed_id",
+                               best_hit_name, best_hit_evalue, best_hit_score)
             yield ((hit, None), False)
             continue
 
-        valid_hits.append((hit, hit[0], seed_id, best_hit_evalue, best_hit_score))
+        valid_hits.append((hit, query_name, seed_id, best_hit_evalue, best_hit_score))
 
     if not valid_hits:
         return
@@ -166,6 +183,12 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
     for hit, query_name, seed_id, evalue, score in valid_hits:
         r = results.get(seed_id)
         if not r or (not r.get("orthologs") and not r.get("annotations")):
+            if dropped_writer is not None:
+                # Engine ran but found nothing useful — could be a tax_scope
+                # that excluded every donor, target_orthologs floor that
+                # filtered the cascade empty, or a seed with no events.
+                dropped_writer(query_name, "no_donor_orthologs",
+                               str(seed_id), evalue, score)
             yield ((hit, None), False)
             continue
 

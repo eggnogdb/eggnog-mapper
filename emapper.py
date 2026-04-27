@@ -374,6 +374,14 @@ def create_arg_parser():
     pg_annot.add_argument("--no_annot", action="store_true",
                           help="Skip functional annotation, reporting only hits.")
 
+    pg_annot.add_argument("--report_dropped", action="store_true",
+                          help=("Write a TSV log of every query whose hit was dropped before "
+                                "or after annotation, with the drop reason. Path: "
+                                "<output>.emapper.dropped. Reasons: error_seed (seed name '-' "
+                                "or 'ERROR'), evalue_above_threshold, score_below_threshold, "
+                                "non_integer_seed_id, no_donor_orthologs (engine returned no "
+                                "annotations under the active filters)."))
+
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'

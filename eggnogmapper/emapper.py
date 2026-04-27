@@ -51,6 +51,8 @@ class Emapper:
         self.orthologs_file = f"{prefix}.emapper.orthologs"
         self.pfam_file = f"{prefix}.emapper.pfam"
         self.excel_file = f"{prefix}.emapper.annotations.xlsx"
+        # Phase 7.1c: optional drop log written when --report_dropped is set.
+        self.dropped_file = f"{prefix}.emapper.dropped"
         self.deco_gff_file = f"{prefix}.emapper.decorated.gff"
 
         self.genepred = genepred
@@ -88,9 +90,15 @@ class Emapper:
 
         if annot == True and excel == True:
             self._output_files.append(self.excel_file)
-            
+
         if report_orthologs == True:
             self._output_files.append(self.orthologs_file)
+
+        # Phase 7.1c: dropped log is written only when --report_dropped is
+        # set. Register unconditionally so --override / --resume handle
+        # any leftover from a previous run cleanly (silent_rm is no-op
+        # when the file is absent).
+        self._output_files.append(self.dropped_file)
 
         # force user to decide what to do with existing files
         files_present = set([pexists(pjoin(self.output_dir, fname)) for fname in self._output_files])
@@ -215,6 +223,7 @@ class Emapper:
                     pjoin(self._current_dir, self.orthologs_file),
                     pjoin(self._current_dir, self.pfam_file),
                     queries_file,
+                    dropped_file=pjoin(self._current_dir, self.dropped_file),
                 )
         else:
             annotated_hits = ((hit, None) for hit in hits)  # hits generator without annotations

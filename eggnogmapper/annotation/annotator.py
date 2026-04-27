@@ -78,6 +78,10 @@ class Annotator:
         
         self.md5 = args.md5
 
+        # Phase 7.1c: opt-in drop log. When True, Annotator opens
+        # dropped_file and writes one row per filtered hit.
+        self.report_dropped = bool(getattr(args, "report_dropped", False))
+
         self.resume = args.resume
         
         return
@@ -104,10 +108,28 @@ class Annotator:
 
 
     ##
-    def annotate(self, hits_gen_func, annot_file, excel_file, orthologs_file, pfam_file, queries_file):
+    def annotate(self, hits_gen_func, annot_file, excel_file, orthologs_file,
+                 pfam_file, queries_file, dropped_file=None):
 
         annots_generator = None
         ncbi = None
+        # Phase 7.1c: opt-in drop log. Opened once here and threaded into
+        # `_annotate_batched`; the file is closed via try/finally so a
+        # crash mid-run still leaves a valid (partial) .dropped file.
+        self._dropped_handle = None
+        self._dropped_writer = None
+        if self.report_dropped and dropped_file is not None:
+            self._dropped_handle = open(dropped_file, "w")
+            self._dropped_handle.write(
+                "#query\treason\tseed_ortholog\tevalue\tscore\n"
+            )
+
+            def _writer(query, reason, seed, evalue, score):
+                self._dropped_handle.write(
+                    f"{query}\t{reason}\t{seed}\t{evalue}\t{score}\n"
+                )
+
+            self._dropped_writer = _writer
         
         try:
             if self.report_orthologs == True or self.annot == True:            
@@ -211,13 +233,30 @@ class Annotator:
 
                 # unpack the annotations removing the "exists" or "skip"
                 # boolean used when --resume
-                
+
                 annots_generator = unpack_annotations(annots_generator)
 
         finally:
             if ncbi is not None: ncbi.close()
-            
+
+        # Phase 7.1c: close the .dropped file when the lazy `annots_generator`
+        # chain is fully consumed (the consumer drives iteration, not us).
+        if self._dropped_handle is not None:
+            annots_generator = self._close_dropped_after(annots_generator)
+
         return annots_generator
+
+    def _close_dropped_after(self, gen):
+        """Wrap a generator so the drop-log file is closed only after the
+        consumer finishes iterating. Without this the early `finally`
+        above (kept for ncbi back-compat) would close the handle while
+        downstream batches are still being processed."""
+        handle = self._dropped_handle
+        try:
+            yield from gen
+        finally:
+            if handle is not None and not handle.closed:
+                handle.close()
 
 
     def _annotate(self, hits_gen_func, annots_parser):
@@ -290,6 +329,7 @@ class Annotator:
                         pool=pool,
                         v7_tax_scope=v7_tax_scope,
                         v7_tax_scope_auto=v7_tax_scope_auto,
+                        dropped_writer=self._dropped_writer,
                     )
                     batch = []
 
@@ -309,6 +349,7 @@ class Annotator:
                     pool=pool,
                     v7_tax_scope=v7_tax_scope,
                     v7_tax_scope_auto=v7_tax_scope_auto,
+                    dropped_writer=self._dropped_writer,
                 )
 
         except EmapperException:
