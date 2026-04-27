@@ -6,11 +6,12 @@ import pytest
 
 from tests.conftest import TP53_PROTEIN_ID, NIFH_PROTEIN_ID
 
-# Expected result keys from annotate_batch (includes annotations_confidence
-# added in Phase 3B for the per-source cascade)
+# Expected result keys from annotate_batch
+# - annotations_confidence: Phase 3B (per-source cascade)
+# - tax_scope_used:         Phase 7.1b (per-seed resolved scope)
 REQUIRED_KEYS = {
     "orthologs", "ortholog_types", "all_ogs",
-    "annotations", "annotations_confidence", "og_info",
+    "annotations", "annotations_confidence", "tax_scope_used", "og_info",
 }
 
 # Expected ortholog_type sub-keys

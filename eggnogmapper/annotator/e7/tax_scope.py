@@ -30,6 +30,20 @@ AUTO_SCOPE_CLADES = [
     (VIRIDIPLANTAE, {VIRIDIPLANTAE}),  # Viridiplantae
 ]
 
+# Map taxid string → human-readable clade name. Used by
+# `LineageFilter.describe_scope_for_seed` to render the resolved per-seed
+# scope decision into the output column. Entries cover the auto-mode
+# outcomes plus the prokaryote {Bacteria, Archaea} bucket.
+SCOPE_TAXID_NAMES = {
+    BACTERIA:           "Bacteria",
+    ARCHAEA:            "Archaea",
+    EUKARYOTA:          "Eukaryota",
+    METAZOA:            "Metazoa",
+    FUNGI:              "Fungi",
+    VIRIDIPLANTAE:      "Viridiplantae",
+    CELLULAR_ORGANISMS: "cellular_organisms",
+}
+
 
 class LineageFilter:
     """Filters orthologs by taxonomic scope using lineage information.
@@ -121,6 +135,38 @@ class LineageFilter:
                 return None  # Can't auto-scope without seed
             return self.get_auto_scope_taxids(seed_taxid)
         return self._scope_taxids
+
+    def describe_scope_for_seed(self, seed_taxid):
+        """Render the resolved scope as a short human-readable label.
+
+        Used by the engine to populate the per-row `tax_scope_used`
+        column added in Phase 7.1b. Returns one of:
+
+        - ``"none"`` — no filter applied (auto mode on an unknown taxid,
+          or `--tax_scope none`).
+        - ``"Bacteria,Archaea"`` — auto mode on a prokaryotic seed.
+        - ``"Metazoa"`` / ``"Fungi"`` / ``"Viridiplantae"`` — auto mode
+          on the matching eukaryotic clade.
+        - ``"Eukaryota"`` — auto mode on a eukaryotic seed outside the
+          three named clades.
+        - Comma-joined clade names when an explicit scope was set
+          (e.g. ``"Metazoa,Fungi"``).
+        - ``"explicit:<taxid>,…"`` — explicit numeric taxids that don't
+          map to a known clade name.
+
+        Args:
+            seed_taxid: Seed ortholog taxid (string or int). Required
+                in auto mode; ignored for explicit scope.
+        """
+        scope = self.get_effective_scope(str(seed_taxid) if seed_taxid is not None else None)
+        if not scope:
+            return "none"
+        named = sorted(SCOPE_TAXID_NAMES[t] for t in scope if t in SCOPE_TAXID_NAMES)
+        unnamed = sorted(t for t in scope if t not in SCOPE_TAXID_NAMES)
+        parts = list(named)
+        if unnamed:
+            parts.append("explicit:" + ",".join(unnamed))
+        return ",".join(parts) if parts else "none"
 
     def filter_ortholog_ids(self, ortholog_ids, seed_taxid=None):
         """Filter orthologs to those matching the taxonomic scope.

@@ -115,6 +115,7 @@ class AnnotationEngine:
                 "orthologs": [],
                 "annotations": {},
                 "annotations_confidence": {},
+                "tax_scope_used": self._describe_seed_scope(seed_id),
                 "og_info": None,
                 "ortholog_types": {
                     "one2one": set(), "one2many": set(),
@@ -156,6 +157,7 @@ class AnnotationEngine:
             "orthologs": list(orthologs),
             "annotations": annotations,
             "annotations_confidence": annotations_confidence,
+            "tax_scope_used": self._describe_seed_scope(seed_id),
             "og_info": og_info,
             "ortholog_types": ortholog_types,
             # Single-protein path has no prots.ogs lookup; batch path fills this.
@@ -209,6 +211,7 @@ class AnnotationEngine:
         seed_orthologs: Dict[int, Set[int]] = {}
         seed_ortholog_types: Dict[int, Dict[str, Set[int]]] = {}
         seed_ortholog_meta: Dict[int, Dict[int, Dict[str, Any]]] = {}
+        seed_tax_scope_used: Dict[int, str] = {}
         all_orthologs: Set[int] = set()
         for seed_id in seed_ids:
             eids = event_index.get(seed_id, [])
@@ -221,6 +224,7 @@ class AnnotationEngine:
             seed_orthologs[seed_id] = orthologs
             seed_ortholog_types[seed_id] = ortholog_types
             seed_ortholog_meta[seed_id] = ortholog_meta
+            seed_tax_scope_used[seed_id] = self._describe_seed_scope(seed_id)
             all_orthologs.update(orthologs)
         _t(f"p3 collect_orthologs ({len(all_orthologs)})", t0)
 
@@ -317,6 +321,7 @@ class AnnotationEngine:
                 "orthologs": list(orthologs),
                 "annotations": annotations,
                 "annotations_confidence": annotations_confidence,
+                "tax_scope_used": seed_tax_scope_used.get(seed_id, "none"),
                 "og_info": og_info,
                 "ortholog_types": seed_ortholog_types.get(
                     seed_id,
@@ -347,6 +352,20 @@ class AnnotationEngine:
             for p in missing:
                 self._og_cache[p] = fetched.get(p)  # may be None (miss)
         return {p: self._og_cache[p] for p in pairs if self._og_cache[p] is not None}
+
+    def _describe_seed_scope(self, seed_id: int) -> str:
+        """Return the human-readable tax_scope decision for one seed
+        (Phase 7.1b). ``"none"`` when no filter is active or the seed's
+        species is unknown."""
+        if self.lineage_filter is None:
+            return "none"
+        taxids = self.db.taxid_array
+        if not taxids or seed_id >= len(taxids):
+            return "none"
+        seed_taxid = taxids[seed_id]
+        if seed_taxid == 0:
+            return "none"
+        return self.lineage_filter.describe_scope_for_seed(seed_taxid)
 
     def _seed_lineage(self, seed_id: int) -> Optional[frozenset]:
         """Cached lookup of the seed's lineage as a frozenset of taxid strings.
