@@ -114,6 +114,7 @@ class AnnotationEngine:
             return {
                 "orthologs": [],
                 "annotations": {},
+                "annotations_confidence": {},
                 "og_info": None,
                 "ortholog_types": {
                     "one2one": set(), "one2many": set(),
@@ -126,15 +127,18 @@ class AnnotationEngine:
         events = self.db.get_events_bulk(event_ids)
 
         # Collect orthologs from events (simplified: no species grouping)
-        orthologs, ortholog_types, _ortholog_meta = self._collect_orthologs(
+        orthologs, ortholog_types, ortholog_meta = self._collect_orthologs(
             seed_id, events, target_taxa, excluded_taxa
         )
 
-        # Fetch and summarize annotations
-        annotations = {}
+        # Fetch and summarize annotations through the cascade
+        annotations: Dict[str, Any] = {}
+        annotations_confidence: Dict[str, str] = {}
         if orthologs:
             annot_data = self.db.get_protein_annotations_bulk(list(orthologs))
-            annotations = self._summarize_annotations(annot_data)
+            annotations, annotations_confidence = self._summarize_annotations(
+                annot_data, ortholog_meta
+            )
 
         # Preferred_name: seed's own pname takes priority when it is an informative
         # gene name. Locus IDs and multi-alias entries fall through to consensus.
@@ -143,6 +147,7 @@ class AnnotationEngine:
             seed_pname = (seed_row.get("pname") or "").strip()
             if self._is_informative_pname(seed_pname):
                 annotations["Preferred_name"] = [seed_pname]
+                annotations_confidence["Preferred_name"] = "high"
 
         # Get OG info from events
         og_info = self._get_og_info(events)
@@ -150,6 +155,7 @@ class AnnotationEngine:
         return {
             "orthologs": list(orthologs),
             "annotations": annotations,
+            "annotations_confidence": annotations_confidence,
             "og_info": og_info,
             "ortholog_types": ortholog_types,
             # Single-protein path has no prots.ogs lookup; batch path fills this.
@@ -161,6 +167,7 @@ class AnnotationEngine:
         seed_ids: List[int],
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
+        target_orthologs: str = "all",
     ) -> Dict[int, Dict[str, Any]]:
         """Annotate multiple seed orthologs efficiently.
 
@@ -252,18 +259,24 @@ class AnnotationEngine:
 
             # Filter annot_cache to this seed's orthologs (seed itself excluded from consensus)
             seed_annots = {oid: annot_cache[oid] for oid in orthologs if oid in annot_cache}
-            annotations = self._summarize_annotations(seed_annots) if seed_annots else {}
+            seed_meta = seed_ortholog_meta.get(seed_id, {})
+            annotations, annotations_confidence = (
+                self._summarize_annotations(seed_annots, seed_meta, target_orthologs)
+                if seed_annots else ({}, {})
+            )
 
             # Preferred_name: use the seed's own pname when it is an informative
             # gene name. The direct DIAMOND hit is the most specific reference;
             # ortholog consensus can assign a wrong family-level name (e.g. SDC1
             # to a GAD protein). Locus IDs and multi-alias entries fall through to
-            # the ortholog consensus.
+            # the ortholog consensus. The seed-derived name is the highest-
+            # confidence source by definition.
             seed_annot = annot_cache.get(seed_id)
             if seed_annot:
                 seed_pname = (seed_annot.get("pname") or "").strip()
                 if self._is_informative_pname(seed_pname):
                     annotations["Preferred_name"] = [seed_pname]
+                    annotations_confidence["Preferred_name"] = "high"
 
             # Pick the most specific OG we have description for (deepest level
             # appears last in the parsed list)
@@ -296,6 +309,7 @@ class AnnotationEngine:
             results[seed_id] = {
                 "orthologs": list(orthologs),
                 "annotations": annotations,
+                "annotations_confidence": annotations_confidence,
                 "og_info": og_info,
                 "ortholog_types": seed_ortholog_types.get(
                     seed_id,
@@ -565,67 +579,212 @@ class AnnotationEngine:
         }
         return typed["all"], typed, ortholog_meta
 
+    # `target_orthologs` floor → set of allowed event types accepted by
+    # the cascade. `one2one` (strictest) accepts only 1:1 events; `all`
+    # / `many2many` (loosest) accepts every type. `one2many` and
+    # `many2one` accept 1:1 plus the named asymmetric tier — the user
+    # can still select which side of medium-tier ambiguity is OK.
+    TARGET_ORTHOLOGS_FLOORS = {
+        "all":       frozenset({"one2one", "one2many", "many2one", "many2many"}),
+        "many2many": frozenset({"one2one", "one2many", "many2one", "many2many"}),
+        "one2many":  frozenset({"one2one", "one2many"}),
+        "many2one":  frozenset({"one2one", "many2one"}),
+        "one2one":   frozenset({"one2one"}),
+    }
+
     def _summarize_annotations(
         self,
         annot_data: Dict[int, dict],
-    ) -> Dict[str, Any]:
-        """Summarize annotations from multiple orthologs.
+        ortholog_meta: Optional[Dict[int, dict]] = None,
+        target_orthologs: str = "all",
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        """Cascade summary: per-source closest-ev_lca + type-priority winner.
 
-        Aggregates annotations across orthologs using frequency counting.
+        For each functional source (KEGG_ko, GOs, Pfam, ...) independently,
+        donors are walked from closest+best-typed first. The first bucket
+        — defined by the cascade key ``(in_seed_lineage, -ev_lca_depth,
+        type_tier)`` — that has any donor with a non-empty value for that
+        source wins, and the consensus is taken across only the donors in
+        that winning bucket. This preserves "if no 1:1 donors annotate
+        source S, fall through to 1:many or many:many — but with caution"
+        as a per-source rule, while keeping the strict upper-clade ceiling
+        from ``LineageFilter`` (already applied during phase 3).
+
+        ``target_orthologs`` is a *floor*: types not in
+        ``TARGET_ORTHOLOGS_FLOORS[target_orthologs]`` are excluded from the
+        cascade entirely. The post-aggregation filter that the v2-style
+        mapper shim applied is no longer needed.
 
         Args:
-            annot_data: Dict of protein_id -> annotation dict
+            annot_data: ``{protein_id: annotation_dict}`` for every
+                ortholog plus optionally the seed.
+            ortholog_meta: ``{protein_id: meta_dict}`` produced by
+                :meth:`_collect_orthologs`. Required for cascade mode.
+                When absent or empty the flat aggregation is used (same
+                logic as v3 phase 0) and confidence is empty — needed for
+                back-compat with the single-protein ``annotate()`` path
+                and the existing test_annotate.py expectations.
+            target_orthologs: ``"all"``, ``"many2many"``, ``"one2many"``,
+                ``"many2one"`` or ``"one2one"``. Anything else is treated
+                as ``"all"``.
 
         Returns:
-            Dict of annotation field -> aggregated values
+            ``(annotations, confidence)`` where ``annotations`` is the
+            same shape returned by the legacy summarizer (output-named
+            keys: ``Preferred_name``, ``GOs``, ``PFAMs``, ``KEGG_ko``,
+            ...) and ``confidence`` is ``{output_field: "high" | "medium"
+            | "low"}`` for every source actually emitted.
         """
-        counters = defaultdict(Counter)
+        if not annot_data:
+            return {}, {}
 
+        # Back-compat path: no metadata → flat aggregation, no confidence.
+        if not ortholog_meta:
+            return self._summarize_annotations_flat(annot_data), {}
+
+        allowed_types = self.TARGET_ORTHOLOGS_FLOORS.get(
+            target_orthologs, self.TARGET_ORTHOLOGS_FLOORS["all"]
+        )
+
+        # Bucket orthologs by cascade priority key. Keys are tuples so
+        # they sort lexicographically: smallest first = best donors.
+        buckets: Dict[Tuple[int, int, int], List[int]] = defaultdict(list)
+        for oid, meta in ortholog_meta.items():
+            if oid not in annot_data:
+                continue
+            if meta["type"] not in allowed_types:
+                continue
+            key = (
+                0 if meta["in_seed_lineage"] else 1,
+                -meta["depth"],
+                meta["type_tier"],
+            )
+            buckets[key].append(oid)
+
+        if not buckets:
+            return {}, {}
+
+        priority_order = sorted(buckets.keys())
+
+        annotations: Dict[str, Any] = {}
+        confidence: Dict[str, str] = {}
+
+        for field in self.ANNOTATION_FIELDS:
+            output_field = self._cascade_output_field(field)
+            for prio_key in priority_order:
+                contributors = [
+                    oid for oid in buckets[prio_key]
+                    if annot_data.get(oid) and annot_data[oid].get(field)
+                ]
+                if not contributors:
+                    continue
+                values = self._aggregate_field(
+                    field, contributors, annot_data
+                )
+                if values:
+                    annotations[output_field] = values
+                    confidence[output_field] = self.TIER_CONFIDENCE[prio_key[2]]
+                # First bucket with non-empty contributors is the winner —
+                # stop the cascade for this source even if `_aggregate_field`
+                # filtered everything out (the bucket *had* signal; lower
+                # buckets shouldn't be promoted on its behalf).
+                break
+
+        return annotations, confidence
+
+    def _cascade_output_field(self, field: str) -> str:
+        """Map an internal annotation field name to the output key the
+        cascade emits."""
+        if field == "pname":
+            return "Preferred_name"
+        if field == "gos":
+            return "GOs"
+        if field == "pfam":
+            return "PFAMs"
+        return self._field_to_output(field)
+
+    def _aggregate_field(
+        self,
+        field: str,
+        contributors: List[int],
+        annot_data: Dict[int, dict],
+    ) -> List[str]:
+        """Aggregate one annotation field across the cascade winning bucket.
+
+        Returns the list of values to emit (possibly empty if the field-
+        specific filter removes everything). ``Preferred_name`` returns
+        the most-common pname in the bucket (no ≥2 occurrence rule —
+        cascade selectivity already guarantees these are the highest-
+        confidence donors). ``PFAMs`` keeps any pfam present in at least
+        one contributor (the v2-era ≥5% / ≥2-occurrence filter does not
+        apply to bucket-restricted aggregation, since bucket sizes are
+        small by design).
+        """
+        counter: Counter = Counter()
+        for oid in contributors:
+            value = annot_data[oid].get(field)
+            if not value:
+                continue
+            if field == "pname":
+                counter[value.strip()] += 1
+            elif field == "gos":
+                for go in self._parse_gos(value):
+                    counter[go] += 1
+            else:
+                for v in str(value).split(","):
+                    v = v.strip()
+                    if v:
+                        counter[v] += 1
+        if not counter:
+            return []
+        if field == "pname":
+            return [counter.most_common(1)[0][0]]
+        # gos / pfam / kegg_* / bigg_reaction → emit all distinct values
+        return list(counter.keys())
+
+    def _summarize_annotations_flat(
+        self,
+        annot_data: Dict[int, dict],
+    ) -> Dict[str, Any]:
+        """Legacy flat aggregation used by the no-metadata path (single-
+        protein ``annotate()`` and pre-cascade tests). Behavior matches
+        v3-phase0-end exactly."""
+        counters = defaultdict(Counter)
         for annot in annot_data.values():
             if not annot:
                 continue
-
             for field in self.ANNOTATION_FIELDS:
                 value = annot.get(field)
                 if not value:
                     continue
-
                 if field == "pname":
-                    # Preferred name: count occurrences
                     counters[field][value.strip()] += 1
                 elif field == "gos":
-                    # GO terms: parse and count
                     for go in self._parse_gos(value):
                         counters[field][go] += 1
                 else:
-                    # Other fields: split by comma and count
                     for v in str(value).split(","):
                         v = v.strip()
                         if v:
                             counters[field][v] += 1
 
-        # Build result
         result = {}
         for field, counter in counters.items():
             if field == "pname":
-                # Most common preferred name (require at least 2 occurrences).
-                # Wrapped in a list so downstream ",".join(sorted(list(...)))
-                # works the same as for the other multi-value fields.
                 most_common = counter.most_common(1)
                 if most_common and most_common[0][1] >= 2:
                     result["Preferred_name"] = [most_common[0][0]]
             elif field == "gos":
                 result["GOs"] = list(counter.keys())
             elif field == "pfam":
-                # Filter PFAMs by frequency
                 total = len(annot_data)
-                result["PFAMs"] = [k for k, c in counter.items()
-                                   if c > 1 and c / total > 0.05]
+                result["PFAMs"] = [
+                    k for k, c in counter.items()
+                    if c > 1 and c / total > 0.05
+                ]
             else:
-                # Map field names to output format
                 output_field = self._field_to_output(field)
                 result[output_field] = list(counter.keys())
-
         return result
 
     def _parse_ogs_string(self, ogs_string: str) -> List[Tuple[str, str]]:

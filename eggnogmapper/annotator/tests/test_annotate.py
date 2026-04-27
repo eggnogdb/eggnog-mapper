@@ -6,8 +6,12 @@ import pytest
 
 from tests.conftest import TP53_PROTEIN_ID, NIFH_PROTEIN_ID
 
-# Expected result keys from annotate_batch
-REQUIRED_KEYS = {"orthologs", "ortholog_types", "all_ogs", "annotations", "og_info"}
+# Expected result keys from annotate_batch (includes annotations_confidence
+# added in Phase 3B for the per-source cascade)
+REQUIRED_KEYS = {
+    "orthologs", "ortholog_types", "all_ogs",
+    "annotations", "annotations_confidence", "og_info",
+}
 
 # Expected ortholog_type sub-keys
 ORTHOLOG_TYPE_KEYS = {"one2one", "one2many", "many2one", "many2many", "all"}
