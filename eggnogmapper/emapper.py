@@ -13,9 +13,9 @@ from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
 from .genepred.util import create_prots_file
-from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE, SEARCH_MODE_NOVEL_FAMS
+from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH
 from .search.hits_io import parse_seeds
-from .annotation.annotators import get_annotator, get_annotator_novel_fams, get_cache_annotator
+from .annotation.annotators import get_annotator
 from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE, create_blastx_hits_gff
 
 class Emapper:
@@ -80,8 +80,6 @@ class Emapper:
             
         if mode == SEARCH_MODE_NO_SEARCH:
             self._output_files.extend([self.annot_file, self.pfam_file])
-        elif mode == SEARCH_MODE_CACHE:
-            self._output_files.extend([self.annot_file, self.no_annot_file])            
         elif not annot:
             self._output_files.extend([self.search_out_file, self.seed_orthologs_file])
         else:
@@ -189,54 +187,38 @@ class Emapper:
     
     
     ##
-    def annotate(self, args, hits, annotate_hits_table, queries_file, cache_file):
+    def annotate(self, args, hits, annotate_hits_table, queries_file):
         annotated_hits = None
-        
+
         if self.annot == True or self.report_orthologs:
+            annot_in = None  # a generator of hits to annotate
 
-            if cache_file is not None:
-                if not pexists(cache_file):
-                    raise EmaperException(f"Could not find cache file: {cache_file}")
-                
-                annotator = get_cache_annotator(args)
-                
-                if annotator is not None:
-                    annotated_hits = annotator.annotate(cache_file,
-                                                        pjoin(self._current_dir, self.annot_file),
-                                                        pjoin(self._current_dir, self.no_annot_file))
+            if annotate_hits_table is not None:
+                if not pexists(annotate_hits_table):
+                    raise EmapperException(
+                        f"Could not find the file with the hits "
+                        f"table to annotate: {annotate_hits_table}"
+                    )
+                annot_in = parse_seeds(annotate_hits_table)
+            elif hits is not None:
+                annot_in = hits
             else:
-                
-                annot_in = None # a generator of hits to annotate
-                
-                if annotate_hits_table is not None:
-                    if not pexists(annotate_hits_table):
-                        raise EmapperException(f"Could not find the file with the hits "
-                                               f"table to annotate: {annotate_hits_table}")
-                                               
-                    # function which parses the file and yields hits
-                    annot_in = parse_seeds(annotate_hits_table)
-                    
-                elif hits is not None:
-                    annot_in = hits
-                    
-                else:
-                    raise EmapperException("Could not find hits to annotate.")
+                raise EmapperException("Could not find hits to annotate.")
 
-                if self.mode == SEARCH_MODE_NOVEL_FAMS:
-                    annotator = get_annotator_novel_fams(args, self.annot, self.excel, self.report_orthologs)
-                else:
-                    annotator = get_annotator(args, self.annot, self.excel, self.report_orthologs)
-                
-                if annot_in is not None and annotator is not None:
-                    annotated_hits = annotator.annotate(annot_in, 
-                                                        pjoin(self._current_dir, self.annot_file),
-                                                        pjoin(self._current_dir, self.excel_file),
-                                                        pjoin(self._current_dir, self.orthologs_file),
-                                                        pjoin(self._current_dir, self.pfam_file),
-                                                        queries_file)
+            annotator = get_annotator(args, self.annot, self.excel, self.report_orthologs)
+
+            if annot_in is not None and annotator is not None:
+                annotated_hits = annotator.annotate(
+                    annot_in,
+                    pjoin(self._current_dir, self.annot_file),
+                    pjoin(self._current_dir, self.excel_file),
+                    pjoin(self._current_dir, self.orthologs_file),
+                    pjoin(self._current_dir, self.pfam_file),
+                    queries_file,
+                )
         else:
-            annotated_hits = ((hit, None) for hit in hits) # hits generator without annotations
-                
+            annotated_hits = ((hit, None) for hit in hits)  # hits generator without annotations
+
         return annotated_hits
 
     
@@ -331,19 +313,19 @@ class Emapper:
         return
     
     ##
-    def run(self, args, infile, annotate_hits_table = None, cache_dir = None):
+    def run(self, args, infile, annotate_hits_table=None):
 
         ##
         # Step 0. Gene prediction
         predictor = self.gene_prediction(args, infile)
-        
+
         ##
         # Step 1. Sequence search
         searcher, searcher_name, hits, queries_file = self.search(args, infile, predictor)
-            
+
         ##
         # Step 2. Annotation
-        annotated_hits = self.annotate(args, hits, annotate_hits_table, queries_file, cache_dir)
+        annotated_hits = self.annotate(args, hits, annotate_hits_table, queries_file)
 
         ##
         # step 3. Decorate GFF

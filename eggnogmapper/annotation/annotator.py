@@ -51,8 +51,12 @@ class Annotator:
         self.report_orthologs = report_orthologs
         self.excel = excel
 
-        self.dbmem = args.dbmem
-        
+        # NOTE: --dbmem flag removed in v3 (Phase 2 commit 1); kept attribute
+        # for compat with the legacy _annotate_dbmem path which is removed in
+        # Phase 2 commit 3. Always False from now on.
+        self.dbmem = False
+
+
         self.no_file_comments = args.no_file_comments
         self.cpu = args.cpu
         self.num_servers = args.num_servers

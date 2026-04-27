@@ -19,8 +19,7 @@ from eggnogmapper.genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_
 
 from eggnogmapper.search.search_modes import \
     SEARCH_MODE_NO_SEARCH, SEARCH_MODE_DIAMOND, \
-    SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2, SEARCH_MODE_CACHE, \
-    SEARCH_MODE_NOVEL_FAMS, get_eggnog_dmnd_db
+    SEARCH_MODE_HMMER, SEARCH_MODE_MMSEQS2, get_eggnog_dmnd_db
 
 from eggnogmapper.search.diamond.diamond import SENSMODES, SENSMODE_SENSITIVE, \
     ALLOW_OVERLAPS_NONE, ALLOW_OVERLAPS_ALL, ALLOW_OVERLAPS_DIFF_FRAME, ALLOW_OVERLAPS_OPPOSITE_STRAND, \
@@ -112,10 +111,6 @@ def create_arg_parser():
                           f' Usually, a .seed_orthologs file from a previous emapper.py run. '
                           f' Requires -m {SEARCH_MODE_NO_SEARCH}.')
 
-    pg_input.add_argument('-c', '--cache', dest="cache_file", metavar='FILE', type=existing_file,
-                          help=f'File containing annotations and md5 hashes of queries, to be used as cache. '
-                          f'Required if -m {SEARCH_MODE_CACHE}')
-        
     pg_input.add_argument("--db", dest='db_backend', metavar='BACKEND', type=str,
                           default=DEFAULT_BACKEND,
                           choices=get_backend_names(),
@@ -184,16 +179,14 @@ def create_arg_parser():
     ##
     pg_search = parser.add_argument_group('Search Options')
 
-    pg_search.add_argument('-m', dest='mode', 
-                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_MMSEQS2, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH, SEARCH_MODE_CACHE, SEARCH_MODE_NOVEL_FAMS],
+    pg_search.add_argument('-m', dest='mode',
+                           choices = [SEARCH_MODE_DIAMOND, SEARCH_MODE_MMSEQS2, SEARCH_MODE_HMMER, SEARCH_MODE_NO_SEARCH],
                            default=SEARCH_MODE_DIAMOND,
                            help=(
                                f'{SEARCH_MODE_DIAMOND}: search seed orthologs using diamond (-i is required). '
                                f'{SEARCH_MODE_MMSEQS2}: search seed orthologs using MMseqs2 (-i is required). '
                                f'{SEARCH_MODE_HMMER}: search seed orthologs using HMMER. (-i is required). '
                                f'{SEARCH_MODE_NO_SEARCH}: skip seed orthologs search (--annotate_hits_table is required, unless --no_annot). '
-                               f'{SEARCH_MODE_CACHE}: skip seed orthologs search and annotate based on cached results (-i and -c are required).'
-                               f'{SEARCH_MODE_NOVEL_FAMS}: search against the novel families database (-i is required).'
                            ))
 
     ##
@@ -326,8 +319,7 @@ def create_arg_parser():
                           If --dbtype hmm, the database must be a hmmpress-ed database.
                           If --dbtype seqdb, the database must be a HMMER-format database created with esl-reformat.
                           Database will be unloaded after execution.
-                          Note that this only works for HMMER based searches.
-                          To load the eggnog-mapper annotation DB into memory use --dbmem.''')
+                          Note that this only works for HMMER based searches.''')
 
     pg_hmmer.add_argument('-p', '--port', dest='port', type=int, default=DEFAULT_PORT, metavar='PORT',
                           help=('Port used to setup HMM server, when --usemem. Also used for --pfam_realign modes.'))
@@ -381,11 +373,6 @@ def create_arg_parser():
         
     pg_annot.add_argument("--no_annot", action="store_true",
                           help="Skip functional annotation, reporting only hits.")
-
-    pg_annot.add_argument('--dbmem', action="store_true",
-                          help='''Use this option to allocate the whole eggnog.db DB in memory.
-                          Database will be unloaded after execution.''')
-    
 
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
@@ -556,8 +543,7 @@ def parse_args(parser):
             parser.error('"--training_file must point to an existing file, if no --training_genome is provided."')
     
     # Search modes
-    if args.mode == SEARCH_MODE_DIAMOND or args.mode == SEARCH_MODE_NOVEL_FAMS:
-        # dmnd_db = args.dmnd_db if args.dmnd_db else get_eggnog_dmnd_db(args.dmnd_db, args.mode, get_data_path())
+    if args.mode == SEARCH_MODE_DIAMOND:
         dmnd_db = get_eggnog_dmnd_db(args.dmnd_db, args.mode, get_data_path())
         if not pexists(dmnd_db):
             print(colorify('DIAMOND database %s not present. Use download_eggnog_data.py to fetch it' % dmnd_db, 'red'))
@@ -625,15 +611,6 @@ def parse_args(parser):
             if args.clean_overlaps == "none":
                 args.clean_overlaps = None
 
-    elif args.mode == SEARCH_MODE_CACHE:
-        if args.cache_file is None:
-            parser.error('A file with annotations and md5 of queries is required (-c FILE)')
-        if args.decorate_gff != DECORATE_GFF_NONE:
-            print(colorify("WARNING: no GFF will be created for cache-based annotations. It is not implemented yet, sorry.", 'red'))
-                
-        if args.no_annot == True:
-            parser.error(f'Cache mode (-m {SEARCH_MODE_CACHE}) should be used to annotate.')
-            
     elif args.mode == SEARCH_MODE_NO_SEARCH:
         if args.no_annot == False and not args.annotate_hits_table:
             parser.error(f'No search mode (-m {SEARCH_MODE_NO_SEARCH}) requires a hits table to annotate (--annotate_hits_table FILE.seed_orthologs)')
@@ -651,7 +628,7 @@ def parse_args(parser):
     
     # Annotation options
     if args.no_annot == False or args.report_orthologs == True:
-        if not pexists(get_eggnogdb_file()) and args.mode != SEARCH_MODE_NOVEL_FAMS:
+        if not pexists(get_eggnogdb_file()):
             print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_data.py to fetch it', 'red'))
             raise EmapperException()
 
@@ -715,15 +692,11 @@ if __name__ == "__main__":
                           args.output, args.output_dir, args.scratch_dir,
                           args.resume, args.override)
         
-        n, elapsed_time = emapper.run(args, args.input, args.annotate_hits_table, args.cache_file)
+        n, elapsed_time = emapper.run(args, args.input, args.annotate_hits_table)
 
         elapsed_time = time.time() - start_time
 
         addons = [args.mode, args.genepred]
-        # when using novel_fams, diamond is also used
-        if args.mode == SEARCH_MODE_NOVEL_FAMS:
-            addons.append(SEARCH_MODE_DIAMOND)
-            
         print(get_citation(addons))
         print(f'Total hits processed: {n}')
         print(f'Total time: {elapsed_time:.0f} secs')
