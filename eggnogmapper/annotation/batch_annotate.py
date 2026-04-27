@@ -17,8 +17,20 @@ from ..emapperException import EmapperException
 
 logger = logging.getLogger(__name__)
 
-from .annotator_worker import filter_out
 from . import output as output_mod
+
+
+def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_score):
+    """Drop a hit before annotation if the seed name is sentinel or it
+    fails score/e-value thresholds. Inlined from the now-deleted
+    annotator_worker module (Phase 2 commit 3)."""
+    if hit_name == "-" or hit_name == "ERROR":
+        return True
+    if threshold_evalue is not None and hit_evalue is not None and hit_evalue > threshold_evalue:
+        return True
+    if threshold_score is not None and hit_score is not None and hit_score < threshold_score:
+        return True
+    return False
 
 ANNOTATIONS_HEADER = output_mod.ANNOTATIONS_HEADER
 

@@ -4,7 +4,6 @@
 from os.path import isfile as pisfile
 import sys
 import time
-import multiprocessing
 from collections import defaultdict, Counter
 
 from ..emapperException import EmapperException
@@ -16,7 +15,6 @@ from .db_sqlite import get_eggnog_db
 from .ncbitaxa.ncbiquery import get_ncbi
 from .pfam.pfam_modes import run_pfam_mode, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO
 
-from .annotator_worker import annotate_hit_line_mem, annotate_hit_line_ondisk
 from . import output
 
 ANNOTATIONS_HEADER = output.ANNOTATIONS_HEADER
@@ -27,8 +25,6 @@ PFAM_COL = -1 # position of PFAMs annotations in list of annotations
 class Annotator:
     
     annot = report_orthologs = None
-    
-    dbmem = None
 
     no_file_comments = cpu = None
 
@@ -50,12 +46,6 @@ class Annotator:
         self.annot = annot
         self.report_orthologs = report_orthologs
         self.excel = excel
-
-        # NOTE: --dbmem flag removed in v3 (Phase 2 commit 1); kept attribute
-        # for compat with the legacy _annotate_dbmem path which is removed in
-        # Phase 2 commit 3. Always False from now on.
-        self.dbmem = False
-
 
         self.no_file_comments = args.no_file_comments
         self.cpu = args.cpu
@@ -210,47 +200,20 @@ class Annotator:
 
 
     def _annotate(self, hits_gen_func, annots_parser):
-        print(colorify(f"Functional annotation of hits...", "lgreen"), file=sys.stderr)
-        if self.dbmem == True:
-            annots_generator = self._annotate_dbmem(hits_gen_func, annots_parser)
-        else:
-            eggnog_db = get_eggnog_db(usemem=False)
-            if eggnog_db._int_mode:
-                annots_generator = self._annotate_batched(hits_gen_func, annots_parser, eggnog_db)
-            else:
-                annots_generator = self._annotate_ondisk(hits_gen_func, annots_parser)
-        return annots_generator
+        """Dispatch annotation through the v7 batch path. Legacy per-hit
+        and dbmem paths were removed in Phase 2 commit 3."""
+        print(colorify("Functional annotation of hits...", "lgreen"), file=sys.stderr)
+        eggnog_db = get_eggnog_db(usemem=False)
+        if not eggnog_db._int_mode:
+            raise EmapperException(
+                "This eggnog-mapper version (v3) requires a v7+ "
+                "integer-encoded eggnog.db. Rebuild the data dir with "
+                "eggnog-builder build-emapper, or downgrade to v2 to use a "
+                "legacy database."
+            )
+        return self._annotate_batched(hits_gen_func, annots_parser, eggnog_db)
 
 
-    ##
-    def _annotate_dbmem(self, hits_gen_func, annots_parser):
-        try:
-            ##
-            # Load sqlite DBs into memory
-            start_time = time.time()
-            eggnog_db = get_eggnog_db(usemem = True)
-            total_time = time.time() - start_time
-            print(colorify(f"Time to load the DB into memory: {total_time}", "lblue"), file=sys.stderr)
-            sys.stderr.flush()
-
-            ##
-            # Annotate hits
-            for result in map(annotate_hit_line_mem,
-                              self.iter_hit_lines(hits_gen_func, annots_parser)):
-                yield result
-
-        except EmapperException:
-            raise
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            raise EmapperException(f"Error: annotation went wrong. "+str(e))
-        finally:
-            eggnog_db.close()
-                    
-        return
-
-    
     ##
     def _annotate_batched(self, hits_gen_func, annots_parser, eggnog_db):
         """Batch annotation: pre-fetch DB data per batch, CPU work in parallel.
@@ -340,33 +303,6 @@ class Annotator:
 
         return
 
-    ##
-    def _annotate_ondisk(self, hits_gen_func, annots_parser):
-        
-        pool = multiprocessing.Pool(self.cpu)
-        chunk_size = 1
-        # "my recommendation is targeting 10 ms chunk processing time"
-        # https://stackoverflow.com/a/43817408/2361653
-        # As our tasks take no less than 0.1 secs, a large chunk_size makes no sense at all
-        # Note that this makes q/s an approximation until all tasks have been finished
-        
-        try:
-            for result in pool.imap(annotate_hit_line_ondisk,
-                                    self.iter_hit_lines(hits_gen_func, annots_parser),
-                                    chunk_size):
-                yield result
-
-        except EmapperException:
-            raise
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            raise EmapperException(f"Error: annotation failed. "+str(e))
-        finally:
-            pool.close()
-            pool.join()
-            
-        return
     
     ##
     def iter_hit_lines(self, hits_gen_func, annots_parser):
