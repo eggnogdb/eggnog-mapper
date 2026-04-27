@@ -1,3 +1,31 @@
+## [v3.2] — 2026-04-27
+
+### Added
+
+- **Cython codec** (`eggnog_annotator/_codec.pyx`). The hot delta-varint
+  encode/decode loops compile to a native extension at install time;
+  the public `eggnog_annotator.codec` module is now a thin import shim
+  that prefers the compiled `_codec.so` and falls back transparently
+  to `eggnog_annotator.codec_py` (byte-identical pure-Python) when the
+  C compile is unavailable. Build-system requires Cython>=3.0; runtime
+  requires nothing new. `_BACKEND` constant exposes the resolved
+  backend (`"cython"` or `"python"`) for tests and debugging.
+- 12 backend-selection tests in `tests/test_codec_backend.py` covering
+  per-backend round-trip, edge cases (empty / single value / varint
+  boundaries), and a cross-backend byte-identity check that runs
+  whenever both backends are available.
+
+### Changed
+
+- `eggnog_annotator/codec.py` is now an import shim (was the canonical
+  pure-Python implementation). The pure-Python implementation moved to
+  `codec_py.py`; same byte format, same API.
+
+Why: at full e7 the codec encodes 67 M side1+side2 BLOBs during
+`build-web --step eggnogdb` Phase A. Cython drops that step from
+~25 min to ~30 sec on the same hardware. The maintenance step-up is
+contained — the codec spec is frozen and the file rarely changes.
+
 ## [v3] — 2026-04-27
 
 Per-source closest-ev_lca + ortholog-type-priority donor cascade. Phase
