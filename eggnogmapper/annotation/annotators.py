@@ -1,32 +1,11 @@
-##
-# CPCantalapiedra 2020
+"""Annotator factory.
 
-from .cache_annotator import CacheAnnotator
+In v3 the only supported annotator is the v7-batch `Annotator`. The legacy
+`AnnotatorNovelFams` and `CacheAnnotator` were removed in Phase 2.
+"""
+
 from .annotator import Annotator
-from .annotator_novel_fams import AnnotatorNovelFams
 
-##
-def get_cache_annotator(args):
-    annotator = None
 
-    annotator = CacheAnnotator(args)
-    
-    return annotator
-
-##
 def get_annotator(args, annot, excel, report_orthologs):
-    annotator = None
-
-    annotator = Annotator(args, annot, excel, report_orthologs)
-    
-    return annotator
-
-##
-def get_annotator_novel_fams(args, annot, excel, report_orthologs):
-    annotator = None
-
-    annotator = AnnotatorNovelFams(args, annot, excel, report_orthologs)
-    
-    return annotator
-
-## END
+    return Annotator(args, annot, excel, report_orthologs)
