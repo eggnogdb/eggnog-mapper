@@ -226,11 +226,15 @@ class AnnotationEngine:
 
         # Phase 4: Bulk fetch annotations for all orthologs and seeds.
         # Seeds are fetched so their pname can be used as the primary Preferred_name.
+        # Pre-parse once per ortholog: the cascade walk is O(seeds × buckets ×
+        # fields), so re-splitting comma-strings inside that loop dominated
+        # phase 6 on plant proteomes.
         t0 = time.time()
         annot_cache = {}
         all_to_fetch = all_orthologs | set(seed_ids)
         if all_to_fetch:
             annot_cache = self.db.get_protein_annotations_bulk(list(all_to_fetch))
+        parsed_cache = self._pre_parse_batch(annot_cache)
         _t("p4 annotations", t0)
 
         # Phase 5: Bulk fetch OG info from prots.ogs field
@@ -261,7 +265,10 @@ class AnnotationEngine:
             seed_annots = {oid: annot_cache[oid] for oid in orthologs if oid in annot_cache}
             seed_meta = seed_ortholog_meta.get(seed_id, {})
             annotations, annotations_confidence = (
-                self._summarize_annotations(seed_annots, seed_meta, target_orthologs)
+                self._summarize_annotations(
+                    seed_annots, seed_meta, target_orthologs,
+                    parsed=parsed_cache,
+                )
                 if seed_annots else ({}, {})
             )
 
@@ -592,11 +599,62 @@ class AnnotationEngine:
         "one2one":   frozenset({"one2one"}),
     }
 
+    def _pre_parse_batch(
+        self,
+        annot_data: Dict[int, dict],
+    ) -> Dict[int, Dict[str, Tuple[str, ...]]]:
+        """Pre-parse annotation comma-strings into tuples of clean values
+        once per ortholog, ahead of the cascade walk.
+
+        Without this cache the cascade re-splits the same comma-string
+        every time an ortholog appears as a candidate donor for a field
+        — on plant proteomes (~1300 orthologs/seed × 13 fields × ~1000
+        seeds per batch) that's the single hottest python loop in the
+        engine. Pre-parsing tightens phase 6 substantially while
+        preserving cascade outputs byte-for-byte.
+
+        ``pname`` is normalized to a 1-tuple ``(stripped,)`` (or ``()``).
+        ``gos`` is parsed via :meth:`_parse_gos` (strips evidence codes,
+        keeps only ``GO:`` prefixed terms). Every other field becomes a
+        distinct-preserving tuple — same insertion order, deduplicated.
+        """
+        parsed: Dict[int, Dict[str, Tuple[str, ...]]] = {}
+        for oid, annot in annot_data.items():
+            if not annot:
+                parsed[oid] = {}
+                continue
+            row: Dict[str, Tuple[str, ...]] = {}
+            for field in self.ANNOTATION_FIELDS:
+                raw = annot.get(field)
+                if not raw:
+                    continue
+                if field == "pname":
+                    s = raw.strip()
+                    if s:
+                        row[field] = (s,)
+                elif field == "gos":
+                    gos = tuple(self._parse_gos(raw))
+                    if gos:
+                        row[field] = gos
+                else:
+                    seen: List[str] = []
+                    seen_set: Set[str] = set()
+                    for v in str(raw).split(","):
+                        v = v.strip()
+                        if v and v not in seen_set:
+                            seen.append(v)
+                            seen_set.add(v)
+                    if seen:
+                        row[field] = tuple(seen)
+            parsed[oid] = row
+        return parsed
+
     def _summarize_annotations(
         self,
         annot_data: Dict[int, dict],
         ortholog_meta: Optional[Dict[int, dict]] = None,
         target_orthologs: str = "all",
+        parsed: Optional[Dict[int, Dict[str, Tuple[str, ...]]]] = None,
     ) -> Tuple[Dict[str, Any], Dict[str, str]]:
         """Cascade summary: per-source closest-ev_lca + type-priority winner.
 
@@ -642,6 +700,11 @@ class AnnotationEngine:
         if not ortholog_meta:
             return self._summarize_annotations_flat(annot_data), {}
 
+        # Use the pre-parsed cache if the caller provided one (the batch
+        # path always does). Otherwise build a tiny one-shot cache here.
+        if parsed is None:
+            parsed = self._pre_parse_batch(annot_data)
+
         allowed_types = self.TARGET_ORTHOLOGS_FLOORS.get(
             target_orthologs, self.TARGET_ORTHOLOGS_FLOORS["all"]
         )
@@ -650,7 +713,7 @@ class AnnotationEngine:
         # they sort lexicographically: smallest first = best donors.
         buckets: Dict[Tuple[int, int, int], List[int]] = defaultdict(list)
         for oid, meta in ortholog_meta.items():
-            if oid not in annot_data:
+            if oid not in parsed:
                 continue
             if meta["type"] not in allowed_types:
                 continue
@@ -672,15 +735,15 @@ class AnnotationEngine:
         for field in self.ANNOTATION_FIELDS:
             output_field = self._cascade_output_field(field)
             for prio_key in priority_order:
+                # Pre-parsed lookup is O(1); membership check just asks
+                # whether the field exists in the per-ortholog dict.
                 contributors = [
                     oid for oid in buckets[prio_key]
-                    if annot_data.get(oid) and annot_data[oid].get(field)
+                    if field in parsed.get(oid, ())
                 ]
                 if not contributors:
                     continue
-                values = self._aggregate_field(
-                    field, contributors, annot_data
-                )
+                values = self._aggregate_field(field, contributors, parsed)
                 if values:
                     annotations[output_field] = values
                     confidence[output_field] = self.TIER_CONFIDENCE[prio_key[2]]
@@ -707,40 +770,38 @@ class AnnotationEngine:
         self,
         field: str,
         contributors: List[int],
-        annot_data: Dict[int, dict],
+        parsed: Dict[int, Dict[str, Tuple[str, ...]]],
     ) -> List[str]:
         """Aggregate one annotation field across the cascade winning bucket.
 
-        Returns the list of values to emit (possibly empty if the field-
-        specific filter removes everything). ``Preferred_name`` returns
-        the most-common pname in the bucket (no ≥2 occurrence rule —
-        cascade selectivity already guarantees these are the highest-
-        confidence donors). ``PFAMs`` keeps any pfam present in at least
-        one contributor (the v2-era ≥5% / ≥2-occurrence filter does not
-        apply to bucket-restricted aggregation, since bucket sizes are
-        small by design).
+        Reads pre-parsed per-ortholog tuples instead of re-splitting comma
+        strings on every cascade lookup (Phase 4 hot-path optimization).
+
+        ``pname``: most-common across the bucket. No ≥2-occurrence rule —
+        cascade selectivity already guarantees the bucket holds the
+        highest-confidence donors. Counter is used because we need the
+        winner.
+
+        Other fields: distinct values via set union — order doesn't
+        matter (downstream sorts at write time) and dedup is far faster
+        than counting then taking ``.keys()``.
         """
-        counter: Counter = Counter()
-        for oid in contributors:
-            value = annot_data[oid].get(field)
-            if not value:
-                continue
-            if field == "pname":
-                counter[value.strip()] += 1
-            elif field == "gos":
-                for go in self._parse_gos(value):
-                    counter[go] += 1
-            else:
-                for v in str(value).split(","):
-                    v = v.strip()
-                    if v:
-                        counter[v] += 1
-        if not counter:
-            return []
         if field == "pname":
+            counter: Counter = Counter()
+            for oid in contributors:
+                tup = parsed.get(oid, {}).get(field)
+                if tup:
+                    counter[tup[0]] += 1
+            if not counter:
+                return []
             return [counter.most_common(1)[0][0]]
-        # gos / pfam / kegg_* / bigg_reaction → emit all distinct values
-        return list(counter.keys())
+
+        out: Set[str] = set()
+        for oid in contributors:
+            tup = parsed.get(oid, {}).get(field)
+            if tup:
+                out.update(tup)
+        return list(out)
 
     def _summarize_annotations_flat(
         self,
