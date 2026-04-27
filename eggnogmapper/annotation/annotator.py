@@ -82,7 +82,27 @@ class Annotator:
         
         return
 
-    
+    def _applied_filters(self):
+        """Return a dict of the resolved annotation-stage filter values
+        the run is using, for the `## applied filters:` block in
+        .emapper.annotations (Phase 7.1a). Defaults are recorded as
+        their actual resolved values so a reader doesn't need to know
+        emapper's defaults to interpret the file.
+        """
+        return {
+            "tax_scope":              self.tax_scope,
+            "tax_scope_mode":         self.tax_scope_mode,
+            "target_orthologs":       self.target_orthologs,
+            "target_taxa":            self.target_taxa,
+            "excluded_taxa":          self.excluded_taxa,
+            "seed_ortholog_evalue":   self.seed_ortholog_evalue,
+            "seed_ortholog_score":    self.seed_ortholog_score,
+            "go_evidence":            self.go_evidence,
+            "go_excluded":            self.go_excluded,
+            "pfam_realign":           self.pfam_realign,
+        }
+
+
     ##
     def annotate(self, hits_gen_func, annot_file, excel_file, orthologs_file, pfam_file, queries_file):
 
@@ -166,7 +186,8 @@ class Annotator:
                                                                  self.resume,
                                                                  self.no_file_comments,
                                                                  md5_field,
-                                                                 md5_queries)
+                                                                 md5_queries,
+                                                                 applied_filters=self._applied_filters())
 
                     if self.excel == True:
                         annots_generator = output.output_excel(annots_generator,

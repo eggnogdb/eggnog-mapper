@@ -200,7 +200,8 @@ ANNOTATIONS_HEADER = ['Preferred_name',
 ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + ANNOTATIONS_HEADER + ['annotation_confidence']
 
 ##
-def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, md5_queries):
+def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, md5_queries,
+                       applied_filters=None):
 
     if resume == True:
         file_mode = 'a'
@@ -215,7 +216,10 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
     start_time = time.time()
 
     with open(annot_file, file_mode) as ANNOTATIONS_OUT:
-        output_annotations_header(ANNOTATIONS_OUT, no_file_comments, md5_field, not resume)
+        output_annotations_header(
+            ANNOTATIONS_OUT, no_file_comments, md5_field, not resume,
+            applied_filters=applied_filters,
+        )
 
         qn = 0
         for (hit, annotation), exists in annots:
@@ -295,14 +299,21 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
     return
 
 ##
-def output_annotations_header(out, no_file_comments, md5_field, print_header):
+def output_annotations_header(out, no_file_comments, md5_field, print_header,
+                              applied_filters=None):
 
     if not no_file_comments:
         print(get_call_info(), file=out)
+        # Phase 7.1a — record the resolved values of every annotation-stage
+        # filter and threshold the run actually used. Closes the v3 docs gap
+        # where reproducibility relied on parsing the raw command line on
+        # line 3 (defaults were never expanded).
+        if applied_filters:
+            print(format_applied_filters(applied_filters), file=out)
 
     if print_header == True:
         print("#", end="", file=out)
-        
+
         annot_header = ANNOTATIONS_WHOLE_HEADER
         if md5_field == True:
             annot_header.append("md5")
@@ -310,6 +321,27 @@ def output_annotations_header(out, no_file_comments, md5_field, print_header):
         print('\t'.join(annot_header), file=out)
 
     return
+
+
+def format_applied_filters(filters: dict) -> str:
+    """Render the resolved filter / threshold values as a comment block.
+
+    Output is a multi-line string starting with ``## applied filters:``
+    followed by one ``##   key=value`` per filter, sorted by key. ``None``
+    becomes the literal string ``null`` so the block is unambiguous when a
+    threshold is intentionally unset.
+    """
+    lines = ["## applied filters:"]
+    for key in sorted(filters):
+        value = filters[key]
+        if value is None:
+            rendered = "null"
+        elif isinstance(value, (list, tuple, set, frozenset)):
+            rendered = ",".join(map(str, sorted(value))) if value else "null"
+        else:
+            rendered = str(value)
+        lines.append(f"##   {key}={rendered}")
+    return "\n".join(lines)
 
 
 
