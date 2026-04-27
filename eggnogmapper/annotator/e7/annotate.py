@@ -44,7 +44,19 @@ class AnnotationEngine:
         "kegg_tc", "kegg_cazy", "bigg_reaction", "pfam"
     ]
 
-    def __init__(self, db: EggnogDB, lineage_filter=None):
+    # Mapping from ortholog-relationship type to cascade tier. The cascade
+    # walks tiers in order 0 → 2; within a tier, donors are sorted by
+    # ev_lca proximity to the seed. Confidence label is derived from the
+    # winning tier: 0 → "high", 1 → "medium", 2 → "low".
+    TYPE_TIERS = {
+        "one2one":  0,
+        "one2many": 1,
+        "many2one": 1,
+        "many2many": 2,
+    }
+    TIER_CONFIDENCE = {0: "high", 1: "medium", 2: "low"}
+
+    def __init__(self, db: EggnogDB, lineage_filter=None, lineage_cache=None):
         """Initialize annotation engine.
 
         Args:
@@ -54,9 +66,17 @@ class AnnotationEngine:
                 per-seed to the seed's taxonomic domain before expensive
                 annotation fetch — the single largest speedup for
                 proteome-scale runs.
+            lineage_cache: Optional LineageCache used by the cascade engine
+                to rank events by ev_lca depth. If None and lineage_filter
+                is set, the filter's own cache is reused. If both are
+                absent, the cascade falls back to type-tier priority only
+                (no ev_lca distance ordering).
         """
         self.db = db
         self.lineage_filter = lineage_filter
+        self.lineage_cache = lineage_cache or (
+            lineage_filter.lineage_cache if lineage_filter is not None else None
+        )
         # Cross-batch cache for OG metadata. Most eukaryotic proteomes
         # reuse a small set of common OGs across thousands of proteins,
         # so caching them avoids repeated SQL + JSON parsing.
@@ -65,6 +85,9 @@ class AnnotationEngine:
         # Reused across seeds that share the same auto-scope outcome
         # (e.g. an all-Arabidopsis proteome => one scope computed once).
         self._valid_species_by_seed: Dict[str, Optional[set]] = {}
+        # Cache of seed → set(lineage_taxid_str). Cuts repeated taxa.db
+        # work for proteomes where many seeds share a species.
+        self._seed_lineage_set_cache: Dict[int, Optional[frozenset]] = {}
 
     def annotate(
         self,
@@ -103,7 +126,7 @@ class AnnotationEngine:
         events = self.db.get_events_bulk(event_ids)
 
         # Collect orthologs from events (simplified: no species grouping)
-        orthologs, ortholog_types = self._collect_orthologs(
+        orthologs, ortholog_types, _ortholog_meta = self._collect_orthologs(
             seed_id, events, target_taxa, excluded_taxa
         )
 
@@ -178,17 +201,19 @@ class AnnotationEngine:
         t0 = time.time()
         seed_orthologs: Dict[int, Set[int]] = {}
         seed_ortholog_types: Dict[int, Dict[str, Set[int]]] = {}
+        seed_ortholog_meta: Dict[int, Dict[int, Dict[str, Any]]] = {}
         all_orthologs: Set[int] = set()
         for seed_id in seed_ids:
             eids = event_index.get(seed_id, [])
             # Filter events to those in our cache
             seed_events = {eid: events_cache[eid] for eid in eids if eid in events_cache}
             valid_species = self._resolve_valid_species(seed_id)
-            orthologs, ortholog_types = self._collect_orthologs(
+            orthologs, ortholog_types, ortholog_meta = self._collect_orthologs(
                 seed_id, seed_events, target_taxa, excluded_taxa, valid_species,
             )
             seed_orthologs[seed_id] = orthologs
             seed_ortholog_types[seed_id] = ortholog_types
+            seed_ortholog_meta[seed_id] = ortholog_meta
             all_orthologs.update(orthologs)
         _t(f"p3 collect_orthologs ({len(all_orthologs)})", t0)
 
@@ -302,6 +327,27 @@ class AnnotationEngine:
                 self._og_cache[p] = fetched.get(p)  # may be None (miss)
         return {p: self._og_cache[p] for p in pairs if self._og_cache[p] is not None}
 
+    def _seed_lineage(self, seed_id: int) -> Optional[frozenset]:
+        """Cached lookup of the seed's lineage as a frozenset of taxid strings.
+
+        Used by the cascade to test whether an event's `ev_lca` is on the
+        path between root and the seed. None when the lineage cache is
+        absent or the seed's species is unknown."""
+        if seed_id in self._seed_lineage_set_cache:
+            return self._seed_lineage_set_cache[seed_id]
+        result: Optional[frozenset] = None
+        if self.lineage_cache is not None:
+            taxids = self.db.taxid_array
+            if taxids is not None and seed_id < len(taxids):
+                seed_taxid = str(taxids[seed_id])
+                lineage = self.lineage_cache.get(seed_taxid)
+                if lineage is not None:
+                    # Defensive copy as a frozenset so callers can't mutate
+                    # the cache's internal state.
+                    result = frozenset(lineage)
+        self._seed_lineage_set_cache[seed_id] = result
+        return result
+
     def _resolve_valid_species(self, seed_id):
         """Return the cached set of species taxids (as strings) allowed
         by the lineage_filter for this seed, or None for no filter.
@@ -335,7 +381,7 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         valid_species: Optional[frozenset] = None,
-    ) -> Tuple[Set[int], Dict[str, Set[int]]]:
+    ) -> Tuple[Set[int], Dict[str, Set[int]], Dict[int, Dict[str, Any]]]:
         """Collect ortholog IDs from events, classified by orthology type.
 
         For each speciation event where the seed appears, the proteins on the
@@ -353,11 +399,20 @@ class AnnotationEngine:
                 ``LineageFilter.get_valid_species_ids()``.
 
         Returns:
-            (orthologs, ortholog_types) where:
-            - orthologs: filtered set of all ortholog protein IDs
-            - ortholog_types: dict with keys "one2one", "one2many",
-              "many2one", "many2many", "all" — each mapping to the subset
-              of filtered orthologs with that relationship to the seed.
+            ``(orthologs, ortholog_types, ortholog_meta)`` where:
+
+            - ``orthologs``: filtered set of all ortholog protein IDs.
+            - ``ortholog_types``: dict with keys ``"one2one"``,
+              ``"one2many"``, ``"many2one"``, ``"many2many"``, ``"all"`` —
+              each mapping to the subset of filtered orthologs with that
+              relationship to the seed.
+            - ``ortholog_meta``: dict mapping each ortholog id to its
+              priority metadata as the cascade engine sees it. The metadata
+              describes the *best* event the ortholog participated in
+              (best = lowest sort key in the cascade order: in-seed-lineage
+              first, deeper ev_lca next, lower type tier last). Keys:
+              ``event_id``, ``ev_lca``, ``type``, ``type_tier``, ``depth``,
+              ``in_seed_lineage``. Empty dict if no events.
         """
         typed: Dict[str, Set[int]] = {
             "one2one":  set(),
@@ -377,7 +432,13 @@ class AnnotationEngine:
             "many2many": set(),
         }
 
-        for event in events.values():
+        # Per-ortholog priority metadata. We keep a (sort_key, payload) tuple
+        # so we can update with `min` over the events the ortholog joined.
+        # sort_key = (in_seed_lineage_int, -depth, type_tier).
+        seed_lineage = self._seed_lineage(seed_id)
+        ortholog_meta_raw: Dict[int, Tuple[Tuple[int, int, int], Dict[str, Any]]] = {}
+
+        for event_id, event in events.items():
             side1 = event.get("side1")
             side2 = event.get("side2")
             if side1 is None or side2 is None:
@@ -403,6 +464,32 @@ class AnnotationEngine:
 
             candidates[rel].update(other_side)
 
+            # Cascade priority metadata for this event. Computed once per
+            # event, applied to every ortholog drawn from this event.
+            ev_lca = str(event.get("ev_lca") or "")
+            in_lineage = bool(seed_lineage) and ev_lca in seed_lineage
+            depth = (
+                self.lineage_cache.depth(ev_lca)
+                if self.lineage_cache is not None and ev_lca
+                else 0
+            )
+            type_tier = self.TYPE_TIERS[rel]
+            sort_key = (0 if in_lineage else 1, -depth, type_tier)
+            payload = {
+                "event_id": event_id,
+                "ev_lca": ev_lca,
+                "type": rel,
+                "type_tier": type_tier,
+                "depth": depth,
+                "in_seed_lineage": in_lineage,
+            }
+            for oid in other_side:
+                if oid == seed_id:
+                    continue
+                prev = ortholog_meta_raw.get(oid)
+                if prev is None or sort_key < prev[0]:
+                    ortholog_meta_raw[oid] = (sort_key, payload)
+
         # Remove the seed itself from every candidate bucket
         for bucket in candidates.values():
             bucket.discard(seed_id)
@@ -412,7 +499,7 @@ class AnnotationEngine:
             all_candidates.update(bucket)
 
         if not all_candidates:
-            return typed["all"], typed
+            return typed["all"], typed, {}
 
         taxids = self.db.taxid_array
 
@@ -421,7 +508,12 @@ class AnnotationEngine:
             for rel, bucket in candidates.items():
                 typed[rel].update(bucket)
                 typed["all"].update(bucket)
-            return typed["all"], typed
+            ortholog_meta = {
+                oid: payload
+                for oid, (_, payload) in ortholog_meta_raw.items()
+                if oid in typed["all"]
+            }
+            return typed["all"], typed, ortholog_meta
 
         # Combined species filter: auto/scope lineage + manual taxa filters.
         # Scope lineage uses taxid strings; manual filters typically use ints.
@@ -466,7 +558,12 @@ class AnnotationEngine:
             typed[rel].update(typed_bucket)
         typed["all"] = filtered
 
-        return typed["all"], typed
+        ortholog_meta = {
+            oid: payload
+            for oid, (_, payload) in ortholog_meta_raw.items()
+            if oid in filtered
+        }
+        return typed["all"], typed, ortholog_meta
 
     def _summarize_annotations(
         self,

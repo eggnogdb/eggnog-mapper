@@ -127,6 +127,22 @@ class LineageCache:
             return False
         return str(clade_taxid) in lineage
 
+    def depth(self, taxid):
+        """Return the lineage size of a taxid, i.e. the number of ancestors
+        from root to and including the taxid itself.
+
+        Used by the cascade engine to rank speciation events by taxonomic
+        specificity: deeper ev_lca = more specific clade = better donor
+        candidate (closer to seed). Internal nodes (e.g. Bacteria, Metazoa)
+        are present in the species table for the e7 schema, so this works
+        for ev_lca taxids as well as leaf species.
+
+        Returns 0 when the taxid is not in the cache (treat as least
+        specific so the cascade deprioritizes it).
+        """
+        lineage = self.get(taxid)
+        return len(lineage) if lineage else 0
+
     def filter_by_clade(self, taxids, clade_taxid):
         """Filter taxids to those belonging to a clade.
 
