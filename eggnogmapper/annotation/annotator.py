@@ -203,7 +203,7 @@ class Annotator:
         """Dispatch annotation through the v7 batch path. Legacy per-hit
         and dbmem paths were removed in Phase 2 commit 3."""
         print(colorify("Functional annotation of hits...", "lgreen"), file=sys.stderr)
-        eggnog_db = get_eggnog_db(usemem=False)
+        eggnog_db = get_eggnog_db()
         if not eggnog_db._int_mode:
             raise EmapperException(
                 "This eggnog-mapper version (v3) requires a v7+ "

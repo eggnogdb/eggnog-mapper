@@ -166,7 +166,7 @@ def get_version():
 
 def get_db_version():
     from .annotation.db_sqlite import get_fresh_eggnog_db
-    eggnog_db = get_fresh_eggnog_db(usemem = False)
+    eggnog_db = get_fresh_eggnog_db()
     return eggnog_db.get_db_version()
 
 def get_diamond_version():
