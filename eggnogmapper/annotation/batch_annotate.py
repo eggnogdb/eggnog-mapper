@@ -150,10 +150,16 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
 
     engine = _get_engine(eggnog_db, v7_tax_scope, v7_tax_scope_auto)
     seed_ids = [s for _, _, s, _, _ in valid_hits]
+    # `target_orthologs` is now a *floor* on the cascade — the engine
+    # restricts which donor types contribute annotations. The orthologs
+    # list shown in the .emapper.orthologs file is still derived from the
+    # full classified `ortholog_types` dict and post-filtered there, so
+    # the user's requested target is respected end-to-end.
     results = engine.annotate_batch(
         seed_ids,
         target_taxa=target_taxa,
         excluded_taxa=excluded_taxa,
+        target_orthologs=target_orthologs,
     )
 
     # Re-shape engine results into the tuple consumed by output.py
@@ -164,6 +170,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
             continue
 
         annotations = r.get("annotations") or {}
+        annotations_confidence = r.get("annotations_confidence") or {}
         og_info = r.get("og_info") or {}
         orthologs = r.get("orthologs") or []
 
@@ -188,6 +195,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
             match_nog_names,
             all_orthologies,
             annot_orthologs,
+            annotations_confidence,
         )
 
         yield ((hit, annotation), False)

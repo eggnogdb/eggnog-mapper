@@ -45,12 +45,22 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db
 
 ##
 def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
-    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-     annotations,
-     (og_name, og_cat, og_desc),
-     max_annot_lvl,
-     match_nog_names,
-     all_orthologies, annot_orthologs) = annotation
+    # Tolerate either the 10-element legacy tuple or the 11-element v3
+    # tuple that adds annotations_confidence (unused in this row).
+    if len(annotation) == 10:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs) = annotation
+    else:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs, _confidence) = annotation
 
     int_mode = eggnog_db is not None and eggnog_db._int_mode
 
@@ -183,7 +193,11 @@ ANNOTATIONS_HEADER = ['Preferred_name',
                       'BiGG_Reaction',
                       'PFAMs']
 
-ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + ANNOTATIONS_HEADER
+# Phase 3c: per-source confidence is appended as a single column. Format
+# is `field=tier;field=tier;...` listing only the fields that were
+# emitted (and therefore got a confidence label). Reading code can split
+# on `;` and `=` without ever quoting tabs.
+ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + ANNOTATIONS_HEADER + ['annotation_confidence']
 
 ##
 def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, md5_queries):
@@ -222,12 +236,25 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
 ##
 def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=None):
 
-    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-     annotations,
-     (og_name, og_cat, og_desc),
-     max_annot_lvl,
-     match_nog_names,
-     all_orthologies, annot_orthologs) = annotation
+    # The annotation tuple is 11 elements as of Phase 3C; a 10-element
+    # tuple is accepted for back-compat (older test fixtures) and treated
+    # as having no confidence info.
+    if len(annotation) == 10:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs) = annotation
+        annotations_confidence = {}
+    else:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs,
+         annotations_confidence) = annotation
 
     # In int_mode, translate integer seed_ortholog to real protein name
     if eggnog_db is not None and eggnog_db._int_mode:
@@ -238,13 +265,24 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
     annot_columns = [query_name, seed_display, str(best_hit_evalue), str(best_hit_score),
                      ",".join(match_nog_names), str(max_annot_lvl),
                      og_cat, og_desc]
-    
+
     for h in ANNOTATIONS_HEADER:
         if h in annotations and annotations[h] is not None:
             annot_columns.append(",".join(sorted(list(annotations[h]))))
         else:
             annot_columns.append('-')
-                    
+
+    # Per-source confidence column. Only the fields that actually appear
+    # in `annotations_confidence` are written; "-" if there's nothing.
+    if annotations_confidence:
+        conf_str = ";".join(
+            f"{field}={tier}"
+            for field, tier in sorted(annotations_confidence.items())
+        )
+    else:
+        conf_str = "-"
+    annot_columns.append(conf_str)
+
     if md5_field == True:
         query_name = annot_columns[0]
         if query_name in md5_queries:

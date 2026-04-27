@@ -44,6 +44,7 @@ def _make_engine_result(
         },
         "all_ogs": ["CLU_TEST@131567|root", "CLU_TEST@9606|HX-1"],
         "annotations": {"GOs": ["GO:0005515"], "KEGG_ko": ["K00001"]},
+        "annotations_confidence": {"GOs": "high", "KEGG_ko": "high"},
         "og_info": {
             "name": "CLU_TEST@131567|root",
             "cog_cat": "O",
@@ -238,7 +239,11 @@ class TestInvalidSeedId:
 
 
 class TestAnnotationTupleStructure:
-    """The yielded annotation tuple must conform to the 10-element contract."""
+    """The yielded annotation tuple must conform to the 11-element contract.
+
+    Element [10] (annotations_confidence) was added in Phase 3C of the v3
+    cut. output.py also accepts the legacy 10-element tuple as a graceful
+    fallback for older test fixtures."""
 
     def _get_annotation(self, target_orthologs="all"):
         seed_id = 3000
@@ -278,13 +283,28 @@ class TestAnnotationTupleStructure:
         (_, annotation), _ = results[0]
         return annotation
 
-    def test_annotation_tuple_has_10_elements(self):
-        """The annotation tuple must have exactly 10 elements."""
+    def test_annotation_tuple_has_11_elements(self):
+        """The annotation tuple must have exactly 11 elements (Phase 3C)."""
         annotation = self._get_annotation()
         assert annotation is not None, "annotation should not be None for a valid hit"
-        assert len(annotation) == 10, (
-            f"Expected 10-element annotation tuple, got {len(annotation)}: {annotation}"
+        assert len(annotation) == 11, (
+            f"Expected 11-element annotation tuple, got {len(annotation)}: {annotation}"
         )
+
+    def test_annotation_element_10_is_confidence_dict(self):
+        """element[10] (annotations_confidence) must be a dict mapping
+        output field names to one of {high, medium, low}."""
+        annotation = self._get_annotation()
+        assert annotation is not None
+        confidence = annotation[10]
+        assert isinstance(confidence, dict), (
+            f"annotation[10] must be a dict, got {type(confidence).__name__}"
+        )
+        for field, tier in confidence.items():
+            assert tier in {"high", "medium", "low"}, (
+                f"annotations_confidence[{field!r}] must be high/medium/low, "
+                f"got {tier!r}"
+            )
 
     def test_annotation_tuple_element_5_is_3tuple(self):
         """element[5] (match_nogs_descriptions) must be a 3-tuple: (og_name, cat, desc)."""
