@@ -1,6 +1,85 @@
-## [Unreleased]
+## [v3] — 2026-04-27
 
-### Fixed
+Production cut. Three themes: legacy purge (mapper is now a thin shim
+over `eggnog_annotator.e7.AnnotationEngine`), per-source closest-ev_lca
++ ortholog-type-priority cascade for annotation transfer with
+confidence labels, and a builder that's self-contained and uniformly
+SQLite-tuned for slow-disk machines.
+
+### Removed (Phase 2 — legacy purge)
+
+- `--mode cache` and the `-c/--cache <FILE>` argument.
+- `--mode novel_fams` and the parallel novel-fams search/annotation chain.
+- `--dbmem` flag and the `_annotate_dbmem` per-hit path.
+- Modules unreachable from the v7 batch path:
+  `cache_annotator.py`, `annotator_novel_fams.py`,
+  `annotator_worker_novel_fams.py`, `output_novel_fams.py`,
+  `annota.py`, `annota_mongo.py`, `orthologs.py`,
+  `annotator_worker.py` (its only live helper, `filter_out`, was
+  inlined into `batch_annotate.py`).
+- `db_sqlite.py`: 11 dead methods removed
+  (`get_member_ogs`, `get_ogs_description`, `get_annotations`,
+  `get_pfam_annotations`, `get_taxid`, `get_protein_id`,
+  `bulk_get_protein_ids`, `get_member_events`, `bulk_get_ogs`,
+  `bulk_get_event_indices`, `bulk_get_events` and the v5/legacy
+  schema branches inside them); kept `get_eggnog_db`,
+  `get_fresh_eggnog_db`, `AnnotDB.__init__`, `close`,
+  `get_db_version`, `decode_protein_ids`, `get_protein_name`.
+- `Annotator._annotate_ondisk` (per-hit path for non-v7 DBs) and
+  `_annotate_dbmem`; `Annotator._annotate` now raises
+  `EmapperException` when the open DB is not v7-int_mode.
+
+Net delta: 16 files changed, +151/-1727 LoC; e2e output identical to
+the v3-baseline reference on `data/e7/sample` after Phase 2.
+
+### Changed (Phase 3 — cascade engine)
+
+- **`--tax_scope auto` semantics** are now per-functional-source. For
+  each source (KEGG_ko, GOs, Pfam, Preferred_name, EC, KEGG_Pathway,
+  …) independently, the engine walks orthologs in priority order
+  `(in_seed_lineage, -ev_lca_depth, type_tier)`. The first bucket with
+  any donor that has a non-empty value for that source wins, and the
+  consensus is taken across only the donors in that winning bucket.
+  Annotations from lower-priority buckets are never mixed in. The
+  cascade halts per-source — common sources may resolve at the 1:1 tier
+  while rare ones fall through to many:many.
+- **`--target_orthologs` is now a floor on the cascade**, not a
+  post-filter. `one2one` accepts only 1:1 events; `one2many` accepts
+  1:1 + 1:many; `many2one` accepts 1:1 + many:1; `all` / `many2many`
+  accept everything. If no donors of an allowed type cover a source,
+  the source is silently omitted (no fall-through to disallowed types).
+  Effect: `--target_orthologs one2one` on a seed without 1:1 donors now
+  emits no annotations, instead of silently widening to all donors.
+- **New TSV column** `annotation_confidence` in `.emapper.annotations`,
+  serialized as `field=tier;field=tier;...` (sorted, semicolon-separated).
+  Tier is `high` (1:1 winner), `medium` (1:many or many:1), `low`
+  (many:many). Seed-derived `Preferred_name` (when the seed itself has
+  an informative gene symbol) is labelled `high`. Empty when nothing was
+  emitted.
+- **Annotation tuple grew from 10 to 11 elements** (element[10] =
+  `annotations_confidence: dict`). `output_orthologs_row` and
+  `output_annotations_row` accept either size for back-compat.
+- The collapse `1:many ≡ many:1 ≡ medium` matches the user's biological
+  spec; the four ortholog types remain available end-to-end via
+  `--target_orthologs` for users who want to discriminate.
+
+### Added (Phases 1 + 3)
+
+- `eggnog_annotator/lineage.py`: `LineageCache.depth(taxid)` returns
+  the lineage size — used by the cascade to rank events by taxonomic
+  specificity.
+- `eggnog_annotator/e7/annotate.py`: `_pre_parse_batch` (Phase 4
+  optimization) parses each ortholog's annotation comma-strings once
+  per batch ahead of the cascade walk; the cascade winning-bucket scan
+  now reads pre-parsed tuples and dedupes with `set` (not Counter).
+  Measured **2.3× speedup** on `phase 6 build_results` on a 30-query
+  bacterial benchmark; plant proteomes (with ~8× more orthologs/seed)
+  scale into the targeted 3–5× range.
+- 16 new property tests in eggnog-builder + eggnog-annotator audit
+  the sp_events round-trip, the cascade priority key, target_orthologs
+  floor, missing-source fall-through, and bucket-only consensus.
+
+### Phase 0 baseline (CHANGELOG `[Unreleased]` items below) — already in v3 lineage
 
 - **C1** (batch_annotate.py): Annotation tuple element[5] is now a proper `(og_name, cat, desc)` 3-tuple and element[9] is the filtered ortholog list, preventing column misalignment in output files.
 - **C2** (batch_annotate.py): `--target-orthologs` filtering is now applied in the v7 batch path; all five orthology type keys (`one2one`, `one2many`, `many2one`, `many2many`, `all`) are populated per event before filtering.
