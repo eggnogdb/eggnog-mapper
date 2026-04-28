@@ -1,3 +1,84 @@
+## [v3.4] — 2026-04-28
+
+Annotation phase performance + biology pass. End-to-end on the test
+proteomes: araport (27,596 hits) and itag4 (32,692 hits) each finish
+in ~10 min wall at `--cpu 10`, ~15× faster than the v3.3 single-thread
+permissive baseline. Output is biologically self-consistent with the
+seed ortholog's source annotations (mean Jaccard 0.94-0.97 on PFAMs,
+0.7-0.8 on EC/KEGG_ko).
+
+### Changed
+
+- **`AnnotationEngine.annotate_batch(scope_strict_og=…)`** is now
+  `True` by default. Events whose containing OG (`sp_events.og_lca`)
+  is broader than the seed's resolved tax-scope ceiling are dropped
+  before any orthologs are fetched. On auto-scope plant proteomes
+  this discards 56 % of events that contributed 99 % of orthologs —
+  the cross-kingdom paralog noise that was leaking through the
+  per-protein species filter. Set `False` for the legacy permissive
+  behaviour.
+- **`AnnotationEngine.annotate_batch(pool=…)`** accepts a fork-context
+  `multiprocessing.Pool`. When set, the batch is sliced into
+  sub-batches (default 125 seeds each) and dispatched via
+  `imap_unordered`. Workers inherit the parent's loaded engine state
+  (taxid_array, lineage_cache, og_cache) via fork copy-on-write and
+  reopen their own SQLite connection in the post-fork initializer.
+
+### Added
+
+- **Cython `_collect_inner.pyx`** — `OrthologCollector` cdef class
+  backed by a C++ `unordered_map<int64, OrthEntry>`. Replaces the
+  6.6 M-iteration Python inner loop in `_collect_orthologs` that built
+  `ortholog_meta_raw[oid] = (sort_key_tuple, payload_dict)`. On full
+  e7 plant batches this phase drops from ~185 s to ~9 s
+  (single-thread). Falls back to the pure-Python loop when the .so
+  didn't compile.
+- **`LineageCache._tracks`** — ordered root → leaf species lineages,
+  populated alongside the existing set form. Required to compute the
+  descendant set of an internal clade (where set-form lineages lose
+  the ordering needed to identify "below scope").
+- **`LineageFilter.get_scope_og_descendants(scope_taxids)`** — returns
+  the frozenset of taxids at-or-below any scope taxid; cached. Used as
+  the `og_lca` whitelist for strict-OG mode.
+- **`EggnogDB.reopen_connection()`** — drops the (fork-stale) inherited
+  connection and opens a fresh one against the retained `db_path`.
+  `from_connection()` now auto-recovers the path via
+  `PRAGMA database_list` so adopted connections can be reopened
+  post-fork without the caller passing a path.
+- **Module-level pool plumbing** in `e7/annotate.py`: `_WORKER_ENGINE`
+  global, `_register_worker_engine(engine)`, `_worker_init_after_fork()`,
+  `_worker_annotate_subbatch(args)`. The mapper-side caller registers
+  its engine in the parent before forking the pool.
+- **`_annotate_batch_inproc()`** — refactored from the body of
+  `annotate_batch`; called both directly (serial path) and from the
+  pool worker function.
+
+### Performance
+
+1000-seed araport bench, single-thread Python baseline = 324 s:
+
+| Step | Wall | Cumulative |
+|---|---:|---:|
+| Cython `_collect_orthologs` only | 143 s | 2.27× |
+| + `scope_strict_og` default ON | 72 s | 4.5× |
+| + 8-worker fork pool | **35 s** | **9.3×** |
+| Annotation phase only (excl. 30 s init) | 9 s | **~36×** |
+
+### Notes
+
+- The strict-OG mode produces output that differs from permissive on
+  ~35 % of common queries — and 7.5 % of seeds get no annotation at
+  all if every event was above scope. All differences are in the
+  expected direction: queries either lose data borrowed from
+  cross-kingdom paralogs (honest auto-scope answer) or gain data the
+  seed itself was missing (cascade discovers KEGG/EC/etc.).
+- High-confidence disagreement examples (zero KEGG_ko or EC overlap
+  between query and its seed) all localise to **close-paralog
+  substitutions** within the same enzyme family or protein complex
+  (PsbB/PsbD, PsaB/PsaC, related phosphatases, terpene synthases,
+  methyltransferase variants). These would carry a `low` confidence
+  label.
+
 ## [v3.2] — 2026-04-27
 
 ### Added
