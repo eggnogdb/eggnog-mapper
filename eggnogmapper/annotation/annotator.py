@@ -88,7 +88,14 @@ class Annotator:
         # — consistent with the auto tax_scope intent. Set False to
         # restore the legacy permissive behaviour via
         # `--no-scope_strict_og`.
-        self.scope_strict_og = bool(getattr(args, "scope_strict_og", True))
+        #
+        # `None` is treated as "use default" (True), not as a sentinel
+        # for "False". A direct `bool(getattr(..., True))` would silently
+        # flip to False when callers (tests, library code) construct an
+        # `argparse.Namespace` with `scope_strict_og=None` — that's a
+        # silent correctness bug we'd never see in CI.
+        _strict = getattr(args, "scope_strict_og", True)
+        self.scope_strict_og = True if _strict is None else bool(_strict)
 
         self.resume = args.resume
         
