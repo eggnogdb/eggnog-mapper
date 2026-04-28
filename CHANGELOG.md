@@ -1,3 +1,65 @@
+## [v3.4] — 2026-04-28
+
+Annotation phase performance + biology pass. The annotation pipeline
+is now CPU-bound rather than dict-and-string bound, parallel across
+sub-batches, and biologically consistent with the auto-tax-scope
+intent the user already asked for.
+
+### Added
+
+- **`--scope_strict_og` CLI flag** (default ON; opt out via
+  `--no-scope_strict_og`). Skips speciation events whose containing
+  OG (`sp_events.og_lca`) is broader than the seed's resolved
+  tax-scope ceiling. On auto-scope plant proteomes this discards
+  cross-kingdom paralog noise that the legacy permissive path was
+  letting through to the per-protein species filter. Materially
+  faster (~2× on plant proteomes) and more biologically consistent
+  with what `--tax_scope auto` asks for. Use the opt-out for legacy
+  reproducibility.
+- **`--cpu N` now parallelizes the annotation phase**, not just
+  DIAMOND search. `_annotate_batched` creates one fork-context
+  `multiprocessing.Pool` for the full mapper run, registers the
+  parent's loaded `AnnotationEngine` on a module global before fork,
+  and passes the Pool to each `annotate_batch` call. Workers inherit
+  the engine's loaded state (`taxid_array` ~226 MB, lineage_cache,
+  og_cache) via fork copy-on-write and reopen their own SQLite
+  connection in the post-fork initializer.
+
+### Changed
+
+- `Annotator.scope_strict_og` attribute (default `True`) — set from
+  the `--scope_strict_og`/`--no-scope_strict_og` flag and threaded
+  through to `engine.annotate_batch(scope_strict_og=…)`.
+- `annotate_batch(pool=…)` is no longer ignored — it's passed through
+  to the engine, which slices the batch and dispatches.
+
+### Performance (real-case test on `/app/test_proteomes/`)
+
+| | araport11 (27,596 hits) | itag4 (32,692 hits) |
+|---|---:|---:|
+| Wall (`--cpu 10`) | **10 min** | **10.5 min** |
+| Reported throughput | 48 q/s | 54 q/s |
+| Speedup vs v3.3 single-thread permissive | ~15× | ~15× |
+| Speedup vs Python baseline (1000-seed bench) | 9.3× total / ~36× annotation-only | — |
+
+### Biology
+
+End-to-end consistency vs each query's seed ortholog source row in
+`prots`:
+
+| Field | araport mean Jaccard | itag4 mean Jaccard |
+|---|---:|---:|
+| `pfam` | 0.967 | 0.939 |
+| `ec` | 0.785 | 0.734 |
+| `gos` | 0.524 | 0.719 |
+| `kegg_ko` | 0.724 | 0.649 |
+
+High-confidence disagreements localise to close-paralog substitutions
+within the same enzyme family or protein complex (PsbB/PsbD,
+PsaB/PsaC, related phosphatases / methyltransferases / terpene
+synthases). These would carry a `low` confidence label and reflect
+honest cascade behaviour on divergent paralogs, not regressions.
+
 ## [v3] — 2026-04-27
 
 Production cut. Three themes: legacy purge (mapper is now a thin shim
