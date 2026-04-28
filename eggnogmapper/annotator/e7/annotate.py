@@ -36,10 +36,14 @@ _PROFILE = os.environ.get("EGGNOG_ANNOTATOR_PROFILE", "0") == "1"
 try:
     from .._collect_inner import OrthologCollector as _OrthologCollector
     from .._collect_inner import pack_sort_key as _pack_sort_key
+    from .._collect_inner import parse_gos_fast as _parse_gos_fast
+    from .._collect_inner import parse_field_fast as _parse_field_fast
     _COLLECTOR_AVAILABLE = True
 except ImportError:  # pragma: no cover — falls back transparently
     _OrthologCollector = None
     _pack_sort_key = None
+    _parse_gos_fast = None
+    _parse_field_fast = None
     _COLLECTOR_AVAILABLE = False
 
 
@@ -683,19 +687,29 @@ class AnnotationEngine:
                     if s:
                         row[field] = (s,)
                 elif field == "gos":
-                    gos = tuple(self._parse_gos(raw))
+                    # `parse_gos_fast` is the C-level char scanner from
+                    # `_collect_inner.pyx`; the Python fallback below
+                    # matches it byte-for-byte.
+                    if _parse_gos_fast is not None:
+                        gos = _parse_gos_fast(raw)
+                    else:
+                        gos = tuple(self._parse_gos(raw))
                     if gos:
                         row[field] = gos
                 else:
-                    seen: List[str] = []
-                    seen_set: Set[str] = set()
-                    for v in str(raw).split(","):
-                        v = v.strip()
-                        if v and v not in seen_set:
-                            seen.append(v)
-                            seen_set.add(v)
-                    if seen:
-                        row[field] = tuple(seen)
+                    if _parse_field_fast is not None:
+                        tup = _parse_field_fast(raw)
+                    else:
+                        seen: List[str] = []
+                        seen_set: Set[str] = set()
+                        for v in str(raw).split(","):
+                            v = v.strip()
+                            if v and v not in seen_set:
+                                seen.append(v)
+                                seen_set.add(v)
+                        tup = tuple(seen)
+                    if tup:
+                        row[field] = tup
             parsed[oid] = row
         return parsed
 
