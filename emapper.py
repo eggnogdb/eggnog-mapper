@@ -3,8 +3,12 @@
 import os, sys, time, traceback
 import argparse, multiprocessing
 
-if sys.version_info < (3,7):
-    sys.exit('Sorry, Python < 3.7 is not supported')
+if sys.version_info < (3, 9):
+    # 3.9 floor: argparse.BooleanOptionalAction (used for --scope_strict_og)
+    # was introduced in 3.9. Older Pythons would import-fail at flag-parse
+    # time with a less helpful message; we surface it here.
+    sys.exit('Sorry, Python < 3.9 is not supported '
+             '(argparse.BooleanOptionalAction requires 3.9+)')
     
 # get the path of this script and add it to the "pythonpath"
 SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]

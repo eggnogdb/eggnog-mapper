@@ -111,6 +111,7 @@ class Annotator:
         return {
             "tax_scope":              self.tax_scope,
             "tax_scope_mode":         self.tax_scope_mode,
+            "scope_strict_og":        self.scope_strict_og,
             "target_orthologs":       self.target_orthologs,
             "target_taxa":            self.target_taxa,
             "excluded_taxa":          self.excluded_taxa,
