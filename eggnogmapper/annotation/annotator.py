@@ -82,6 +82,13 @@ class Annotator:
         # dropped_file and writes one row per filtered hit.
         self.report_dropped = bool(getattr(args, "report_dropped", False))
 
+        # Strict scope-OG filter. When True, events whose containing OG
+        # (sp_events.og_lca) is broader than the seed's tax_scope ceiling
+        # are skipped before fetching their orthologs. Default False
+        # preserves the current behaviour (per-protein species filter
+        # only, applied after fetch). Opt-in via `--scope_strict_og`.
+        self.scope_strict_og = bool(getattr(args, "scope_strict_og", False))
+
         self.resume = args.resume
         
         return
@@ -350,6 +357,7 @@ class Annotator:
                     v7_tax_scope=v7_tax_scope,
                     v7_tax_scope_auto=v7_tax_scope_auto,
                     dropped_writer=self._dropped_writer,
+                    scope_strict_og=self.scope_strict_og,
                 )
 
         except EmapperException:
