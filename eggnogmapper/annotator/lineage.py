@@ -31,6 +31,12 @@ class LineageCache:
         - EGGNOG_DATA_DIR: Base directory containing taxa.db
         """
         self._cache = None
+        # Ordered root→leaf tracks for each species, populated alongside
+        # `_cache` on first access. Used by tax-scope tooling that needs
+        # to walk ancestry top-down (e.g. `LineageFilter.get_scope_og_descendants`)
+        # — without ordering we cannot tell which side of a clade an
+        # internal node lies on.
+        self._tracks = None
         self._taxa_db_path = taxa_db_path
         self._traverse_pkl_path = traverse_pkl_path
 
@@ -70,6 +76,7 @@ class LineageCache:
     def _load_from_sqlite(self, db_path):
         """Load lineage data from taxa.db SQLite."""
         self._cache = {}
+        self._tracks = {}
 
         conn = sqlite3.connect(db_path)
         try:
@@ -79,10 +86,23 @@ class LineageCache:
             for taxid, track in cursor:
                 if track:
                     # track is comma-separated lineage: "1,131567,2759,..."
-                    lineage_set = set(track.split(","))
-                    self._cache[str(taxid)] = lineage_set
+                    parts = track.split(",")
+                    self._cache[str(taxid)] = set(parts)
+                    # Keep ordered tracks (root → leaf) for descendants/scope queries.
+                    self._tracks[str(taxid)] = parts
         finally:
             conn.close()
+
+    def tracks(self):
+        """Iterate `(taxid_str, ordered_lineage_list)` pairs.
+
+        The list is the species' lineage in *root → leaf* order. Useful
+        for callers that need to walk ancestry top-down — e.g. computing
+        the descendant set of an internal clade, where the set form
+        in `_cache` loses the ordering needed to identify "below scope".
+        """
+        self._load()
+        return (self._tracks or {}).items()
 
     def get(self, taxid, default=None):
         """Get lineage set for a species taxid.

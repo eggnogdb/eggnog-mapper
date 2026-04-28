@@ -230,6 +230,47 @@ class LineageFilter:
         cache[key] = result
         return result
 
+    def get_scope_og_descendants(self, scope_taxids) -> Optional[frozenset]:
+        """Return the frozenset of taxid strings at-or-below any of
+        ``scope_taxids`` in the species tree.
+
+        Used as an ``og_lca`` whitelist for the strict-OG mode in
+        ``annotate_batch(scope_strict_og=True)``: events whose
+        containing OG (``sp_events.og_lca``) is broader than the seed's
+        scope are dropped before any orthologs are fetched.
+
+        Cached per scope-taxid frozenset.
+
+        Implementation: walks each species' ordered ``track`` (root →
+        leaf), finds the position of any scope taxid, and adds every
+        node from that position to the leaf — i.e. scope itself and
+        all its descendants on this species' lineage. The union over
+        all species in scope gives the full descendant set including
+        all internal clade nodes (Brassicaceae, Magnoliopsida, …)
+        that appear as ``og_lca`` values but aren't keys in
+        ``LineageCache._cache``.
+        """
+        if not scope_taxids:
+            return None
+        key = frozenset(scope_taxids)
+        cache = getattr(self, "_og_descendants_cache", None)
+        if cache is None:
+            cache = self._og_descendants_cache = {}
+        if key in cache:
+            return cache[key]
+        out = set(key)
+        for _, track in self.lineage_cache.tracks():
+            for scope_str in key:
+                try:
+                    idx = track.index(scope_str)
+                except ValueError:
+                    continue
+                out.update(track[idx:])
+                break
+        result = frozenset(out)
+        cache[key] = result
+        return result
+
     def filter_by_taxids(self, species_taxids, seed_taxid=None):
         """Filter species taxids to those matching the taxonomic scope.
 

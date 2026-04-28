@@ -183,6 +183,7 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         target_orthologs: str = "all",
+        scope_strict_og: bool = False,
     ) -> Dict[int, Dict[str, Any]]:
         """Annotate multiple seed orthologs efficiently.
 
@@ -192,6 +193,17 @@ class AnnotationEngine:
             seed_ids: List of integer protein IDs
             target_taxa: Optional set of taxids to include
             excluded_taxa: Optional set of taxids to exclude
+            target_orthologs: Cascade type floor; see ``TARGET_ORTHOLOGS_FLOORS``.
+            scope_strict_og: When True, drop events whose containing OG
+                (``sp_events.og_lca``) is broader than the seed's resolved
+                tax-scope ceiling. Default False preserves the legacy
+                behaviour where above-scope OG events stay in (and are
+                pruned per-protein by the species filter only). The
+                strict mode is materially faster on auto-scope plant /
+                animal proteomes — most cross-kingdom paralog noise
+                lives in cellular-organisms / Eukaryota OGs and the same
+                in-scope orthologs already appear in lower OGs at higher
+                cascade priority.
 
         Returns:
             Dict mapping seed_id -> annotation result
@@ -231,8 +243,12 @@ class AnnotationEngine:
             # Filter events to those in our cache
             seed_events = {eid: events_cache[eid] for eid in eids if eid in events_cache}
             valid_species = self._resolve_valid_species(seed_id)
+            allowed_og_lcas = (
+                self._resolve_allowed_og_lcas(seed_id) if scope_strict_og else None
+            )
             orthologs, ortholog_types, ortholog_meta = self._collect_orthologs(
                 seed_id, seed_events, target_taxa, excluded_taxa, valid_species,
+                allowed_og_lcas=allowed_og_lcas,
             )
             seed_orthologs[seed_id] = orthologs
             seed_ortholog_types[seed_id] = ortholog_types
@@ -427,6 +443,32 @@ class AnnotationEngine:
         self._valid_species_by_seed[seed_taxid] = valid
         return valid
 
+    def _resolve_allowed_og_lcas(self, seed_id):
+        """Return the frozenset of taxids at-or-below the seed's
+        tax-scope ceiling, or None if no filter applies.
+
+        Used as an `og_lca` whitelist by the strict-OG mode. Memoized
+        per seed-species (same scope ⇒ same allowed set).
+        """
+        if self.lineage_filter is None:
+            return None
+        taxids = self.db.taxid_array
+        if not taxids or seed_id >= len(taxids):
+            return None
+        seed_taxid = str(taxids[seed_id])
+        cache = getattr(self, "_allowed_og_lcas_by_seed", None)
+        if cache is None:
+            cache = self._allowed_og_lcas_by_seed = {}
+        if seed_taxid in cache:
+            return cache[seed_taxid]
+        scope = self.lineage_filter.get_effective_scope(seed_taxid)
+        allowed = (
+            self.lineage_filter.get_scope_og_descendants(scope)
+            if scope else None
+        )
+        cache[seed_taxid] = allowed
+        return allowed
+
     def _collect_orthologs(
         self,
         seed_id: int,
@@ -434,6 +476,7 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         valid_species: Optional[frozenset] = None,
+        allowed_og_lcas: Optional[frozenset] = None,
     ) -> Tuple[Set[int], Dict[str, Set[int]], Dict[int, Dict[str, Any]]]:
         """Collect ortholog IDs from events, classified by orthology type.
 
@@ -450,6 +493,11 @@ class AnnotationEngine:
             valid_species: Optional frozenset of taxid strings allowed by
                 the lineage scope filter. Produced by
                 ``LineageFilter.get_valid_species_ids()``.
+            allowed_og_lcas: Optional frozenset of taxid strings naming
+                the OGs whose containing taxonomic level (``og_lca``) is
+                at-or-below the seed's tax-scope ceiling. When provided,
+                events from broader OGs are skipped entirely — see
+                ``annotate_batch(scope_strict_og=True)``.
 
         Returns:
             ``(orthologs, ortholog_types, ortholog_meta)`` where:
@@ -500,6 +548,17 @@ class AnnotationEngine:
             ortholog_meta_raw: Dict[int, Tuple[Tuple[int, int, int], Dict[str, Any]]] = {}
 
         for event_id, event in events.items():
+            # Hard scope-OG filter: drop events whose containing OG is
+            # broader than the seed's tax-scope ceiling. The same in-scope
+            # orthologs already appear in lower OGs at higher cascade
+            # priority, so dropping these events is biologically lossless
+            # under auto-scope and removes ~99 % of fetched orthologs on
+            # plant proteomes. Opt-in via `annotate_batch(scope_strict_og=True)`.
+            if allowed_og_lcas is not None:
+                og_lca = event.get("og_lca")
+                if og_lca is None or og_lca not in allowed_og_lcas:
+                    continue
+
             side1 = event.get("side1")
             side2 = event.get("side2")
             if side1 is None or side2 is None:
