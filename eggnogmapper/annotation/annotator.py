@@ -357,6 +357,7 @@ class Annotator:
                         v7_tax_scope=v7_tax_scope,
                         v7_tax_scope_auto=v7_tax_scope_auto,
                         dropped_writer=self._dropped_writer,
+                        scope_strict_og=self.scope_strict_og,
                     )
                     batch = []
 

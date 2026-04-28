@@ -115,7 +115,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
                    tax_scope_ids, go_evidence, go_excluded,
                    seed_ortholog_score, seed_ortholog_evalue,
                    pool=None, v7_tax_scope=None, v7_tax_scope_auto=False,
-                   dropped_writer=None, scope_strict_og=False):
+                   dropped_writer=None, scope_strict_og=True):
     """Annotate a batch of hits using eggnog-annotator.
 
     batch: list of (hit, ...) argument tuples from iter_hit_lines
