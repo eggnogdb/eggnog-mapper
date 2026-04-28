@@ -43,6 +43,61 @@ except ImportError:  # pragma: no cover — falls back transparently
     _COLLECTOR_AVAILABLE = False
 
 
+# Process-pool worker globals.
+#
+# When `annotate_batch(pool=…)` is called with a pool created via the
+# fork start method, workers inherit the parent's `AnnotationEngine`
+# state — taxid_array (~226 MB numpy), lineage_cache, og_cache, etc. —
+# via copy-on-write. They only need to (a) drop the inherited sqlite3
+# connection and reopen one of their own (sqlite3 connections are not
+# fork-safe) and (b) keep a module-level pointer to the engine so the
+# pickle-by-name worker function can find it.
+#
+# The parent calls `_register_worker_engine(self)` *before* the Pool is
+# forked; the post-fork initializer then reopens SQLite. The worker fn
+# below dispatches each sub-batch to the inherited engine.
+_WORKER_ENGINE: "AnnotationEngine | None" = None
+
+
+def _register_worker_engine(engine: "AnnotationEngine") -> None:
+    """Set the module-global engine reference visible to forked workers.
+
+    Called by the parent process *before* a fork-context Pool is
+    created so each worker inherits the same `AnnotationEngine`
+    instance (with taxid_array, lineage_cache, og_cache already loaded).
+    """
+    global _WORKER_ENGINE
+    _WORKER_ENGINE = engine
+
+
+def _worker_init_after_fork() -> None:
+    """Pool initializer — runs once per worker after fork().
+
+    The inherited `_WORKER_ENGINE.db.conn` is a copy of the parent's
+    sqlite3 connection. That object is *not* fork-safe (shared fds /
+    locks can deadlock the next executable statement). Reopen it here.
+    """
+    if _WORKER_ENGINE is not None and _WORKER_ENGINE.db is not None:
+        _WORKER_ENGINE.db.reopen_connection()
+
+
+def _worker_annotate_subbatch(args):
+    """Pool worker — annotate one sub-batch of seed IDs.
+
+    Picklable by name. The engine state is reached via the module-global
+    `_WORKER_ENGINE` set in the parent before fork. Returns the per-seed
+    result dict so the parent can merge.
+    """
+    seed_ids, target_taxa, excluded_taxa, target_orthologs, scope_strict_og = args
+    return _WORKER_ENGINE._annotate_batch_inproc(
+        seed_ids,
+        target_taxa=target_taxa,
+        excluded_taxa=excluded_taxa,
+        target_orthologs=target_orthologs,
+        scope_strict_og=scope_strict_og,
+    )
+
+
 class AnnotationEngine:
     """Unified annotation engine for v7+ eggNOG databases.
 
@@ -183,7 +238,9 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         target_orthologs: str = "all",
-        scope_strict_og: bool = False,
+        scope_strict_og: bool = True,
+        pool=None,
+        sub_batch_size: int = 125,
     ) -> Dict[int, Dict[str, Any]]:
         """Annotate multiple seed orthologs efficiently.
 
@@ -194,20 +251,70 @@ class AnnotationEngine:
             target_taxa: Optional set of taxids to include
             excluded_taxa: Optional set of taxids to exclude
             target_orthologs: Cascade type floor; see ``TARGET_ORTHOLOGS_FLOORS``.
-            scope_strict_og: When True, drop events whose containing OG
-                (``sp_events.og_lca``) is broader than the seed's resolved
-                tax-scope ceiling. Default False preserves the legacy
-                behaviour where above-scope OG events stay in (and are
-                pruned per-protein by the species filter only). The
-                strict mode is materially faster on auto-scope plant /
-                animal proteomes — most cross-kingdom paralog noise
-                lives in cellular-organisms / Eukaryota OGs and the same
-                in-scope orthologs already appear in lower OGs at higher
-                cascade priority.
+            scope_strict_og: When True (default), drop events whose
+                containing OG (``sp_events.og_lca``) is broader than the
+                seed's resolved tax-scope ceiling. Consistent with the
+                auto tax-scope intent — the user says Viridiplantae,
+                they get Viridiplantae, no cross-kingdom donors leak in.
+                Materially faster too (≈2× wall on plant proteomes).
+                Set False to preserve the legacy permissive behaviour
+                (above-scope OG events stay in and are pruned per-protein
+                by the species filter afterwards).
+            pool: Optional `multiprocessing.Pool` (created with the fork
+                start method) for parallel sub-batch dispatch. The caller
+                must have called :func:`_register_worker_engine` on this
+                engine before forking the pool, and the pool must be
+                created with `initializer=_worker_init_after_fork` so
+                each worker reopens its own SQLite connection. When
+                None (default), the batch is processed in-process.
+            sub_batch_size: Sub-batch size for parallel dispatch. Smaller
+                = better load balance, more dispatch overhead. The
+                default of 125 fits comfortably under the cascade's
+                event-cache reuse window.
 
         Returns:
             Dict mapping seed_id -> annotation result
         """
+        if not seed_ids:
+            return {}
+
+        # Parallel path — slice and dispatch to the pool. Each worker
+        # owns its own SQLite connection (fork-safe via the post-fork
+        # initializer); the heavy in-memory state (taxid_array,
+        # lineage_cache) is COW-shared with this process.
+        if pool is not None and len(seed_ids) > sub_batch_size:
+            sub_batches = [
+                seed_ids[i:i + sub_batch_size]
+                for i in range(0, len(seed_ids), sub_batch_size)
+            ]
+            args_list = [
+                (sb, target_taxa, excluded_taxa, target_orthologs, scope_strict_og)
+                for sb in sub_batches
+            ]
+            merged: Dict[int, Dict[str, Any]] = {}
+            for r in pool.imap_unordered(_worker_annotate_subbatch, args_list):
+                merged.update(r)
+            return merged
+
+        return self._annotate_batch_inproc(
+            seed_ids,
+            target_taxa=target_taxa,
+            excluded_taxa=excluded_taxa,
+            target_orthologs=target_orthologs,
+            scope_strict_og=scope_strict_og,
+        )
+
+    def _annotate_batch_inproc(
+        self,
+        seed_ids: List[int],
+        target_taxa: Optional[Set[int]] = None,
+        excluded_taxa: Optional[Set[int]] = None,
+        target_orthologs: str = "all",
+        scope_strict_og: bool = True,
+    ) -> Dict[int, Dict[str, Any]]:
+        """In-process implementation of `annotate_batch`. The public
+        method dispatches to either this or the parallel path; this
+        also serves as the worker entrypoint after fork."""
         if not seed_ids:
             return {}
 

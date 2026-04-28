@@ -42,8 +42,35 @@ class EggnogDB:
                 f"Cannot open eggnog database at '{db_path}': {exc}"
             ) from exc
 
+    def reopen_connection(self):
+        """Reopen the SQLite connection — for fork-pool workers.
+
+        sqlite3.Connection objects are not safe across `fork()`: shared
+        file descriptors / locks can deadlock or corrupt. After fork,
+        each worker calls this once to drop the inherited (now-stale)
+        connection and open its own. The taxid_array, db_path, and any
+        other in-memory state are preserved (inherited from the parent
+        via copy-on-write — no reload of the 226 MB array).
+
+        Safe to call from `from_connection`-instantiated DBs only when
+        a `db_path` is known. Adopted connections without a path raise.
+        """
+        if not self.db_path:
+            raise EggnogDBError(
+                "reopen_connection() requires a db_path; this DB was "
+                "created via from_connection() and the original path "
+                "is not retained."
+            )
+        try:
+            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.conn.row_factory = sqlite3.Row
+        except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
+            raise EggnogDBError(
+                f"Cannot reopen eggnog database at '{self.db_path}': {exc}"
+            ) from exc
+
     @classmethod
-    def from_connection(cls, conn, taxid_array=None):
+    def from_connection(cls, conn, taxid_array=None, db_path=None):
         """Adopt an existing sqlite3 connection (no reopen, no reload).
 
         Emapper already opens the DB and preloads the taxid array; sharing
@@ -53,9 +80,23 @@ class EggnogDB:
             conn: Pre-opened sqlite3.Connection (row_factory will be set)
             taxid_array: Optional pre-loaded taxid list (index=protein_id).
                 If None, it is lazily loaded on first access.
+            db_path: Optional file path the connection was opened from.
+                When omitted, the path is recovered from the connection
+                via ``PRAGMA database_list``. Retaining the path keeps
+                ``reopen_connection()`` available for fork-pool workers.
         """
         self = cls.__new__(cls)
-        self.db_path = None
+        if db_path is None:
+            try:
+                row = conn.execute("PRAGMA database_list").fetchone()
+                # row = (seq, name, file) for sqlite3.Row or tuple
+                if row is not None:
+                    file_field = row["file"] if hasattr(row, "keys") else row[2]
+                    if file_field:
+                        db_path = file_field
+            except sqlite3.Error:
+                pass
+        self.db_path = db_path
         self.conn = conn
         self.conn.row_factory = sqlite3.Row
         self._taxids = taxid_array
