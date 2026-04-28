@@ -119,7 +119,9 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
     """Annotate a batch of hits using eggnog-annotator.
 
     batch: list of (hit, ...) argument tuples from iter_hit_lines
-    pool: ignored (kept for signature compatibility)
+    pool: optional `multiprocessing.Pool` (fork start method) — when
+        set, the engine slices each batch into sub-batches and dispatches
+        them to the pool workers. Caller-managed lifecycle.
     dropped_writer: optional callable
         ``dropped_writer(query, reason, seed, evalue, score)`` invoked
         for every hit dropped before or after the engine runs. Set to
@@ -178,6 +180,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
         excluded_taxa=excluded_taxa,
         target_orthologs=target_orthologs,
         scope_strict_og=scope_strict_og,
+        pool=pool,
     )
 
     # Re-shape engine results into the tuple consumed by output.py

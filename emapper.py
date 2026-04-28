@@ -382,16 +382,19 @@ def create_arg_parser():
                                 "non_integer_seed_id, no_donor_orthologs (engine returned no "
                                 "annotations under the active filters)."))
 
-    pg_annot.add_argument("--scope_strict_og", action="store_true",
+    pg_annot.add_argument("--scope_strict_og", action=argparse.BooleanOptionalAction,
+                          default=True,
                           help=("Skip speciation events whose containing OG (sp_events.og_lca) "
                                 "is broader than the seed's resolved tax_scope ceiling. "
                                 "On auto-scope plant/animal proteomes this drops "
                                 "above-scope OGs (cellular organisms / Eukaryota) which carry "
                                 "the cross-kingdom paralog noise — the same in-scope orthologs "
                                 "appear in lower OGs at higher cascade priority anyway. "
-                                "Materially faster (5-20x on plants) and more biologically "
-                                "consistent with auto-scope intent. Default off; opt-in for "
-                                "now while we A/B test."))
+                                "Materially faster (~2×) and more biologically consistent with "
+                                "the auto-scope intent. Default ON. Use --no-scope_strict_og to "
+                                "restore the legacy permissive behaviour where above-scope OG "
+                                "events leak through and are pruned per-protein by the species "
+                                "filter."))
 
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'

@@ -82,12 +82,13 @@ class Annotator:
         # dropped_file and writes one row per filtered hit.
         self.report_dropped = bool(getattr(args, "report_dropped", False))
 
-        # Strict scope-OG filter. When True, events whose containing OG
-        # (sp_events.og_lca) is broader than the seed's tax_scope ceiling
-        # are skipped before fetching their orthologs. Default False
-        # preserves the current behaviour (per-protein species filter
-        # only, applied after fetch). Opt-in via `--scope_strict_og`.
-        self.scope_strict_og = bool(getattr(args, "scope_strict_og", False))
+        # Strict scope-OG filter. When True (default), events whose
+        # containing OG (sp_events.og_lca) is broader than the seed's
+        # tax_scope ceiling are skipped before fetching their orthologs
+        # — consistent with the auto tax_scope intent. Set False to
+        # restore the legacy permissive behaviour via
+        # `--no-scope_strict_og`.
+        self.scope_strict_og = bool(getattr(args, "scope_strict_og", True))
 
         self.resume = args.resume
         
@@ -309,7 +310,26 @@ class Annotator:
 
         batch_size = 1000
         batch = []
-        pool = None  # CPU work is fast after pre-fetch; pool overhead hurts for small batches
+
+        # Process-pool parallelism for the annotation phase. Each worker
+        # inherits the parent's loaded engine (taxid_array,
+        # lineage_cache) via fork-COW and reopens its own SQLite
+        # connection in the post-fork initializer. Pool is created once
+        # for the full mapper run and reused across batches.
+        pool = None
+        n_workers = max(int(getattr(self, "cpu", 1) or 1), 1)
+        if n_workers > 1:
+            import multiprocessing
+            from eggnog_annotator.e7.annotate import (
+                _register_worker_engine, _worker_init_after_fork,
+            )
+            from .batch_annotate import _get_engine
+            engine = _get_engine(eggnog_db, v7_tax_scope, v7_tax_scope_auto)
+            _register_worker_engine(engine)
+            ctx = multiprocessing.get_context("fork")
+            pool = ctx.Pool(n_workers, initializer=_worker_init_after_fork)
+            print(colorify(f"Annotation pool: {n_workers} workers (fork)",
+                           "lblue"), file=sys.stderr)
 
         try:
             for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
