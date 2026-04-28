@@ -29,6 +29,19 @@ logger = logging.getLogger(__name__)
 # Enable per-phase timing by setting EGGNOG_ANNOTATOR_PROFILE=1
 _PROFILE = os.environ.get("EGGNOG_ANNOTATOR_PROFILE", "0") == "1"
 
+# C++/Cython acceleration of the inner ortholog-meta loop. Falls back
+# to the pure-Python path if the .so didn't compile (mirrors the codec
+# fallback pattern). The flag is module-level so each `_collect_orthologs`
+# call doesn't pay an import-time check.
+try:
+    from .._collect_inner import OrthologCollector as _OrthologCollector
+    from .._collect_inner import pack_sort_key as _pack_sort_key
+    _COLLECTOR_AVAILABLE = True
+except ImportError:  # pragma: no cover — falls back transparently
+    _OrthologCollector = None
+    _pack_sort_key = None
+    _COLLECTOR_AVAILABLE = False
+
 
 class AnnotationEngine:
     """Unified annotation engine for v7+ eggNOG databases.
@@ -472,11 +485,19 @@ class AnnotationEngine:
             "many2many": set(),
         }
 
-        # Per-ortholog priority metadata. We keep a (sort_key, payload) tuple
-        # so we can update with `min` over the events the ortholog joined.
-        # sort_key = (in_seed_lineage_int, -depth, type_tier).
+        # Per-ortholog priority metadata. The Cython path stores
+        # `(packed_sort_key << 32) | event_idx` in a C++ unordered_map
+        # and materialises Python payload dicts only for filtered
+        # candidates at the end. The pure-Python fallback keeps the
+        # original `(sort_key, payload)` tuple form. The two paths are
+        # gated by `_COLLECTOR_AVAILABLE` set at import time.
         seed_lineage = self._seed_lineage(seed_id)
-        ortholog_meta_raw: Dict[int, Tuple[Tuple[int, int, int], Dict[str, Any]]] = {}
+        if _COLLECTOR_AVAILABLE:
+            collector = _OrthologCollector(seed_id)
+            ortholog_meta_raw = None
+        else:
+            collector = None
+            ortholog_meta_raw: Dict[int, Tuple[Tuple[int, int, int], Dict[str, Any]]] = {}
 
         for event_id, event in events.items():
             side1 = event.get("side1")
@@ -514,7 +535,6 @@ class AnnotationEngine:
                 else 0
             )
             type_tier = self.TYPE_TIERS[rel]
-            sort_key = (0 if in_lineage else 1, -depth, type_tier)
             payload = {
                 "event_id": event_id,
                 "ev_lca": ev_lca,
@@ -523,12 +543,17 @@ class AnnotationEngine:
                 "depth": depth,
                 "in_seed_lineage": in_lineage,
             }
-            for oid in other_side:
-                if oid == seed_id:
-                    continue
-                prev = ortholog_meta_raw.get(oid)
-                if prev is None or sort_key < prev[0]:
-                    ortholog_meta_raw[oid] = (sort_key, payload)
+            if collector is not None:
+                packed = _pack_sort_key(in_lineage, depth, type_tier)
+                collector.add_event(other_side, packed, payload)
+            else:
+                sort_key = (0 if in_lineage else 1, -depth, type_tier)
+                for oid in other_side:
+                    if oid == seed_id:
+                        continue
+                    prev = ortholog_meta_raw.get(oid)
+                    if prev is None or sort_key < prev[0]:
+                        ortholog_meta_raw[oid] = (sort_key, payload)
 
         # Remove the seed itself from every candidate bucket
         for bucket in candidates.values():
@@ -548,11 +573,14 @@ class AnnotationEngine:
             for rel, bucket in candidates.items():
                 typed[rel].update(bucket)
                 typed["all"].update(bucket)
-            ortholog_meta = {
-                oid: payload
-                for oid, (_, payload) in ortholog_meta_raw.items()
-                if oid in typed["all"]
-            }
+            if collector is not None:
+                ortholog_meta = collector.export_meta(typed["all"])
+            else:
+                ortholog_meta = {
+                    oid: payload
+                    for oid, (_, payload) in ortholog_meta_raw.items()
+                    if oid in typed["all"]
+                }
             return typed["all"], typed, ortholog_meta
 
         # Combined species filter: auto/scope lineage + manual taxa filters.
@@ -598,11 +626,14 @@ class AnnotationEngine:
             typed[rel].update(typed_bucket)
         typed["all"] = filtered
 
-        ortholog_meta = {
-            oid: payload
-            for oid, (_, payload) in ortholog_meta_raw.items()
-            if oid in filtered
-        }
+        if collector is not None:
+            ortholog_meta = collector.export_meta(filtered)
+        else:
+            ortholog_meta = {
+                oid: payload
+                for oid, (_, payload) in ortholog_meta_raw.items()
+                if oid in filtered
+            }
         return typed["all"], typed, ortholog_meta
 
     # `target_orthologs` floor → set of allowed event types accepted by
