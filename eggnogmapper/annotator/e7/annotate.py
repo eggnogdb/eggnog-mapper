@@ -661,9 +661,16 @@ class AnnotationEngine:
             # priority, so dropping these events is biologically lossless
             # under auto-scope and removes ~99 % of fetched orthologs on
             # plant proteomes. Opt-in via `annotate_batch(scope_strict_og=True)`.
+            #
+            # Empty / missing `og_lca` (rare — events whose source tree
+            # node had no LCA prop): keep the event through this gate
+            # rather than silently drop. Out-of-scope orthologs from
+            # such events are still excluded by the per-protein species
+            # filter (`valid_species`) below. Dropping them would mean
+            # silent biological data loss — caught in code review (HIGH-7).
             if allowed_og_lcas is not None:
                 og_lca = event.get("og_lca")
-                if og_lca is None or og_lca not in allowed_og_lcas:
+                if og_lca and og_lca not in allowed_og_lcas:
                     continue
 
             side1 = event.get("side1")
