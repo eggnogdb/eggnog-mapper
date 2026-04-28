@@ -263,10 +263,25 @@ def create_arg_parser():
                             help='Gap extend  penalty')
 
     pg_diamond.add_argument('--block_size', dest='dmnd_block_size', type=float, default=None, metavar='BLOCK_SIZE',
-                            help="Diamond -b/--block-size option. Default is the diamond's default.")
+                            help=("Diamond -b/--block-size option. When unset, emapper auto-picks "
+                                  "from host RAM: <32 GB→diamond default, 32-48 GB→4, 48-96 GB→6, "
+                                  ">=96 GB→8. Larger = faster but uses more RAM. Diamond peak RAM "
+                                  "≈ block_size × 6 + db_size / index_chunks + threads × 0.5 GB."))
 
     pg_diamond.add_argument('--index_chunks', dest='dmnd_index_chunks', type=int, default=None, metavar='CHUNKS',
-                            help="Diamond -c/--index-chunks option. Default is the diamond's default.")
+                            help=("Diamond -c/--index-chunks option. When unset, emapper auto-picks "
+                                  "from host RAM: <32 GB→diamond default (4), 32-96 GB→2, "
+                                  ">=96 GB→1 (full DB resident). Smaller = faster but uses more RAM."))
+
+    pg_diamond.add_argument('--dmnd_top', dest='dmnd_top', type=int, default=3, metavar='PCT',
+                            choices=[1, 3],
+                            help=("Diamond --top option for protein/CDS searches. Default 3 (keeps "
+                                  "all hits within 3 %% of top score per query, lets the seed picker "
+                                  "use secondary criteria). Set to 1 to switch to "
+                                  "--max-target-seqs 1 (single best hit per query): ~20-30 %% faster "
+                                  "diamond pass with negligible biological impact for typical "
+                                  "proteomes — the bitscore-best hit is almost always the seed "
+                                  "anyway. No effect for genome/metagenome itype runs."))
 
     pg_diamond.add_argument('--outfmt_short', action="store_true",
                             help=(

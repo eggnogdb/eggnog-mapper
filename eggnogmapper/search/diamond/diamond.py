@@ -53,6 +53,40 @@ def create_diamond_db(dbprefix, in_fasta):
         
     return
 
+def _auto_dmnd_resources(block_size, index_chunks):
+    """Pick `--block-size` / `--index-chunks` from host RAM when the user
+    didn't override.
+
+    Diamond peak RAM ≈ block_size × 6 + db_size_GB / index_chunks +
+    threads × ~0.5 GB. The eggNOG e7 dmnd is ~23 GB.
+
+    Returns a (block_size, index_chunks) pair where None means "leave
+    diamond's own default in place". User overrides take precedence.
+    """
+    if block_size is not None and index_chunks is not None:
+        return block_size, index_chunks
+    try:
+        import psutil
+        avail_gb = psutil.virtual_memory().total / (1024 ** 3)
+    except Exception:
+        return block_size, index_chunks  # silent fallthrough on platforms without psutil
+    auto_bs, auto_ic = None, None
+    # Bands picked for the ~23 GB e7 dmnd. Headroom reserved for
+    # emapper's annotator pool, the OS page cache, and the kernel.
+    if avail_gb >= 96:
+        auto_bs, auto_ic = 8.0, 1
+    elif avail_gb >= 64:
+        auto_bs, auto_ic = 6.0, 2
+    elif avail_gb >= 32:
+        auto_bs, auto_ic = 4.0, 2
+    # Below 32 GB: leave diamond's default (block 2, chunks 4).
+    if block_size is None:
+        block_size = auto_bs
+    if index_chunks is None:
+        index_chunks = auto_ic
+    return block_size, index_chunks
+
+
 class DiamondSearcher:
 
     name = "diamond"
@@ -104,8 +138,15 @@ class DiamondSearcher:
         self.frameshift = args.dmnd_frameshift
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
-        self.block_size = args.dmnd_block_size
-        self.index_chunks = args.dmnd_index_chunks
+        # `--block_size` and `--index_chunks`: auto-pick from host RAM when
+        # the user didn't override. Diamond peak RAM ≈ block_size × 6 +
+        # db_size / index_chunks + threads × 0.5 GB. We pick conservative
+        # defaults that leave headroom for emapper's annotator pool and
+        # the OS page cache.
+        bs, ic = _auto_dmnd_resources(args.dmnd_block_size, args.dmnd_index_chunks)
+        self.block_size = bs
+        self.index_chunks = ic
+        self.dmnd_top = getattr(args, "dmnd_top", 3)
 
         self.pident_thr = args.pident
         self.evalue_thr = args.dmnd_evalue
@@ -233,7 +274,16 @@ class DiamondSearcher:
         if self.index_chunks: cmd += f' -c {self.index_chunks}'
 
         if self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS:
-            cmd += " --top 3 "
+            # `--dmnd_top 3` (default) keeps all hits within 3 % of top
+            # score per query, letting the seed picker apply secondary
+            # criteria (pident / qcov). `--dmnd_top 1` switches to
+            # `--max-target-seqs 1` — diamond can prune as soon as it
+            # has the bitscore-best hit, ~20-30 % faster, with the
+            # bitscore-best almost always being the seed anyway.
+            if int(getattr(self, "dmnd_top", 3)) == 1:
+                cmd += " --max-target-seqs 1 "
+            else:
+                cmd += " --top 3 "
         else: # self.itype == ITYPE_GENOME or self.itype == ITYPE_META: i.e. gene prediction
             cmd += " --max-target-seqs 0 --max-hsps 0 "
 
