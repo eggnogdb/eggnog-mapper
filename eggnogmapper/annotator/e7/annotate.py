@@ -117,6 +117,7 @@ class AnnotationEngine:
     # ev_lca proximity to the seed. Confidence label is derived from the
     # winning tier: 0 → "high", 1 → "medium", 2 → "low".
     TYPE_TIERS = {
+        "self":     0,
         "one2one":  0,
         "one2many": 1,
         "many2one": 1,
@@ -365,17 +366,57 @@ class AnnotationEngine:
         _t(f"p3 collect_orthologs ({len(all_orthologs)})", t0)
 
         # Phase 4: Bulk fetch annotations for all orthologs and seeds.
-        # Seeds are fetched so their pname can be used as the primary Preferred_name.
-        # Pre-parse once per ortholog: the cascade walk is O(seeds × buckets ×
-        # fields), so re-splitting comma-strings inside that loop dominated
-        # phase 6 on plant proteomes.
+        # Seeds are fetched so they can act as the cascade's tier-0 self-donor
+        # for every functional source (and so their pname can be promoted to
+        # the primary Preferred_name). Pre-parse once per ortholog: the
+        # cascade walk is O(seeds × buckets × fields), so re-splitting
+        # comma-strings inside that loop dominated phase 6 on plant proteomes.
         t0 = time.time()
         annot_cache = {}
         all_to_fetch = all_orthologs | set(seed_ids)
         if all_to_fetch:
             annot_cache = self.db.get_protein_annotations_bulk(list(all_to_fetch))
         parsed_cache = self._pre_parse_batch(annot_cache)
+        # The seed contributes every functional source through the cascade
+        # except pname — pname stays on the post-cascade promotion path
+        # below so an uninformative seed pname (locus IDs, multi-aliases,
+        # numeric strings) still falls through to ortholog consensus.
+        for seed_id in seed_ids:
+            seed_parsed = parsed_cache.get(seed_id)
+            if seed_parsed:
+                seed_parsed.pop("pname", None)
         _t("p4 annotations", t0)
+
+        # Inject seed-as-self-donor into each seed's ortholog_meta. The
+        # diamond hit is the closest possible reference and, for SwissProt-
+        # curated seeds, carries experimentally-validated annotations the
+        # cascade should prefer over inferred OG-paralog consensus. The
+        # synthetic depth (seed_taxid lineage depth + 1) is strictly deeper
+        # than any real ev_lca on the seed's lineage, so the seed's bucket
+        # wins the cascade for every source it provides; for sources where
+        # the seed is empty (e.g. KEGG_ko on a Pfam-only seed), the bucket
+        # has no contributors and the cascade falls through to orthologs.
+        taxids = self.db.taxid_array
+        for seed_id in seed_ids:
+            if seed_id not in annot_cache:
+                continue
+            seed_depth = 0
+            if (
+                self.lineage_cache is not None
+                and taxids is not None
+                and seed_id < len(taxids)
+            ):
+                seed_taxid = str(taxids[seed_id])
+                if seed_taxid:
+                    seed_depth = self.lineage_cache.depth(seed_taxid)
+            seed_ortholog_meta.setdefault(seed_id, {})[seed_id] = {
+                "event_id": -1,
+                "ev_lca": "",
+                "type": "self",
+                "type_tier": 0,
+                "depth": seed_depth + 1,
+                "in_seed_lineage": True,
+            }
 
         # Phase 5: Bulk fetch OG info from prots.ogs field
         t0 = time.time()
@@ -401,8 +442,13 @@ class AnnotationEngine:
         for seed_id in seed_ids:
             orthologs = seed_orthologs.get(seed_id, set())
 
-            # Filter annot_cache to this seed's orthologs (seed itself excluded from consensus)
-            seed_annots = {oid: annot_cache[oid] for oid in orthologs if oid in annot_cache}
+            # Filter annot_cache to this seed's orthologs PLUS the seed itself.
+            # The seed enters the cascade as a synthetic tier-0 self-donor (see
+            # phase 4 above); for every source the seed has, its bucket wins
+            # the cascade with confidence "high" and overrides consensus that
+            # would otherwise be drawn from OG-paralog inference.
+            cascade_ids = orthologs | {seed_id} if seed_id in annot_cache else orthologs
+            seed_annots = {oid: annot_cache[oid] for oid in cascade_ids if oid in annot_cache}
             seed_meta = seed_ortholog_meta.get(seed_id, {})
             annotations, annotations_confidence = (
                 self._summarize_annotations(
@@ -815,11 +861,11 @@ class AnnotationEngine:
     # `many2one` accept 1:1 plus the named asymmetric tier — the user
     # can still select which side of medium-tier ambiguity is OK.
     TARGET_ORTHOLOGS_FLOORS = {
-        "all":       frozenset({"one2one", "one2many", "many2one", "many2many"}),
-        "many2many": frozenset({"one2one", "one2many", "many2one", "many2many"}),
-        "one2many":  frozenset({"one2one", "one2many"}),
-        "many2one":  frozenset({"one2one", "many2one"}),
-        "one2one":   frozenset({"one2one"}),
+        "all":       frozenset({"self", "one2one", "one2many", "many2one", "many2many"}),
+        "many2many": frozenset({"self", "one2one", "one2many", "many2one", "many2many"}),
+        "one2many":  frozenset({"self", "one2one", "one2many"}),
+        "many2one":  frozenset({"self", "one2one", "many2one"}),
+        "one2one":   frozenset({"self", "one2one"}),
     }
 
     def _pre_parse_batch(

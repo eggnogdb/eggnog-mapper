@@ -1,3 +1,43 @@
+## [v3.4 — seed-as-self cascade donor] — 2026-04-29
+
+### Fixed (HIGH-13: cascade dropped curated seed annotations)
+
+The diamond seed was fetched and parsed but excluded from the cascade
+donor pool — only `Preferred_name` had a post-cascade seed-promotion
+path. For every other source (GOs, EC, KEGG_ko, PFAM, KEGG_Pathway, …)
+the cascade aggregated consensus across OG-paralog donors and ignored
+the seed's own row in `prots`. On a SwissProt-curated seed with
+experimentally validated GO terms (e.g. `3702.Q0WV96` = AT1G01010 with
+`GO:0000976` cis-reg-region binding) those terms were silently
+replaced by family-level inferences from cross-Brassicaceae paralogs.
+
+Fix: synthesize a tier-0 self-donor for the seed in
+`_annotate_batch_inproc` with cascade key
+`(in_seed_lineage=True, depth=seed_taxid_depth+1, type_tier=0)` —
+strictly outranks any real ortholog. The seed's bucket wins for every
+source it provides and the cascade falls through to ortholog donors
+for sources where the seed is empty. `pname` is held back from the
+seed's parsed entry so the existing post-cascade `Preferred_name`
+promotion (with its uninformative-name fallback) stays in charge.
+
+`TYPE_TIERS["self"] = 0` and `"self"` is added to every
+`TARGET_ORTHOLOGS_FLOORS` set so `--target_orthologs one2one` etc.
+can never strip the seed from the cascade.
+
+### Biology — re-bench on test_proteomes (seed_orthologs reused, no diamond):
+
+|  | araport (26 612) | itag4 (30 829) |
+|---|---:|---:|
+| GOs Jaccard | 0.524 → **0.896** | 0.713 → **0.859** |
+| EC | 0.785 → **0.945** | 0.734 → **0.912** |
+| KEGG_ko | 0.724 → **0.905** | 0.649 → **0.843** |
+| PFAM | 0.967 → **1.000** | 0.939 → **1.000** |
+
+`q_subset`, `partial_overlap` and `seed_pop_q_empty` collapse to 0
+across functional fields — the cascade is now strictly seed-wins or
+bucket-consensus, never blending. No curated annotation is silently
+dropped.
+
 ## [v3.4 — post-review fixes] — 2026-04-29
 
 Follow-on to the v3.4 cut after parallel code review of the
