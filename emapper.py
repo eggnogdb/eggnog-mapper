@@ -231,22 +231,33 @@ def create_arg_parser():
     pg_diamond.add_argument('--dmnd_db', dest="dmnd_db", metavar='DMND_DB_FILE',
 		            help="Path to DIAMOND-compatible database")
 
-    pg_diamond.add_argument('--sensmode', dest='sensmode', 
-                            choices = SENSMODES, 
+    pg_diamond.add_argument('--sensmode', dest='sensmode',
+                            choices = SENSMODES,
                             default=SENSMODE_SENSITIVE,
                             help=(
                                 "Diamond's sensitivity mode. "
-                                "Note that emapper's default is "+SENSMODE_SENSITIVE+", "
-                                "which is different from diamond's default, which can "
-                                "be activated with --sensmode default."
+                                "When `--dmnd_iterate yes` (the default), this is the "
+                                "*ceiling* sensitivity that diamond escalates to — each "
+                                "successive iteration runs at a higher sensitivity, only "
+                                "for queries that came back unaligned in the previous "
+                                "iteration, until this ceiling is reached. Easy queries "
+                                "are caught at the fastest mode; only divergent queries "
+                                "pay the higher-sensitivity cost. "
+                                "When `--dmnd_iterate no`, this is the single sensitivity "
+                                "used for the search. "
+                                "emapper's default is "+SENSMODE_SENSITIVE+" "
+                                "(diamond's own default is `default`, faster but less "
+                                "sensitive — activate with --sensmode default)."
                             ))
 
     pg_diamond.add_argument('--dmnd_iterate', dest='dmnd_iterate', choices = [DMND_ITERATE_YES, DMND_ITERATE_NO],
                             default = DMND_ITERATE_DEFAULT,
                             help=(
                                 f"--dmnd_iterate {DMND_ITERATE_YES} --> activates the --iterate option of diamond for iterative searches, "
-                                f"from faster, less sensitive modes, up to the sensitivity specified with --sensmode. "
-                                f"Available since diamond 2.0.11. --dmnd_iterate {DMND_ITERATE_NO} --> disables the --iterate mode. "
+                                f"from faster, less sensitive modes, up to the *ceiling* sensitivity specified with --sensmode "
+                                f"(default `{SENSMODE_SENSITIVE}` — easy queries are caught fast, only divergent queries escalate). "
+                                f"Available since diamond 2.0.11. --dmnd_iterate {DMND_ITERATE_NO} --> disables the --iterate mode "
+                                f"(single pass at --sensmode sensitivity)."
                             ))
         
     pg_diamond.add_argument('--matrix', dest='matrix', 
