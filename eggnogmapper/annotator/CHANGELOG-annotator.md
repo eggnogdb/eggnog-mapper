@@ -1,3 +1,30 @@
+## [v3.4 — post-review fixes] — 2026-04-29
+
+Follow-on to the v3.4 cut after parallel code review of the
+`scope_strict_og` paths. Two contained fixes:
+
+### Fixed
+
+- **HIGH-7** `9282ffb`: events with empty / missing `og_lca` are no
+  longer silently dropped by the strict-OG filter. The check changed
+  from `og_lca is None or og_lca not in allowed_og_lcas` to
+  `og_lca and og_lca not in allowed_og_lcas`. The per-protein species
+  filter (`valid_species`) still excludes any out-of-scope orthologs
+  these events contribute. Pre-fix these events leaked through the
+  legacy permissive path but were silently dropped under strict —
+  inconsistent. Post-fix recovers ~3 % of plant-proteome queries on
+  the test set (173 araport, 755 itag4).
+
+### Notes (upstream-tracked)
+
+- The empty-`og_lca` events come from a real bug in
+  `eggnog-builder/preparers/trees.py:_get_events`: traversal stack
+  initializes `current_og=""` and `current_og_lca=""`, so tree-root
+  speciation events that have `e=S` but no `o=` annotation get
+  recorded with `og="" og_lca=""`. The `events.py` builder then
+  substitutes `cluster_name` for the empty `og`. Tracked as builder
+  task #15; needs a full e7 rebuild to validate (~1-2h).
+
 ## [v3.4] — 2026-04-28
 
 Annotation phase performance + biology pass. End-to-end on the test
