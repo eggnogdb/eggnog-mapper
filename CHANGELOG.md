@@ -1,3 +1,86 @@
+## [v3.4 — post-review fixes + diamond auto-tune] — 2026-04-29
+
+Follow-ons to the v3.4 cut, after parallel code review surfaced silent
+correctness bugs and a real-case full-pipeline test exposed
+diamond-step hardware asymmetries.
+
+### Fixed (silent correctness bugs)
+
+- **HIGH-1** `e318247`: `scope_strict_og` was silently dropped on every
+  full 1000-hit batch — `_annotate_batched` made two `annotate_batch(...)`
+  calls, only the trailing one passed the kwarg, and
+  `batch_annotate.annotate_batch` defaulted to `False`. Proteomes >1000
+  hits ran in *hybrid* mode. Two-line fix; default-sync. araport
+  re-bench: 600 s → 215 s wall; EC Jaccard 0.785 → 0.945, KEGG_ko
+  0.724 → 0.879.
+- **HIGH-3** `64ab6a1`: treating `args.scope_strict_og = None` (from
+  programmatic callers / tests / library use) as "use default" rather
+  than letting `bool(None)` flip silently to False.
+
+### Added
+
+- **`--dmnd_top {1,3}`** flag in `d795118` (default `1` after
+  `21c0a74`). Switches the protein/CDS path between `--max-target-seqs 1`
+  (single best hit, default) and `--top 3` (legacy: hits within 3 % of
+  top score). emapper only consumes the bitscore-best hit, so this is
+  ~20-30 % faster diamond pass with no biological impact.
+- **`--scope_strict_og` in the `## applied filters:` output header**
+  (`1117d32`) so resumed runs and reproducibility checks can
+  disambiguate strict vs permissive output by reading the header alone.
+- **`--sensmode` help text** (`b96137d`) makes explicit that the flag
+  is the *iterate-ceiling* sensitivity (default `sensitive` —
+  divergent queries escalate, easy queries don't).
+
+### Changed
+
+- **`python_requires = >=3.9`** in `setup.cfg` (`1117d32`). Matches the
+  `argparse.BooleanOptionalAction` requirement; previously implicit.
+- **`__VERSION__ = '2.1.14'`** in `1117d32`.
+- **`batch_annotate.annotate_batch`** default for `scope_strict_og`
+  flipped from `False` to `True` to match the mapper-side and
+  engine-side defaults (in `e318247`).
+
+### Auto-tune
+
+`_auto_dmnd_resources()` in eggnog-mapper picks `block_size`,
+`index_chunks`, and `--algo` from host RAM and query input size:
+
+| Host RAM | block_size | index_chunks |
+|---|---:|---:|
+| <32 GB | diamond default (2) | diamond default (4) |
+| 32–64 GB | 4 | 2 |
+| 64–96 GB | 6 | 2 |
+| ≥96 GB | 8 | 1 |
+
+Plus: query FASTA <5 MB → `--algo 1` (query-indexed, faster startup).
+User overrides (`--block_size`, `--index_chunks`, `--dmnd_algo`) take
+precedence over the auto-pick.
+
+### Real-case full-pipeline benchmarks
+
+araport / itag4 from raw FASTA (`-m diamond --sensmode fast --cpu 10`):
+
+| | araport | itag4 |
+|---|---:|---:|
+| Sequences | 27,596 | 32,696 |
+| FASTA size | 14 MB | 12 MB |
+| Diamond wall | ~30 min | ~31 min |
+| Annotation wall | 5.3 min | 6.1 min |
+| **Total** | **36 min** | **37 min** |
+
+On this VM diamond is disk-bound (~30 MB/s sustained from `vda1`).
+On SSD-class storage the same auto-tune should give diamond ~5 min
+each. See task #18 for a disk-aware refinement.
+
+Biology consistency vs each query's seed source row in `prots`:
+
+| Field | araport | itag4 |
+|---|---:|---:|
+| pfam Jaccard | 0.913 | 0.928 |
+| ec | 0.923 | 0.889 |
+| gos | 0.505 | 0.713 |
+| kegg_ko | 0.852 | 0.798 |
+
 ## [v3.4] — 2026-04-28
 
 Annotation phase performance + biology pass. The annotation pipeline
