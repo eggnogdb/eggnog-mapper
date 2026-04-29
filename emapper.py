@@ -273,15 +273,16 @@ def create_arg_parser():
                                   "from host RAM: <32 GB→diamond default (4), 32-96 GB→2, "
                                   ">=96 GB→1 (full DB resident). Smaller = faster but uses more RAM."))
 
-    pg_diamond.add_argument('--dmnd_top', dest='dmnd_top', type=int, default=3, metavar='PCT',
+    pg_diamond.add_argument('--dmnd_top', dest='dmnd_top', type=int, default=1, metavar='PCT',
                             choices=[1, 3],
-                            help=("Diamond --top option for protein/CDS searches. Default 3 (keeps "
-                                  "all hits within 3 %% of top score per query, lets the seed picker "
-                                  "use secondary criteria). Set to 1 to switch to "
-                                  "--max-target-seqs 1 (single best hit per query): ~20-30 %% faster "
-                                  "diamond pass with negligible biological impact for typical "
-                                  "proteomes — the bitscore-best hit is almost always the seed "
-                                  "anyway. No effect for genome/metagenome itype runs."))
+                            help=("Diamond hit count per query for protein/CDS searches. "
+                                  "Default 1 (=> `--max-target-seqs 1`): emapper only consumes the "
+                                  "single bitscore-best hit as the seed, so we let diamond prune as "
+                                  "soon as it has it (~20-30 %% faster on typical proteomes). "
+                                  "Set to 3 (=> `--top 3`) to keep all hits within 3 %% of top "
+                                  "score per query — useful only if you've extended emapper to pick "
+                                  "the seed by a non-bitscore criterion (pident / qcov tie-break). "
+                                  "No effect for genome/metagenome itype runs."))
 
     pg_diamond.add_argument('--outfmt_short', action="store_true",
                             help=(

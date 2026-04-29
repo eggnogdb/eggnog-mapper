@@ -53,38 +53,78 @@ def create_diamond_db(dbprefix, in_fasta):
         
     return
 
-def _auto_dmnd_resources(block_size, index_chunks):
-    """Pick `--block-size` / `--index-chunks` from host RAM when the user
-    didn't override.
+def _auto_dmnd_resources(block_size, index_chunks, algo,
+                         query_path=None, n_cpus=None):
+    """Pick diamond runtime tuning from host RAM, query input size, and
+    CPU count when the user didn't override.
 
-    Diamond peak RAM ≈ block_size × 6 + db_size_GB / index_chunks +
-    threads × ~0.5 GB. The eggNOG e7 dmnd is ~23 GB.
+    Returns a `(block_size, index_chunks, algo)` tuple. `None` for any
+    field means "leave diamond's own default in place". User overrides
+    always take precedence.
 
-    Returns a (block_size, index_chunks) pair where None means "leave
-    diamond's own default in place". User overrides take precedence.
+    Decision rules:
+
+    * `block_size` and `index_chunks` come from host RAM. The eggNOG e7
+      dmnd is ~23 GB; bands are sized to leave headroom for the
+      annotator pool + OS page cache + kernel.
+
+          <32 GB        → diamond default (block 2, chunks 4)
+          32-64 GB      → block 4,  chunks 2     (~40 GB peak,  ~1.3× speedup)
+          64-96 GB      → block 6,  chunks 2     (~52 GB peak,  ~1.4× speedup)
+          ≥96 GB        → block 8,  chunks 1     (~76 GB peak,  ~1.7× speedup)
+
+      Diamond peak RAM ≈ block_size × 6 + db_size / index_chunks +
+      threads × 0.5 GB.
+
+    * `algo` comes from the query input. Diamond's `auto` (default) is
+      tuned for big query sets:
+
+      - Small input (<5 MB or <1k seqs): `algo=1` (query-indexed). DB
+        index is loaded once, queries indexed in memory. Big startup
+        win for tiny inputs where index-load dominates total wall.
+      - Big input on many CPUs: stay on diamond `auto` — it picks the
+        double-indexed algorithm that scales better with thread count.
+
+      `algo=ctg` (contiguous-seed) is *not* auto-picked; it requires
+      explicit user opt-in via `--dmnd_algo ctg` because it's a
+      sensitivity tradeoff, not a pure perf knob.
     """
-    if block_size is not None and index_chunks is not None:
-        return block_size, index_chunks
-    try:
-        import psutil
-        avail_gb = psutil.virtual_memory().total / (1024 ** 3)
-    except Exception:
-        return block_size, index_chunks  # silent fallthrough on platforms without psutil
-    auto_bs, auto_ic = None, None
-    # Bands picked for the ~23 GB e7 dmnd. Headroom reserved for
-    # emapper's annotator pool, the OS page cache, and the kernel.
-    if avail_gb >= 96:
-        auto_bs, auto_ic = 8.0, 1
-    elif avail_gb >= 64:
-        auto_bs, auto_ic = 6.0, 2
-    elif avail_gb >= 32:
-        auto_bs, auto_ic = 4.0, 2
-    # Below 32 GB: leave diamond's default (block 2, chunks 4).
-    if block_size is None:
-        block_size = auto_bs
-    if index_chunks is None:
-        index_chunks = auto_ic
-    return block_size, index_chunks
+    # ---- block_size + index_chunks: host-RAM driven ----
+    if block_size is None or index_chunks is None:
+        try:
+            import psutil
+            avail_gb = psutil.virtual_memory().total / (1024 ** 3)
+        except Exception:
+            avail_gb = None  # silent fallthrough — platforms without psutil
+        auto_bs, auto_ic = None, None
+        if avail_gb is not None:
+            if avail_gb >= 96:
+                auto_bs, auto_ic = 8.0, 1
+            elif avail_gb >= 64:
+                auto_bs, auto_ic = 6.0, 2
+            elif avail_gb >= 32:
+                auto_bs, auto_ic = 4.0, 2
+            # <32 GB: leave diamond's default
+        if block_size is None:
+            block_size = auto_bs
+        if index_chunks is None:
+            index_chunks = auto_ic
+
+    # ---- algo: input-size driven ----
+    if algo == DMND_ALGO_AUTO and query_path is not None:
+        try:
+            import os as _os
+            qsize_bytes = _os.path.getsize(query_path)
+        except OSError:
+            qsize_bytes = None
+        # Heuristic: query-indexed (algo=1) wins when the input is small
+        # enough that diamond's startup index-load dominates total wall.
+        # ~5 MB FASTA ≈ 12k average proteins (300 aa each); below that,
+        # switching to algo=1 saves the first DB-index pass.
+        if qsize_bytes is not None and qsize_bytes < 5 * 1024 * 1024:
+            algo = DMND_ALGO_1
+
+    return block_size, index_chunks, algo
 
 
 class DiamondSearcher:
@@ -129,6 +169,10 @@ class DiamondSearcher:
         self.sensmode = args.sensmode
         self.iterate = args.dmnd_iterate
         self.ignore_warnings = args.dmnd_ignore_warnings
+        # `self.algo` is overwritten in the search command builder once
+        # we know the query file path (input-size-aware auto-pick).
+        # `_user_algo` preserves the original CLI choice so the
+        # auto-pick can tell "user said auto" from "user picked X".
         self.algo = args.dmnd_algo
         
         self.query_cov = args.query_cover
@@ -138,15 +182,20 @@ class DiamondSearcher:
         self.frameshift = args.dmnd_frameshift
         self.gapopen = args.gapopen
         self.gapextend = args.gapextend
-        # `--block_size` and `--index_chunks`: auto-pick from host RAM when
-        # the user didn't override. Diamond peak RAM ≈ block_size × 6 +
-        # db_size / index_chunks + threads × 0.5 GB. We pick conservative
-        # defaults that leave headroom for emapper's annotator pool and
-        # the OS page cache.
-        bs, ic = _auto_dmnd_resources(args.dmnd_block_size, args.dmnd_index_chunks)
+        # Auto-tune at __init__ runs only RAM-driven decisions
+        # (block_size, index_chunks). The algo decision is deferred to
+        # search-time because it depends on the query file size which
+        # may not be fixed yet (CDS path may be translating a different
+        # input). The search() / blastp() command builder calls
+        # `_resolve_algo()` to do the input-size pick at that point.
+        bs, ic, _ = _auto_dmnd_resources(
+            args.dmnd_block_size, args.dmnd_index_chunks,
+            algo=DMND_ALGO_DEFAULT,  # placeholder — real pick at search time
+        )
         self.block_size = bs
         self.index_chunks = ic
-        self.dmnd_top = getattr(args, "dmnd_top", 3)
+        self.dmnd_top = getattr(args, "dmnd_top", 1)
+        self._user_algo = args.dmnd_algo  # remember, for search-time auto-pick
 
         self.pident_thr = args.pident
         self.evalue_thr = args.dmnd_evalue
@@ -256,6 +305,16 @@ class DiamondSearcher:
         if self.ignore_warnings is not None and self.ignore_warnings == True:
             cmd += f' --ignore-warnings'
 
+        # Resolve algo at command-build time so we can inspect the actual
+        # query file size. User overrides via `--dmnd_algo` propagate
+        # through `_user_algo` unchanged; only `auto` triggers the
+        # input-size pick (algo=1 for small inputs).
+        _, _, resolved_algo = _auto_dmnd_resources(
+            self.block_size, self.index_chunks,
+            algo=self._user_algo,
+            query_path=query_file,
+        )
+        self.algo = resolved_algo
         if self.algo is not None and self.algo != DMND_ALGO_AUTO:
             cmd += f' --algo {self.algo}'
 
