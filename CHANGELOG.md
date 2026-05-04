@@ -75,6 +75,37 @@ part of the mapper. Highlights:
   `annota.py`, `annota_mongo.py`, `orthologs.py`,
   `annotator_worker.py`
 
+### Removed (v5 database support)
+
+v3 is **v7-database-only**. Use eggnog-mapper 2.x for v5 databases.
+
+- `eggnogmapper/annotator/e5/` (3 placeholder stubs that raised
+  `NotImplementedError` — never had a real implementation)
+- `eggnogmapper/annotation/tax_scopes/tax_scopes.py` (282 LoC) plus
+  its `vars.py` lookup tables — pre-v3 tax-scope module. The v3
+  cascade uses `eggnogmapper.annotator.e7.tax_scope.LineageFilter`.
+- `eggnogmapper/annotation/annotators.py` 11-line factory shim;
+  `emapper.py` now imports `Annotator` directly.
+- `db_sqlite.AnnotDB._int_mode` flag and the v5-vs-v7 conditional
+  branches it gated. `AnnotDB.__init__` now raises
+  `EmapperException` if a non-v7 schema is opened (no `event_index`
+  table).
+- `output.py`: legacy 10-element annotation-tuple unpacking and the
+  `int_mode` toggle that handled v5 string-encoded protein IDs.
+  `output_orthologs_row` shrank from 145 → 89 LoC.
+
+### Search backends — unchanged in v3
+
+- DIAMOND (default), MMseqs2, HMMER, no_search are all still supported
+- Genomic / metagenomic / blastx / ORF prediction (prodigal) — all kept
+- Pfam search functionality kept (uses HMMER)
+- HMMER mode currently downloads eggnog 5.0-era per-clade HMM bundles;
+  v7-era HMM databases are not yet built. Once they ship, `-m hmmer`
+  routes through them automatically — no code changes needed in the
+  mapper. Until then, `-m hmmer` against the v7 `eggnog.db` is
+  best-effort (HMM hit names need to resolve in the v7 `protein_names`
+  table).
+
 ### CLI breaking changes
 
 - `--mode {cache, novel_fams}` → removed
