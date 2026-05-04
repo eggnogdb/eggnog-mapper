@@ -45,18 +45,13 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db
 
 ##
 def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
-    # Tuple shapes accepted: 10 (legacy), 11 (v3 cascade), 12 (v3.1
-    # adds tax_scope_used). The orthologs row only needs the first
-    # 10 fields; later additions are unpacked but unused here.
+    # v3 annotation tuple shapes:
+    #   11 elem  — v3 cascade   (annotations_confidence appended)
+    #   12 elem  — v3.1+        (tax_scope_used appended)
+    # The orthologs row only needs the first 10 fields; the trailing
+    # confidence / tax_scope_used elements are unpacked but unused here.
     n = len(annotation)
-    if n == 10:
-        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-         annotations,
-         (og_name, og_cat, og_desc),
-         max_annot_lvl,
-         match_nog_names,
-         all_orthologies, annot_orthologs) = annotation
-    elif n == 11:
+    if n == 11:
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations,
          (og_name, og_cat, og_desc),
@@ -72,81 +67,59 @@ def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
          all_orthologies, annot_orthologs,
          _confidence, _tax_scope_used) = annotation
 
-    int_mode = eggnog_db is not None and eggnog_db._int_mode
+    # Decode all integer protein IDs (best hit + all orthologs) up front.
+    all_ids = {int(best_hit_name)}
+    for orths in all_orthologies.values():
+        if orths:
+            all_ids.update(orths)
+    if annot_orthologs:
+        all_ids.update(annot_orthologs)
+    id_to_name = eggnog_db.decode_protein_ids(all_ids)
 
-    if int_mode:
-        # Decode all protein IDs in all_orthologies + annot_orthologs
-        all_ids = set()
-        all_ids.add(int(best_hit_name))
-        for target, orths in all_orthologies.items():
-            if orths:
-                all_ids.update(orths)
-        if annot_orthologs:
-            all_ids.update(annot_orthologs)
-        id_to_name = eggnog_db.decode_protein_ids(all_ids)
-
-        best_hit_real_name = id_to_name.get(int(best_hit_name), str(best_hit_name))
-        best_hit_name_id = best_hit_real_name.split(".", 1)[1] if "." in best_hit_real_name else best_hit_real_name
-    else:
-        id_to_name = None
-        best_hit_name_id = best_hit_name.split(".")[1]
+    best_hit_real_name = id_to_name.get(int(best_hit_name), str(best_hit_name))
+    best_hit_name_id = best_hit_real_name.split(".", 1)[1] if "." in best_hit_real_name else best_hit_real_name
 
     all_orthologies["annot_orthologs"] = annot_orthologs
 
-    seed_shown = False # show seed ortholog only once for each query
+    seed_shown = False  # show seed ortholog only once for each query
 
     for target in all_orthologies:
-        if target == "all": continue
-        if target == "annot_orthologs": continue
-
-        query_target_orths = all_orthologies[target]
-        if query_target_orths is None or len(query_target_orths) == 0:
+        if target in ("all", "annot_orthologs"):
             continue
 
-        if int_mode:
-            # Decode integer IDs to get taxids and names
-            orthologs_taxids = set()
-            orth_by_taxid = {}
-            for o in query_target_orths:
-                name = id_to_name.get(o, "0.unknown")
-                taxid = int(name.split(".")[0])
-                orthologs_taxids.add(taxid)
-                orth_by_taxid.setdefault(taxid, []).append((o, name))
-        else:
-            orthologs_taxids = set([int(x.split(".")[0]) for x in query_target_orths])
+        query_target_orths = all_orthologies[target]
+        if not query_target_orths:
+            continue
 
-        orthologs_taxnames = sorted(ncbi.get_taxid_translator(orthologs_taxids).items(), key=lambda x: x[1])
+        # Decode integer IDs to get taxids and names
+        orthologs_taxids = set()
+        orth_by_taxid = {}
+        for o in query_target_orths:
+            name = id_to_name.get(o, "0.unknown")
+            taxid = int(name.split(".")[0])
+            orthologs_taxids.add(taxid)
+            orth_by_taxid.setdefault(taxid, []).append((o, name))
+
+        orthologs_taxnames = sorted(
+            ncbi.get_taxid_translator(orthologs_taxids).items(),
+            key=lambda x: x[1],
+        )
 
         for taxid, taxname in orthologs_taxnames:
             orth_names = []
+            for orth_id, orth_full_name in orth_by_taxid.get(taxid, []):
+                orth_name = orth_full_name.split(".", 1)[1] if "." in orth_full_name else orth_full_name
+                if orth_id in (annot_orthologs or ()):
+                    orth_name = f"*{orth_name}"
+                if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
+                    if not seed_shown:
+                        row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
+                        print('\t'.join(row), file=out)
+                        seed_shown = True
+                else:
+                    orth_names.append(orth_name)
 
-            if int_mode:
-                orths_for_taxid = orth_by_taxid.get(taxid, [])
-                for orth_id, orth_full_name in orths_for_taxid:
-                    orth_name = orth_full_name.split(".", 1)[1] if "." in orth_full_name else orth_full_name
-                    if orth_id in (annot_orthologs if annot_orthologs else []):
-                        orth_name = f"*{orth_name}"
-                    if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
-                        if seed_shown == False:
-                            row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
-                            print('\t'.join(row), file=out)
-                            seed_shown = True
-                    else:
-                        orth_names.append(orth_name)
-            else:
-                for orth in [x for x in query_target_orths if int(x.split(".")[0]) == taxid]:
-                    orth_name = orth.split(".")[1]
-                    if orth in annot_orthologs:
-                        orth_name = f"*{orth_name}"
-                    if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
-                        if seed_shown == False:
-                            row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
-                            print('\t'.join(row), file=out)
-                            seed_shown = True
-                    else:
-                        orth_names.append(orth_name)
-
-            if len(orth_names) > 0:
+            if orth_names:
                 row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
                 print('\t'.join(row), file=out)
 
@@ -257,22 +230,11 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
 ##
 def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=None):
 
-    # Annotation tuple shapes:
-    #   10 elem  — pre-v3 legacy (no confidence, no tax_scope)
+    # v3 annotation tuple shapes:
     #   11 elem  — v3 cascade   (annotations_confidence appended)
-    #   12 elem  — v3.1 (Phase 7.1b: tax_scope_used appended)
-    # The two earlier shapes are accepted as a graceful fallback for older
-    # test fixtures and any in-process callers from before Phase 7.1.
-    annotations_confidence = {}
+    #   12 elem  — v3.1+        (tax_scope_used appended)
     tax_scope_used = "none"
-    if len(annotation) == 10:
-        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-         annotations,
-         (og_name, og_cat, og_desc),
-         max_annot_lvl,
-         match_nog_names,
-         all_orthologies, annot_orthologs) = annotation
-    elif len(annotation) == 11:
+    if len(annotation) == 11:
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations,
          (og_name, og_cat, og_desc),
@@ -289,11 +251,8 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
          all_orthologies, annot_orthologs,
          annotations_confidence, tax_scope_used) = annotation
 
-    # In int_mode, translate integer seed_ortholog to real protein name
-    if eggnog_db is not None and eggnog_db._int_mode:
-        seed_display = eggnog_db.get_protein_name(best_hit_name)
-    else:
-        seed_display = best_hit_name
+    # Translate integer seed_ortholog to display name
+    seed_display = eggnog_db.get_protein_name(best_hit_name)
 
     annot_columns = [query_name, seed_display, str(best_hit_evalue), str(best_hit_score),
                      ",".join(match_nog_names), str(max_annot_lvl),

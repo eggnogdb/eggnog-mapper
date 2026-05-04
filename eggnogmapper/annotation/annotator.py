@@ -276,17 +276,14 @@ class Annotator:
 
 
     def _annotate(self, hits_gen_func, annots_parser):
-        """Dispatch annotation through the v7 batch path. Legacy per-hit
-        and dbmem paths were removed in Phase 2 commit 3."""
+        """Dispatch annotation through the v7 batch path.
+
+        v5 databases are rejected at AnnotDB.__init__ time
+        (eggnogmapper.annotation.db_sqlite); legacy per-hit and dbmem
+        paths were removed in Phase 2.
+        """
         print(colorify("Functional annotation of hits...", "lgreen"), file=sys.stderr)
         eggnog_db = get_eggnog_db()
-        if not eggnog_db._int_mode:
-            raise EmapperException(
-                "This eggnog-mapper version (v3) requires a v7+ "
-                "integer-encoded eggnog.db. Rebuild the data dir with "
-                "eggnog-builder build-emapper, or downgrade to v2 to use a "
-                "legacy database."
-            )
         return self._annotate_batched(hits_gen_func, annots_parser, eggnog_db)
 
 

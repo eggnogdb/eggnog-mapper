@@ -147,7 +147,7 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
             yield ((hit, None), False)
             continue
 
-        # v7 int_mode: DIAMOND/MMseqs emit integer IDs as strings
+        # v7: DIAMOND/MMseqs emit integer protein IDs as strings
         try:
             seed_id = int(best_hit_name)
         except ValueError:
