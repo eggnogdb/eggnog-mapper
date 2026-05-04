@@ -1,6 +1,6 @@
 """Tax scope filtering for v7+ integer-encoded databases.
 
-This module re-exports shared tax_scope logic from eggnog_annotator
+This module re-exports shared tax_scope logic from eggnogmapper.annotator
 and provides compatibility wrappers for the eggnog-mapper API.
 
 v7 databases use NCBI taxids in OG names, not the v5-style taxonomic level names.
@@ -10,8 +10,8 @@ This module provides lineage-based filtering of orthologs:
 """
 
 # Re-export shared modules
-from eggnog_annotator.lineage import LineageCache
-from eggnog_annotator.e7.tax_scope import (
+from eggnogmapper.annotator.lineage import LineageCache
+from eggnogmapper.annotator.e7.tax_scope import (
     parse_tax_scope,
     LineageFilter,
     resolve_name_to_taxid,
@@ -53,7 +53,7 @@ __all__ = [
 def parse_v7_tax_scope(tax_scope, lineage_cache):
     """Parse tax_scope argument for v7 databases.
 
-    This is a compatibility wrapper for eggnog_annotator.e7.tax_scope.parse_tax_scope.
+    This is a compatibility wrapper for eggnogmapper.annotator.e7.tax_scope.parse_tax_scope.
     The eggnog-mapper API passes lineage_cache, but it's not used by parse_tax_scope.
 
     Returns:

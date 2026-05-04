@@ -31,14 +31,18 @@ from pathlib import Path
 
 import pytest
 
-from eggnog_annotator.codec import decode_intlist
-from eggnog_annotator.e7 import AnnotationEngine, EggnogDB
+from eggnogmapper.annotator.codec import decode_intlist
+from eggnogmapper.annotator.e7 import AnnotationEngine, EggnogDB
 
 # Use the web-side DB rather than the mapper-side because it has the
 # ogs/seqinfo tables — but for collect_orthologs only sp_events / event_index
 # are needed and either DB works. We pick web for full data and the existing
 # mapper-side tests cover the stripped DB path.
-WEB_DB_PATH = Path(__file__).resolve().parents[2] / "data" / "e7" / "sample" / "final" / "web" / "eggnog.db"
+import os as _os
+WEB_DB_PATH = Path(
+    _os.environ.get("EGGNOG_SAMPLE_WEB_DB")
+    or Path(__file__).resolve().parents[4] / "data" / "e7" / "sample" / "final" / "web" / "eggnog.db"
+)
 
 
 @pytest.fixture(scope="module")

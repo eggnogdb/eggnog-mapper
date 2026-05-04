@@ -2,7 +2,7 @@
 # cython: cdivision=True
 """Delta-varint codec for sorted integer lists — Cython implementation.
 
-Same byte format and semantics as `eggnog_annotator.codec_py`. Compiles to
+Same byte format and semantics as `eggnogmapper.annotator.codec_py`. Compiles to
 a small `.so` that replaces the pure-Python loops with tight C; on full e7
 the encoding step inside `eggnog-builder build-web --step eggnogdb` Phase A
 drops from ~25 minutes to ~30 seconds.

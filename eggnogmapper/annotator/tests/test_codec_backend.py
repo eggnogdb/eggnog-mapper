@@ -1,6 +1,6 @@
 """Phase 8 / v3.2 — backend selection tests for the delta-varint codec.
 
-The public `eggnog_annotator.codec` is a shim that prefers the Cython-
+The public `eggnogmapper.annotator.codec` is a shim that prefers the Cython-
 compiled `_codec` extension and falls back to pure-Python `codec_py`
 when the extension wasn't built (no Python.h in the install env). These
 tests assert that:
@@ -18,15 +18,15 @@ import importlib
 
 import pytest
 
-from eggnog_annotator import codec as _codec_shim
-from eggnog_annotator import codec_py
+from eggnogmapper.annotator import codec as _codec_shim
+from eggnogmapper.annotator import codec_py
 
 
 def _backends():
     """Return a list of (name, module) pairs for whichever backends load."""
     backends = [("python", codec_py)]
     try:
-        compiled = importlib.import_module("eggnog_annotator._codec")
+        compiled = importlib.import_module("eggnogmapper.annotator._codec")
     except ImportError:
         compiled = None
     if compiled is not None:
@@ -89,7 +89,7 @@ def test_backends_produce_identical_blobs():
     risk — the BLOBs in eggnog.db would be silently incompatible across
     install environments."""
     try:
-        compiled = importlib.import_module("eggnog_annotator._codec")
+        compiled = importlib.import_module("eggnogmapper.annotator._codec")
     except ImportError:
         pytest.skip("Cython backend not built in this install — skipping")
 

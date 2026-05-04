@@ -6,7 +6,7 @@ v7-batch path needs:
 - The shared singleton `AnnotDB` (open once, kept on a module global so
   output.py and the annotator share one connection).
 - A 226 MB `_taxids` array preloaded once for O(1) species lookup; the
-  v7 batch shim hands this array straight to `eggnog_annotator.e7.EggnogDB`
+  v7 batch shim hands this array straight to `eggnogmapper.annotator.e7.EggnogDB`
   via `from_connection(...)` so memory is not duplicated.
 - `decode_protein_ids` / `get_protein_name`: integer-id → display-name
   helpers used by `output.py` to write the .annotations TSV.
@@ -16,7 +16,7 @@ All v5-style query helpers (`get_member_ogs`, `get_ogs_description`,
 `get_annotations`, `get_pfam_annotations`, `get_taxid`, `get_protein_id`,
 `bulk_get_protein_ids`, `get_member_events`, the experimental
 `bulk_get_*` family) and the `--dbmem` (`usemem=True`) branch were
-removed. All annotation logic now lives in `eggnog_annotator.e7`.
+removed. All annotation logic now lives in `eggnogmapper.annotator.e7`.
 """
 
 import sqlite3

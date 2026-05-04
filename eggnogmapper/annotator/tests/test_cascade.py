@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from eggnog_annotator.e7 import AnnotationEngine
+from eggnogmapper.annotator.e7 import AnnotationEngine
 
 
 # ---------------------------------------------------------------------------

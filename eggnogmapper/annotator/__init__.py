@@ -3,8 +3,8 @@
 This package provides shared annotation logic for both eggnog-mapper
 and eggnog-website, with version-specific implementations:
 
-- eggnog_annotator.e5: v5-style string-based annotation
-- eggnog_annotator.e7: v7-style integer-based batch annotation
+- eggnogmapper.annotator.e5: v5-style string-based annotation
+- eggnogmapper.annotator.e7: v7-style integer-based batch annotation
 
 Shared modules:
 - codec: Delta-varint encode/decode for integer lists

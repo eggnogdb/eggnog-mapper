@@ -4,7 +4,7 @@ High-throughput annotation using bulk queries and simplified ortholog collection
 Eliminates species grouping bottleneck for ~100 q/s performance.
 
 Usage:
-    from eggnog_annotator.e7.annotate import AnnotationEngine
+    from eggnogmapper.annotator.e7.annotate import AnnotationEngine
 
     engine = AnnotationEngine(db_path)
     result = engine.annotate(seed_ortholog_id)

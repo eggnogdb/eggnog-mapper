@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.conftest import TAXA_DB_PATH
+from .conftest import TAXA_DB_PATH
 
 
 # ---------------------------------------------------------------------------
@@ -12,14 +12,14 @@ from tests.conftest import TAXA_DB_PATH
 @pytest.fixture(scope="module")
 def lineage_cache(taxa_db_path):
     """LineageCache loaded from the sample taxa.db."""
-    from eggnog_annotator.lineage import LineageCache
+    from eggnogmapper.annotator.lineage import LineageCache
     return LineageCache(taxa_db_path=taxa_db_path)
 
 
 @pytest.fixture(scope="module")
 def lineage_filter(lineage_cache):
     """LineageFilter wrapping the sample lineage cache."""
-    from eggnog_annotator.e7.tax_scope import LineageFilter
+    from eggnogmapper.annotator.e7.tax_scope import LineageFilter
     return LineageFilter(lineage_cache)
 
 

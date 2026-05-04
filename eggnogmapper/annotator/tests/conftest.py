@@ -7,11 +7,12 @@ import pytest
 # Sample data paths
 # ---------------------------------------------------------------------------
 
-_SAMPLE_DIR = os.path.join(
-    os.path.dirname(__file__),
-    "..", "..", "data", "e7", "sample", "final", "mapper"
+_SAMPLE_DIR = os.environ.get("EGGNOG_SAMPLE_DATA_DIR") or os.path.normpath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..", "..", "..", "..", "data", "e7", "sample", "final", "mapper",
+    )
 )
-_SAMPLE_DIR = os.path.normpath(_SAMPLE_DIR)
 
 SAMPLE_DB_PATH = os.path.join(_SAMPLE_DIR, "eggnog.db")
 TAXA_DB_PATH = os.path.join(_SAMPLE_DIR, "eggnog.taxa.db")
@@ -43,7 +44,7 @@ def taxa_db_path():
 @pytest.fixture(scope="session")
 def engine(sample_db_path):
     """Shared AnnotationEngine instance on the sample DB (session-scoped)."""
-    from eggnog_annotator.e7 import AnnotationEngine, EggnogDB
+    from eggnogmapper.annotator.e7 import AnnotationEngine, EggnogDB
 
     db = EggnogDB(sample_db_path)
     eng = AnnotationEngine(db)

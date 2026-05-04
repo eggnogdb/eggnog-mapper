@@ -328,7 +328,7 @@ class Annotator:
         n_workers = max(int(getattr(self, "cpu", 1) or 1), 1)
         if n_workers > 1:
             import multiprocessing
-            from eggnog_annotator.e7.annotate import (
+            from eggnogmapper.annotator.e7.annotate import (
                 _register_worker_engine, _worker_init_after_fork,
             )
             from .batch_annotate import _get_engine

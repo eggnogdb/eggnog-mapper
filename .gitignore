@@ -12,3 +12,12 @@ data/*
 .venv/
 __pycache__/
 *.egg-info/
+
+# Cython build artifacts (generated from .pyx; .pyx is the source)
+eggnogmapper/annotator/*.c
+eggnogmapper/annotator/*.cpp
+eggnogmapper/annotator/*.so
+build/
+
+# Test scratch output
+tests/integration/out/

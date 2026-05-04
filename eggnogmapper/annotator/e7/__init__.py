@@ -5,7 +5,7 @@ This module provides integer-based batch annotation logic for v7+ databases:
 - Event side1/side2 use delta-varint encoded integer BLOBs
 - Batch queries with pre-fetched taxid array for high throughput
 
-Use eggnog_annotator.e5 for legacy v5-style databases.
+Use eggnogmapper.annotator.e5 for legacy v5-style databases.
 """
 
 from .tax_scope import (

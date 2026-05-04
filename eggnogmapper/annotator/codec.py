@@ -3,7 +3,7 @@
 This module is a thin shim: it imports `encode_intlist` / `decode_intlist`
 from the Cython-compiled `_codec` extension when available, and falls
 back to the pure-Python implementation in `codec_py` otherwise. Callers
-should always `from eggnog_annotator.codec import …`; the choice of
+should always `from eggnogmapper.annotator.codec import …`; the choice of
 backend is transparent.
 
 The Cython backend (Phase 8 / v3.2) is ~20–50× faster than the pure-

@@ -2,7 +2,7 @@
 
 import pytest
 
-from eggnog_annotator import encode_intlist, decode_intlist
+from eggnogmapper.annotator import encode_intlist, decode_intlist
 
 
 # ---------------------------------------------------------------------------

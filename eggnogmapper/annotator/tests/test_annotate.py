@@ -4,7 +4,7 @@ import logging
 import os
 import pytest
 
-from tests.conftest import TP53_PROTEIN_ID, NIFH_PROTEIN_ID
+from .conftest import TP53_PROTEIN_ID, NIFH_PROTEIN_ID
 
 # Expected result keys from annotate_batch
 # - annotations_confidence: Phase 3B (per-source cascade)
@@ -148,7 +148,7 @@ def test_out_of_range_protein_id_warns(engine, caplog):
         }
     }
 
-    with caplog.at_level(logging.WARNING, logger="eggnog_annotator.e7.annotate"):
+    with caplog.at_level(logging.WARNING, logger="eggnogmapper.annotator.e7.annotate"):
         engine._collect_orthologs(0, fake_events)
 
     warning_msgs = [r.message for r in caplog.records if r.levelno == logging.WARNING]

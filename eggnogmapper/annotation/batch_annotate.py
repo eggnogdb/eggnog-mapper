@@ -1,6 +1,6 @@
 """Batch annotation for v7+ integer-encoded eggnog.db.
 
-Thin adapter over eggnog_annotator.e7.AnnotationEngine: emapper parses hits
+Thin adapter over eggnogmapper.annotator.e7.AnnotationEngine: emapper parses hits
 from DIAMOND/MMseqs, calls the engine for all annotation logic (orthologs,
 annotations, OG resolution, taxonomic filters, caches), and re-shapes the
 result into the tuple that emapper's output formatter consumes.
@@ -11,7 +11,7 @@ only the hit parsing and the emapper-specific tuple packaging.
 
 import logging
 
-from eggnog_annotator.e7 import AnnotationEngine, EggnogDB, LineageFilter
+from eggnogmapper.annotator.e7 import AnnotationEngine, EggnogDB, LineageFilter
 
 from ..emapperException import EmapperException
 
