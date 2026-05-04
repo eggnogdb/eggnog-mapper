@@ -15,7 +15,7 @@ from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGA
 from .genepred.util import create_prots_file
 from .search.search_modes import get_searcher, SEARCH_MODE_NO_SEARCH
 from .search.hits_io import parse_seeds
-from .annotation.annotators import get_annotator
+from .annotation.annotator import Annotator
 from .deco.decoration import run_gff_decoration, DECORATE_GFF_NONE, create_blastx_hits_gff
 
 class Emapper:
@@ -213,7 +213,7 @@ class Emapper:
             else:
                 raise EmapperException("Could not find hits to annotate.")
 
-            annotator = get_annotator(args, self.annot, self.excel, self.report_orthologs)
+            annotator = Annotator(args, self.annot, self.excel, self.report_orthologs)
 
             if annot_in is not None and annotator is not None:
                 annotated_hits = annotator.annotate(
