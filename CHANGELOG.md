@@ -1,3 +1,98 @@
+## [v3.0.0] — 2026-05-04
+
+First cut of the v3 lineage. eggnog-mapper is now a single self-contained
+PyPI-publishable package: the former `eggnog-annotator` library merged in
+as `eggnogmapper.annotator` (with its full git history preserved), and
+the bundled binary tools left the wheel.
+
+### Architecture
+
+- **`eggnog-annotator` merged into `eggnogmapper.annotator`** (commit
+  `d370ef5` brings in 25 annotator commits with original
+  authors/dates). Cascade engine, tax-scope filter, lineage cache,
+  delta-varint codec, schema constants — all live inside the mapper
+  package now. Consumer imports rewrite from `eggnog_annotator.X` to
+  `eggnogmapper.annotator.X`. The `eggnog-annotator` repo is archived.
+- **No more bundled CLI binaries**. The 47 pre-built Linux x86_64
+  binaries in `eggnogmapper/bin/` (~150 MB: diamond, hmmer suite,
+  esl-* tools, mmseqs2, prodigal) are removed. Install via:
+  `conda install -c bioconda diamond hmmer mmseqs2 prodigal`.
+  Wheel size drops from ~150 MB to ~5 MB. Cross-platform install on
+  macOS/Windows now works for the first time.
+- **`common.py`**: switched from deprecated
+  `distutils.spawn.find_executable` to `shutil.which`; each tool
+  constant is the absolute path or `None`. New `require_tool(path,
+  name, conda_pkg)` helper raises `EmapperException` with an
+  actionable install hint when a tool is missing.
+
+### Annotation engine (folded in from former `eggnog-annotator`)
+
+The cascade-engine work that landed across annotator v3.0 → v3.4 is now
+part of the mapper. Highlights:
+
+- **Per-source closest-ev_lca + ortholog-type-priority cascade** for
+  annotation transfer. For each functional source (KEGG_ko, GOs, Pfam,
+  ...) independently, donors are walked from closest+best-typed first.
+  The first bucket with any donor that has a non-empty value wins, and
+  consensus is taken across only that bucket. Cascade key
+  `(in_seed_lineage, -ev_lca_depth, type_tier)`.
+- **Seed-as-self tier-0 donor** (HIGH-13): the diamond hit's curated
+  annotation is the cascade's strongest tier-0 donor for every source
+  it has. Earlier behaviour silently replaced SwissProt-curated GO/EC
+  values with OG-paralog inferences. araport biology consistency
+  vs seed source row: GOs Jaccard 0.524 → 0.896, EC 0.785 → 0.945,
+  KEGG_ko 0.724 → 0.905, PFAM 0.967 → 1.000.
+- **`--scope_strict_og` filter** (default ON, opt out via
+  `--no-scope_strict_og`). Skips speciation events whose OG `og_lca`
+  is broader than the seed's tax-scope ceiling. ~2× faster on plant
+  proteomes; biology consistent with `--tax_scope auto`.
+- **`--cpu N` parallelizes the annotation phase** via fork-context
+  multiprocessing pool sharing the loaded engine state via COW. Workers
+  reopen their own SQLite connection post-fork.
+- **Cython hot loops**: `_codec` (delta-varint encode/decode) and
+  `_collect_inner` (`OrthologCollector` cdef class backed by
+  `unordered_map<int64, OrthEntry>`) compiled at install time. Drops
+  the Phase A codec step from ~25 min to ~30 s on full e7;
+  `_collect_orthologs` from ~185 s to ~9 s on plant batches.
+
+### Diamond search
+
+- **`--dmnd_top {1,3}`** (default `1`). Switches to `--max-target-seqs 1`;
+  emapper only consumes the bitscore-best hit, so this is a free
+  ~20-30 % faster diamond pass with no biological impact.
+- **Auto-tune** of `block_size`, `index_chunks`, `--algo` from host RAM
+  and query input size. User overrides take precedence.
+- **`--sensmode`** clarified as the *iterate-ceiling* sensitivity.
+
+### Removed (legacy purge)
+
+- `--mode cache` and the `-c/--cache <FILE>` argument
+- `--mode novel_fams` and the parallel novel-fams chain
+- `--dbmem` flag and the `_annotate_dbmem` per-hit path
+- 11 dead `db_sqlite.py` methods + v5/legacy schema branches
+- Modules: `cache_annotator.py`, `annotator_novel_fams.py`,
+  `annotator_worker_novel_fams.py`, `output_novel_fams.py`,
+  `annota.py`, `annota_mongo.py`, `orthologs.py`,
+  `annotator_worker.py`
+
+### CLI breaking changes
+
+- `--mode {cache, novel_fams}` → removed
+- `--cache`, `--dbmem` → removed
+- Bundled binaries → must be on PATH (`conda install -c bioconda ...`)
+- DB version compatibility: requires `__DB_VERSION__ >= 5.0.2` (v7-int_mode)
+
+### Migration
+
+```bash
+conda install -c bioconda diamond hmmer mmseqs2 prodigal
+pip install --upgrade eggnog-mapper
+emapper.py --version  # 3.0.0
+```
+
+For DB downloads, `download_eggnog_data.py` is unchanged in this cut;
+manifest+checksum verification lands in 3.0.1.
+
 ## [v3.4 — post-review fixes + diamond auto-tune] — 2026-04-29
 
 Follow-ons to the v3.4 cut, after parallel code review surfaced silent
