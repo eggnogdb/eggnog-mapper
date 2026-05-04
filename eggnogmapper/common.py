@@ -3,7 +3,6 @@
 import sys
 import os
 import time
-from distutils.spawn import find_executable
 from os.path import join as pjoin
 from os.path import exists as pexists
 import gzip
@@ -12,6 +11,7 @@ import errno
 from subprocess import Popen, PIPE, run, CalledProcessError
 
 from .utils import colorify
+from .emapperException import EmapperException
 
 try:
     from .version import __VERSION__
@@ -41,19 +41,43 @@ TIMEOUT_LOAD_SERVER = 10
 
 BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0] + '/..')
 
-HMMSEARCH = find_executable('hmmsearch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmsearch')
-HMMSCAN = find_executable('hmmscan') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmscan')
-HMMSTAT = find_executable('hmmstat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmstat')
-HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpgmd')
-PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'phmmer')
-HMMFETCH = find_executable('hmmfetch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmfetch')
-HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpress')
-ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'esl-reformat')
-LOCAL_DIAMOND = pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'diamond')
-DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
-LOCAL_MMSEQS2 = pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'mmseqs')
-MMSEQS2 = find_executable('mmseqs') or LOCAL_MMSEQS2
-PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'prodigal.linux')
+# External binary tools. Resolved via shutil.which at import time; each
+# constant is either an absolute path to the executable or None when the
+# tool is not on PATH. Call sites that need a tool should call
+# require_tool() to fail with an actionable error before invoking it.
+#
+# v3.0 removed the bundled `eggnogmapper/bin/` directory (~150 MB of
+# Linux x86_64 binaries). Install the tools via your package manager:
+#   conda install -c bioconda diamond hmmer mmseqs2 prodigal
+HMMSEARCH = shutil.which('hmmsearch')
+HMMSCAN = shutil.which('hmmscan')
+HMMSTAT = shutil.which('hmmstat')
+HMMPGMD = shutil.which('hmmpgmd')
+PHMMER = shutil.which('phmmer')
+HMMFETCH = shutil.which('hmmfetch')
+HMMPRESS = shutil.which('hmmpress')
+ESL_REFORMAT = shutil.which('esl-reformat')
+DIAMOND = shutil.which('diamond')
+MMSEQS2 = shutil.which('mmseqs')
+PRODIGAL = shutil.which('prodigal')
+
+
+def require_tool(path, name, conda_pkg=None):
+    """Raise EmapperException if the given tool path is not usable.
+
+    Call this just before invoking a tool, e.g.
+        require_tool(DIAMOND, 'diamond', 'diamond')
+    so the user gets a clear, actionable error message instead of a
+    generic FileNotFoundError from subprocess.
+    """
+    if path and os.access(path, os.X_OK):
+        return path
+    pkg = conda_pkg or name
+    raise EmapperException(
+        f"'{name}' executable not found on PATH. "
+        f"Install via 'conda install -c bioconda {pkg}' "
+        "(or your system package manager)."
+    )
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
