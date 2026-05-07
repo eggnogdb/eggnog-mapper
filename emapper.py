@@ -41,10 +41,27 @@ from eggnogmapper.annotation.pfam.pfam_modes import PFAM_REALIGN_NONE, PFAM_REAL
 from eggnogmapper.deco.decoration import \
     DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FIELD_DEFAULT
 
-from eggnogmapper.annotation.tax_scopes.tax_scopes import \
-    parse_tax_scope, print_taxa, \
-    TAX_SCOPE_MODE_BROADEST, TAX_SCOPE_MODE_INNER_BROADEST, \
-    TAX_SCOPE_MODE_INNER_NARROWEST, TAX_SCOPE_MODE_NARROWEST
+# v3.0 cleanup deleted the legacy tax_scopes.py but missed this import.
+# parse_tax_scope now lives under annotator.e7; the mode constants and
+# print_taxa stub are inlined here pending a proper emapper.py refactor.
+from eggnogmapper.annotator.e7.tax_scope import parse_tax_scope
+
+TAX_SCOPE_MODE_BROADEST = "broadest"
+TAX_SCOPE_MODE_INNER_BROADEST = "inner_broadest"
+TAX_SCOPE_MODE_INNER_NARROWEST = "inner_narrowest"
+TAX_SCOPE_MODE_NARROWEST = "narrowest"
+
+
+def print_taxa():
+    """List the predefined tax_scope names available under tax_scopes/."""
+    from pathlib import Path
+    base = Path(__file__).resolve().parent / "eggnogmapper" / \
+        "annotation" / "tax_scopes"
+    print("Predefined tax_scope names (auto-discovered from "
+          f"{base.relative_to(base.parents[2])}):")
+    for p in sorted(base.iterdir()):
+        if p.is_file() and not p.name.startswith("__") and p.suffix != ".py":
+            print(f"  {p.name}")
 
 from eggnogmapper.common import existing_file, existing_dir, get_data_path, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_mmseqs_db, \

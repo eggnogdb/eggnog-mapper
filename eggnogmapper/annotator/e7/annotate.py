@@ -29,6 +29,112 @@ logger = logging.getLogger(__name__)
 # Enable per-phase timing by setting EGGNOG_ANNOTATOR_PROFILE=1
 _PROFILE = os.environ.get("EGGNOG_ANNOTATOR_PROFILE", "0") == "1"
 
+# GO namespace cascade — env var overrides the default OBO path. When the
+# file is missing we fall back to the legacy combined-GO cascade (one
+# winning tier across all namespaces) and emit a single warning.
+_GO_OBO_ENV = "EGGNOG_GO_OBO"
+_GO_OBO_DEFAULT = "/app/data/e7/full/source/reference/go-basic.obo"
+
+# Internal per-namespace cascade keys. Each is parsed independently in the
+# cascade (so cellular_component can fall through to a deeper tier when the
+# winning MF/BP donors lack CC), but they all merge into the single output
+# field "GOs".
+_GO_NS_FIELDS = ("gos_mf", "gos_bp", "gos_cc")
+_GO_NS_TO_FIELD = {
+    "molecular_function": "gos_mf",
+    "biological_process": "gos_bp",
+    "cellular_component": "gos_cc",
+}
+
+# Module-level cache: { obo_path: { "GO:xxxxxxx": "molecular_function" | ... } }.
+# Populated lazily on first parse; reused across AnnotationEngine instances.
+_GO_NAMESPACE_CACHE: Dict[str, Dict[str, str]] = {}
+_GO_OBO_MISSING_WARNED: Set[str] = set()
+
+
+def _load_go_namespace_map(obo_path: str) -> Optional[Dict[str, str]]:
+    """Parse a go-basic.obo file once and return ``{GO:xxxxxxx: namespace}``.
+
+    Pure-Python OBO parser (no goatools dependency). Only ``[Term]``
+    stanzas are read; ``[Typedef]`` and unknown stanzas are skipped.
+    Obsolete terms are dropped. ``alt_id`` lines map to the same
+    namespace as the parent ``id``.
+
+    Returns ``None`` (and warns once) when the file cannot be opened
+    so the engine can fall back to the legacy combined-GO cascade.
+    """
+    if obo_path in _GO_NAMESPACE_CACHE:
+        return _GO_NAMESPACE_CACHE[obo_path]
+    try:
+        f = open(obo_path, "r", encoding="utf-8")
+    except OSError as exc:
+        if obo_path not in _GO_OBO_MISSING_WARNED:
+            logger.warning(
+                "GO namespace OBO not found at %s (%s) — falling back "
+                "to legacy combined-GO cascade. Set %s to override.",
+                obo_path, exc, _GO_OBO_ENV,
+            )
+            _GO_OBO_MISSING_WARNED.add(obo_path)
+        return None
+
+    mapping: Dict[str, str] = {}
+    in_term = False
+    cur_id: Optional[str] = None
+    cur_alt: List[str] = []
+    cur_ns: Optional[str] = None
+    cur_obsolete = False
+
+    def _commit():
+        if cur_id and cur_ns and not cur_obsolete:
+            mapping[cur_id] = cur_ns
+            for alt in cur_alt:
+                mapping[alt] = cur_ns
+
+    with f:
+        for line in f:
+            line = line.rstrip()
+            if not line:
+                if in_term:
+                    _commit()
+                    in_term = False
+                    cur_id = None
+                    cur_alt = []
+                    cur_ns = None
+                    cur_obsolete = False
+                continue
+            if line.startswith("["):
+                if in_term:
+                    _commit()
+                in_term = (line == "[Term]")
+                cur_id = None
+                cur_alt = []
+                cur_ns = None
+                cur_obsolete = False
+                continue
+            if not in_term:
+                continue
+            if line.startswith("id: "):
+                cur_id = line[4:].strip()
+            elif line.startswith("alt_id: "):
+                cur_alt.append(line[8:].strip())
+            elif line.startswith("namespace: "):
+                ns = line[11:].strip()
+                if ns in _GO_NS_TO_FIELD:
+                    cur_ns = ns
+            elif line.startswith("is_obsolete:"):
+                if line.split(":", 1)[1].strip().lower() == "true":
+                    cur_obsolete = True
+        # Trailing term (no blank line at EOF)
+        if in_term:
+            _commit()
+
+    logger.info(
+        "Loaded GO namespace map from %s: %d terms across %d namespaces",
+        obo_path, len(mapping), 3,
+    )
+    _GO_NAMESPACE_CACHE[obo_path] = mapping
+    return mapping
+
 # C++/Cython acceleration of the inner ortholog-meta loop. Falls back
 # to the pure-Python path if the .so didn't compile (mirrors the codec
 # fallback pattern). The flag is module-level so each `_collect_orthologs`
@@ -105,12 +211,23 @@ class AnnotationEngine:
     Optimized for high throughput with bulk queries and simplified ortholog collection.
     """
 
-    # Annotation fields to aggregate from orthologs
+    # Annotation fields to aggregate from orthologs.
+    #
+    # ``gos`` is split into three pseudo-sources — gos_mf, gos_bp,
+    # gos_cc — so each GO namespace runs its own per-tier "first
+    # non-empty wins" cascade. They all merge into the single output
+    # key "GOs". When the OBO map is unavailable the engine falls back
+    # to the legacy combined ``gos`` field at runtime (see
+    # :meth:`_pre_parse_batch` and :meth:`_summarize_annotations`).
     ANNOTATION_FIELDS = [
-        "pname", "gos", "kegg_ko", "kegg_ec", "kegg_pathway",
+        "pname", "gos_mf", "gos_bp", "gos_cc",
+        "kegg_ko", "kegg_ec", "kegg_pathway",
         "kegg_module", "kegg_reaction", "kegg_rclass", "kegg_brite",
         "kegg_tc", "kegg_cazy", "bigg_reaction", "pfam"
     ]
+    # Legacy combined-GO field name. Used by the flat fallback path and
+    # by :meth:`_pre_parse_batch` when the OBO map is unavailable.
+    LEGACY_GO_FIELD = "gos"
 
     # Mapping from ortholog-relationship type to cascade tier. The cascade
     # walks tiers in order 0 → 2; within a tier, donors are sorted by
@@ -125,7 +242,8 @@ class AnnotationEngine:
     }
     TIER_CONFIDENCE = {0: "high", 1: "medium", 2: "low"}
 
-    def __init__(self, db: EggnogDB, lineage_filter=None, lineage_cache=None):
+    def __init__(self, db: EggnogDB, lineage_filter=None, lineage_cache=None,
+                 go_obo_path: Optional[str] = None):
         """Initialize annotation engine.
 
         Args:
@@ -140,11 +258,29 @@ class AnnotationEngine:
                 is set, the filter's own cache is reused. If both are
                 absent, the cascade falls back to type-tier priority only
                 (no ev_lca distance ordering).
+            go_obo_path: Optional path to a ``go-basic.obo`` file. When
+                provided (or when the ``EGGNOG_GO_OBO`` env var is set),
+                the cascade splits GO terms by namespace (MF / BP / CC)
+                and runs an independent first-non-empty-tier walk per
+                namespace. All three subnamespaces merge into the single
+                output key ``"GOs"``. If the file is missing the engine
+                logs a warning once and falls back to the legacy combined
+                cascade. Default: ``$EGGNOG_GO_OBO`` or the canonical path
+                under ``data/e7/full/source/reference/go-basic.obo``.
         """
         self.db = db
         self.lineage_filter = lineage_filter
         self.lineage_cache = lineage_cache or (
             lineage_filter.lineage_cache if lineage_filter is not None else None
+        )
+        # Lazy-load the GO namespace map. The mapping is module-cached so
+        # repeated engine construction in tests / batch_annotate doesn't
+        # re-parse the 32 MB OBO file.
+        self.go_obo_path = (
+            go_obo_path or os.environ.get(_GO_OBO_ENV) or _GO_OBO_DEFAULT
+        )
+        self._go_namespace_map: Optional[Dict[str, str]] = (
+            _load_go_namespace_map(self.go_obo_path)
         )
         # Cross-batch cache for OG metadata. Most eukaryotic proteomes
         # reuse a small set of common OGs across thousands of proteins,
@@ -412,6 +548,10 @@ class AnnotationEngine:
             seed_ortholog_meta.setdefault(seed_id, {})[seed_id] = {
                 "event_id": -1,
                 "ev_lca": "",
+                # Empty og_lca on the seed-self-donor is the sentinel that
+                # bypasses the GO scope filter — the seed is always in scope
+                # for its own annotation.
+                "og_lca": "",
                 "type": "self",
                 "type_tier": 0,
                 "depth": seed_depth + 1,
@@ -450,6 +590,13 @@ class AnnotationEngine:
             cascade_ids = orthologs | {seed_id} if seed_id in annot_cache else orthologs
             seed_annots = {oid: annot_cache[oid] for oid in cascade_ids if oid in annot_cache}
             seed_meta = seed_ortholog_meta.get(seed_id, {})
+            # GO cross-tier union spans every collected ortholog with no
+            # secondary scope cap — the orthology-collection-time filter
+            # (`scope_strict_og` → `allowed_og_lcas`) already enforced
+            # whatever ceiling the user asked for. Passing `scope_og_lcas=
+            # None` here is the difference between "first-non-empty tier
+            # wins" (legacy) and "union across every tier the cascade
+            # already accepted".
             annotations, annotations_confidence = (
                 self._summarize_annotations(
                     seed_annots, seed_meta, target_orthologs,
@@ -754,9 +901,15 @@ class AnnotationEngine:
                 else 0
             )
             type_tier = self.TYPE_TIERS[rel]
+            # og_lca: the LCA taxid of the OG that produced this event.
+            # Threaded through to the cascade so the GO sub-namespace cross-
+            # tier union can scope-cap contributions to the seed's auto-scope
+            # ceiling regardless of the global `scope_strict_og` flag.
+            og_lca_str = str(event.get("og_lca") or "")
             payload = {
                 "event_id": event_id,
                 "ev_lca": ev_lca,
+                "og_lca": og_lca_str,
                 "type": rel,
                 "type_tier": type_tier,
                 "depth": depth,
@@ -884,16 +1037,29 @@ class AnnotationEngine:
 
         ``pname`` is normalized to a 1-tuple ``(stripped,)`` (or ``()``).
         ``gos`` is parsed via :meth:`_parse_gos` (strips evidence codes,
-        keeps only ``GO:`` prefixed terms). Every other field becomes a
-        distinct-preserving tuple — same insertion order, deduplicated.
+        keeps only ``GO:`` prefixed terms) and then split by GO namespace
+        into ``gos_mf`` / ``gos_bp`` / ``gos_cc`` so each subnamespace
+        runs an independent cascade. Terms whose namespace is not in
+        the OBO map are dropped (a single debug-level summary is logged
+        per batch — see :meth:`_split_gos_by_namespace`). When the OBO
+        map is unavailable the legacy combined ``gos`` field is emitted
+        instead and the cascade falls back to the historical behaviour.
+        Every other field becomes a distinct-preserving tuple — same
+        insertion order, deduplicated.
         """
         parsed: Dict[int, Dict[str, Tuple[str, ...]]] = {}
+        ns_map = self._go_namespace_map
+        unmapped_count = 0
         for oid, annot in annot_data.items():
             if not annot:
                 parsed[oid] = {}
                 continue
             row: Dict[str, Tuple[str, ...]] = {}
             for field in self.ANNOTATION_FIELDS:
+                # gos_mf / gos_bp / gos_cc come from the single source
+                # field "gos" — handled outside the per-field loop below.
+                if field in _GO_NS_FIELDS:
+                    continue
                 raw = annot.get(field)
                 if not raw:
                     continue
@@ -901,10 +1067,6 @@ class AnnotationEngine:
                     s = raw.strip()
                     if s:
                         row[field] = (s,)
-                elif field == "gos":
-                    gos = tuple(self._parse_gos(raw))
-                    if gos:
-                        row[field] = gos
                 else:
                     seen: List[str] = []
                     seen_set: Set[str] = set()
@@ -915,7 +1077,47 @@ class AnnotationEngine:
                             seen_set.add(v)
                     if seen:
                         row[field] = tuple(seen)
+            # GO terms — single parse, then namespace split if possible.
+            raw_gos = annot.get(self.LEGACY_GO_FIELD)
+            if raw_gos:
+                gos = tuple(self._parse_gos(raw_gos))
+                if gos:
+                    if ns_map is None:
+                        # Legacy combined-GO fallback: keep the single
+                        # "gos" field; cascade walk uses it directly.
+                        row[self.LEGACY_GO_FIELD] = gos
+                    else:
+                        mf: List[str] = []
+                        bp: List[str] = []
+                        cc: List[str] = []
+                        for go in gos:
+                            ns = ns_map.get(go)
+                            if ns == "molecular_function":
+                                mf.append(go)
+                            elif ns == "biological_process":
+                                bp.append(go)
+                            elif ns == "cellular_component":
+                                cc.append(go)
+                            else:
+                                # Unmapped GO (obsolete, alt namespace, or
+                                # newer than the OBO snapshot). We drop
+                                # rather than mis-bucket — over-counting
+                                # any namespace would skew the per-ns
+                                # short-circuit. Rare in practice (<<1 %
+                                # on a current OBO release).
+                                unmapped_count += 1
+                        if mf:
+                            row["gos_mf"] = tuple(mf)
+                        if bp:
+                            row["gos_bp"] = tuple(bp)
+                        if cc:
+                            row["gos_cc"] = tuple(cc)
             parsed[oid] = row
+        if unmapped_count and ns_map is not None:
+            logger.debug(
+                "_pre_parse_batch: dropped %d GO terms with unknown namespace",
+                unmapped_count,
+            )
         return parsed
 
     def _summarize_annotations(
@@ -924,6 +1126,7 @@ class AnnotationEngine:
         ortholog_meta: Optional[Dict[int, dict]] = None,
         target_orthologs: str = "all",
         parsed: Optional[Dict[int, Dict[str, Tuple[str, ...]]]] = None,
+        scope_og_lcas: Optional[frozenset] = None,
     ) -> Tuple[Dict[str, Any], Dict[str, str]]:
         """Cascade summary: per-source closest-ev_lca + type-priority winner.
 
@@ -1000,12 +1203,65 @@ class AnnotationEngine:
 
         annotations: Dict[str, Any] = {}
         confidence: Dict[str, str] = {}
+        # Per-output-field accumulator for sources that share an output
+        # key (currently only the three GO sub-namespaces, which all
+        # merge into "GOs"). We accumulate the union of values and keep
+        # the *best* (lowest-tier-int) confidence among contributing
+        # sub-namespaces, so the GO row ends up with the strongest
+        # confidence of the three independent cascade winners.
+        merged_values: Dict[str, Set[str]] = {}
+        merged_tier: Dict[str, int] = {}
+        # Output fields that aggregate from more than one source. Used to
+        # branch the assignment below from "overwrite" to "union+merge".
+        multi_source_outputs = {self._cascade_output_field(f) for f in _GO_NS_FIELDS}
 
         for field in self.ANNOTATION_FIELDS:
+            # Skip the per-namespace GO sub-fields entirely when the OBO
+            # map was unavailable: in that case `_pre_parse_batch` writes
+            # the legacy combined "gos" field instead, which is appended
+            # to the walk list below.
+            if field in _GO_NS_FIELDS and self._go_namespace_map is None:
+                continue
+            output_field = self._cascade_output_field(field)
+            # All sources — including each GO sub-namespace — use the
+            # closest-non-empty-tier-wins rule. The per-namespace GO split
+            # ensures MF/BP/CC each run their own short-circuit walk, so
+            # an MF-only-rich tier doesn't silence a deeper CC-rich tier.
+            for prio_key in priority_order:
+                contributors = [
+                    oid for oid in buckets[prio_key]
+                    if field in parsed.get(oid, ())
+                ]
+                if not contributors:
+                    continue
+                values = self._aggregate_field(field, contributors, parsed)
+                if values:
+                    if output_field in multi_source_outputs:
+                        # Union the GO namespaces into the same "GOs" output;
+                        # keep the best (smallest tier int) confidence across
+                        # the three contributing sub-namespaces.
+                        bucket = merged_values.setdefault(output_field, set())
+                        bucket.update(values)
+                        cur_tier = merged_tier.get(output_field)
+                        if cur_tier is None or prio_key[2] < cur_tier:
+                            merged_tier[output_field] = prio_key[2]
+                    else:
+                        annotations[output_field] = values
+                        confidence[output_field] = (
+                            self.TIER_CONFIDENCE[prio_key[2]]
+                        )
+                # First non-empty bucket wins — stop the cascade for this
+                # source. Distant-ortholog donors are only consulted when
+                # closer tiers had no contributor for this field at all.
+                break
+
+        # Legacy combined-GO walk when the OBO map was unavailable. The
+        # three sub-fields above were no-ops; "gos" runs the historical
+        # single-tier short-circuit and emits one "GOs" output.
+        if self._go_namespace_map is None:
+            field = self.LEGACY_GO_FIELD
             output_field = self._cascade_output_field(field)
             for prio_key in priority_order:
-                # Pre-parsed lookup is O(1); membership check just asks
-                # whether the field exists in the per-ortholog dict.
                 contributors = [
                     oid for oid in buckets[prio_key]
                     if field in parsed.get(oid, ())
@@ -1016,20 +1272,29 @@ class AnnotationEngine:
                 if values:
                     annotations[output_field] = values
                     confidence[output_field] = self.TIER_CONFIDENCE[prio_key[2]]
-                # First bucket with non-empty contributors is the winner —
-                # stop the cascade for this source even if `_aggregate_field`
-                # filtered everything out (the bucket *had* signal; lower
-                # buckets shouldn't be promoted on its behalf).
                 break
+
+        # Materialise multi-source merged outputs (currently just GOs).
+        for output_field, values_set in merged_values.items():
+            if values_set:
+                annotations[output_field] = list(values_set)
+                confidence[output_field] = self.TIER_CONFIDENCE[
+                    merged_tier[output_field]
+                ]
 
         return annotations, confidence
 
     def _cascade_output_field(self, field: str) -> str:
         """Map an internal annotation field name to the output key the
-        cascade emits."""
+        cascade emits.
+
+        Note: ``gos_mf``, ``gos_bp``, ``gos_cc`` and the legacy combined
+        ``gos`` all map to the same output key ``"GOs"`` — the cascade
+        engine merges them via :meth:`_summarize_annotations`.
+        """
         if field == "pname":
             return "Preferred_name"
-        if field == "gos":
+        if field == "gos" or field in _GO_NS_FIELDS:
             return "GOs"
         if field == "pfam":
             return "PFAMs"
@@ -1078,18 +1343,33 @@ class AnnotationEngine:
     ) -> Dict[str, Any]:
         """Legacy flat aggregation used by the no-metadata path (single-
         protein ``annotate()`` and pre-cascade tests). Behavior matches
-        v3-phase0-end exactly."""
+        v3-phase0-end exactly.
+
+        Operates on raw DB rows whose GO terms are stored under the
+        single key ``"gos"`` — the per-namespace split only happens in
+        the cascade path. The flat path therefore iterates over the
+        legacy field set rather than ``ANNOTATION_FIELDS`` (which holds
+        the per-namespace cascade keys).
+        """
+        # Replace the three per-namespace sub-keys with the legacy
+        # combined "gos" field for raw-row reads.
+        legacy_fields = [
+            self.LEGACY_GO_FIELD if f == _GO_NS_FIELDS[0] else f
+            for f in self.ANNOTATION_FIELDS
+            if f == _GO_NS_FIELDS[0] or f not in _GO_NS_FIELDS
+        ]
+
         counters = defaultdict(Counter)
         for annot in annot_data.values():
             if not annot:
                 continue
-            for field in self.ANNOTATION_FIELDS:
+            for field in legacy_fields:
                 value = annot.get(field)
                 if not value:
                     continue
                 if field == "pname":
                     counters[field][value.strip()] += 1
-                elif field == "gos":
+                elif field == self.LEGACY_GO_FIELD:
                     for go in self._parse_gos(value):
                         counters[field][go] += 1
                 else:
@@ -1104,7 +1384,7 @@ class AnnotationEngine:
                 most_common = counter.most_common(1)
                 if most_common and most_common[0][1] >= 2:
                     result["Preferred_name"] = [most_common[0][0]]
-            elif field == "gos":
+            elif field == self.LEGACY_GO_FIELD:
                 result["GOs"] = list(counter.keys())
             elif field == "pfam":
                 total = len(annot_data)

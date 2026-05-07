@@ -95,17 +95,20 @@ def test_closer_ev_lca_wins_over_farther_higher_tier(engine):
     # Depth 7 (closer) at tier 2 (low) BEATS depth 3 (farther) at tier 0
     # (high), because the cascade sort key is
     # (in_lineage, -depth, type_tier), and -7 < -3.
+    # Tested with kegg_ko because GO sub-namespaces use cross-tier union
+    # (a different rule); kegg_ko keeps the closest-tier-wins rule that
+    # this test exercises.
     annot_data = {
-        100: {"gos": "GO:0008150"},  # 1:1 but ancient ev_lca
-        200: {"gos": "GO:0009987"},  # many:many but recent ev_lca
+        100: {"kegg_ko": "K00001"},   # 1:1 but ancient ev_lca
+        200: {"kegg_ko": "K99999"},   # many:many but recent ev_lca
     }
     meta = {
         100: _meta("one2one",   depth=3, in_lineage=True),
         200: _meta("many2many", depth=7, in_lineage=True),
     }
     annotations, conf = engine._summarize_annotations(annot_data, meta)
-    assert annotations.get("GOs") == ["GO:0009987"]
-    assert conf.get("GOs") == "low"
+    assert annotations.get("KEGG_ko") == ["K99999"]
+    assert conf.get("KEGG_ko") == "low"
 
 
 # ---------------------------------------------------------------------------
