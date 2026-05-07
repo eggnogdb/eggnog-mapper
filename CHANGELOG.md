@@ -1,3 +1,39 @@
+## [Unreleased]
+
+### Changed
+
+- **Replaced `--tax_scope` + `--tax_scope_mode` with per-seed `ev_lca` ceiling
+  model.** The old flags accepted predefined scopes (`auto`, `bacteria`,
+  `eukaryota`, etc.) and a mode (`inner_narrowest`, `broadest`, etc.) that
+  controlled clade-level collapsing. This led to counterintuitive behaviour
+  where `--tax_scope eukaryota` with `inner_narrowest` would collapse plant
+  seeds to Streptophyta (narrower than expected). The new model replaces both
+  flags with a single `--tax_scope` that sets an `ev_lca` ceiling: only
+  speciation events whose ev_lca is at or below the ceiling are used. This lets
+  the cascade find the closest donors within that scope. `--tax_scope` now
+  accepts: `auto-narrow` (default), `auto-broad`, or a fixed `<clade_name_or_taxid>`
+  (e.g. `Metazoa`, `33208`). Dropped: `--tax_scope_mode`,
+  `--scope_strict_og`/`--no-scope_strict_og`, file-path tax scopes, and all
+  predefined scope names. Deleted: `eggnogmapper/annotation/tax_scopes/` directory.
+- **Added `--donor_pool {closest,union}` flag.** Controls how annotation donors
+  are drawn across tier buckets. `closest` (default) walks priority tiers and
+  stops at the first non-empty bucket (preserves previous behaviour). `union`
+  walks all tiers and takes consensus across all tiers; confidence is set to
+  the best (smallest) tier among contributors.
+- **Renamed output column `tax_scope_used` → `tax_ceiling`.** Reflects the new
+  semantics: the resolved ceiling clade name for each seed (e.g. `Viridiplantae`).
+- **Added output columns `farthest_donor_taxid` and `farthest_donor_lineage`.**
+  The taxid and semicolon-separated lineage (root→leaf) of the most distant
+  donor ortholog used in annotation transfer. Falls back to the seed's own
+  values when no ortholog donors are available.
+
+### Biological validation
+
+- Arabidopsis thaliana seeds with `--tax_scope auto-narrow` resolve to
+  `tax_ceiling = Viridiplantae` ✓
+- GO annotation coverage on Arabidopsis: ~92.8%; on tomato: ~77.9%. Matches
+  v3.4 baseline.
+
 ## [v3.0.0] — 2026-05-04
 
 First cut of the v3 lineage. eggnog-mapper is now a single self-contained

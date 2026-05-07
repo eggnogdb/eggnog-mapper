@@ -1,9 +1,9 @@
 """Batch annotation for v7+ integer-encoded eggnog.db.
 
-Thin adapter over eggnogmapper.annotator.e7.AnnotationEngine: emapper parses hits
-from DIAMOND/MMseqs, calls the engine for all annotation logic (orthologs,
-annotations, OG resolution, taxonomic filters, caches), and re-shapes the
-result into the tuple that emapper's output formatter consumes.
+Thin adapter over eggnogmapper.annotator.e7.AnnotationEngine: emapper parses
+hits from DIAMOND/MMseqs, calls the engine for all annotation logic
+(orthologs, annotations, OG resolution, taxonomic filters, caches), and
+re-shapes the result into the tuple that emapper's output formatter consumes.
 
 All actual annotation logic lives in eggnog-annotator. This module owns
 only the hit parsing and the emapper-specific tuple packaging.
@@ -12,6 +12,7 @@ only the hit parsing and the emapper-specific tuple packaging.
 import logging
 
 from eggnogmapper.annotator.e7 import AnnotationEngine, EggnogDB, LineageFilter
+from eggnogmapper.annotator.e7.ceiling import TaxScopeCeilingResolver
 
 from ..emapperException import EmapperException
 
@@ -20,21 +21,46 @@ logger = logging.getLogger(__name__)
 from . import output as output_mod
 
 
-def filter_out(hit_name, hit_evalue, hit_score, threshold_evalue, threshold_score):
+def filter_out(
+    hit_name: str,
+    hit_evalue: float,
+    hit_score: float,
+    threshold_evalue: float,
+    threshold_score: float,
+) -> None | str:
     """Decide whether a hit should be dropped before annotation.
 
     Returns ``None`` when the hit survives, otherwise a short reason
-    string used by the optional drop log (Phase 7.1c). The reasons are
+    string used by the optional drop log (Phase 7.1c).  The reasons are
     stable identifiers so users can grep/filter the .dropped file
     programmatically.
+
+    Args:
+        hit_name: Seed ortholog name string (``"-"`` or ``"ERROR"`` = drop).
+        hit_evalue: E-value of the DIAMOND/MMseqs hit.
+        hit_score: Bit-score of the DIAMOND/MMseqs hit.
+        threshold_evalue: Maximum allowed E-value (``None`` = no threshold).
+        threshold_score: Minimum required bit-score (``None`` = no threshold).
+
+    Returns:
+        ``None`` if the hit passes, or a reason string if it should be dropped.
     """
     if hit_name == "-" or hit_name == "ERROR":
         return "error_seed"
-    if threshold_evalue is not None and hit_evalue is not None and hit_evalue > threshold_evalue:
+    if (
+        threshold_evalue is not None
+        and hit_evalue is not None
+        and hit_evalue > threshold_evalue
+    ):
         return "evalue_above_threshold"
-    if threshold_score is not None and hit_score is not None and hit_score < threshold_score:
+    if (
+        threshold_score is not None
+        and hit_score is not None
+        and hit_score < threshold_score
+    ):
         return "score_below_threshold"
     return None
+
 
 ANNOTATIONS_HEADER = output_mod.ANNOTATIONS_HEADER
 
@@ -49,11 +75,19 @@ _engine_scope_key = None
 
 
 def get_lineage_cache():
-    """Get or create the module-level lineage cache."""
+    """Get or create the module-level lineage cache.
+
+    Returns:
+        Loaded ``LineageCache`` instance backed by the project taxa DB.
+
+    Raises:
+        EmapperException: If the taxa DB cannot be found or loaded.
+    """
     global _lineage_cache
     if _lineage_cache is None:
         from ..common import get_ncbitaxadb_file
-        from .tax_scopes.v7_scope import LineageCache
+        from eggnogmapper.annotator.lineage import LineageCache
+
         taxa_db = get_ncbitaxadb_file()
         try:
             _lineage_cache = LineageCache(taxa_db_path=taxa_db)
@@ -65,71 +99,108 @@ def get_lineage_cache():
     return _lineage_cache
 
 
-def _build_lineage_filter(v7_tax_scope, v7_tax_scope_auto, taxid_array):
-    """Build a LineageFilter for scope-based ortholog pruning.
+def _build_lineage_filter(
+    ceiling_resolver: TaxScopeCeilingResolver,
+    taxid_array,
+) -> LineageFilter:
+    """Wrap a ceiling resolver in a LineageFilter.
 
-    Returns None when no filtering was requested. Without this filter
-    the engine degrades to collecting every ortholog across all events,
-    which is orders of magnitude more work than needed for a single
-    taxonomic domain.
+    Args:
+        ceiling_resolver: Pre-built ``TaxScopeCeilingResolver`` instance.
+        taxid_array: Protein-ID → species-taxid mapping from the DB.
+
+    Returns:
+        A ``LineageFilter`` bound to the same lineage cache and resolver.
     """
-    if not v7_tax_scope_auto and not v7_tax_scope:
-        return None
-    lf = LineageFilter(get_lineage_cache(), taxid_array=taxid_array)
-    if v7_tax_scope_auto:
-        lf.set_scope("auto")
-    else:
-        lf.set_scope(",".join(sorted(v7_tax_scope)))
-    return lf
+    return LineageFilter(
+        lineage_cache=ceiling_resolver.lineage_cache,
+        ceiling_resolver=ceiling_resolver,
+        taxid_array=taxid_array,
+    )
 
 
-def _get_engine(annot_db, v7_tax_scope, v7_tax_scope_auto):
+def _get_engine(
+    annot_db,
+    ceiling_resolver: TaxScopeCeilingResolver,
+    donor_pool: str,
+) -> AnnotationEngine:
     """Return the singleton AnnotationEngine bound to this DB connection.
 
     Reuses emapper's already-open sqlite3 connection and its pre-loaded
-    taxid array, so no memory is duplicated. Recreated if scope changes.
+    taxid array, so no memory is duplicated.  Recreated when the
+    ceiling resolver mode or donor_pool changes.
+
+    Args:
+        annot_db: Open annotation DB object with ``.conn`` and
+            ``._taxids`` attributes.
+        ceiling_resolver: Pre-built ``TaxScopeCeilingResolver``.
+        donor_pool: ``"closest"`` or ``"union"``.
+
+    Returns:
+        Singleton ``AnnotationEngine`` instance.
     """
     global _engine, _engine_conn_id, _engine_scope_key
-    # scope_key distinguishes: no scope (None), auto scope ("auto"),
-    # and explicit scope (sorted tuple of taxid strings).
-    # Empty v7_tax_scope list maps to None (same as no scope) — correct,
-    # since an empty explicit scope list is effectively unconstrained.
-    scope_key = (
-        "auto" if v7_tax_scope_auto
-        else tuple(sorted(v7_tax_scope)) if v7_tax_scope
-        else None
-    )
-    if (_engine is None
-            or _engine_conn_id != id(annot_db.conn)
-            or _engine_scope_key != scope_key):
+    scope_key = (ceiling_resolver.mode, donor_pool)
+    if (
+        _engine is None
+        or _engine_conn_id != id(annot_db.conn)
+        or _engine_scope_key != scope_key
+    ):
         db = EggnogDB.from_connection(annot_db.conn, taxid_array=annot_db._taxids)
-        lf = _build_lineage_filter(v7_tax_scope, v7_tax_scope_auto, annot_db._taxids)
-        _engine = AnnotationEngine(db, lineage_filter=lf)
+        lf = _build_lineage_filter(ceiling_resolver, annot_db._taxids)
+        _engine = AnnotationEngine(db, lineage_filter=lf, donor_pool=donor_pool)
         _engine_conn_id = id(annot_db.conn)
         _engine_scope_key = scope_key
     return _engine
 
 
-def annotate_batch(batch, eggnog_db, annot, target_orthologs,
-                   target_taxa, excluded_taxa, tax_scope_mode,
-                   tax_scope_ids, go_evidence, go_excluded,
-                   seed_ortholog_score, seed_ortholog_evalue,
-                   pool=None, v7_tax_scope=None, v7_tax_scope_auto=False,
-                   dropped_writer=None, scope_strict_og=True):
+def annotate_batch(
+    batch,
+    eggnog_db,
+    annot: bool,
+    target_orthologs: str,
+    target_taxa,
+    excluded_taxa,
+    go_evidence,
+    go_excluded,
+    seed_ortholog_score,
+    seed_ortholog_evalue,
+    ceiling_resolver: TaxScopeCeilingResolver,
+    donor_pool: str = "closest",
+    pool=None,
+    dropped_writer=None,
+):
     """Annotate a batch of hits using eggnog-annotator.
 
-    batch: list of (hit, ...) argument tuples from iter_hit_lines
-    pool: optional `multiprocessing.Pool` (fork start method) — when
-        set, the engine slices each batch into sub-batches and dispatches
-        them to the pool workers. Caller-managed lifecycle.
-    dropped_writer: optional callable
-        ``dropped_writer(query, reason, seed, evalue, score)`` invoked
-        for every hit dropped before or after the engine runs. Set to
-        ``None`` to disable the drop log (Phase 7.1c).
-    Yields ((hit, annotation), False) tuples, same interface as the
-    legacy per-hit annotator.
+    Args:
+        batch: List of ``(hit, ...)`` argument tuples from
+            ``iter_hit_lines``.
+        eggnog_db: Open annotation DB object.
+        annot: Whether annotation is requested.
+        target_orthologs: Cascade type floor (``"all"``, ``"one2one"``,
+            etc.).
+        target_taxa: Optional set of taxids to include.
+        excluded_taxa: Optional set of taxids to exclude.
+        go_evidence: GO evidence filter set (or ``None``).
+        go_excluded: GO evidence exclusion set (or ``None``).
+        seed_ortholog_score: Minimum bit-score threshold.
+        seed_ortholog_evalue: Maximum E-value threshold.
+        ceiling_resolver: Pre-built ``TaxScopeCeilingResolver`` for
+            per-seed ev_lca ceiling resolution.
+        donor_pool: ``"closest"`` (default) or ``"union"``.
+        pool: Optional ``multiprocessing.Pool`` (fork start method).
+            When set, the engine slices each batch into sub-batches and
+            dispatches them to pool workers.  Caller-managed lifecycle.
+        dropped_writer: Optional callable
+            ``dropped_writer(query, reason, seed, evalue, score)``
+            invoked for every hit dropped before or after the engine
+            runs.  ``None`` disables the drop log.
+
+    Yields:
+        ``((hit, annotation), False)`` tuples, same interface as the
+        legacy per-hit annotator.
     """
-    # Parse hits, drop those that fail score/evalue thresholds
+    # Parse hits, drop those that fail score/evalue thresholds.
     valid_hits = []
     for args in batch:
         hit = args[0]
@@ -138,16 +209,22 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
         best_hit_evalue = float(hit[2])
         best_hit_score = float(hit[3])
 
-        reason = filter_out(best_hit_name, best_hit_evalue, best_hit_score,
-                            seed_ortholog_evalue, seed_ortholog_score)
+        reason = filter_out(
+            best_hit_name,
+            best_hit_evalue,
+            best_hit_score,
+            seed_ortholog_evalue,
+            seed_ortholog_score,
+        )
         if reason is not None:
             if dropped_writer is not None:
-                dropped_writer(query_name, reason, best_hit_name,
-                               best_hit_evalue, best_hit_score)
+                dropped_writer(
+                    query_name, reason, best_hit_name, best_hit_evalue, best_hit_score
+                )
             yield ((hit, None), False)
             continue
 
-        # v7: DIAMOND/MMseqs emit integer protein IDs as strings
+        # v7: DIAMOND/MMseqs emit integer protein IDs as strings.
         try:
             seed_id = int(best_hit_name)
         except ValueError:
@@ -157,8 +234,13 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
                 best_hit_name,
             )
             if dropped_writer is not None:
-                dropped_writer(query_name, "non_integer_seed_id",
-                               best_hit_name, best_hit_evalue, best_hit_score)
+                dropped_writer(
+                    query_name,
+                    "non_integer_seed_id",
+                    best_hit_name,
+                    best_hit_evalue,
+                    best_hit_score,
+                )
             yield ((hit, None), False)
             continue
 
@@ -167,19 +249,15 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
     if not valid_hits:
         return
 
-    engine = _get_engine(eggnog_db, v7_tax_scope, v7_tax_scope_auto)
+    engine = _get_engine(eggnog_db, ceiling_resolver, donor_pool)
     seed_ids = [s for _, _, s, _, _ in valid_hits]
-    # `target_orthologs` is now a *floor* on the cascade — the engine
-    # restricts which donor types contribute annotations. The orthologs
-    # list shown in the .emapper.orthologs file is still derived from the
-    # full classified `ortholog_types` dict and post-filtered there, so
-    # the user's requested target is respected end-to-end.
+    # ``target_orthologs`` is a *floor* on the cascade — the engine
+    # restricts which donor types contribute annotations.
     results = engine.annotate_batch(
         seed_ids,
         target_taxa=target_taxa,
         excluded_taxa=excluded_taxa,
         target_orthologs=target_orthologs,
-        scope_strict_og=scope_strict_og,
         pool=pool,
     )
 
@@ -191,14 +269,21 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
                 # Engine ran but found nothing useful — could be a tax_scope
                 # that excluded every donor, target_orthologs floor that
                 # filtered the cascade empty, or a seed with no events.
-                dropped_writer(query_name, "no_donor_orthologs",
-                               str(seed_id), evalue, score)
+                dropped_writer(
+                    query_name,
+                    "no_donor_orthologs",
+                    str(seed_id),
+                    evalue,
+                    score,
+                )
             yield ((hit, None), False)
             continue
 
         annotations = r.get("annotations") or {}
         annotations_confidence = r.get("annotations_confidence") or {}
-        tax_scope_used = r.get("tax_scope_used") or "none"
+        tax_ceiling = r.get("tax_ceiling") or "-"
+        farthest_donor_taxid = r.get("farthest_donor_taxid") or "-"
+        farthest_donor_lineage = r.get("farthest_donor_lineage") or "-"
         og_info = r.get("og_info") or {}
         orthologs = r.get("orthologs") or []
 
@@ -224,7 +309,9 @@ def annotate_batch(batch, eggnog_db, annot, target_orthologs,
             all_orthologies,
             annot_orthologs,
             annotations_confidence,
-            tax_scope_used,
+            tax_ceiling,
+            farthest_donor_taxid,
+            farthest_donor_lineage,
         )
 
         yield ((hit, annotation), False)

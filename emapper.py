@@ -41,27 +41,9 @@ from eggnogmapper.annotation.pfam.pfam_modes import PFAM_REALIGN_NONE, PFAM_REAL
 from eggnogmapper.deco.decoration import \
     DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FIELD_DEFAULT
 
-# v3.0 cleanup deleted the legacy tax_scopes.py but missed this import.
-# parse_tax_scope now lives under annotator.e7; the mode constants and
-# print_taxa stub are inlined here pending a proper emapper.py refactor.
-from eggnogmapper.annotator.e7.tax_scope import parse_tax_scope
-
-TAX_SCOPE_MODE_BROADEST = "broadest"
-TAX_SCOPE_MODE_INNER_BROADEST = "inner_broadest"
-TAX_SCOPE_MODE_INNER_NARROWEST = "inner_narrowest"
-TAX_SCOPE_MODE_NARROWEST = "narrowest"
-
-
-def print_taxa():
-    """List the predefined tax_scope names available under tax_scopes/."""
-    from pathlib import Path
-    base = Path(__file__).resolve().parent / "eggnogmapper" / \
-        "annotation" / "tax_scopes"
-    print("Predefined tax_scope names (auto-discovered from "
-          f"{base.relative_to(base.parents[2])}):")
-    for p in sorted(base.iterdir()):
-        if p.is_file() and not p.name.startswith("__") and p.suffix != ".py":
-            print(f"  {p.name}")
+# Ceiling-mode constants for --tax_scope
+TAX_SCOPE_AUTO_NARROW = "auto-narrow"
+TAX_SCOPE_AUTO_BROAD = "auto-broad"
 
 from eggnogmapper.common import existing_file, existing_dir, get_data_path, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_mmseqs_db, \
@@ -90,7 +72,7 @@ def create_arg_parser():
                         help="show version and exit.")
 
     parser.add_argument('--list_taxa', action="store_true",
-                        help="List taxa available for --tax_scope/--tax_scope_mode, and exit")
+                        help="List taxa available for --tax_scope, and exit")
 
     ##
     pg_exec = parser.add_argument_group('Execution Options')
@@ -430,19 +412,19 @@ def create_arg_parser():
                                 "non_integer_seed_id, no_donor_orthologs (engine returned no "
                                 "annotations under the active filters)."))
 
-    pg_annot.add_argument("--scope_strict_og", action=argparse.BooleanOptionalAction,
-                          default=True,
-                          help=("Skip speciation events whose containing OG (sp_events.og_lca) "
-                                "is broader than the seed's resolved tax_scope ceiling. "
-                                "On auto-scope plant/animal proteomes this drops "
-                                "above-scope OGs (cellular organisms / Eukaryota) which carry "
-                                "the cross-kingdom paralog noise — the same in-scope orthologs "
-                                "appear in lower OGs at higher cascade priority anyway. "
-                                "Materially faster (~2×) and more biologically consistent with "
-                                "the auto-scope intent. Default ON. Use --no-scope_strict_og to "
-                                "restore the legacy permissive behaviour where above-scope OG "
-                                "events leak through and are pruned per-protein by the species "
-                                "filter."))
+    pg_annot.add_argument(
+        "--donor_pool",
+        type=str,
+        choices=["closest", "union"],
+        default="closest",
+        help=(
+            "Controls how annotation donors are pooled across cascade tiers. "
+            "'closest' (default): the first non-empty tier for each source wins "
+            "(closest evolutionary distance). "
+            "'union': all tiers are walked and their values unioned; "
+            "confidence is the best (lowest) tier seen for each source."
+        ),
+    )
 
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
@@ -454,43 +436,24 @@ def create_arg_parser():
                            ' Queries not having a significant'
                            ' seed orthologs will not be annotated.')
     
-    pg_annot.add_argument("--tax_scope", type=str, default='auto', 
-                          help=("Fix the taxonomic scope used for annotation, so only speciation events from a "
-                                "particular clade are used for functional transfer. "
-                                "More specifically, the --tax_scope list is intersected with the "
-                                "seed orthologs clades, "
-                                "and the resulting clades are used for annotation based on --tax_scope_mode. "
-                                "Note that those seed orthologs without clades intersecting with --tax_scope "
-                                "will be filtered out, and won't annotated. "
-                                "Possible arguments for --tax_scope are: "
-                                "1) A path to a file defined by the user, which contains "
-                                "a list of tax IDs and/or tax names. "
-                                "2) The name of a pre-configured tax scope, whose source is "
-                                "a file stored within the 'eggnogmapper/annotation/tax_scopes/' directory "
-                                "By default, available ones are: 'auto' ('all'), 'auto_broad' ('all_broad'), "
-                                "'all_narrow', 'archaea', "
-                                "'bacteria', 'bacteria_broad', 'eukaryota', 'eukaryota_broad' "
-                                "and 'prokaryota_broad'."
-                                "3) A comma-separated list of taxonomic names and/or taxonomic IDs, "
-                                "sorted by preference. "
-                                "An example of list of tax IDs would be 2759,2157,2,1 for Eukaryota, "
-                                "Archaea, Bacteria and root, in that order of preference. "
-                                "4) 'none': do not filter out annotations based on taxonomic scope."))
-
-    pg_annot.add_argument("--tax_scope_mode", type=str, default=TAX_SCOPE_MODE_INNER_NARROWEST,
-                          help=("For a seed ortholog which passed the filter imposed by --tax_scope, "
-                                "--tax_scope_mode controls which specific clade, to which the "
-                                "seed ortholog belongs, will be used for annotation. "
-                                f"Options: "
-                                f"1) {TAX_SCOPE_MODE_BROADEST}: use the broadest clade. "
-                                f"2) {TAX_SCOPE_MODE_INNER_BROADEST}: use the broadest clade "
-                                "from the intersection with --tax_scope. "
-                                f"3) {TAX_SCOPE_MODE_INNER_NARROWEST}: use the narrowest clade "
-                                "from the intersection with --tax_scope. "
-                                f"4) {TAX_SCOPE_MODE_NARROWEST}: use the narrowest clade. "
-                                f"5) A taxonomic scope as in --tax_scope: use this second list "
-                                "to intersect with seed ortholog clades and "
-                                f"use the narrowest (as in inner_narrowest) from the intersection to annotate."))
+    pg_annot.add_argument(
+        "--tax_scope",
+        type=str,
+        default=TAX_SCOPE_AUTO_NARROW,
+        help=(
+            "Taxonomic ceiling for annotation: only speciation events whose "
+            "ev_lca is at or below this ceiling are used for functional "
+            "transfer. "
+            f"'{TAX_SCOPE_AUTO_NARROW}' (default): per-seed narrow-first "
+            "ceiling — Fungi (excl. Microsporidia), Viridiplantae, Metazoa, "
+            "Opisthokonta, Eukaryota, Prokaryota. "
+            f"'{TAX_SCOPE_AUTO_BROAD}': per-seed broad-first ceiling — "
+            "Metazoa, Viridiplantae, Fungi (excl. Microsporidia), Eukaryota, "
+            "Prokaryota. "
+            "A clade name (e.g. 'Metazoa') or numeric NCBI taxid: fixed "
+            "ceiling for all seeds; hard-fails if the name cannot be resolved."
+        ),
+    )
 
     pg_annot.add_argument('--target_orthologs', choices=["one2one", "many2one",
                                                          "one2many","many2many", "all"],
@@ -702,8 +665,6 @@ def parse_args(parser):
             print(colorify('Annotation database data/eggnog.db not present. Use download_eggnog_data.py to fetch it', 'red'))
             raise EmapperException()
 
-        args.tax_scope_ids = parse_tax_scope(args.tax_scope)
-        
         if args.target_taxa is not None:
             args.target_taxa = args.target_taxa.split(",")
         if args.excluded_taxa is not None:

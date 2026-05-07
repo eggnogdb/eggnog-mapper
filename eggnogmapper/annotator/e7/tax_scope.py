@@ -1,356 +1,198 @@
 """Tax scope filtering for v7+ integer-encoded databases.
 
-v7 databases use NCBI taxids in OG names, not the v5-style taxonomic level names.
-This module provides lineage-based filtering of orthologs:
-- Orthologs are kept only if their species lineage includes the scope taxid(s)
-- "auto" mode selects appropriate scope based on the seed ortholog's taxonomy
+v7 databases use NCBI taxids in OG names, not the v5-style taxonomic
+level names.  This module provides a thin ``LineageFilter`` delegate that
+forwards all ceiling resolution and species-set queries to a
+:class:`~eggnogmapper.annotator.e7.ceiling.TaxScopeCeilingResolver`.
+
+The old ``AUTO_SCOPE_CLADES``, ``parse_tax_scope``, ``set_scope``,
+``is_auto``, and ``describe_scope_for_seed`` APIs have been removed.
+Use ``TaxScopeCeilingResolver`` for ceiling resolution and the new
+``LineageFilter`` for ortholog filtering.
 """
 
 import logging
 import sqlite3
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from ..lineage import LineageCache
 
-# Domain taxids
-BACTERIA = "2"
-ARCHAEA = "2157"
-EUKARYOTA = "2759"
-CELLULAR_ORGANISMS = "131567"
+if TYPE_CHECKING:
+    from .ceiling import TaxScopeCeilingResolver
 
-# Major eukaryotic clades for auto mode
-METAZOA = "33208"
-FUNGI = "4751"
-VIRIDIPLANTAE = "33090"
+# ---------------------------------------------------------------------------
+# Domain / major-clade taxid constants (kept for external consumers)
+# ---------------------------------------------------------------------------
+BACTERIA: str = "2"
+ARCHAEA: str = "2157"
+EUKARYOTA: str = "2759"
+CELLULAR_ORGANISMS: str = "131567"
 
-# Order matters - check specific before general
-AUTO_SCOPE_CLADES = [
-    (METAZOA, {METAZOA}),              # Metazoa
-    (FUNGI, {FUNGI}),                  # Fungi
-    (VIRIDIPLANTAE, {VIRIDIPLANTAE}),  # Viridiplantae
-]
+METAZOA: str = "33208"
+FUNGI: str = "4751"
+VIRIDIPLANTAE: str = "33090"
 
-# Map taxid string → human-readable clade name. Used by
-# `LineageFilter.describe_scope_for_seed` to render the resolved per-seed
-# scope decision into the output column. Entries cover the auto-mode
-# outcomes plus the prokaryote {Bacteria, Archaea} bucket.
-SCOPE_TAXID_NAMES = {
-    BACTERIA:           "Bacteria",
-    ARCHAEA:            "Archaea",
-    EUKARYOTA:          "Eukaryota",
-    METAZOA:            "Metazoa",
-    FUNGI:              "Fungi",
-    VIRIDIPLANTAE:      "Viridiplantae",
-    CELLULAR_ORGANISMS: "cellular_organisms",
-}
+logger = logging.getLogger(__name__)
 
 
 class LineageFilter:
-    """Filters orthologs by taxonomic scope using lineage information.
+    """Thin delegate that forwards ceiling / species-set queries to a resolver.
 
-    Wraps a LineageCache and provides ortholog filtering methods.
+    All annotation logic that used to live here has been moved to
+    :class:`~eggnogmapper.annotator.e7.ceiling.TaxScopeCeilingResolver`.
+    ``LineageFilter`` now serves purely as a convenience façade used by
+    ``AnnotationEngine`` when it needs to:
+
+    1. Resolve the ceiling taxid for a given seed.
+    2. Obtain the set of valid species for that ceiling (for the
+       per-protein species filter in ``_collect_orthologs``).
+    3. Obtain the set of OG-LCA descendants for that ceiling (for the
+       strict-OG gate in the same method).
+
+    Attributes:
+        lineage_cache: ``LineageCache`` used by the resolver.
+        taxid_array: Optional protein-ID → species-taxid mapping (same
+            as what ``AnnotationEngine`` holds for fast lookups).
+        _ceiling_resolver: Bound ``TaxScopeCeilingResolver`` instance.
     """
 
-    def __init__(self, lineage_cache, taxid_array=None):
-        """Initialize LineageFilter.
+    def __init__(
+        self,
+        lineage_cache: LineageCache,
+        ceiling_resolver: "TaxScopeCeilingResolver",
+        taxid_array=None,
+    ) -> None:
+        """Initialise LineageFilter.
 
         Args:
-            lineage_cache: LineageCache instance for lineage lookups
-            taxid_array: Optional array mapping protein ID -> species taxid.
-                         If provided, enables filter_ortholog_ids().
-        """
-        self.lineage_cache = lineage_cache
-        self.taxid_array = taxid_array
-        self._scope_taxids = None
-        self._is_auto = False
-
-    def set_scope(self, tax_scope):
-        """Set the taxonomic scope for filtering.
-
-        Args:
-            tax_scope: Scope specification:
-                - None or "none": no filtering
-                - "auto": automatic scope per query based on seed taxonomy
-                - taxid string: single taxid
-                - comma-separated taxids: multiple taxids
-        """
-        self._scope_taxids, self._is_auto = parse_tax_scope(tax_scope)
-
-    @property
-    def is_auto(self):
-        """True if using auto mode (scope depends on each seed ortholog)."""
-        return self._is_auto
-
-    @property
-    def scope_taxids(self):
-        """Current scope taxids, or None for no filter."""
-        return self._scope_taxids
-
-    def get_auto_scope_taxids(self, seed_taxid):
-        """Determine appropriate tax scope taxids for auto mode.
-
-        Returns a set of taxids - orthologs must have at least one in their lineage.
-
-        Strategy:
-        - Prokaryotes (Bacteria/Archaea): Allow both domains due to common HGT
-        - Metazoa: Restrict to Metazoa only
-        - Viridiplantae: Restrict to Viridiplantae only
-        - Fungi: Restrict to Fungi only
-        - Other Eukaryotes: Allow all Eukaryota
-        """
-        lineage = self.lineage_cache.get(seed_taxid)
-        if lineage is None:
-            return None  # Unknown taxid, no filter
-
-        # Prokaryotes: allow both Bacteria and Archaea (HGT is common)
-        if BACTERIA in lineage or ARCHAEA in lineage:
-            return {BACTERIA, ARCHAEA}
-
-        # Eukaryotes: check major clades in order of specificity
-        for clade_taxid, scope_set in AUTO_SCOPE_CLADES:
-            if clade_taxid in lineage:
-                return scope_set
-
-        # Other Eukaryotes
-        if EUKARYOTA in lineage:
-            return {EUKARYOTA}
-
-        # Unknown domain - no filter
-        return None
-
-    def get_effective_scope(self, seed_taxid=None):
-        """Get effective scope taxids for filtering.
-
-        In auto mode, computes scope based on seed_taxid.
-        Otherwise returns the configured scope.
-
-        Args:
-            seed_taxid: Seed ortholog taxid (required for auto mode)
-
-        Returns:
-            Set of taxid strings, or None for no filter
-        """
-        if self._is_auto:
-            if seed_taxid is None:
-                return None  # Can't auto-scope without seed
-            return self.get_auto_scope_taxids(seed_taxid)
-        return self._scope_taxids
-
-    def describe_scope_for_seed(self, seed_taxid):
-        """Render the resolved scope as a short human-readable label.
-
-        Used by the engine to populate the per-row `tax_scope_used`
-        column added in Phase 7.1b. Returns one of:
-
-        - ``"none"`` — no filter applied (auto mode on an unknown taxid,
-          or `--tax_scope none`).
-        - ``"Bacteria,Archaea"`` — auto mode on a prokaryotic seed.
-        - ``"Metazoa"`` / ``"Fungi"`` / ``"Viridiplantae"`` — auto mode
-          on the matching eukaryotic clade.
-        - ``"Eukaryota"`` — auto mode on a eukaryotic seed outside the
-          three named clades.
-        - Comma-joined clade names when an explicit scope was set
-          (e.g. ``"Metazoa,Fungi"``).
-        - ``"explicit:<taxid>,…"`` — explicit numeric taxids that don't
-          map to a known clade name.
-
-        Args:
-            seed_taxid: Seed ortholog taxid (string or int). Required
-                in auto mode; ignored for explicit scope.
-        """
-        scope = self.get_effective_scope(str(seed_taxid) if seed_taxid is not None else None)
-        if not scope:
-            return "none"
-        named = sorted(SCOPE_TAXID_NAMES[t] for t in scope if t in SCOPE_TAXID_NAMES)
-        unnamed = sorted(t for t in scope if t not in SCOPE_TAXID_NAMES)
-        parts = list(named)
-        if unnamed:
-            parts.append("explicit:" + ",".join(unnamed))
-        return ",".join(parts) if parts else "none"
-
-    def filter_ortholog_ids(self, ortholog_ids, seed_taxid=None):
-        """Filter orthologs to those matching the taxonomic scope.
-
-        Args:
-            ortholog_ids: List of integer protein IDs
-            seed_taxid: Seed ortholog taxid (required for auto mode)
-
-        Returns:
-            Filtered list of ortholog IDs
+            lineage_cache: ``LineageCache`` instance for lineage lookups.
+            ceiling_resolver: Required
+                :class:`~eggnogmapper.annotator.e7.ceiling.TaxScopeCeilingResolver`
+                instance.  Must not be ``None``.
+            taxid_array: Optional array mapping protein integer ID to
+                species taxid integer.  When provided, enables
+                :meth:`filter_ortholog_ids`.
 
         Raises:
-            ValueError: If taxid_array was not provided at init
+            ValueError: When ``ceiling_resolver`` is ``None``.
         """
-        if self.taxid_array is None:
+        if ceiling_resolver is None:
             raise ValueError(
-                "taxid_array required for filter_ortholog_ids(). "
-                "Provide it when creating LineageFilter."
+                "LineageFilter requires a TaxScopeCeilingResolver. "
+                "Build one via TaxScopeCeilingResolver.build() and pass it here."
             )
+        self.lineage_cache = lineage_cache
+        self.taxid_array = taxid_array
+        self._ceiling_resolver = ceiling_resolver
 
-        scope_taxids = self.get_effective_scope(seed_taxid)
-        if not scope_taxids:
-            return ortholog_ids
+    # ------------------------------------------------------------------
+    # Ceiling delegation
+    # ------------------------------------------------------------------
 
-        filtered = []
-        for oid in ortholog_ids:
-            species_taxid = str(self.taxid_array[oid])
-            lineage = self.lineage_cache.get(species_taxid)
-            if lineage and (lineage & scope_taxids):  # intersection
-                filtered.append(oid)
-        return filtered
+    def get_ceiling_for_seed(self, seed_taxid: str) -> str:
+        """Return the resolved ceiling taxid for a seed's species.
 
-    def get_valid_species_ids(self, scope_taxids) -> Optional[frozenset]:
-        """Return the frozenset of species taxids whose lineage intersects `scope_taxids`.
-
-        Results are memoized per frozenset of scope taxids — useful when
-        filtering many orthologs against a small number of distinct scopes.
-        Returns a frozenset so callers cannot accidentally corrupt the cache
-        via mutation.
+        Delegates to :meth:`TaxScopeCeilingResolver.resolve_ceiling`.
 
         Args:
-            scope_taxids: Iterable of taxid strings (e.g., {"33090"} for Viridiplantae)
+            seed_taxid: NCBI species taxid of the seed (string).
 
         Returns:
-            Frozenset of species taxid strings that qualify under the scope,
-            or None if scope_taxids is empty.
+            Ceiling taxid string or ``PROKARYOTA_SYNTHETIC`` or ``"root"``.
         """
-        if not scope_taxids:
-            return None
-        key = frozenset(scope_taxids)
-        cache = getattr(self, "_valid_species_cache", None)
-        if cache is None:
-            cache = self._valid_species_cache = {}
-        if key in cache:
-            return cache[key]
-        out = set()
-        for taxid, lineage in self.lineage_cache.items():
-            if lineage & key:
-                out.add(taxid)
-        result = frozenset(out)
-        cache[key] = result
-        return result
+        return self._ceiling_resolver.resolve_ceiling(seed_taxid)
 
-    def get_scope_og_descendants(self, scope_taxids) -> Optional[frozenset]:
-        """Return the frozenset of taxid strings at-or-below any of
-        ``scope_taxids`` in the species tree.
-
-        Used as an ``og_lca`` whitelist for the strict-OG mode in
-        ``annotate_batch(scope_strict_og=True)``: events whose
-        containing OG (``sp_events.og_lca``) is broader than the seed's
-        scope are dropped before any orthologs are fetched.
-
-        Cached per scope-taxid frozenset.
-
-        Implementation: walks each species' ordered ``track`` (root →
-        leaf), finds the position of any scope taxid, and adds every
-        node from that position to the leaf — i.e. scope itself and
-        all its descendants on this species' lineage. The union over
-        all species in scope gives the full descendant set including
-        all internal clade nodes (Brassicaceae, Magnoliopsida, …)
-        that appear as ``og_lca`` values but aren't keys in
-        ``LineageCache._cache``.
-        """
-        if not scope_taxids:
-            return None
-        key = frozenset(scope_taxids)
-        cache = getattr(self, "_og_descendants_cache", None)
-        if cache is None:
-            cache = self._og_descendants_cache = {}
-        if key in cache:
-            return cache[key]
-        out = set(key)
-        for _, track in self.lineage_cache.tracks():
-            for scope_str in key:
-                try:
-                    idx = track.index(scope_str)
-                except ValueError:
-                    continue
-                out.update(track[idx:])
-                break
-        result = frozenset(out)
-        cache[key] = result
-        return result
-
-    def filter_by_taxids(self, species_taxids, seed_taxid=None):
-        """Filter species taxids to those matching the taxonomic scope.
+    def ceiling_name(self, ceiling_taxid: str) -> str:
+        """Human-readable name for the ``tax_ceiling`` output column.
 
         Args:
-            species_taxids: Iterable of species taxid strings
-            seed_taxid: Seed ortholog taxid (required for auto mode)
+            ceiling_taxid: Taxid string returned by :meth:`get_ceiling_for_seed`.
 
         Returns:
-            List of taxids that match the scope
+            Display name string (e.g. ``"Fungi"``, ``"Prokaryota"``).
         """
-        scope_taxids = self.get_effective_scope(seed_taxid)
-        if not scope_taxids:
-            return list(species_taxids)
+        return self._ceiling_resolver.ceiling_name(ceiling_taxid)
 
-        filtered = []
-        for taxid in species_taxids:
-            lineage = self.lineage_cache.get(taxid)
-            if lineage and (lineage & scope_taxids):
-                filtered.append(taxid)
-        return filtered
+    # ------------------------------------------------------------------
+    # Species / OG-descendant sets (memoized in resolver)
+    # ------------------------------------------------------------------
+
+    def get_valid_species_ids(self, ceiling_taxid: str) -> Optional[frozenset]:
+        """Return the frozenset of species taxids at-or-below the ceiling.
+
+        Delegates to :meth:`TaxScopeCeilingResolver.get_valid_species`.
+        Results are memoized in the resolver.
+
+        Args:
+            ceiling_taxid: Taxid string from :meth:`get_ceiling_for_seed`.
+
+        Returns:
+            Frozenset of species taxid strings, or ``None`` for no filter.
+        """
+        return self._ceiling_resolver.get_valid_species(ceiling_taxid)
+
+    def get_scope_og_descendants(self, ceiling_taxid: str) -> Optional[frozenset]:
+        """Return the frozenset of taxids at-or-below the ceiling.
+
+        Used as an ``og_lca`` whitelist. Delegates to
+        :meth:`TaxScopeCeilingResolver.get_og_descendants`.
+
+        Args:
+            ceiling_taxid: Taxid string from :meth:`get_ceiling_for_seed`.
+
+        Returns:
+            Frozenset of taxid strings, or ``None`` for no filter.
+        """
+        return self._ceiling_resolver.get_og_descendants(ceiling_taxid)
+
+    # ------------------------------------------------------------------
+    # ev_lca gate (used directly by engine)
+    # ------------------------------------------------------------------
+
+    def ev_lca_passes_ceiling(self, ev_lca: str, ceiling_taxid: str) -> bool:
+        """Return True iff the event's LCA is at or below the ceiling.
+
+        Delegates to :meth:`TaxScopeCeilingResolver.ev_lca_passes_ceiling`.
+
+        Args:
+            ev_lca: Speciation event LCA taxid string.
+            ceiling_taxid: Resolved ceiling taxid.
+
+        Returns:
+            ``True`` to keep the event; ``False`` to discard.
+        """
+        return self._ceiling_resolver.ev_lca_passes_ceiling(ev_lca, ceiling_taxid)
 
 
-def parse_tax_scope(tax_scope):
-    """Parse tax_scope argument for v7 databases.
-
-    Returns:
-        (scope_taxids, is_auto) where:
-        - scope_taxids: set of taxid strings to filter by, or None for no filter
-        - is_auto: True if auto mode (scope depends on each seed ortholog)
-
-    Accepts:
-        - None or "none": no filtering
-        - "auto": automatic scope per query based on seed taxonomy
-        - taxid or comma-separated taxids: filter to these clades
-    """
-    if tax_scope is None or (isinstance(tax_scope, str) and tax_scope.lower() == "none"):
-        return None, False
-
-    if isinstance(tax_scope, str) and tax_scope.lower() == "auto":
-        return None, True  # Will be determined per-query
-
-    # Parse as taxid(s)
-    if isinstance(tax_scope, str):
-        parts = [p.strip() for p in tax_scope.split(",")]
-    else:
-        parts = [str(tax_scope)]
-
-    scope_taxids = set()
-    for part in parts:
-        if part.isdigit():
-            scope_taxids.add(part)
-        # Note: taxonomic name resolution requires taxa.db access
-        # For now, only numeric taxids are supported
-
-    return scope_taxids if scope_taxids else None, False
-
-
+# ---------------------------------------------------------------------------
 # Standalone utility — not called internally; exposed for external scripts.
-def resolve_name_to_taxid(name, taxa_db_path):
-    """Resolve a taxonomic name to its taxid.
+# ---------------------------------------------------------------------------
+
+
+def resolve_name_to_taxid(name: str, taxa_db_path: str) -> Optional[str]:
+    """Resolve a taxonomic name to its NCBI taxid.
 
     Args:
-        name: Taxonomic name (e.g., "Metazoa", "Homo sapiens")
-        taxa_db_path: Path to eggnog.taxa.db
+        name: Taxonomic name (e.g. ``"Metazoa"``, ``"Homo sapiens"``).
+        taxa_db_path: Path to ``eggnog.taxa.db``.
 
     Returns:
-        Taxid string, or None if not found
+        Taxid string, or ``None`` if not found.
     """
     try:
         conn = sqlite3.connect(taxa_db_path)
         cursor = conn.execute(
             "SELECT taxid FROM species WHERE spname = ? COLLATE NOCASE LIMIT 1",
-            (name,)
+            (name,),
         )
         row = cursor.fetchone()
         conn.close()
         return str(row[0]) if row else None
     except sqlite3.OperationalError as exc:
-        logging.getLogger(__name__).error(
+        logger.error(
             "resolve_name_to_taxid failed for %r in %s: %s",
-            name, taxa_db_path, exc,
+            name,
+            taxa_db_path,
+            exc,
         )
         return None

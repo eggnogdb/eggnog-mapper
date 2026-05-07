@@ -32,17 +32,24 @@ class Annotator:
     num_servers = num_workers = timeout_load_server = cpus_per_worker = port = end_port = None
 
     seed_ortholog_score = seed_ortholog_evalue = None
-    tax_scope_mode = tax_scope_ids = target_taxa = target_orthologs = excluded_taxa = None
-    
+    target_taxa = target_orthologs = excluded_taxa = None
+
     go_evidence = go_excluded = None
     pfam_realign = trans_table = temp_dir = None
     md5 = None
 
     resume = None
-        
+
     ##
     def __init__(self, args, annot, excel, report_orthologs):
+        """Initialise Annotator from parsed CLI args.
 
+        Args:
+            args: ``argparse.Namespace`` produced by ``emapper.py``.
+            annot: Whether functional annotation is requested.
+            excel: Whether Excel output is requested.
+            report_orthologs: Whether the orthologs file is requested.
+        """
         self.annot = annot
         self.report_orthologs = report_orthologs
         self.excel = excel
@@ -58,68 +65,58 @@ class Annotator:
         self.seed_ortholog_score = args.seed_ortholog_score
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 
-        self.tax_scope = args.tax_scope  # Original value (e.g., "auto", "none", taxid)
-        self.tax_scope_mode = args.tax_scope_mode
-        self.tax_scope_ids = args.tax_scope_ids
-                
+        # --tax_scope: "auto-narrow" | "auto-broad" | <clade_name_or_taxid>
+        self.tax_scope = args.tax_scope
+
+        # --donor_pool: "closest" | "union"
+        self.donor_pool = getattr(args, "donor_pool", "closest") or "closest"
+
         self.target_taxa = args.target_taxa
         self.target_orthologs = args.target_orthologs
         self.excluded_taxa = args.excluded_taxa
-            
+
         self.go_evidence = args.go_evidence
         self.go_excluded = args.go_excluded
-        
+
         self.pfam_realign = args.pfam_realign
-        
+
         self.trans_table = args.trans_table
         self.itype = args.itype
-        
+
         self.temp_dir = args.temp_dir
-        
+
         self.md5 = args.md5
 
         # Phase 7.1c: opt-in drop log. When True, Annotator opens
         # dropped_file and writes one row per filtered hit.
         self.report_dropped = bool(getattr(args, "report_dropped", False))
 
-        # Strict scope-OG filter. When True (default), events whose
-        # containing OG (sp_events.og_lca) is broader than the seed's
-        # tax_scope ceiling are skipped before fetching their orthologs
-        # — consistent with the auto tax_scope intent. Set False to
-        # restore the legacy permissive behaviour via
-        # `--no-scope_strict_og`.
-        #
-        # `None` is treated as "use default" (True), not as a sentinel
-        # for "False". A direct `bool(getattr(..., True))` would silently
-        # flip to False when callers (tests, library code) construct an
-        # `argparse.Namespace` with `scope_strict_og=None` — that's a
-        # silent correctness bug we'd never see in CI.
-        _strict = getattr(args, "scope_strict_og", True)
-        self.scope_strict_og = True if _strict is None else bool(_strict)
-
         self.resume = args.resume
-        
+
         return
 
-    def _applied_filters(self):
-        """Return a dict of the resolved annotation-stage filter values
-        the run is using, for the `## applied filters:` block in
-        .emapper.annotations (Phase 7.1a). Defaults are recorded as
-        their actual resolved values so a reader doesn't need to know
+    def _applied_filters(self) -> dict:
+        """Return a dict of the resolved annotation-stage filter values.
+
+        Written to the ``## applied filters:`` block in the
+        ``.emapper.annotations`` file.  Defaults are recorded as their
+        actual resolved values so a reader does not need to know
         emapper's defaults to interpret the file.
+
+        Returns:
+            Mapping of filter name → resolved value.
         """
         return {
-            "tax_scope":              self.tax_scope,
-            "tax_scope_mode":         self.tax_scope_mode,
-            "scope_strict_og":        self.scope_strict_og,
-            "target_orthologs":       self.target_orthologs,
-            "target_taxa":            self.target_taxa,
-            "excluded_taxa":          self.excluded_taxa,
-            "seed_ortholog_evalue":   self.seed_ortholog_evalue,
-            "seed_ortholog_score":    self.seed_ortholog_score,
-            "go_evidence":            self.go_evidence,
-            "go_excluded":            self.go_excluded,
-            "pfam_realign":           self.pfam_realign,
+            "tax_scope": self.tax_scope,
+            "donor_pool": self.donor_pool,
+            "target_orthologs": self.target_orthologs,
+            "target_taxa": self.target_taxa,
+            "excluded_taxa": self.excluded_taxa,
+            "seed_ortholog_evalue": self.seed_ortholog_evalue,
+            "seed_ortholog_score": self.seed_ortholog_score,
+            "go_evidence": self.go_evidence,
+            "go_excluded": self.go_excluded,
+            "pfam_realign": self.pfam_realign,
         }
 
 
@@ -290,28 +287,31 @@ class Annotator:
     ##
     def _annotate_batched(self, hits_gen_func, annots_parser, eggnog_db):
         """Batch annotation: pre-fetch DB data per batch, CPU work in parallel.
+
         Only for v7+ integer-encoded databases.
         """
-        from .batch_annotate import annotate_batch, get_lineage_cache
-        from .tax_scopes.v7_scope import parse_v7_tax_scope
+        from .batch_annotate import annotate_batch, get_lineage_cache, _get_engine
+        from eggnogmapper.annotator.e7.ceiling import TaxScopeCeilingResolver
+        from ..common import get_ncbitaxadb_file
 
-        # v7 databases use lineage-based filtering instead of OG-level filtering.
-        # Parse tax_scope for v7 mode.
-        v7_tax_scope = None
-        v7_tax_scope_auto = False
+        # Build the per-seed ceiling resolver once for the whole run.
+        taxa_db = get_ncbitaxadb_file()
+        lineage_cache = get_lineage_cache()
+        ceiling_resolver = TaxScopeCeilingResolver.build(
+            lineage_cache=lineage_cache,
+            mode=self.tax_scope,
+            taxa_db_path=taxa_db,
+        )
 
-        tax_scope = self.tax_scope
-        if tax_scope and tax_scope.lower() not in ("none",):
-            lineage_cache = get_lineage_cache()
-            v7_tax_scope, v7_tax_scope_auto = parse_v7_tax_scope(tax_scope, lineage_cache)
-
-            if v7_tax_scope_auto:
-                print(colorify("Using auto tax_scope: orthologs filtered by seed ortholog's "
-                               "taxonomic domain (Metazoa/Plants/Fungi/Bacteria/Archaea).",
-                               "lblue"), file=sys.stderr)
-            elif v7_tax_scope:
-                print(colorify(f"Using tax_scope lineage filter: {', '.join(sorted(v7_tax_scope))}",
-                               "lblue"), file=sys.stderr)
+        mode_display = self.tax_scope
+        print(
+            colorify(
+                f"tax_scope ceiling mode: {mode_display!r} "
+                f"(donor_pool={self.donor_pool!r})",
+                "lblue",
+            ),
+            file=sys.stderr,
+        )
 
         batch_size = 1000
         batch = []
@@ -326,15 +326,18 @@ class Annotator:
         if n_workers > 1:
             import multiprocessing
             from eggnogmapper.annotator.e7.annotate import (
-                _register_worker_engine, _worker_init_after_fork,
+                _register_worker_engine,
+                _worker_init_after_fork,
             )
-            from .batch_annotate import _get_engine
-            engine = _get_engine(eggnog_db, v7_tax_scope, v7_tax_scope_auto)
+
+            engine = _get_engine(eggnog_db, ceiling_resolver, self.donor_pool)
             _register_worker_engine(engine)
             ctx = multiprocessing.get_context("fork")
             pool = ctx.Pool(n_workers, initializer=_worker_init_after_fork)
-            print(colorify(f"Annotation pool: {n_workers} workers (fork)",
-                           "lblue"), file=sys.stderr)
+            print(
+                colorify(f"Annotation pool: {n_workers} workers (fork)", "lblue"),
+                file=sys.stderr,
+            )
 
         try:
             for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
@@ -347,51 +350,48 @@ class Annotator:
 
                 if len(batch) >= batch_size:
                     yield from annotate_batch(
-                        batch, eggnog_db,
+                        batch,
+                        eggnog_db,
                         annot=self.annot,
                         target_orthologs=self.target_orthologs,
                         target_taxa=self.target_taxa,
                         excluded_taxa=self.excluded_taxa,
-                        tax_scope_mode=self.tax_scope_mode,
-                        tax_scope_ids=None,  # v7 uses lineage filtering, not OG filtering
                         go_evidence=self.go_evidence,
                         go_excluded=self.go_excluded,
                         seed_ortholog_score=self.seed_ortholog_score,
                         seed_ortholog_evalue=self.seed_ortholog_evalue,
+                        ceiling_resolver=ceiling_resolver,
+                        donor_pool=self.donor_pool,
                         pool=pool,
-                        v7_tax_scope=v7_tax_scope,
-                        v7_tax_scope_auto=v7_tax_scope_auto,
                         dropped_writer=self._dropped_writer,
-                        scope_strict_og=self.scope_strict_og,
                     )
                     batch = []
 
             if batch:
                 yield from annotate_batch(
-                    batch, eggnog_db,
+                    batch,
+                    eggnog_db,
                     annot=self.annot,
                     target_orthologs=self.target_orthologs,
                     target_taxa=self.target_taxa,
                     excluded_taxa=self.excluded_taxa,
-                    tax_scope_mode=self.tax_scope_mode,
-                    tax_scope_ids=None,  # v7 uses lineage filtering, not OG filtering
                     go_evidence=self.go_evidence,
                     go_excluded=self.go_excluded,
                     seed_ortholog_score=self.seed_ortholog_score,
                     seed_ortholog_evalue=self.seed_ortholog_evalue,
+                    ceiling_resolver=ceiling_resolver,
+                    donor_pool=self.donor_pool,
                     pool=pool,
-                    v7_tax_scope=v7_tax_scope,
-                    v7_tax_scope_auto=v7_tax_scope_auto,
                     dropped_writer=self._dropped_writer,
-                    scope_strict_og=self.scope_strict_og,
                 )
 
         except EmapperException:
             raise
         except Exception as e:
             import traceback
+
             traceback.print_exc()
-            raise EmapperException(f"Error: batch annotation failed. "+str(e))
+            raise EmapperException(f"Error: batch annotation failed. " + str(e))
         finally:
             if pool is not None:
                 pool.close()
@@ -402,18 +402,35 @@ class Annotator:
     
     ##
     def iter_hit_lines(self, hits_gen_func, annots_parser):
+        """Iterate over hits, pairing each with any previously-annotated entry.
 
+        For ``--resume`` runs, ``annots_parser`` provides previously
+        computed annotations; matching hits are passed through without
+        re-annotating.
+
+        Args:
+            hits_gen_func: Iterable of ``[query_name, seed, evalue, score, …]``
+                hit tuples from the search phase.
+            annots_parser: Generator from ``parse_annotations`` for
+                ``--resume`` mode, or ``None``.
+
+        Yields:
+            Tuple ``(hit, annot, seed_ortholog_score, seed_ortholog_evalue,
+            target_taxa, target_orthologs, excluded_taxa, go_evidence,
+            go_excluded, data_path, annotation)`` where ``annotation`` is
+            the previously computed annotation (or ``None``).
+        """
         curr_annot = None
         if annots_parser is not None:
             try:
                 curr_annot = next(annots_parser)
             except StopIteration:
                 curr_annot = None
-        
+
         for hit in hits_gen_func:
 
             annotation = None
-            
+
             if curr_annot is not None:
                 if hit[0] == curr_annot[0]:
                     annotation = curr_annot
@@ -421,14 +438,23 @@ class Annotator:
                         curr_annot = next(annots_parser)
                     except StopIteration:
                         curr_annot = None
-            
-            yield_tuple = (hit, self.annot, self.seed_ortholog_score, self.seed_ortholog_evalue,
-                           self.tax_scope_mode, self.tax_scope_ids,
-                           self.target_taxa, self.target_orthologs, self.excluded_taxa,
-                           self.go_evidence, self.go_excluded, get_data_path(), annotation)
-            
+
+            yield_tuple = (
+                hit,
+                self.annot,
+                self.seed_ortholog_score,
+                self.seed_ortholog_evalue,
+                self.target_taxa,
+                self.target_orthologs,
+                self.excluded_taxa,
+                self.go_evidence,
+                self.go_excluded,
+                get_data_path(),
+                annotation,
+            )
+
             yield yield_tuple
-            
+
         return
 
 ##
@@ -504,12 +530,24 @@ def parse_annotation_line(line):
     
     all_orthologies = None
     annot_orthologs = None
-    
+
+    # Pad to the current 14-element shape so that --resume can replay
+    # lines from pre-refactor annotation files through output_annotations_row
+    # without hitting the 14-element `else` branch on a 10-element tuple.
+    annotations_confidence = None
+    tax_ceiling = "-"
+    farthest_donor_taxid = "-"
+    farthest_donor_lineage = "-"
+
     annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                   annotations,
                   og_cat_desc, max_annot_lvl, match_nog_names,
-                  all_orthologies, annot_orthologs)
-    
+                  all_orthologies, annot_orthologs,
+                  annotations_confidence,
+                  tax_ceiling,
+                  farthest_donor_taxid,
+                  farthest_donor_lineage)
+
     return hit, annotation
 
 

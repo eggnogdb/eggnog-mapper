@@ -3,6 +3,22 @@
 Tests focus on the annotate_batch() adapter function: hit parsing,
 target_orthologs filtering, warning emission, and output tuple structure.
 All annotation logic is mocked — only the adapter layer is exercised here.
+
+Annotation tuple layout (14 elements, v3 refactor):
+    [0]  query_name
+    [1]  seed_id (str)
+    [2]  evalue
+    [3]  score
+    [4]  annotations (dict)
+    [5]  (og_name, og_cat, og_desc) — 3-tuple
+    [6]  max_annot_lvl
+    [7]  match_nog_names (list)
+    [8]  all_orthologies (dict with 5 type keys)
+    [9]  annot_orthologs (list filtered by target_orthologs)
+    [10] annotations_confidence (dict)
+    [11] tax_ceiling (str)
+    [12] farthest_donor_taxid (str)
+    [13] farthest_donor_lineage (str)
 """
 
 import logging
@@ -45,7 +61,9 @@ def _make_engine_result(
         "all_ogs": ["CLU_TEST@131567|root", "CLU_TEST@9606|HX-1"],
         "annotations": {"GOs": ["GO:0005515"], "KEGG_ko": ["K00001"]},
         "annotations_confidence": {"GOs": "high", "KEGG_ko": "high"},
-        "tax_scope_used": "Bacteria,Archaea",
+        "tax_ceiling": "Metazoa",
+        "farthest_donor_taxid": "9606",
+        "farthest_donor_lineage": "Eukaryota;Metazoa;Chordata;Homo",
         "og_info": {
             "name": "CLU_TEST@131567|root",
             "cog_cat": "O",
@@ -55,34 +73,17 @@ def _make_engine_result(
     }
 
 
-def _make_batch_args(
-    hit,
-    target_orthologs="all",
-    target_taxa=None,
-    excluded_taxa=None,
-    tax_scope_mode=None,
-    tax_scope_ids=None,
-    seed_evalue=1e-3,
-    seed_score=60.0,
-):
-    """Build the args list that annotate_batch receives."""
-    return [
-        (
-            hit,
-            None,  # annotation (not pre-annotated)
-            seed_score,
-            seed_evalue,
-            tax_scope_mode,
-            tax_scope_ids,
-            target_taxa,
-            target_orthologs,
-            excluded_taxa,
-            None,  # go_evidence
-            None,  # go_excluded
-            None,  # data_dir
-            None,  # annotation (legacy field, unused in batch path)
-        )
-    ]
+def _make_ceiling_resolver(mode: str = "auto-narrow"):
+    """Build a mock TaxScopeCeilingResolver with the required interface."""
+    mock_resolver = MagicMock()
+    mock_resolver.mode = mode
+    mock_resolver.lineage_cache = MagicMock()
+    return mock_resolver
+
+
+def _make_batch_args(hit, target_orthologs="all"):
+    """Build the minimal args list that annotate_batch's batch param expects."""
+    return [(hit,)]
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +118,8 @@ class TestTargetOrthologs:
         mock_db.conn = object()
         mock_db._taxids = []
 
+        ceiling_resolver = _make_ceiling_resolver()
+
         with patch.object(bat_mod, "_get_engine", return_value=mock_engine):
             results = list(
                 annotate_batch(
@@ -126,12 +129,11 @@ class TestTargetOrthologs:
                     target_orthologs="one2one",
                     target_taxa=None,
                     excluded_taxa=None,
-                    tax_scope_mode=None,
-                    tax_scope_ids=None,
                     go_evidence=None,
                     go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
+                    ceiling_resolver=ceiling_resolver,
                 )
             )
 
@@ -170,6 +172,8 @@ class TestTargetOrthologs:
         mock_db.conn = object()
         mock_db._taxids = []
 
+        ceiling_resolver = _make_ceiling_resolver()
+
         with patch.object(bat_mod, "_get_engine", return_value=mock_engine):
             results = list(
                 annotate_batch(
@@ -179,12 +183,11 @@ class TestTargetOrthologs:
                     target_orthologs="all",
                     target_taxa=None,
                     excluded_taxa=None,
-                    tax_scope_mode=None,
-                    tax_scope_ids=None,
                     go_evidence=None,
                     go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
+                    ceiling_resolver=ceiling_resolver,
                 )
             )
 
@@ -209,6 +212,8 @@ class TestInvalidSeedId:
         mock_db.conn = object()
         mock_db._taxids = []
 
+        ceiling_resolver = _make_ceiling_resolver()
+
         with caplog.at_level(logging.WARNING, logger="eggnogmapper.annotation.batch_annotate"):
             results = list(
                 annotate_batch(
@@ -218,12 +223,11 @@ class TestInvalidSeedId:
                     target_orthologs="all",
                     target_taxa=None,
                     excluded_taxa=None,
-                    tax_scope_mode=None,
-                    tax_scope_ids=None,
                     go_evidence=None,
                     go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
+                    ceiling_resolver=ceiling_resolver,
                 )
             )
 
@@ -240,11 +244,11 @@ class TestInvalidSeedId:
 
 
 class TestAnnotationTupleStructure:
-    """The yielded annotation tuple must conform to the 11-element contract.
+    """The yielded annotation tuple must conform to the 14-element contract.
 
-    Element [10] (annotations_confidence) was added in Phase 3C of the v3
-    cut. output.py also accepts the legacy 10-element tuple as a graceful
-    fallback for older test fixtures."""
+    v3 refactor: tax_scope_used replaced by tax_ceiling (element [11]),
+    farthest_donor_taxid (element [12]), farthest_donor_lineage (element [13]).
+    """
 
     def _get_annotation(self, target_orthologs="all"):
         seed_id = 3000
@@ -262,6 +266,8 @@ class TestAnnotationTupleStructure:
         mock_db.conn = object()
         mock_db._taxids = []
 
+        ceiling_resolver = _make_ceiling_resolver()
+
         with patch.object(bat_mod, "_get_engine", return_value=mock_engine):
             results = list(
                 annotate_batch(
@@ -271,12 +277,11 @@ class TestAnnotationTupleStructure:
                     target_orthologs=target_orthologs,
                     target_taxa=None,
                     excluded_taxa=None,
-                    tax_scope_mode=None,
-                    tax_scope_ids=None,
                     go_evidence=None,
                     go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
+                    ceiling_resolver=ceiling_resolver,
                 )
             )
 
@@ -284,13 +289,16 @@ class TestAnnotationTupleStructure:
         (_, annotation), _ = results[0]
         return annotation
 
-    def test_annotation_tuple_has_12_elements(self):
-        """The annotation tuple must have exactly 12 elements
-        (Phase 7.1b appended `tax_scope_used` to the v3 11-tuple)."""
+    def test_annotation_tuple_has_14_elements(self):
+        """The annotation tuple must have exactly 14 elements.
+
+        Elements 11-13 are the three new ceiling/donor columns added in
+        the v3 tax_scope + cascade refactor.
+        """
         annotation = self._get_annotation()
         assert annotation is not None, "annotation should not be None for a valid hit"
-        assert len(annotation) == 12, (
-            f"Expected 12-element annotation tuple, got {len(annotation)}: {annotation}"
+        assert len(annotation) == 14, (
+            f"Expected 14-element annotation tuple, got {len(annotation)}: {annotation}"
         )
 
     def test_annotation_element_10_is_confidence_dict(self):
@@ -308,15 +316,39 @@ class TestAnnotationTupleStructure:
                 f"got {tier!r}"
             )
 
-    def test_annotation_element_11_is_tax_scope_used(self):
-        """element[11] (tax_scope_used) must be a non-empty string."""
+    def test_annotation_element_11_is_tax_ceiling(self):
+        """element[11] (tax_ceiling) must be a non-empty string.
+
+        Replaces the old tax_scope_used field. Values are human-readable
+        clade names such as 'Metazoa', 'Fungi', 'Prokaryota', or '-'.
+        """
         annotation = self._get_annotation()
         assert annotation is not None
-        tax_scope_used = annotation[11]
-        assert isinstance(tax_scope_used, str), (
-            f"annotation[11] must be a str, got {type(tax_scope_used).__name__}"
+        tax_ceiling = annotation[11]
+        assert isinstance(tax_ceiling, str), (
+            f"annotation[11] must be a str, got {type(tax_ceiling).__name__}"
         )
-        assert tax_scope_used, "annotation[11] (tax_scope_used) must not be empty"
+        assert tax_ceiling, "annotation[11] (tax_ceiling) must not be empty"
+
+    def test_annotation_element_12_is_farthest_donor_taxid(self):
+        """element[12] (farthest_donor_taxid) must be a non-empty string."""
+        annotation = self._get_annotation()
+        assert annotation is not None
+        farthest_taxid = annotation[12]
+        assert isinstance(farthest_taxid, str), (
+            f"annotation[12] must be a str, got {type(farthest_taxid).__name__}"
+        )
+        assert farthest_taxid, "annotation[12] (farthest_donor_taxid) must not be empty"
+
+    def test_annotation_element_13_is_farthest_donor_lineage(self):
+        """element[13] (farthest_donor_lineage) must be a non-empty string."""
+        annotation = self._get_annotation()
+        assert annotation is not None
+        farthest_lineage = annotation[13]
+        assert isinstance(farthest_lineage, str), (
+            f"annotation[13] must be a str, got {type(farthest_lineage).__name__}"
+        )
+        assert farthest_lineage, "annotation[13] (farthest_donor_lineage) must not be empty"
 
     def test_annotation_tuple_element_5_is_3tuple(self):
         """element[5] (match_nogs_descriptions) must be a 3-tuple: (og_name, cat, desc)."""
@@ -352,4 +384,20 @@ class TestAnnotationTupleStructure:
         assert annotation is not None
         assert isinstance(annotation[9], list), (
             f"annotation[9] must be a list, got {type(annotation[9]).__name__}"
+        )
+
+    def test_no_tax_scope_used_in_tuple(self):
+        """The old 'tax_scope_used' field must not appear as a string in
+        any tuple element — it has been replaced by tax_ceiling.
+
+        This test catches the biologically wrong case where the old field
+        name is still emitted even though its content is correct format.
+        """
+        annotation = self._get_annotation()
+        assert annotation is not None
+        # None of the string elements should be the old "tax_scope_used" header value
+        # Specifically element[11] should be a clade name, not "tax_scope_used"
+        assert annotation[11] != "tax_scope_used", (
+            "annotation[11] is the literal string 'tax_scope_used' — "
+            "old field name leaked into the data"
         )

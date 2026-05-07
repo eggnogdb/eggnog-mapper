@@ -6,12 +6,16 @@ import pytest
 
 from .conftest import TP53_PROTEIN_ID, NIFH_PROTEIN_ID
 
-# Expected result keys from annotate_batch
-# - annotations_confidence: Phase 3B (per-source cascade)
-# - tax_scope_used:         Phase 7.1b (per-seed resolved scope)
+# Expected result keys from annotate_batch (v3 refactor)
+# - annotations_confidence:  Phase 3B (per-source cascade)
+# - tax_ceiling:             resolved ceiling clade name per seed
+# - farthest_donor_taxid:    taxid of the most distant donor used
+# - farthest_donor_lineage:  lineage string of that donor
 REQUIRED_KEYS = {
     "orthologs", "ortholog_types", "all_ogs",
-    "annotations", "annotations_confidence", "tax_scope_used", "og_info",
+    "annotations", "annotations_confidence",
+    "tax_ceiling", "farthest_donor_taxid", "farthest_donor_lineage",
+    "og_info",
 }
 
 # Expected ortholog_type sub-keys
@@ -34,7 +38,7 @@ def _get_result(engine, protein_id: int) -> dict:
 
 @pytest.mark.parametrize("protein_id", [TP53_PROTEIN_ID, NIFH_PROTEIN_ID])
 def test_annotate_batch_returns_all_keys(engine, protein_id):
-    """annotate_batch result must contain all 5 required keys."""
+    """annotate_batch result must contain all 9 required keys."""
     result = _get_result(engine, protein_id)
     assert REQUIRED_KEYS == set(result.keys()), (
         f"Missing or extra keys for protein_id={protein_id}: "
@@ -216,7 +220,7 @@ def test_is_informative_pname_accepts_real_names(engine, good_pname):
 # ---------------------------------------------------------------------------
 
 def test_annotate_empty_early_return(engine):
-    """annotate_batch with an unknown protein ID returns all 5 keys with empty values."""
+    """annotate_batch with an unknown protein ID returns all 9 keys with empty values."""
     # Use a protein_id that doesn't exist in event_index (well beyond max)
     nonexistent_id = 999_999_999
     results = engine.annotate_batch([nonexistent_id])

@@ -194,13 +194,12 @@ def _worker_annotate_subbatch(args):
     `_WORKER_ENGINE` set in the parent before fork. Returns the per-seed
     result dict so the parent can merge.
     """
-    seed_ids, target_taxa, excluded_taxa, target_orthologs, scope_strict_og = args
+    seed_ids, target_taxa, excluded_taxa, target_orthologs = args
     return _WORKER_ENGINE._annotate_batch_inproc(
         seed_ids,
         target_taxa=target_taxa,
         excluded_taxa=excluded_taxa,
         target_orthologs=target_orthologs,
-        scope_strict_og=scope_strict_og,
     )
 
 
@@ -242,34 +241,49 @@ class AnnotationEngine:
     }
     TIER_CONFIDENCE = {0: "high", 1: "medium", 2: "low"}
 
-    def __init__(self, db: EggnogDB, lineage_filter=None, lineage_cache=None,
-                 go_obo_path: Optional[str] = None):
+    def __init__(
+        self,
+        db: EggnogDB,
+        lineage_filter=None,
+        lineage_cache=None,
+        go_obo_path: Optional[str] = None,
+        donor_pool: str = "closest",
+    ):
         """Initialize annotation engine.
 
         Args:
-            db: EggnogDB instance with loaded taxid array
+            db: EggnogDB instance with loaded taxid array.
             lineage_filter: Optional LineageFilter for tax-scope filtering.
-                When set (typically to auto mode), orthologs are pruned
-                per-seed to the seed's taxonomic domain before expensive
-                annotation fetch — the single largest speedup for
-                proteome-scale runs.
+                When set, orthologs are pruned per-seed to the seed's
+                taxonomic ceiling (``ev_lca ≤ ceiling``) before the
+                expensive annotation-fetch phase — the single largest
+                speedup for proteome-scale runs.
             lineage_cache: Optional LineageCache used by the cascade engine
-                to rank events by ev_lca depth. If None and lineage_filter
-                is set, the filter's own cache is reused. If both are
-                absent, the cascade falls back to type-tier priority only
-                (no ev_lca distance ordering).
-            go_obo_path: Optional path to a ``go-basic.obo`` file. When
+                to rank events by ev_lca depth.  If None and
+                lineage_filter is set, the filter's own cache is reused.
+                If both are absent the cascade falls back to type-tier
+                priority only (no ev_lca distance ordering).
+            go_obo_path: Optional path to a ``go-basic.obo`` file.  When
                 provided (or when the ``EGGNOG_GO_OBO`` env var is set),
                 the cascade splits GO terms by namespace (MF / BP / CC)
                 and runs an independent first-non-empty-tier walk per
-                namespace. All three subnamespaces merge into the single
-                output key ``"GOs"``. If the file is missing the engine
+                namespace.  All three subnamespaces merge into the single
+                output key ``"GOs"``.  If the file is missing the engine
                 logs a warning once and falls back to the legacy combined
-                cascade. Default: ``$EGGNOG_GO_OBO`` or the canonical path
+                cascade.  Default: ``$EGGNOG_GO_OBO`` or the canonical path
                 under ``data/e7/full/source/reference/go-basic.obo``.
+            donor_pool: ``"closest"`` (default) or ``"union"``.
+
+                - ``"closest"``: walk tiers in priority order; the first
+                  non-empty tier for each annotation source wins (original
+                  behaviour).
+                - ``"union"``: walk *all* tiers, union values across every
+                  tier; confidence is the best (smallest) tier seen for
+                  that source.
         """
         self.db = db
         self.lineage_filter = lineage_filter
+        self.donor_pool = donor_pool
         self.lineage_cache = lineage_cache or (
             lineage_filter.lineage_cache if lineage_filter is not None else None
         )
@@ -313,14 +327,21 @@ class AnnotationEngine:
             - annotations: dict of annotation field -> values
             - og_info: dict with OG name, description, category
         """
+        # Resolve ceiling for this seed.
+        ceiling_taxid = self._resolve_ceiling(seed_id)
+
         # Get events for this protein
         event_ids = self.db.get_events_for_protein(seed_id)
         if not event_ids:
+            seed_taxid_str = self._get_seed_taxid_str(seed_id)
+            lineage_str = self._lineage_str_for_taxid(seed_taxid_str)
             return {
                 "orthologs": [],
                 "annotations": {},
                 "annotations_confidence": {},
-                "tax_scope_used": self._describe_seed_scope(seed_id),
+                "tax_ceiling": self._ceiling_name(ceiling_taxid),
+                "farthest_donor_taxid": seed_taxid_str or "-",
+                "farthest_donor_lineage": lineage_str or "-",
                 "og_info": None,
                 "ortholog_types": {
                     "one2one": set(), "one2many": set(),
@@ -334,7 +355,8 @@ class AnnotationEngine:
 
         # Collect orthologs from events (simplified: no species grouping)
         orthologs, ortholog_types, ortholog_meta = self._collect_orthologs(
-            seed_id, events, target_taxa, excluded_taxa
+            seed_id, events, target_taxa, excluded_taxa,
+            ceiling_taxid=ceiling_taxid,
         )
 
         # Fetch and summarize annotations through the cascade
@@ -358,11 +380,17 @@ class AnnotationEngine:
         # Get OG info from events
         og_info = self._get_og_info(events)
 
+        farthest_taxid, farthest_lineage = self._compute_farthest_donor(
+            ortholog_meta, seed_id
+        )
+
         return {
             "orthologs": list(orthologs),
             "annotations": annotations,
             "annotations_confidence": annotations_confidence,
-            "tax_scope_used": self._describe_seed_scope(seed_id),
+            "tax_ceiling": self._ceiling_name(ceiling_taxid),
+            "farthest_donor_taxid": farthest_taxid,
+            "farthest_donor_lineage": farthest_lineage,
             "og_info": og_info,
             "ortholog_types": ortholog_types,
             # Single-protein path has no prots.ogs lookup; batch path fills this.
@@ -375,7 +403,6 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         target_orthologs: str = "all",
-        scope_strict_og: bool = True,
         pool=None,
         sub_batch_size: int = 125,
     ) -> Dict[int, Dict[str, Any]]:
@@ -384,33 +411,30 @@ class AnnotationEngine:
         Uses bulk queries to minimize database round-trips.
 
         Args:
-            seed_ids: List of integer protein IDs
-            target_taxa: Optional set of taxids to include
-            excluded_taxa: Optional set of taxids to exclude
-            target_orthologs: Cascade type floor; see ``TARGET_ORTHOLOGS_FLOORS``.
-            scope_strict_og: When True (default), drop events whose
-                containing OG (``sp_events.og_lca``) is broader than the
-                seed's resolved tax-scope ceiling. Consistent with the
-                auto tax-scope intent — the user says Viridiplantae,
-                they get Viridiplantae, no cross-kingdom donors leak in.
-                Materially faster too (≈2× wall on plant proteomes).
-                Set False to preserve the legacy permissive behaviour
-                (above-scope OG events stay in and are pruned per-protein
-                by the species filter afterwards).
-            pool: Optional `multiprocessing.Pool` (created with the fork
-                start method) for parallel sub-batch dispatch. The caller
-                must have called :func:`_register_worker_engine` on this
-                engine before forking the pool, and the pool must be
-                created with `initializer=_worker_init_after_fork` so
-                each worker reopens its own SQLite connection. When
-                None (default), the batch is processed in-process.
-            sub_batch_size: Sub-batch size for parallel dispatch. Smaller
-                = better load balance, more dispatch overhead. The
-                default of 125 fits comfortably under the cascade's
+            seed_ids: List of integer protein IDs.
+            target_taxa: Optional set of taxids to include.
+            excluded_taxa: Optional set of taxids to exclude.
+            target_orthologs: Cascade type floor; see
+                ``TARGET_ORTHOLOGS_FLOORS``.
+            pool: Optional ``multiprocessing.Pool`` (created with the
+                fork start method) for parallel sub-batch dispatch.  The
+                caller must have called
+                :func:`_register_worker_engine` on this engine before
+                forking the pool, and the pool must be created with
+                ``initializer=_worker_init_after_fork`` so each worker
+                reopens its own SQLite connection.  When ``None``
+                (default), the batch is processed in-process.
+            sub_batch_size: Sub-batch size for parallel dispatch.
+                Smaller = better load balance, more dispatch overhead.
+                The default of 125 fits comfortably under the cascade's
                 event-cache reuse window.
 
         Returns:
-            Dict mapping seed_id -> annotation result
+            Dict mapping seed_id → annotation result.  Each result
+            contains the keys ``"tax_ceiling"``,
+            ``"farthest_donor_taxid"``, and
+            ``"farthest_donor_lineage"`` in addition to the standard
+            annotation fields.
         """
         if not seed_ids:
             return {}
@@ -425,7 +449,7 @@ class AnnotationEngine:
                 for i in range(0, len(seed_ids), sub_batch_size)
             ]
             args_list = [
-                (sb, target_taxa, excluded_taxa, target_orthologs, scope_strict_og)
+                (sb, target_taxa, excluded_taxa, target_orthologs)
                 for sb in sub_batches
             ]
             merged: Dict[int, Dict[str, Any]] = {}
@@ -438,7 +462,6 @@ class AnnotationEngine:
             target_taxa=target_taxa,
             excluded_taxa=excluded_taxa,
             target_orthologs=target_orthologs,
-            scope_strict_og=scope_strict_og,
         )
 
     def _annotate_batch_inproc(
@@ -447,11 +470,12 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         target_orthologs: str = "all",
-        scope_strict_og: bool = True,
     ) -> Dict[int, Dict[str, Any]]:
-        """In-process implementation of `annotate_batch`. The public
-        method dispatches to either this or the parallel path; this
-        also serves as the worker entrypoint after fork."""
+        """In-process implementation of ``annotate_batch``.
+
+        The public method dispatches to either this or the parallel path;
+        this also serves as the worker entrypoint after fork.
+        """
         if not seed_ids:
             return {}
 
@@ -475,29 +499,35 @@ class AnnotationEngine:
         events_cache = self.db.get_events_bulk(list(all_event_ids))
         _t(f"p2 events ({len(all_event_ids)})", t0)
 
-        # Phase 3: Collect orthologs for each seed (with tax-scope prune)
+        # Phase 3: Collect orthologs for each seed (with ev_lca ceiling prune)
         t0 = time.time()
         seed_orthologs: Dict[int, Set[int]] = {}
         seed_ortholog_types: Dict[int, Dict[str, Set[int]]] = {}
         seed_ortholog_meta: Dict[int, Dict[int, Dict[str, Any]]] = {}
-        seed_tax_scope_used: Dict[int, str] = {}
+        seed_tax_ceiling: Dict[int, str] = {}
         all_orthologs: Set[int] = set()
         for seed_id in seed_ids:
             eids = event_index.get(seed_id, [])
             # Filter events to those in our cache
             seed_events = {eid: events_cache[eid] for eid in eids if eid in events_cache}
-            valid_species = self._resolve_valid_species(seed_id)
-            allowed_og_lcas = (
-                self._resolve_allowed_og_lcas(seed_id) if scope_strict_og else None
+            ceiling_taxid = self._resolve_ceiling(seed_id)
+            valid_species = self._resolve_valid_species_for_ceiling(
+                seed_id, ceiling_taxid
             )
+            allowed_og_lcas = self._resolve_allowed_og_lcas_for_ceiling(ceiling_taxid)
             orthologs, ortholog_types, ortholog_meta = self._collect_orthologs(
-                seed_id, seed_events, target_taxa, excluded_taxa, valid_species,
+                seed_id,
+                seed_events,
+                target_taxa,
+                excluded_taxa,
+                valid_species,
+                ceiling_taxid=ceiling_taxid,
                 allowed_og_lcas=allowed_og_lcas,
             )
             seed_orthologs[seed_id] = orthologs
             seed_ortholog_types[seed_id] = ortholog_types
             seed_ortholog_meta[seed_id] = ortholog_meta
-            seed_tax_scope_used[seed_id] = self._describe_seed_scope(seed_id)
+            seed_tax_ceiling[seed_id] = self._ceiling_name(ceiling_taxid)
             all_orthologs.update(orthologs)
         _t(f"p3 collect_orthologs ({len(all_orthologs)})", t0)
 
@@ -590,19 +620,16 @@ class AnnotationEngine:
             cascade_ids = orthologs | {seed_id} if seed_id in annot_cache else orthologs
             seed_annots = {oid: annot_cache[oid] for oid in cascade_ids if oid in annot_cache}
             seed_meta = seed_ortholog_meta.get(seed_id, {})
-            # GO cross-tier union spans every collected ortholog with no
-            # secondary scope cap — the orthology-collection-time filter
-            # (`scope_strict_og` → `allowed_og_lcas`) already enforced
-            # whatever ceiling the user asked for. Passing `scope_og_lcas=
-            # None` here is the difference between "first-non-empty tier
-            # wins" (legacy) and "union across every tier the cascade
-            # already accepted".
             annotations, annotations_confidence = (
                 self._summarize_annotations(
-                    seed_annots, seed_meta, target_orthologs,
+                    seed_annots,
+                    seed_meta,
+                    target_orthologs,
                     parsed=parsed_cache,
+                    donor_pool=self.donor_pool,
                 )
-                if seed_annots else ({}, {})
+                if seed_annots
+                else ({}, {})
             )
 
             # Preferred_name: use the seed's own pname when it is an informative
@@ -646,11 +673,17 @@ class AnnotationEngine:
             # Preserve OG name insertion order from _parse_ogs_string
             all_ogs = [name for name, _level in seed_parsed_ogs.get(seed_id, [])]
 
+            farthest_taxid, farthest_lineage = self._compute_farthest_donor(
+                seed_meta, seed_id
+            )
+
             results[seed_id] = {
                 "orthologs": list(orthologs),
                 "annotations": annotations,
                 "annotations_confidence": annotations_confidence,
-                "tax_scope_used": seed_tax_scope_used.get(seed_id, "none"),
+                "tax_ceiling": seed_tax_ceiling.get(seed_id, "-"),
+                "farthest_donor_taxid": farthest_taxid,
+                "farthest_donor_lineage": farthest_lineage,
                 "og_info": og_info,
                 "ortholog_types": seed_ortholog_types.get(
                     seed_id,
@@ -682,19 +715,108 @@ class AnnotationEngine:
                 self._og_cache[p] = fetched.get(p)  # may be None (miss)
         return {p: self._og_cache[p] for p in pairs if self._og_cache[p] is not None}
 
-    def _describe_seed_scope(self, seed_id: int) -> str:
-        """Return the human-readable tax_scope decision for one seed
-        (Phase 7.1b). ``"none"`` when no filter is active or the seed's
-        species is unknown."""
-        if self.lineage_filter is None:
-            return "none"
+    def _get_seed_taxid_str(self, seed_id: int) -> str:
+        """Return the species taxid string for ``seed_id``, or ``""``."""
         taxids = self.db.taxid_array
-        if not taxids or seed_id >= len(taxids):
-            return "none"
-        seed_taxid = taxids[seed_id]
-        if seed_taxid == 0:
-            return "none"
-        return self.lineage_filter.describe_scope_for_seed(seed_taxid)
+        if taxids is None or seed_id >= len(taxids):
+            return ""
+        taxid_int = taxids[seed_id]
+        return str(taxid_int) if taxid_int else ""
+
+    def _lineage_str_for_taxid(self, taxid_str: str) -> str:
+        """Return the semicolon-separated lineage string for a taxid.
+
+        Used to populate ``farthest_donor_lineage``.  Returns ``"-"``
+        when the taxid is empty or not in the lineage cache.
+        """
+        if not taxid_str or self.lineage_cache is None:
+            return "-"
+        track = getattr(self.lineage_cache, "_tracks", {})
+        if not track:
+            # Fallback: use the set form sorted arbitrarily.
+            lineage = self.lineage_cache.get(taxid_str)
+            if lineage:
+                return ";".join(sorted(lineage))
+            return "-"
+        ordered = track.get(taxid_str)
+        if ordered:
+            return ";".join(ordered)
+        return "-"
+
+    def _ceiling_name(self, ceiling_taxid: str) -> str:
+        """Return the human-readable ceiling name for output.
+
+        Delegates to ``lineage_filter.ceiling_name`` when a filter is
+        present; otherwise returns the raw taxid (or ``"-"``).
+        """
+        if self.lineage_filter is not None:
+            return self.lineage_filter.ceiling_name(ceiling_taxid)
+        from .ceiling import CEILING_NAMES
+        return CEILING_NAMES.get(ceiling_taxid, ceiling_taxid or "-")
+
+    def _resolve_ceiling(self, seed_id: int) -> str:
+        """Resolve the ev_lca ceiling taxid for a seed protein.
+
+        Returns ``"root"`` (no filter) when no ``lineage_filter`` is
+        configured or the seed taxid is unknown.
+
+        Args:
+            seed_id: Integer protein ID.
+
+        Returns:
+            Ceiling taxid string (or ``PROKARYOTA_SYNTHETIC`` / ``"root"``).
+        """
+        if self.lineage_filter is None:
+            return "root"
+        seed_taxid = self._get_seed_taxid_str(seed_id)
+        if not seed_taxid or seed_taxid == "0":
+            return "root"
+        return self.lineage_filter.get_ceiling_for_seed(seed_taxid)
+
+    def _compute_farthest_donor(
+        self,
+        ortholog_meta: Dict[int, Dict[str, Any]],
+        seed_id: int,
+    ) -> Tuple[str, str]:
+        """Return (taxid_str, lineage_str) of the farthest used donor.
+
+        "Farthest" = the donor whose ev_lca has the smallest depth
+        (shallowest in the tree = broadest LCA = most evolutionarily
+        distant from the seed).  Ties are broken arbitrarily.
+
+        Falls back to the seed's own species values when no non-self
+        donor orthologs are present in ``ortholog_meta``.
+
+        Args:
+            ortholog_meta: Mapping from ortholog protein ID to cascade
+                metadata dict (as produced by ``_collect_orthologs``).
+            seed_id: Integer protein ID of the seed.
+
+        Returns:
+            A ``(taxid_str, lineage_str)`` tuple where ``lineage_str``
+            is semicolon-separated from root to leaf.
+        """
+        taxids = self.db.taxid_array
+        best_depth: Optional[int] = None
+        best_taxid_str: str = ""
+
+        for oid, meta in ortholog_meta.items():
+            if oid == seed_id:
+                continue
+            depth = meta.get("depth", 0)
+            if best_depth is None or depth < best_depth:
+                best_depth = depth
+                if taxids is not None and oid < len(taxids):
+                    best_taxid_str = str(taxids[oid])
+
+        if best_taxid_str and best_taxid_str != "0":
+            return best_taxid_str, self._lineage_str_for_taxid(best_taxid_str)
+
+        # Fallback to seed's own species.
+        seed_taxid_str = self._get_seed_taxid_str(seed_id)
+        if seed_taxid_str and seed_taxid_str != "0":
+            return seed_taxid_str, self._lineage_str_for_taxid(seed_taxid_str)
+        return "-", "-"
 
     def _seed_lineage(self, seed_id: int) -> Optional[frozenset]:
         """Cached lookup of the seed's lineage as a frozenset of taxid strings.
@@ -717,56 +839,59 @@ class AnnotationEngine:
         self._seed_lineage_set_cache[seed_id] = result
         return result
 
-    def _resolve_valid_species(self, seed_id):
-        """Return the cached set of species taxids (as strings) allowed
-        by the lineage_filter for this seed, or None for no filter.
+    def _resolve_valid_species_for_ceiling(
+        self,
+        seed_id: int,
+        ceiling_taxid: str,
+    ) -> Optional[frozenset]:
+        """Return the valid species frozenset for a pre-resolved ceiling.
 
-        Result is memoized by the seed's species taxid so we only run
-        the lineage intersection once per unique species in a batch.
+        Memoized by ceiling taxid (multiple seeds may share the same
+        ceiling on a single-species proteome run).
+
+        Args:
+            seed_id: Integer protein ID (used only for debug logging).
+            ceiling_taxid: Pre-resolved ceiling from :meth:`_resolve_ceiling`.
+
+        Returns:
+            Frozenset of species taxid strings, or ``None`` for no filter.
         """
         if self.lineage_filter is None:
             return None
-        taxids = self.db.taxid_array
-        if not taxids or seed_id >= len(taxids):
+        if ceiling_taxid == "root":
             return None
-        taxid = taxids[seed_id]
-        if taxid == 0:
-            logger.debug("seed_id %d has taxid=0 (possibly uninitialized slot)", seed_id)
-        seed_taxid = str(taxid)
-        if seed_taxid in self._valid_species_by_seed:
-            return self._valid_species_by_seed[seed_taxid]
-        scope = self.lineage_filter.get_effective_scope(seed_taxid)
-        valid = (
-            self.lineage_filter.get_valid_species_ids(scope)
-            if scope else None
-        )
-        self._valid_species_by_seed[seed_taxid] = valid
+        if ceiling_taxid in self._valid_species_by_seed:
+            return self._valid_species_by_seed[ceiling_taxid]
+        valid = self.lineage_filter.get_valid_species_ids(ceiling_taxid)
+        self._valid_species_by_seed[ceiling_taxid] = valid
         return valid
 
-    def _resolve_allowed_og_lcas(self, seed_id):
-        """Return the frozenset of taxids at-or-below the seed's
-        tax-scope ceiling, or None if no filter applies.
+    def _resolve_allowed_og_lcas_for_ceiling(
+        self, ceiling_taxid: str
+    ) -> Optional[frozenset]:
+        """Return the ``og_lca`` whitelist for a pre-resolved ceiling.
 
-        Used as an `og_lca` whitelist by the strict-OG mode. Memoized
-        per seed-species (same scope ⇒ same allowed set).
+        Used as the strict-OG gate in ``_collect_orthologs``.  Memoized
+        per ceiling taxid.
+
+        Args:
+            ceiling_taxid: Pre-resolved ceiling from :meth:`_resolve_ceiling`.
+
+        Returns:
+            Frozenset of taxid strings (ceiling + all descendants), or
+            ``None`` for no filter.
         """
         if self.lineage_filter is None:
             return None
-        taxids = self.db.taxid_array
-        if not taxids or seed_id >= len(taxids):
+        if ceiling_taxid == "root":
             return None
-        seed_taxid = str(taxids[seed_id])
-        cache = getattr(self, "_allowed_og_lcas_by_seed", None)
+        cache = getattr(self, "_allowed_og_lcas_by_ceiling", None)
         if cache is None:
-            cache = self._allowed_og_lcas_by_seed = {}
-        if seed_taxid in cache:
-            return cache[seed_taxid]
-        scope = self.lineage_filter.get_effective_scope(seed_taxid)
-        allowed = (
-            self.lineage_filter.get_scope_og_descendants(scope)
-            if scope else None
-        )
-        cache[seed_taxid] = allowed
+            cache = self._allowed_og_lcas_by_ceiling = {}
+        if ceiling_taxid in cache:
+            return cache[ceiling_taxid]
+        allowed = self.lineage_filter.get_scope_og_descendants(ceiling_taxid)
+        cache[ceiling_taxid] = allowed
         return allowed
 
     def _collect_orthologs(
@@ -776,6 +901,7 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         valid_species: Optional[frozenset] = None,
+        ceiling_taxid: Optional[str] = None,
         allowed_og_lcas: Optional[frozenset] = None,
     ) -> Tuple[Set[int], Dict[str, Set[int]], Dict[int, Dict[str, Any]]]:
         """Collect ortholog IDs from events, classified by orthology type.
@@ -786,18 +912,22 @@ class AnnotationEngine:
         buckets if it participates in events with different cardinalities.
 
         Args:
-            seed_id: Seed protein ID
-            events: Dict of event_id -> event data
-            target_taxa: Optional taxids to include
-            excluded_taxa: Optional taxids to exclude
+            seed_id: Seed protein ID.
+            events: Dict of event_id → event data.
+            target_taxa: Optional taxids to include.
+            excluded_taxa: Optional taxids to exclude.
             valid_species: Optional frozenset of taxid strings allowed by
-                the lineage scope filter. Produced by
-                ``LineageFilter.get_valid_species_ids()``.
+                the ceiling resolver.  Produced by
+                :meth:`_resolve_valid_species_for_ceiling`.
+            ceiling_taxid: Pre-resolved ceiling taxid string (or
+                ``"root"``).  When provided, events whose ``ev_lca`` does
+                not pass the ceiling are discarded before orthologs are
+                collected.  ``None`` behaves as ``"root"`` (no ev_lca
+                filter).
             allowed_og_lcas: Optional frozenset of taxid strings naming
                 the OGs whose containing taxonomic level (``og_lca``) is
-                at-or-below the seed's tax-scope ceiling. When provided,
-                events from broader OGs are skipped entirely — see
-                ``annotate_batch(scope_strict_og=True)``.
+                at-or-below the ceiling.  When provided, events from
+                broader OGs are skipped entirely — the strict-OG gate.
 
         Returns:
             ``(orthologs, ortholog_types, ortholog_meta)`` where:
@@ -847,23 +977,41 @@ class AnnotationEngine:
             collector = None
             ortholog_meta_raw: Dict[int, Tuple[Tuple[int, int, int], Dict[str, Any]]] = {}
 
+        # Resolve the ev_lca ceiling check once per call (not per event).
+        effective_ceiling = ceiling_taxid or "root"
+        do_ev_lca_filter = (
+            effective_ceiling != "root"
+            and self.lineage_filter is not None
+        )
+
         for event_id, event in events.items():
             # Hard scope-OG filter: drop events whose containing OG is
             # broader than the seed's tax-scope ceiling. The same in-scope
             # orthologs already appear in lower OGs at higher cascade
             # priority, so dropping these events is biologically lossless
             # under auto-scope and removes ~99 % of fetched orthologs on
-            # plant proteomes. Opt-in via `annotate_batch(scope_strict_og=True)`.
+            # plant proteomes.
             #
             # Empty / missing `og_lca` (rare — events whose source tree
             # node had no LCA prop): keep the event through this gate
             # rather than silently drop. Out-of-scope orthologs from
             # such events are still excluded by the per-protein species
             # filter (`valid_species`) below. Dropping them would mean
-            # silent biological data loss — caught in code review (HIGH-7).
+            # silent biological data loss.
             if allowed_og_lcas is not None:
                 og_lca = event.get("og_lca")
                 if og_lca and og_lca not in allowed_og_lcas:
+                    continue
+
+            # ev_lca ceiling gate: drop events whose ev_lca is above the
+            # per-seed ceiling (i.e. the LCA taxid is not at-or-below the
+            # ceiling in the NCBI tree).  This is the primary new filter
+            # replacing the old `allowed_og_lcas` strict-OG approach.
+            if do_ev_lca_filter:
+                ev_lca_for_check = str(event.get("ev_lca") or "")
+                if ev_lca_for_check and not self.lineage_filter.ev_lca_passes_ceiling(
+                    ev_lca_for_check, effective_ceiling
+                ):
                     continue
 
             side1 = event.get("side1")
@@ -1127,42 +1275,49 @@ class AnnotationEngine:
         target_orthologs: str = "all",
         parsed: Optional[Dict[int, Dict[str, Tuple[str, ...]]]] = None,
         scope_og_lcas: Optional[frozenset] = None,
+        donor_pool: str = "closest",
     ) -> Tuple[Dict[str, Any], Dict[str, str]]:
         """Cascade summary: per-source closest-ev_lca + type-priority winner.
 
-        For each functional source (KEGG_ko, GOs, Pfam, ...) independently,
-        donors are walked from closest+best-typed first. The first bucket
-        — defined by the cascade key ``(in_seed_lineage, -ev_lca_depth,
-        type_tier)`` — that has any donor with a non-empty value for that
-        source wins, and the consensus is taken across only the donors in
-        that winning bucket. This preserves "if no 1:1 donors annotate
-        source S, fall through to 1:many or many:many — but with caution"
-        as a per-source rule, while keeping the strict upper-clade ceiling
-        from ``LineageFilter`` (already applied during phase 3).
+        For each functional source (KEGG_ko, GOs, Pfam, …) independently,
+        donors are walked from closest + best-typed first.
+
+        ``donor_pool`` controls the walk strategy:
+
+        - ``"closest"`` (default): The first bucket — defined by the
+          cascade key ``(in_seed_lineage, -ev_lca_depth, type_tier)`` —
+          that has any donor with a non-empty value for that source wins,
+          and the consensus is taken across *only* the donors in that
+          winning bucket.  This preserves the original semantics.
+        - ``"union"``: Walk *all* tiers; union the values across every
+          tier that contributes any donor for each source.  The confidence
+          reported is the best (smallest ``type_tier``) seen across the
+          contributing tiers.
 
         ``target_orthologs`` is a *floor*: types not in
-        ``TARGET_ORTHOLOGS_FLOORS[target_orthologs]`` are excluded from the
-        cascade entirely. The post-aggregation filter that the v2-style
-        mapper shim applied is no longer needed.
+        ``TARGET_ORTHOLOGS_FLOORS[target_orthologs]`` are excluded from
+        the cascade entirely.
 
         Args:
             annot_data: ``{protein_id: annotation_dict}`` for every
                 ortholog plus optionally the seed.
             ortholog_meta: ``{protein_id: meta_dict}`` produced by
-                :meth:`_collect_orthologs`. Required for cascade mode.
+                :meth:`_collect_orthologs`.  Required for cascade mode.
                 When absent or empty the flat aggregation is used (same
-                logic as v3 phase 0) and confidence is empty — needed for
-                back-compat with the single-protein ``annotate()`` path
-                and the existing test_annotate.py expectations.
+                logic as v3 phase 0) and confidence is empty.
             target_orthologs: ``"all"``, ``"many2many"``, ``"one2many"``,
-                ``"many2one"`` or ``"one2one"``. Anything else is treated
+                ``"many2one"`` or ``"one2one"``.  Anything else is treated
                 as ``"all"``.
+            parsed: Optional pre-parsed annotation cache from
+                :meth:`_pre_parse_batch`.
+            scope_og_lcas: Unused; kept for call-site compatibility only.
+            donor_pool: ``"closest"`` or ``"union"``; see above.
 
         Returns:
             ``(annotations, confidence)`` where ``annotations`` is the
-            same shape returned by the legacy summarizer (output-named
+            same shape returned by the legacy summariser (output-named
             keys: ``Preferred_name``, ``GOs``, ``PFAMs``, ``KEGG_ko``,
-            ...) and ``confidence`` is ``{output_field: "high" | "medium"
+            …) and ``confidence`` is ``{output_field: "high" | "medium"
             | "low"}`` for every source actually emitted.
         """
         if not annot_data:
@@ -1215,6 +1370,8 @@ class AnnotationEngine:
         # branch the assignment below from "overwrite" to "union+merge".
         multi_source_outputs = {self._cascade_output_field(f) for f in _GO_NS_FIELDS}
 
+        use_union = donor_pool == "union"
+
         for field in self.ANNOTATION_FIELDS:
             # Skip the per-namespace GO sub-fields entirely when the OBO
             # map was unavailable: in that case `_pre_parse_batch` writes
@@ -1223,10 +1380,12 @@ class AnnotationEngine:
             if field in _GO_NS_FIELDS and self._go_namespace_map is None:
                 continue
             output_field = self._cascade_output_field(field)
-            # All sources — including each GO sub-namespace — use the
-            # closest-non-empty-tier-wins rule. The per-namespace GO split
-            # ensures MF/BP/CC each run their own short-circuit walk, so
-            # an MF-only-rich tier doesn't silence a deeper CC-rich tier.
+            # Both modes walk tiers in priority order. "closest" stops at
+            # the first non-empty tier (the original behaviour). "union"
+            # continues through all tiers and accumulates values.
+            field_union_values: Set[str] = set()
+            field_best_tier: Optional[int] = None
+
             for prio_key in priority_order:
                 contributors = [
                     oid for oid in buckets[prio_key]
@@ -1235,25 +1394,36 @@ class AnnotationEngine:
                 if not contributors:
                     continue
                 values = self._aggregate_field(field, contributors, parsed)
-                if values:
-                    if output_field in multi_source_outputs:
-                        # Union the GO namespaces into the same "GOs" output;
-                        # keep the best (smallest tier int) confidence across
-                        # the three contributing sub-namespaces.
-                        bucket = merged_values.setdefault(output_field, set())
-                        bucket.update(values)
-                        cur_tier = merged_tier.get(output_field)
-                        if cur_tier is None or prio_key[2] < cur_tier:
-                            merged_tier[output_field] = prio_key[2]
-                    else:
-                        annotations[output_field] = values
-                        confidence[output_field] = (
-                            self.TIER_CONFIDENCE[prio_key[2]]
-                        )
-                # First non-empty bucket wins — stop the cascade for this
-                # source. Distant-ortholog donors are only consulted when
-                # closer tiers had no contributor for this field at all.
-                break
+                if not values:
+                    continue
+
+                if output_field in multi_source_outputs:
+                    # GO sub-namespaces always union into "GOs" regardless
+                    # of donor_pool, to preserve per-namespace completeness.
+                    bucket = merged_values.setdefault(output_field, set())
+                    bucket.update(values)
+                    cur_tier = merged_tier.get(output_field)
+                    if cur_tier is None or prio_key[2] < cur_tier:
+                        merged_tier[output_field] = prio_key[2]
+                    if not use_union:
+                        break
+                elif use_union:
+                    # Accumulate all tiers; record the best (smallest) tier.
+                    field_union_values.update(values)
+                    if field_best_tier is None or prio_key[2] < field_best_tier:
+                        field_best_tier = prio_key[2]
+                else:
+                    # "closest": first non-empty bucket wins.
+                    annotations[output_field] = values
+                    confidence[output_field] = self.TIER_CONFIDENCE[prio_key[2]]
+                    break
+
+            # Materialise union-mode non-GO fields.
+            if use_union and field_union_values and output_field not in multi_source_outputs:
+                annotations[output_field] = list(field_union_values)
+                confidence[output_field] = self.TIER_CONFIDENCE[
+                    field_best_tier  # type: ignore[index]
+                ]
 
         # Legacy combined-GO walk when the OBO map was unavailable. The
         # three sub-fields above were no-ops; "gos" runs the historical
@@ -1261,6 +1431,8 @@ class AnnotationEngine:
         if self._go_namespace_map is None:
             field = self.LEGACY_GO_FIELD
             output_field = self._cascade_output_field(field)
+            gos_union: Set[str] = set()
+            gos_best_tier: Optional[int] = None
             for prio_key in priority_order:
                 contributors = [
                     oid for oid in buckets[prio_key]
@@ -1270,9 +1442,19 @@ class AnnotationEngine:
                     continue
                 values = self._aggregate_field(field, contributors, parsed)
                 if values:
-                    annotations[output_field] = values
-                    confidence[output_field] = self.TIER_CONFIDENCE[prio_key[2]]
-                break
+                    if use_union:
+                        gos_union.update(values)
+                        if gos_best_tier is None or prio_key[2] < gos_best_tier:
+                            gos_best_tier = prio_key[2]
+                    else:
+                        annotations[output_field] = values
+                        confidence[output_field] = self.TIER_CONFIDENCE[prio_key[2]]
+                        break
+            if use_union and gos_union:
+                annotations[output_field] = list(gos_union)
+                confidence[output_field] = self.TIER_CONFIDENCE[
+                    gos_best_tier  # type: ignore[index]
+                ]
 
         # Materialise multi-source merged outputs (currently just GOs).
         for output_field, values_set in merged_values.items():

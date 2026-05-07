@@ -150,17 +150,22 @@ python emapper.py -i genome.fna --itype metagenome --genepred search \
 
 ### Taxonomic Scope and Ortholog Filtering
 
-Taxonomic scope controls which clades are used for functional transfer:
+Taxonomic scope controls which clades are used for functional transfer by
+setting an `ev_lca` ceiling on speciation events:
 
 ```bash
-# Restrict annotation to bacterial orthologs
-python emapper.py -i seqs.fa --tax_scope bacteria -o out
+# Auto-narrow: walk seed's lineage from leaf up, use narrowest matching clade
+python emapper.py -i seqs.fa --tax_scope auto-narrow -o out
 
-# Use a specific list of taxonomic IDs
-python emapper.py -i seqs.fa --tax_scope 2759,2157 -o out
+# Auto-broad: walk seed's lineage, prioritize broad clades
+python emapper.py -i seqs.fa --tax_scope auto-broad -o out
 
-# Control which clade level is used for annotation
-python emapper.py -i seqs.fa --tax_scope bacteria --tax_scope_mode broadest -o out
+# Fix ceiling to a specific clade for all seeds
+python emapper.py -i seqs.fa --tax_scope Metazoa -o out
+python emapper.py -i seqs.fa --tax_scope 33208 -o out
+
+# Control donor pool strategy (default: closest; alternative: union)
+python emapper.py -i seqs.fa --donor_pool union -o out
 
 # Only use one-to-one orthologs for annotation
 python emapper.py -i seqs.fa --target_orthologs one2one -o out
@@ -464,8 +469,8 @@ python create_dbs.py -y --dbname my_custom --taxids 2,2157 -m mmseqs
 | `--dbmem` | off | Load `eggnog.db` into memory (~45 GB RAM) |
 | `--seed_ortholog_evalue FLOAT` | `0.001` | Min e-value for seed ortholog acceptance |
 | `--seed_ortholog_score FLOAT` | none | Min bit score for seed ortholog acceptance |
-| `--tax_scope` | `auto` | Taxonomic scope: `auto`, `bacteria`, `eukaryota`, `archaea`, tax IDs, file path, or `none` |
-| `--tax_scope_mode` | `inner_narrowest` | Scope mode: `broadest`, `inner_broadest`, `inner_narrowest`, `narrowest` |
+| `--tax_scope` | `auto-narrow` | Tax ceiling: `auto-narrow` (default), `auto-broad`, or clade name/taxid (e.g. `Metazoa`, `33208`) |
+| `--donor_pool` | `closest` | Donor pool strategy: `closest` (first non-empty tier) or `union` (all tiers) |
 | `--target_orthologs` | `all` | Ortholog types: `one2one`, `many2one`, `one2many`, `many2many`, `all` |
 | `--target_taxa LIST` | none | Restrict to specific taxa (comma-separated tax IDs) |
 | `--excluded_taxa LIST` | none | Exclude specific taxa (comma-separated tax IDs) |
@@ -548,3 +553,7 @@ The `*.emapper.annotations` file is a TSV with the following columns:
 | 19 | `CAZy` | Carbohydrate-Active Enzymes |
 | 20 | `BiGG_Reaction` | BiGG metabolic reactions |
 | 21 | `PFAMs` | Pfam domain identifiers |
+| 22 | `annotation_confidence` | Confidence per field: `field=tier;...` (high/medium/low) |
+| 23 | `tax_ceiling` | Resolved taxonomic ceiling clade name for this seed |
+| 24 | `farthest_donor_taxid` | Taxid of most distant donor ortholog used |
+| 25 | `farthest_donor_lineage` | Lineage of that donor (semicolon-separated, root→leaf) |

@@ -11,7 +11,7 @@ Use eggnog-mapper v2.x for v5 databases.
 
 from .tax_scope import (
     LineageFilter,
-    parse_tax_scope,
+    resolve_name_to_taxid,
     BACTERIA,
     ARCHAEA,
     EUKARYOTA,
@@ -20,6 +20,15 @@ from .tax_scope import (
     VIRIDIPLANTAE,
     CELLULAR_ORGANISMS,
 )
+from .ceiling import (
+    TaxScopeCeilingResolver,
+    CEILING_NAMES,
+    AUTO_NARROW_PRIORITY,
+    AUTO_BROAD_PRIORITY,
+    OPISTHOKONTA,
+    MICROSPORIDIA,
+    PROKARYOTA_SYNTHETIC,
+)
 from .db import EggnogDB, EggnogDBError
 from .annotate import AnnotationEngine, annotate_protein
 from .orthologs import OrthologFinder, DonorTracker
@@ -27,7 +36,7 @@ from .orthologs import OrthologFinder, DonorTracker
 __all__ = [
     # Tax scope
     "LineageFilter",
-    "parse_tax_scope",
+    "resolve_name_to_taxid",
     "BACTERIA",
     "ARCHAEA",
     "EUKARYOTA",
@@ -35,6 +44,14 @@ __all__ = [
     "FUNGI",
     "VIRIDIPLANTAE",
     "CELLULAR_ORGANISMS",
+    # Ceiling resolver
+    "TaxScopeCeilingResolver",
+    "CEILING_NAMES",
+    "AUTO_NARROW_PRIORITY",
+    "AUTO_BROAD_PRIORITY",
+    "OPISTHOKONTA",
+    "MICROSPORIDIA",
+    "PROKARYOTA_SYNTHETIC",
     # Database
     "EggnogDB",
     "EggnogDBError",

@@ -45,11 +45,20 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db
 
 ##
 def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
-    # v3 annotation tuple shapes:
-    #   11 elem  — v3 cascade   (annotations_confidence appended)
-    #   12 elem  — v3.1+        (tax_scope_used appended)
-    # The orthologs row only needs the first 10 fields; the trailing
-    # confidence / tax_scope_used elements are unpacked but unused here.
+    """Write one ortholog row to ``out``.
+
+    The orthologs row only needs the first 10 fields; trailing elements
+    (confidence, ceiling, farthest_donor) are unpacked but unused here.
+
+    Handles multiple annotation tuple shapes (11, 12, or 14 elements)
+    for resume compatibility.
+
+    Args:
+        out: File-like output object.
+        annotation: Annotation tuple from ``annotate_batch``.
+        ncbi: NCBI taxa accessor for taxid → taxname lookups.
+        eggnog_db: Open annotation DB for protein-name decoding.
+    """
     n = len(annotation)
     if n == 11:
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
@@ -58,14 +67,24 @@ def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
          max_annot_lvl,
          match_nog_names,
          all_orthologies, annot_orthologs, _confidence) = annotation
-    else:
+    elif n == 12:
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations,
          (og_name, og_cat, og_desc),
          max_annot_lvl,
          match_nog_names,
          all_orthologies, annot_orthologs,
-         _confidence, _tax_scope_used) = annotation
+         _confidence, _tax_ceiling) = annotation
+    else:
+        # 14-element current shape.
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs,
+         _confidence, _tax_ceiling,
+         _farthest_donor_taxid, _farthest_donor_lineage) = annotation
 
     # Decode all integer protein IDs (best hit + all orthologs) up front.
     all_ids = {int(best_hit_name)}
@@ -181,12 +200,15 @@ ANNOTATIONS_HEADER = ['Preferred_name',
 # emitted (and therefore got a confidence label). Reading code can split
 # on `;` and `=` without ever quoting tabs.
 #
-# Phase 7.1b: `tax_scope_used` records the resolved per-seed taxonomic
-# scope decision (e.g. "Metazoa", "Bacteria,Archaea", "explicit:33090",
-# "none"). Closes the v3 docs gap where the auto-scope per-seed outcome
-# was visible only on stderr.
+# `tax_ceiling`: resolved per-seed ev_lca ceiling clade name (replaces
+# the old `tax_scope_used`).  `farthest_donor_taxid` / `farthest_donor_lineage`:
+# the taxid and full semicolon-separated lineage of the evolutionarily
+# most-distant donor ortholog used.
 ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + ANNOTATIONS_HEADER + [
-    'annotation_confidence', 'tax_scope_used',
+    'annotation_confidence',
+    'tax_ceiling',
+    'farthest_donor_taxid',
+    'farthest_donor_lineage',
 ]
 
 ##
@@ -229,12 +251,29 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
 
 ##
 def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=None):
+    """Write one annotation row to ``out``.
 
-    # v3 annotation tuple shapes:
-    #   11 elem  — v3 cascade   (annotations_confidence appended)
-    #   12 elem  — v3.1+        (tax_scope_used appended)
-    tax_scope_used = "none"
-    if len(annotation) == 11:
+    Handles multiple annotation tuple shapes for resume compatibility:
+
+    - 11 elements — v3 cascade (annotations_confidence appended, no ceiling).
+    - 12 elements — v3.1 (tax_scope_used appended; mapped to tax_ceiling).
+    - 14 elements — current (tax_ceiling + farthest_donor_taxid +
+      farthest_donor_lineage).
+
+    Args:
+        out: File-like output object.
+        annotation: Annotation tuple from ``annotate_batch``.
+        md5_field: Whether to append an md5 column.
+        md5_queries: Mapping from query name to md5 hex string.
+        eggnog_db: Open annotation DB for protein-name decoding.
+    """
+    # Default values for fields that may be absent in older tuple shapes.
+    tax_ceiling = "-"
+    farthest_donor_taxid = "-"
+    farthest_donor_lineage = "-"
+
+    n = len(annotation)
+    if n == 11:
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations,
          (og_name, og_cat, og_desc),
@@ -242,27 +281,47 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
          match_nog_names,
          all_orthologies, annot_orthologs,
          annotations_confidence) = annotation
-    else:
+    elif n == 12:
+        # Legacy shape: tax_scope_used → reuse as tax_ceiling.
         (query_name, best_hit_name, best_hit_evalue, best_hit_score,
          annotations,
          (og_name, og_cat, og_desc),
          max_annot_lvl,
          match_nog_names,
          all_orthologies, annot_orthologs,
-         annotations_confidence, tax_scope_used) = annotation
+         annotations_confidence, tax_ceiling) = annotation
+    else:
+        # Current 14-element shape.
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs,
+         annotations_confidence,
+         tax_ceiling,
+         farthest_donor_taxid,
+         farthest_donor_lineage) = annotation
 
-    # Translate integer seed_ortholog to display name
+    # Translate integer seed_ortholog to display name.
     seed_display = eggnog_db.get_protein_name(best_hit_name)
 
-    annot_columns = [query_name, seed_display, str(best_hit_evalue), str(best_hit_score),
-                     ",".join(match_nog_names), str(max_annot_lvl),
-                     og_cat, og_desc]
+    annot_columns = [
+        query_name,
+        seed_display,
+        str(best_hit_evalue),
+        str(best_hit_score),
+        ",".join(match_nog_names),
+        str(max_annot_lvl),
+        og_cat,
+        og_desc,
+    ]
 
     for h in ANNOTATIONS_HEADER:
         if h in annotations and annotations[h] is not None:
             annot_columns.append(",".join(sorted(list(annotations[h]))))
         else:
-            annot_columns.append('-')
+            annot_columns.append("-")
 
     # Per-source confidence column. Only the fields that actually appear
     # in `annotations_confidence` are written; "-" if there's nothing.
@@ -275,18 +334,25 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
         conf_str = "-"
     annot_columns.append(conf_str)
 
-    # Phase 7.1b: per-seed resolved tax_scope decision.
-    annot_columns.append(tax_scope_used or "-")
+    # New ceiling + farthest-donor columns.
+    annot_columns.append(tax_ceiling or "-")
+    annot_columns.append(farthest_donor_taxid or "-")
+    annot_columns.append(farthest_donor_lineage or "-")
 
-    if md5_field == True:
+    if md5_field is True:
         query_name = annot_columns[0]
         if query_name in md5_queries:
             annot_columns.append(md5_queries[query_name])
         else:
             annot_columns.append("-")
-            
-    print('\t'.join([x if x is not None and x.strip() != "" else "-" for x in annot_columns]), file=out)
-    
+
+    print(
+        "\t".join(
+            [x if x is not None and x.strip() != "" else "-" for x in annot_columns]
+        ),
+        file=out,
+    )
+
     return
 
 ##
@@ -408,13 +474,58 @@ def output_excel_header(worksheet, no_file_comments, md5_field):
 
 ##
 def output_excel_row(worksheet, row, annotation, md5_field, md5_queries):
+    """Write one annotation row to ``worksheet``.
 
-    (query_name, best_hit_name, best_hit_evalue, best_hit_score,
-     annotations,
-     (og_name, og_cat, og_desc),
-     max_annot_lvl,
-     match_nog_names,
-     all_orthologies, annot_orthologs) = annotation
+    Handles multiple annotation tuple shapes for resume compatibility:
+
+    - 10 elements — pre-refactor (no confidence / ceiling fields).
+    - 11 elements — v3 cascade (annotations_confidence appended).
+    - 12 elements — v3.1 (tax_scope_used / tax_ceiling appended).
+    - 14 elements — current (tax_ceiling + farthest_donor_taxid +
+      farthest_donor_lineage).
+    """
+    # Default values for fields absent in older tuple shapes.
+    annotations_confidence = None
+    tax_ceiling = "-"
+    farthest_donor_taxid = "-"
+    farthest_donor_lineage = "-"
+
+    n = len(annotation)
+    if n == 10:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs) = annotation
+    elif n == 11:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs,
+         annotations_confidence) = annotation
+    elif n == 12:
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs,
+         annotations_confidence, tax_ceiling) = annotation
+    else:
+        # Current 14-element shape.
+        (query_name, best_hit_name, best_hit_evalue, best_hit_score,
+         annotations,
+         (og_name, og_cat, og_desc),
+         max_annot_lvl,
+         match_nog_names,
+         all_orthologies, annot_orthologs,
+         annotations_confidence,
+         tax_ceiling,
+         farthest_donor_taxid,
+         farthest_donor_lineage) = annotation
 
     annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
                      ",".join(match_nog_names), str(max_annot_lvl),
