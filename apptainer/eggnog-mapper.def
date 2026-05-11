@@ -1,0 +1,77 @@
+Bootstrap: docker
+From: ubuntu:24.04
+
+# Build arguments — override via: apptainer build --build-arg KEY=VALUE
+# Requires Apptainer >= 1.1
+%arguments
+    EMAPPER_VERSION=3.0.0
+    DIAMOND_VERSION=2.1.24
+
+%labels
+    org.opencontainers.image.title       eggNOG-mapper
+    org.opencontainers.image.version     {{ EMAPPER_VERSION }}
+    org.opencontainers.image.description Fast functional annotation using eggNOG orthology assignments
+    org.opencontainers.image.source      https://github.com/eggnogdb/eggnog-mapper
+    maintainer                           j.huerta@upm.es
+    diamond_version                      {{ DIAMOND_VERSION }}
+
+%files
+    # build.sh creates this archive from git HEAD before calling apptainer build
+    /tmp/emapper-src.tar.gz /opt/emapper-src.tar.gz
+
+%environment
+    export PATH=/opt/diamond:/opt/emapper-venv/bin:$PATH
+    export LANG=C.UTF-8
+    export LC_ALL=C.UTF-8
+
+%post
+    set -eu
+    export DEBIAN_FRONTEND=noninteractive
+
+    # ── base system + Python 3.12 (native in Ubuntu 24.04) ───────────────────
+    apt-get update -qq
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        wget \
+        gcc g++ \
+        zlib1g-dev \
+        libgomp1 \
+        python3.12 python3.12-dev python3.12-venv
+    rm -rf /var/lib/apt/lists/*
+
+    # ── Diamond {{ DIAMOND_VERSION }} ────────────────────────────────────────
+    mkdir -p /opt/diamond
+    wget -qO- \
+        https://github.com/bbuchfink/diamond/releases/download/v{{ DIAMOND_VERSION }}/diamond-linux64.tar.gz \
+        | tar -xz -C /opt/diamond
+    chmod +x /opt/diamond/diamond
+
+    # ── Python venv + Cython ─────────────────────────────────────────────────
+    python3.12 -m venv /opt/emapper-venv
+    /opt/emapper-venv/bin/pip install --quiet --upgrade pip wheel
+    /opt/emapper-venv/bin/pip install --quiet "cython>=3.0"
+
+    # ── eggNOG-mapper {{ EMAPPER_VERSION }} ──────────────────────────────────
+    # Extract the git archive created by build.sh and install (compiles .pyx)
+    mkdir -p /opt/emapper-src
+    tar -xzf /opt/emapper-src.tar.gz -C /opt/emapper-src
+    /opt/emapper-venv/bin/pip install /opt/emapper-src
+    rm -rf /opt/emapper-src /opt/emapper-src.tar.gz
+
+    # ── smoke test ───────────────────────────────────────────────────────────
+    export PATH=/opt/diamond:/opt/emapper-venv/bin:$PATH
+    emapper.py --version
+    diamond --version
+
+%runscript
+    exec /opt/emapper-venv/bin/emapper.py "$@"
+
+%test
+    export PATH=/opt/diamond:/opt/emapper-venv/bin:$PATH
+    emapper.py --version
+    diamond --version
+    python3.12 -c "
+import eggnogmapper.annotator._codec as c
+import eggnogmapper.annotator._collect_inner as ci
+print('Cython extensions loaded OK')
+"

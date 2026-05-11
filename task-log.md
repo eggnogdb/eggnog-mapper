@@ -89,6 +89,9 @@ Status: COMPLETE
 - USAGE.md: --tax_scope + --donor_pool documented; old flags removed; 3 new output columns listed
 
 ### Step 6: orchestrator → GIT COMMIT
-Status: IN PROGRESS
+Status: COMPLETE
+Commit: 8c8722f on v3-dev
+"feat!: replace --tax_scope inner_narrowest with per-seed ev_lca ceiling"
+28 files changed, 2273 insertions(+), 1614 deletions(-)
 
 ---

@@ -340,7 +340,7 @@ class DiamondSearcher:
             # has the bitscore-best hit, ~20-30 % faster, with the
             # bitscore-best almost always being the seed anyway.
             if int(getattr(self, "dmnd_top", 3)) == 1:
-                cmd += " --max-target-seqs 1 "
+                cmd += " --top 0 "
             else:
                 cmd += " --top 3 "
         else: # self.itype == ITYPE_GENOME or self.itype == ITYPE_META: i.e. gene prediction

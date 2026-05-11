@@ -92,11 +92,13 @@ def resolver_viridiplantae(lineage_cache, taxa_db_path):
 # Taxid constants used in tests
 # ---------------------------------------------------------------------------
 
-ARABIDOPSIS_TAXID = "3702"     # Arabidopsis thaliana — Viridiplantae
-HUMAN_TAXID       = "9606"     # Homo sapiens — Metazoa
-YEAST_TAXID       = "4932"     # Saccharomyces cerevisiae — Fungi
-ECOLI_TAXID       = "511145"   # Escherichia coli K-12 — Bacteria (Prokaryota)
-ARCHAEA_TAXID     = "426368"   # Methanococcus maripaludis C7 — Archaea (Prokaryota)
+ARABIDOPSIS_TAXID   = "3702"    # Arabidopsis thaliana — Viridiplantae
+HUMAN_TAXID         = "9606"    # Homo sapiens — Metazoa
+YEAST_TAXID         = "4932"    # Saccharomyces cerevisiae — Fungi
+ECOLI_TAXID         = "511145"  # Escherichia coli K-12 — Bacteria (Prokaryota)
+ARCHAEA_TAXID       = "426368"  # Methanococcus maripaludis C7 — Archaea (Prokaryota)
+MONOSIGA_TAXID      = "81824"   # Monosiga brevicollis — Opisthokonta, NOT Metazoa or Fungi
+ENCEPHALITOZOON_TAXID = "6035"  # Encephalitozoon cuniculi — Microsporidia (Fungi lineage but excluded)
 
 VIRIDIPLANTAE_TAXID = "33090"
 METAZOA_TAXID       = "33208"
@@ -207,6 +209,84 @@ def test_auto_broad_yeast_fungi(resolver_broad):
     name = resolver_broad.ceiling_name(ceiling)
     assert name == "Fungi", (
         f"Expected Fungi ceiling for S. cerevisiae in auto-broad mode, got {name!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 2b. Divergence cases: auto-narrow vs auto-broad produce DIFFERENT ceilings
+#
+# These are the only organisms where the two modes behave differently.
+# For the three main kingdoms (Metazoa, Viridiplantae, Fungi) both modes
+# produce identical ceilings — the ordering difference in the priority list
+# does not matter because each organism belongs to exactly one kingdom.
+#
+# Divergence requires a seed that is in Opisthokonta but NOT in Metazoa or
+# Fungi proper: choanoflagellates and Microsporidia (excluded from Fungi).
+# auto-narrow has Opisthokonta in its list; auto-broad does not → falls through
+# to Eukaryota.
+# ---------------------------------------------------------------------------
+
+def test_narrow_vs_broad_monosiga_diverges(resolver_narrow, resolver_broad):
+    """Monosiga brevicollis (81824) gets Opisthokonta (narrow) vs Eukaryota (broad).
+
+    Monosiga is a choanoflagellate: it is in Opisthokonta (33154) but NOT in
+    Metazoa (33208) or Fungi (4751).  auto-narrow has Opisthokonta in its
+    priority list; auto-broad does not, so it falls through to Eukaryota.
+
+    This is the primary case where the two modes produce different ceilings,
+    confirming they are not equivalent for non-plant/non-animal/non-fungal seeds.
+    """
+    narrow_ceiling = resolver_narrow.resolve_ceiling(MONOSIGA_TAXID)
+    broad_ceiling = resolver_broad.resolve_ceiling(MONOSIGA_TAXID)
+    assert resolver_narrow.ceiling_name(narrow_ceiling) == "Opisthokonta", (
+        f"auto-narrow: expected Opisthokonta for Monosiga, got "
+        f"{resolver_narrow.ceiling_name(narrow_ceiling)!r}"
+    )
+    assert resolver_broad.ceiling_name(broad_ceiling) == "Eukaryota", (
+        f"auto-broad: expected Eukaryota for Monosiga, got "
+        f"{resolver_broad.ceiling_name(broad_ceiling)!r}"
+    )
+    assert narrow_ceiling != broad_ceiling, (
+        "auto-narrow and auto-broad must produce DIFFERENT ceilings for Monosiga"
+    )
+
+
+def test_narrow_vs_broad_microsporidia_diverges(resolver_narrow, resolver_broad):
+    """Encephalitozoon cuniculi (6035) gets Opisthokonta (narrow) vs Eukaryota (broad).
+
+    E. cuniculi is a Microsporidian: its NCBI lineage passes through Fungi (4751)
+    but Microsporidia (6029) are explicitly excluded from the Fungi set in both
+    modes.  With Fungi excluded:
+    - auto-narrow: falls through Viridiplantae, Metazoa to Opisthokonta (33154) ✓
+    - auto-broad:  falls through Metazoa, Viridiplantae, Fungi to Eukaryota (2759) ✓
+
+    This confirms the Microsporidia exclusion works correctly and that both modes
+    diverge for this class (rather than both silently treating them as Fungi).
+    """
+    narrow_ceiling = resolver_narrow.resolve_ceiling(ENCEPHALITOZOON_TAXID)
+    broad_ceiling = resolver_broad.resolve_ceiling(ENCEPHALITOZOON_TAXID)
+    assert resolver_narrow.ceiling_name(narrow_ceiling) == "Opisthokonta", (
+        f"auto-narrow: expected Opisthokonta for Microsporidia, got "
+        f"{resolver_narrow.ceiling_name(narrow_ceiling)!r} — "
+        "Microsporidia must not be assigned to Fungi ceiling"
+    )
+    assert resolver_broad.ceiling_name(broad_ceiling) == "Eukaryota", (
+        f"auto-broad: expected Eukaryota for Microsporidia, got "
+        f"{resolver_broad.ceiling_name(broad_ceiling)!r}"
+    )
+    assert narrow_ceiling != broad_ceiling, (
+        "auto-narrow and auto-broad must produce DIFFERENT ceilings for Microsporidia"
+    )
+
+
+def test_microsporidia_not_in_fungi_minus_microsporidia_set(resolver_narrow):
+    """E. cuniculi must NOT appear in the fungi-minus-microsporidia set.
+
+    If this fails it means Microsporidia would silently inherit the Fungi ceiling,
+    contradicting the explicit exclusion required by the spec.
+    """
+    assert ENCEPHALITOZOON_TAXID not in resolver_narrow._fungi_minus_microsporidia, (
+        "Encephalitozoon cuniculi (6035) must be excluded from fungi_minus_microsporidia"
     )
 
 

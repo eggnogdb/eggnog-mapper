@@ -537,14 +537,6 @@ def parse_args(parser):
     
     args = parser.parse_args()
 
-    set_data_path(resolve_backend(args.db_backend))
-
-    if "EGGNOG_DATA_DIR" in os.environ:
-        set_data_path(os.environ["EGGNOG_DATA_DIR"])
-
-    if args.data_dir:
-        set_data_path(args.data_dir)
-
     if args.version:
         version = ""
         try:
@@ -553,6 +545,13 @@ def parse_args(parser):
             version = get_version()
         print(version)
         sys.exit(0)
+
+    if args.data_dir:
+        set_data_path(args.data_dir)
+    elif "EGGNOG_DATA_DIR" in os.environ:
+        set_data_path(os.environ["EGGNOG_DATA_DIR"])
+    else:
+        set_data_path(resolve_backend(args.db_backend))
 
     args.call_info = get_call_info()
 
