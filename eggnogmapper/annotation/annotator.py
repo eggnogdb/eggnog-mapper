@@ -332,21 +332,13 @@ class Annotator:
             engine = _get_engine(eggnog_db, ceiling_resolver, self.donor_pool)
             _register_worker_engine(engine)
             ctx = multiprocessing.get_context("fork")
-            # maxtasksperchild recycles workers periodically, bounding
-            # per-worker cache growth (_og_cache, _seed_lineage_set_cache)
-            # that otherwise expands unboundedly over a 24h+ run and
-            # triggers OOM-kills — leaving pool.join() hanging forever.
-            pool = ctx.Pool(
-                n_workers,
-                initializer=_worker_init_after_fork,
-                maxtasksperchild=200,
-            )
+            # Workers are long-lived (no maxtasksperchild) to avoid
+            # os.fork() ENOMEM under memory pressure; cache growth is
+            # instead bounded by _OG_CACHE_MAX / _LINEAGE_CACHE_MAX in
+            # AnnotationEngine with half-eviction on overflow.
+            pool = ctx.Pool(n_workers, initializer=_worker_init_after_fork)
             print(
-                colorify(
-                    f"Annotation pool: {n_workers} workers"
-                    " (fork, maxtasksperchild=200)",
-                    "lblue",
-                ),
+                colorify(f"Annotation pool: {n_workers} workers (fork)", "lblue"),
                 file=sys.stderr,
             )
 

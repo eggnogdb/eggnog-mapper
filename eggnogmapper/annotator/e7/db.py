@@ -82,8 +82,12 @@ class EggnogDB:
                 f"file:{self.db_path}?mode=ro", uri=True, check_same_thread=False
             )
             self.conn.row_factory = sqlite3.Row
-            self.conn.execute("PRAGMA mmap_size=2147483648")
-            self.conn.execute("PRAGMA cache_size=-131072")
+            # Workers do random sub-batch lookups, not full scans.
+            # 256 MB mmap + 32 MB page cache is sufficient; keeping these
+            # small reduces per-worker virtual and physical memory
+            # significantly compared to the parent's 2 GB / 128 MB settings.
+            self.conn.execute("PRAGMA mmap_size=268435456")
+            self.conn.execute("PRAGMA cache_size=-32768")
         except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
             raise EggnogDBError(
                 f"Cannot reopen eggnog database at '{self.db_path}': {exc}"

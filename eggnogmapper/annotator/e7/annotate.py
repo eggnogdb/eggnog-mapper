@@ -228,6 +228,13 @@ class AnnotationEngine:
     # by :meth:`_pre_parse_batch` when the OBO map is unavailable.
     LEGACY_GO_FIELD = "gos"
 
+    # Per-worker cache size limits. Workers are long-lived (no
+    # maxtasksperchild), so these bounds prevent unbounded RSS growth
+    # over a 24h+ run. When either limit is hit, the oldest half of the
+    # cache is evicted (dict insertion order, Python 3.7+).
+    _OG_CACHE_MAX = 100_000
+    _LINEAGE_CACHE_MAX = 100_000
+
     # Mapping from ortholog-relationship type to cascade tier. The cascade
     # walks tiers in order 0 → 2; within a tier, donors are sorted by
     # ev_lca proximity to the seed. Confidence label is derived from the
@@ -713,6 +720,10 @@ class AnnotationEngine:
             fetched = self.db.get_og_info_bulk(missing)
             for p in missing:
                 self._og_cache[p] = fetched.get(p)  # may be None (miss)
+            if len(self._og_cache) > self._OG_CACHE_MAX:
+                evict_n = len(self._og_cache) // 2
+                for k in list(self._og_cache)[:evict_n]:
+                    del self._og_cache[k]
         return {p: self._og_cache[p] for p in pairs if self._og_cache[p] is not None}
 
     def _get_seed_taxid_str(self, seed_id: int) -> str:
@@ -837,6 +848,10 @@ class AnnotationEngine:
                     # the cache's internal state.
                     result = frozenset(lineage)
         self._seed_lineage_set_cache[seed_id] = result
+        if len(self._seed_lineage_set_cache) > self._LINEAGE_CACHE_MAX:
+            evict_n = len(self._seed_lineage_set_cache) // 2
+            for k in list(self._seed_lineage_set_cache)[:evict_n]:
+                del self._seed_lineage_set_cache[k]
         return result
 
     def _resolve_valid_species_for_ceiling(
