@@ -313,18 +313,17 @@ class Annotator:
             file=sys.stderr,
         )
 
-        batch_size = 1000
-        batch = []
-
         # Process-pool parallelism for the annotation phase. Each worker
         # inherits the parent's loaded engine (taxid_array,
         # lineage_cache) via fork-COW and reopens its own SQLite
         # connection in the post-fork initializer. Pool is created once
         # for the full mapper run and reused across batches.
         pool = None
+        _orig_sigterm = _orig_sigint = None
         n_workers = max(int(getattr(self, "cpu", 1) or 1), 1)
         if n_workers > 1:
             import multiprocessing
+            import signal as _signal
             from eggnogmapper.annotator.e7.annotate import (
                 _register_worker_engine,
                 _worker_init_after_fork,
@@ -333,11 +332,53 @@ class Annotator:
             engine = _get_engine(eggnog_db, ceiling_resolver, self.donor_pool)
             _register_worker_engine(engine)
             ctx = multiprocessing.get_context("fork")
-            pool = ctx.Pool(n_workers, initializer=_worker_init_after_fork)
+            # maxtasksperchild recycles workers periodically, bounding
+            # per-worker cache growth (_og_cache, _seed_lineage_set_cache)
+            # that otherwise expands unboundedly over a 24h+ run and
+            # triggers OOM-kills — leaving pool.join() hanging forever.
+            pool = ctx.Pool(
+                n_workers,
+                initializer=_worker_init_after_fork,
+                maxtasksperchild=200,
+            )
             print(
-                colorify(f"Annotation pool: {n_workers} workers (fork)", "lblue"),
+                colorify(
+                    f"Annotation pool: {n_workers} workers"
+                    " (fork, maxtasksperchild=200)",
+                    "lblue",
+                ),
                 file=sys.stderr,
             )
+
+            # Forward SIGTERM/SIGINT to workers so they exit promptly
+            # instead of leaving pool.join() hanging after a
+            # job-scheduler kill. Original handlers are restored before
+            # re-raising so the process terminates normally.
+            def _pool_signal_handler(signum, frame, _pool=pool):
+                try:
+                    if _orig_sigterm is not None:
+                        _signal.signal(_signal.SIGTERM, _orig_sigterm)
+                    if _orig_sigint is not None:
+                        _signal.signal(_signal.SIGINT, _orig_sigint)
+                    _pool.terminate()
+                except Exception:
+                    pass
+                import os as _os
+                _os.kill(_os.getpid(), signum)
+
+            try:
+                _orig_sigterm = _signal.signal(_signal.SIGTERM, _pool_signal_handler)
+                _orig_sigint = _signal.signal(_signal.SIGINT, _pool_signal_handler)
+            except (ValueError, OSError):
+                # Not in main thread — skip signal forwarding.
+                pass
+
+        # Batch large enough to keep all workers continuously fed.
+        # AnnotationEngine.annotate_batch uses sub_batch_size=125;
+        # 4× headroom ensures imap_unordered pipelines without idle gaps
+        # and avoids CPU underutilisation on many-core machines.
+        batch_size = max(1000, n_workers * 500)
+        batch = []
 
         try:
             for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
@@ -393,9 +434,40 @@ class Annotator:
             traceback.print_exc()
             raise EmapperException(f"Error: batch annotation failed. " + str(e))
         finally:
+            import signal as _sig
+            import threading as _thr
+
+            # Restore signal handlers before pool shutdown to prevent
+            # re-entrant terminate() calls if a signal fires during join.
+            for _snum, _orig in (
+                (_sig.SIGTERM, _orig_sigterm),
+                (_sig.SIGINT, _orig_sigint),
+            ):
+                if _orig is not None:
+                    try:
+                        _sig.signal(_snum, _orig)
+                    except (ValueError, OSError):
+                        pass
+
             if pool is not None:
                 pool.close()
-                pool.join()
+                # Join with a 120 s timeout. If workers are stuck (e.g.
+                # blocked on NFS I/O or killed by the OOM killer),
+                # force-terminate instead of hanging the parent forever.
+                _t = _thr.Thread(target=pool.join, daemon=True)
+                _t.start()
+                _t.join(timeout=120)
+                if _t.is_alive():
+                    print(
+                        colorify(
+                            "WARNING: annotation workers did not exit within"
+                            " 120 s; force-terminating.",
+                            "red",
+                        ),
+                        file=sys.stderr,
+                    )
+                    pool.terminate()
+                    pool.join()
 
         return
 

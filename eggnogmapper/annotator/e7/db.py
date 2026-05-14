@@ -4,9 +4,16 @@ v7 databases use integer protein IDs with delta-varint encoded BLOBs.
 This module provides bulk query methods for high-throughput annotation.
 """
 
+import array
+import hashlib
+import logging
+import os
 import sqlite3
+import tempfile
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 from ..codec import decode_intlist
+
+logger = logging.getLogger(__name__)
 
 
 class EggnogDBError(Exception):
@@ -31,10 +38,15 @@ class EggnogDB:
         """
         self.db_path = db_path
         try:
-            self.conn = sqlite3.connect(db_path, check_same_thread=False)
+            self.conn = sqlite3.connect(
+                f"file:{db_path}?mode=ro", uri=True, check_same_thread=False
+            )
             self.conn.row_factory = sqlite3.Row
+            self.conn.execute("PRAGMA mmap_size=2147483648")   # 2 GB mmap window
+            self.conn.execute("PRAGMA cache_size=-131072")      # 128 MB page cache
 
             self._taxids = None
+            self._name_cache: Dict[str, int] = {}
             if load_taxids:
                 self._load_taxid_array()
         except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
@@ -62,8 +74,16 @@ class EggnogDB:
                 "is not retained."
             )
         try:
-            self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+            self.conn.close()
+        except Exception:
+            pass
+        try:
+            self.conn = sqlite3.connect(
+                f"file:{self.db_path}?mode=ro", uri=True, check_same_thread=False
+            )
             self.conn.row_factory = sqlite3.Row
+            self.conn.execute("PRAGMA mmap_size=2147483648")
+            self.conn.execute("PRAGMA cache_size=-131072")
         except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
             raise EggnogDBError(
                 f"Cannot reopen eggnog database at '{self.db_path}': {exc}"
@@ -100,28 +120,78 @@ class EggnogDB:
         self.conn = conn
         self.conn.row_factory = sqlite3.Row
         self._taxids = taxid_array
+        self._name_cache: Dict[str, int] = {}
         return self
+
+    @staticmethod
+    def _taxid_cache_path(db_path: str) -> str:
+        """Return the preferred path for the binary taxid cache file.
+
+        Tries a sibling file alongside the DB first. Falls back to /tmp
+        when the DB directory is not writable (e.g. a read-only Docker mount).
+        """
+        preferred = db_path + ".taxids.bin"
+        db_dir = os.path.dirname(db_path) or "."
+        if os.access(db_dir, os.W_OK):
+            return preferred
+        md5 = hashlib.md5(db_path.encode()).hexdigest()[:12]
+        return os.path.join(tempfile.gettempdir(), f"eggnog_taxids_{md5}.bin")
 
     def _load_taxid_array(self):
         """Load taxid array for fast protein ID -> species lookup.
 
-        Creates a list where index = protein_id, value = taxid.
+        Creates an array.array('i') where index = protein_id, value = taxid.
+        Uses a flat binary cache (~236 MB on disk) so warm restarts load in
+        ~2 s instead of ~60 s for the full SQL scan over 59 M rows.
         """
-        cursor = self.conn.execute(
-            "SELECT MAX(id) FROM protein_names"
-        )
+        cursor = self.conn.execute("SELECT MAX(id) FROM protein_names")
         max_id = cursor.fetchone()[0] or 0
+        n = max_id + 1
 
-        # Assumes protein IDs are contiguous from 0..n_prots-1.
-        # If the DB has gaps, slots for missing IDs will hold taxid=0 (ambiguous).
-        # See M3 in PLAN.md for gap-detection work item.
-        self._taxids = [0] * (max_id + 1)
+        cache_path = self._taxid_cache_path(self.db_path)
+        expected_bytes = n * array.array('i').itemsize
 
-        cursor = self.conn.execute(
-            "SELECT id, taxid FROM protein_names"
+        # Try loading from binary cache.
+        if os.path.exists(cache_path):
+            try:
+                if os.path.getsize(cache_path) == expected_bytes:
+                    a = array.array('i')
+                    with open(cache_path, 'rb') as fh:
+                        a.fromfile(fh, n)
+                    self._taxids = a
+                    logger.info(
+                        "_load_taxid_array: loaded %d taxids from cache %s",
+                        n, cache_path,
+                    )
+                    return
+            except Exception as exc:
+                logger.warning(
+                    "_load_taxid_array: cache read failed (%s); rebuilding from DB", exc
+                )
+
+        # Build from SQL: allocate zero-initialised buffer (no Python list).
+        logger.info(
+            "_load_taxid_array: building taxid array from DB (n=%d) …", n
         )
+        buf = bytearray(expected_bytes)
+        a = array.array('i', buf)
+
+        cursor = self.conn.execute("SELECT id, taxid FROM protein_names")
         for row in cursor:
-            self._taxids[row["id"]] = row["taxid"]
+            a[row["id"]] = row["taxid"]
+        self._taxids = a
+
+        # Write cache for future restarts.
+        try:
+            with open(cache_path, 'wb') as fh:
+                a.tofile(fh)
+            logger.info(
+                "_load_taxid_array: cache written to %s", cache_path
+            )
+        except Exception as exc:
+            logger.warning(
+                "_load_taxid_array: could not write cache to %s: %s", cache_path, exc
+            )
 
     @property
     def taxid_array(self):
@@ -138,13 +208,20 @@ class EggnogDB:
         return row["name"] if row else None
 
     def get_protein_id(self, name: str) -> Optional[int]:
-        """Get integer ID for a protein name."""
+        """Get integer ID for a protein name (cached)."""
+        cached = self._name_cache.get(name)
+        if cached is not None:
+            return cached
         cursor = self.conn.execute(
             "SELECT id FROM protein_names WHERE name = ?",
             (name,)
         )
         row = cursor.fetchone()
-        return row["id"] if row else None
+        result = row["id"] if row else None
+        # Only cache hits; bound to ~100 k entries (~10 MB) to avoid unlimited growth.
+        if result is not None and len(self._name_cache) < 100_000:
+            self._name_cache[name] = result
+        return result
 
     def get_protein_names_bulk(self, protein_ids: List[int]) -> Dict[int, str]:
         """Get protein names for multiple IDs.
