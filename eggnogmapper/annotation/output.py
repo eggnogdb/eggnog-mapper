@@ -1,12 +1,53 @@
 ##
 ## CPCantalapiedra 2020
 
+import os
+import sys
 import time
 
 from ..common import get_call_info
 
 from .ncbitaxa.ncbiquery import get_ncbi
 from .db_sqlite import get_eggnog_db
+
+
+def _fix_truncated_tail(path):
+    """Truncate an incomplete last line before appending on --resume.
+
+    A process killed mid-row leaves the file without a trailing newline.
+    Truncate to the last complete line so the resumed run appends cleanly
+    and the reader does not choke on a malformed partial row.
+    """
+    if not os.path.exists(path) or os.path.getsize(path) == 0:
+        return
+    with open(path, "r+b") as fh:
+        fh.seek(-1, 2)
+        if fh.read(1) == b"\n":
+            return  # file ends cleanly — nothing to do
+        fh.seek(0, 2)
+        size = fh.tell()
+        chunk_size = min(65536, size)
+        fh.seek(size - chunk_size)
+        data = fh.read()
+        idx = data.rfind(b"\n")
+        if idx == -1 and chunk_size < size:
+            # Last newline not in the sampled chunk; scan the whole file.
+            fh.seek(0)
+            data = fh.read()
+            idx = data.rfind(b"\n")
+            truncate_at = (idx + 1) if idx != -1 else 0
+        elif idx == -1:
+            truncate_at = 0  # no newline at all — truncate to empty
+        else:
+            truncate_at = (size - chunk_size) + idx + 1
+        removed = size - truncate_at
+        fh.truncate(truncate_at)
+    print(
+        f"WARNING --resume: removed {removed} byte(s) of incomplete last"
+        f" line from {path}",
+        file=sys.stderr,
+    )
+
 
 #############
 # Orthologs
@@ -19,6 +60,7 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db
 
     if resume == True:
         file_mode = 'a'
+        _fix_truncated_tail(orthologs_file)
     else:
         file_mode = 'w'
 
@@ -146,15 +188,11 @@ def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
 
 ##
 def output_orthologs_header(out, no_file_comments, print_header):
-    if not no_file_comments:        
-        # Call info
-        print(get_call_info(), file=out)
-
-    # Header
-    if print_header == True:
+    if print_header:
+        if not no_file_comments:
+            print(get_call_info(), file=out)
         header = ["#query", "orth_type", "species", "orthologs"]
         print('\t'.join(header), file=out)
-
     return
 
 ##
@@ -217,6 +255,7 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
 
     if resume == True:
         file_mode = 'a'
+        _fix_truncated_tail(annot_file)
     else:
         file_mode = 'w'
 
@@ -358,25 +397,20 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
 ##
 def output_annotations_header(out, no_file_comments, md5_field, print_header,
                               applied_filters=None):
-
-    if not no_file_comments:
-        print(get_call_info(), file=out)
-        # Phase 7.1a — record the resolved values of every annotation-stage
-        # filter and threshold the run actually used. Closes the v3 docs gap
-        # where reproducibility relied on parsing the raw command line on
-        # line 3 (defaults were never expanded).
-        if applied_filters:
-            print(format_applied_filters(applied_filters), file=out)
-
-    if print_header == True:
+    if print_header:
+        if not no_file_comments:
+            print(get_call_info(), file=out)
+            # Phase 7.1a — record the resolved values of every annotation-stage
+            # filter and threshold the run actually used. Closes the v3 docs gap
+            # where reproducibility relied on parsing the raw command line on
+            # line 3 (defaults were never expanded).
+            if applied_filters:
+                print(format_applied_filters(applied_filters), file=out)
         print("#", end="", file=out)
-
         annot_header = ANNOTATIONS_WHOLE_HEADER
         if md5_field == True:
             annot_header.append("md5")
-
         print('\t'.join(annot_header), file=out)
-
     return
 
 

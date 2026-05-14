@@ -132,10 +132,12 @@ class Annotator:
         self._dropped_handle = None
         self._dropped_writer = None
         if self.report_dropped and dropped_file is not None:
-            self._dropped_handle = open(dropped_file, "w")
-            self._dropped_handle.write(
-                "#query\treason\tseed_ortholog\tevalue\tscore\n"
-            )
+            _drop_mode = "a" if self.resume else "w"
+            self._dropped_handle = open(dropped_file, _drop_mode)
+            if not self.resume:
+                self._dropped_handle.write(
+                    "#query\treason\tseed_ortholog\tevalue\tscore\n"
+                )
 
             def _writer(query, reason, seed, evalue, score):
                 self._dropped_handle.write(
@@ -184,8 +186,19 @@ class Annotator:
                 # If resume, create generator of previous annotations
                 annots_parser = None
                 if self.resume == True:
-                    annots_parser = parse_annotations(self.annot, annot_file,
-                                                      self.report_orthologs, orthologs_file)
+                    _resume_file = annot_file if self.annot else orthologs_file
+                    if not pisfile(_resume_file):
+                        print(
+                            colorify(
+                                f"WARNING --resume: {_resume_file} not found;"
+                                " annotating all hits from scratch.",
+                                "yellow",
+                            ),
+                            file=sys.stderr,
+                        )
+                    else:
+                        annots_parser = parse_annotations(self.annot, annot_file,
+                                                          self.report_orthologs, orthologs_file)
                 
                 # Obtain annotations
                 annots_generator = self._annotate(hits_gen_func, annots_parser)
