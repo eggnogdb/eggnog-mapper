@@ -460,8 +460,25 @@ class AnnotationEngine:
                 for sb in sub_batches
             ]
             merged: Dict[int, Dict[str, Any]] = {}
-            for r in pool.imap_unordered(_worker_annotate_subbatch, args_list):
-                merged.update(r)
+            # apply_async + get(timeout) instead of imap_unordered so that
+            # a single stuck worker (blocked on SQLite, mmap page fault, or
+            # IPC pipe) never hangs the parent forever. imap_unordered waits
+            # for ALL results with no escape; apply_async lets us set a
+            # per-task deadline and let the caller's finally block clean up.
+            import multiprocessing as _mp
+            _TASK_TIMEOUT = 120  # seconds — generous for a 125-seed sub-batch
+            pending = [
+                pool.apply_async(_worker_annotate_subbatch, (a,))
+                for a in args_list
+            ]
+            for ar in pending:
+                try:
+                    merged.update(ar.get(timeout=_TASK_TIMEOUT))
+                except _mp.TimeoutError:
+                    raise RuntimeError(
+                        f"Annotation worker timed out after {_TASK_TIMEOUT}s "
+                        "on a 125-seed sub-batch — pool will be terminated."
+                    )
             return merged
 
         return self._annotate_batch_inproc(

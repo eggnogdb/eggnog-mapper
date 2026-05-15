@@ -88,6 +88,10 @@ class EggnogDB:
             # significantly compared to the parent's 2 GB / 128 MB settings.
             self.conn.execute("PRAGMA mmap_size=268435456")
             self.conn.execute("PRAGMA cache_size=-32768")
+            # Safety net: if SQLite ever waits for a lock (should not happen
+            # with mode=ro, but guards against kernel/VFS edge cases), time
+            # out after 30 s rather than blocking the worker indefinitely.
+            self.conn.execute("PRAGMA busy_timeout=30000")
         except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
             raise EggnogDBError(
                 f"Cannot reopen eggnog database at '{self.db_path}': {exc}"

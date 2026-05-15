@@ -380,9 +380,9 @@ class Annotator:
 
         # Batch large enough to keep all workers continuously fed.
         # AnnotationEngine.annotate_batch uses sub_batch_size=125;
-        # 4× headroom ensures imap_unordered pipelines without idle gaps
-        # and avoids CPU underutilisation on many-core machines.
-        batch_size = max(1000, n_workers * 500)
+        # 2× headroom keeps all workers busy while limiting the number of
+        # apply_async tasks in flight and the sequential write phase length.
+        batch_size = max(1000, n_workers * 250)
         batch = []
 
         try:
