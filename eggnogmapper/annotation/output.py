@@ -10,6 +10,27 @@ from ..common import get_call_info
 from .ncbitaxa.ncbiquery import get_ncbi
 from .db_sqlite import get_eggnog_db
 
+# Translation table: replace tab, CR, LF, and other ASCII control chars
+# with a single space so no field value can break TSV structure.
+_CTRL_CHARS = "".join(chr(i) for i in range(32) if i not in (9, 10, 13)) + chr(127)
+_CTRL_TABLE = str.maketrans(
+    '\t\n\r' + _CTRL_CHARS,
+    ' ' * (3 + len(_CTRL_CHARS))
+)
+
+
+def _tsv_field(x) -> str:
+    """Sanitize a value for safe TSV output.
+
+    Replaces embedded tabs, newlines, carriage returns, and other control
+    characters with a space. Returns "-" for None or blank values.
+    """
+    if x is None:
+        return "-"
+    s = x if isinstance(x, str) else str(x)
+    s = s.translate(_CTRL_TABLE).strip()
+    return s if s else "-"
+
 
 def _fix_truncated_tail(path):
     """Truncate an incomplete last line before appending on --resume.
@@ -64,7 +85,7 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db
     else:
         file_mode = 'w'
 
-    with open(orthologs_file, file_mode) as ORTHOLOGS_OUT:
+    with open(orthologs_file, file_mode, encoding="utf-8", newline="\n") as ORTHOLOGS_OUT:
         output_orthologs_header(ORTHOLOGS_OUT, no_file_comments, not resume)
 
         qn = 0
@@ -175,14 +196,14 @@ def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
                 if orth_name in {best_hit_name_id, f"*{best_hit_name_id}"}:
                     if not seed_shown:
                         row = [query_name, "seed", f"{taxname}({taxid})", orth_name]
-                        print('\t'.join(row), file=out)
+                        print("\t".join(_tsv_field(c) for c in row), file=out)
                         seed_shown = True
                 else:
                     orth_names.append(orth_name)
 
             if orth_names:
                 row = [query_name, target, f"{taxname}({taxid})", ",".join(sorted(orth_names))]
-                print('\t'.join(row), file=out)
+                print("\t".join(_tsv_field(c) for c in row), file=out)
 
     return
 
@@ -266,7 +287,7 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
 
     start_time = time.time()
 
-    with open(annot_file, file_mode) as ANNOTATIONS_OUT:
+    with open(annot_file, file_mode, encoding="utf-8", newline="\n") as ANNOTATIONS_OUT:
         output_annotations_header(
             ANNOTATIONS_OUT, no_file_comments, md5_field, not resume,
             applied_filters=applied_filters,
@@ -345,6 +366,14 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
     # Translate integer seed_ortholog to display name.
     seed_display = eggnog_db.get_protein_name(best_hit_name)
 
+    if annotations_confidence:
+        conf_str = ";".join(
+            f"{field}={tier}"
+            for field, tier in sorted(annotations_confidence.items())
+        )
+    else:
+        conf_str = "-"
+
     annot_columns = [
         query_name,
         seed_display,
@@ -362,35 +391,15 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
         else:
             annot_columns.append("-")
 
-    # Per-source confidence column. Only the fields that actually appear
-    # in `annotations_confidence` are written; "-" if there's nothing.
-    if annotations_confidence:
-        conf_str = ";".join(
-            f"{field}={tier}"
-            for field, tier in sorted(annotations_confidence.items())
-        )
-    else:
-        conf_str = "-"
     annot_columns.append(conf_str)
-
-    # New ceiling + farthest-donor columns.
     annot_columns.append(tax_ceiling or "-")
     annot_columns.append(farthest_donor_taxid or "-")
     annot_columns.append(farthest_donor_lineage or "-")
 
     if md5_field is True:
-        query_name = annot_columns[0]
-        if query_name in md5_queries:
-            annot_columns.append(md5_queries[query_name])
-        else:
-            annot_columns.append("-")
+        annot_columns.append(md5_queries.get(query_name, "-"))
 
-    print(
-        "\t".join(
-            [x if x is not None and x.strip() != "" else "-" for x in annot_columns]
-        ),
-        file=out,
-    )
+    print("\t".join(_tsv_field(x) for x in annot_columns), file=out)
 
     return
 

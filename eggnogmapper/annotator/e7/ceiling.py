@@ -3,17 +3,19 @@
 Replaces the old ``--tax_scope inner_narrowest`` / ``AUTO_SCOPE_CLADES``
 logic with an ``ev_lca ≤ ceiling`` gate applied per speciation event.
 
-The ceiling is chosen by walking the seed's NCBI lineage against a
-priority list. Two built-in modes are provided:
+Two built-in auto modes are provided:
 
-- ``auto-narrow`` (default): narrow → broad, Fungi-first for eukaryotes.
+- ``auto-narrow`` (default): Eukaryota ceiling for all eukaryotes;
+  Prokaryota (Bacteria ∪ Archaea) for all prokaryotes. No sub-kingdom
+  tiers — avoids over-narrow ceilings for fungi, plants, metazoans.
 - ``auto-broad``: broad → narrow, Metazoa-first for eukaryotes.
 
-A named clade or numeric taxid may also be supplied as a fixed ceiling.
+A named clade or numeric taxid may also be supplied as a fixed ceiling,
+including ``131567`` (cellular organisms / LUCA) to disable all filtering.
 
-Microsporidia (taxid 6029) are subtracted from the Fungi set in both
-auto modes.  Prokaryota is a synthetic sentinel (``_prokaryota``) covering
-all Bacteria ∪ Archaea − Eukaryota species.
+Microsporidia (taxid 6029) are subtracted from the Fungi set in
+auto-broad mode.  Prokaryota is a synthetic sentinel (``_prokaryota``)
+covering all Bacteria ∪ Archaea − Eukaryota species.
 """
 
 from __future__ import annotations
@@ -40,6 +42,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 OPISTHOKONTA: str = "33154"
 MICROSPORIDIA: str = "6029"
+LUCA: str = "131567"  # cellular organisms — use as ceiling to disable all ev_lca filtering
 
 # Synthetic sentinel used when no real taxid covers "all prokaryotes".
 PROKARYOTA_SYNTHETIC: str = "_prokaryota"
@@ -51,14 +54,14 @@ PROKARYOTA_SYNTHETIC: str = "_prokaryota"
 # resolve_ceiling() walks the seed's lineage and returns the FIRST entry
 # in this list that is present in that lineage.
 
-# auto-narrow: tightest eukaryotic match wins; Prokaryota catches all else.
+# auto-narrow (default): domain-level only — Eukaryota or Prokaryota.
+# No sub-kingdom tiers: a fungal seed gets Eukaryota ceiling, not Fungi;
+# a mammalian seed gets Eukaryota, not Metazoa. This maximises ortholog
+# recall at the cost of including more distant (but still same-domain)
+# functional transfers.
 AUTO_NARROW_PRIORITY: list[str] = [
-    FUNGI,           # 4751  — Fungi excl. Microsporidia (subtracted below)
-    VIRIDIPLANTAE,   # 33090
-    METAZOA,         # 33208
-    OPISTHOKONTA,    # 33154
-    EUKARYOTA,       # 2759
-    PROKARYOTA_SYNTHETIC,
+    EUKARYOTA,             # 2759 — all eukaryotes
+    PROKARYOTA_SYNTHETIC,  # all bacteria + archaea
 ]
 
 # auto-broad: broadest eukaryotic match wins first.
@@ -82,7 +85,7 @@ CEILING_NAMES: dict[str, str] = {
     VIRIDIPLANTAE:        "Viridiplantae",
     OPISTHOKONTA:         "Opisthokonta",
     PROKARYOTA_SYNTHETIC: "Prokaryota",
-    "131567":             "cellular_organisms",
+    LUCA:                 "cellular_organisms",
 }
 
 

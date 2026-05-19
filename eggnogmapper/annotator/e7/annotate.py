@@ -194,12 +194,13 @@ def _worker_annotate_subbatch(args):
     `_WORKER_ENGINE` set in the parent before fork. Returns the per-seed
     result dict so the parent can merge.
     """
-    seed_ids, target_taxa, excluded_taxa, target_orthologs = args
+    seed_ids, target_taxa, excluded_taxa, target_orthologs, ceiling_override = args
     return _WORKER_ENGINE._annotate_batch_inproc(
         seed_ids,
         target_taxa=target_taxa,
         excluded_taxa=excluded_taxa,
         target_orthologs=target_orthologs,
+        ceiling_override=ceiling_override,
     )
 
 
@@ -412,6 +413,7 @@ class AnnotationEngine:
         target_orthologs: str = "all",
         pool=None,
         sub_batch_size: int = 125,
+        ceiling_override: Optional[str] = None,
     ) -> Dict[int, Dict[str, Any]]:
         """Annotate multiple seed orthologs efficiently.
 
@@ -456,7 +458,7 @@ class AnnotationEngine:
                 for i in range(0, len(seed_ids), sub_batch_size)
             ]
             args_list = [
-                (sb, target_taxa, excluded_taxa, target_orthologs)
+                (sb, target_taxa, excluded_taxa, target_orthologs, ceiling_override)
                 for sb in sub_batches
             ]
             merged: Dict[int, Dict[str, Any]] = {}
@@ -486,6 +488,7 @@ class AnnotationEngine:
             target_taxa=target_taxa,
             excluded_taxa=excluded_taxa,
             target_orthologs=target_orthologs,
+            ceiling_override=ceiling_override,
         )
 
     def _annotate_batch_inproc(
@@ -494,6 +497,7 @@ class AnnotationEngine:
         target_taxa: Optional[Set[int]] = None,
         excluded_taxa: Optional[Set[int]] = None,
         target_orthologs: str = "all",
+        ceiling_override: Optional[str] = None,
     ) -> Dict[int, Dict[str, Any]]:
         """In-process implementation of ``annotate_batch``.
 
@@ -534,11 +538,10 @@ class AnnotationEngine:
             eids = event_index.get(seed_id, [])
             # Filter events to those in our cache
             seed_events = {eid: events_cache[eid] for eid in eids if eid in events_cache}
-            ceiling_taxid = self._resolve_ceiling(seed_id)
+            ceiling_taxid = ceiling_override if ceiling_override is not None else self._resolve_ceiling(seed_id)
             valid_species = self._resolve_valid_species_for_ceiling(
                 seed_id, ceiling_taxid
             )
-            allowed_og_lcas = self._resolve_allowed_og_lcas_for_ceiling(ceiling_taxid)
             orthologs, ortholog_types, ortholog_meta = self._collect_orthologs(
                 seed_id,
                 seed_events,
@@ -546,7 +549,6 @@ class AnnotationEngine:
                 excluded_taxa,
                 valid_species,
                 ceiling_taxid=ceiling_taxid,
-                allowed_og_lcas=allowed_og_lcas,
             )
             seed_orthologs[seed_id] = orthologs
             seed_ortholog_types[seed_id] = ortholog_types
@@ -898,34 +900,6 @@ class AnnotationEngine:
         self._valid_species_by_seed[ceiling_taxid] = valid
         return valid
 
-    def _resolve_allowed_og_lcas_for_ceiling(
-        self, ceiling_taxid: str
-    ) -> Optional[frozenset]:
-        """Return the ``og_lca`` whitelist for a pre-resolved ceiling.
-
-        Used as the strict-OG gate in ``_collect_orthologs``.  Memoized
-        per ceiling taxid.
-
-        Args:
-            ceiling_taxid: Pre-resolved ceiling from :meth:`_resolve_ceiling`.
-
-        Returns:
-            Frozenset of taxid strings (ceiling + all descendants), or
-            ``None`` for no filter.
-        """
-        if self.lineage_filter is None:
-            return None
-        if ceiling_taxid == "root":
-            return None
-        cache = getattr(self, "_allowed_og_lcas_by_ceiling", None)
-        if cache is None:
-            cache = self._allowed_og_lcas_by_ceiling = {}
-        if ceiling_taxid in cache:
-            return cache[ceiling_taxid]
-        allowed = self.lineage_filter.get_scope_og_descendants(ceiling_taxid)
-        cache[ceiling_taxid] = allowed
-        return allowed
-
     def _collect_orthologs(
         self,
         seed_id: int,
@@ -934,7 +908,6 @@ class AnnotationEngine:
         excluded_taxa: Optional[Set[int]] = None,
         valid_species: Optional[frozenset] = None,
         ceiling_taxid: Optional[str] = None,
-        allowed_og_lcas: Optional[frozenset] = None,
     ) -> Tuple[Set[int], Dict[str, Set[int]], Dict[int, Dict[str, Any]]]:
         """Collect ortholog IDs from events, classified by orthology type.
 
@@ -956,10 +929,6 @@ class AnnotationEngine:
                 not pass the ceiling are discarded before orthologs are
                 collected.  ``None`` behaves as ``"root"`` (no ev_lca
                 filter).
-            allowed_og_lcas: Optional frozenset of taxid strings naming
-                the OGs whose containing taxonomic level (``og_lca``) is
-                at-or-below the ceiling.  When provided, events from
-                broader OGs are skipped entirely — the strict-OG gate.
 
         Returns:
             ``(orthologs, ortholog_types, ortholog_meta)`` where:
@@ -1017,32 +986,17 @@ class AnnotationEngine:
         )
 
         for event_id, event in events.items():
-            # Hard scope-OG filter: drop events whose containing OG is
-            # broader than the seed's tax-scope ceiling. The same in-scope
-            # orthologs already appear in lower OGs at higher cascade
-            # priority, so dropping these events is biologically lossless
-            # under auto-scope and removes ~99 % of fetched orthologs on
-            # plant proteomes.
-            #
-            # Empty / missing `og_lca` (rare — events whose source tree
-            # node had no LCA prop): keep the event through this gate
-            # rather than silently drop. Out-of-scope orthologs from
-            # such events are still excluded by the per-protein species
-            # filter (`valid_species`) below. Dropping them would mean
-            # silent biological data loss.
-            if allowed_og_lcas is not None:
-                og_lca = event.get("og_lca")
-                if og_lca and og_lca not in allowed_og_lcas:
-                    continue
-
             # ev_lca ceiling gate: drop events whose ev_lca is above the
             # per-seed ceiling (i.e. the LCA taxid is not at-or-below the
-            # ceiling in the NCBI tree).  This is the primary new filter
-            # replacing the old `allowed_og_lcas` strict-OG approach.
+            # ceiling in the NCBI tree).  This is the sole scope filter —
+            # the old og_lca pre-gate has been removed because eggNOG v7
+            # uses pan-kingdom OGs (og_lca=131567) that contain valid
+            # within-ceiling speciation events.  Out-of-scope orthologs
+            # that survive this gate are excluded by the valid_species filter.
             if do_ev_lca_filter:
-                ev_lca_for_check = str(event.get("ev_lca") or "")
-                if ev_lca_for_check and not self.lineage_filter.ev_lca_passes_ceiling(
-                    ev_lca_for_check, effective_ceiling
+                ev_lca = str(event.get("ev_lca") or "")
+                if ev_lca and not self.lineage_filter.ev_lca_passes_ceiling(
+                    ev_lca, effective_ceiling
                 ):
                     continue
 

@@ -109,44 +109,44 @@ FUNGI_TAXID         = "4751"
 # 1. auto-narrow ceilings for key organisms
 # ---------------------------------------------------------------------------
 
-def test_auto_narrow_arabidopsis_viridiplantae(resolver_narrow):
-    """auto-narrow: Arabidopsis thaliana (3702) should get Viridiplantae ceiling.
+def test_auto_narrow_arabidopsis_eukaryota(resolver_narrow):
+    """auto-narrow: Arabidopsis thaliana (3702) should get Eukaryota ceiling.
 
-    Viridiplantae (33090) appears before Metazoa in the narrow priority list
-    because it is the tightest match for a land plant seed.
+    AUTO_NARROW_PRIORITY is domain-level only [Eukaryota, Prokaryota].
+    All eukaryotes receive the Eukaryota ceiling regardless of sub-kingdom.
     """
     ceiling = resolver_narrow.resolve_ceiling(ARABIDOPSIS_TAXID)
     name = resolver_narrow.ceiling_name(ceiling)
-    assert name == "Viridiplantae", (
-        f"Expected Viridiplantae ceiling for Arabidopsis (3702), got {name!r} "
+    assert name == "Eukaryota", (
+        f"Expected Eukaryota ceiling for Arabidopsis (3702) in auto-narrow, got {name!r} "
         f"(taxid={ceiling})"
     )
 
 
-def test_auto_narrow_human_metazoa(resolver_narrow):
-    """auto-narrow: Homo sapiens (9606) should get Metazoa ceiling.
+def test_auto_narrow_human_eukaryota(resolver_narrow):
+    """auto-narrow: Homo sapiens (9606) should get Eukaryota ceiling.
 
-    Homo sapiens is in Metazoa (33208) but not in Fungi or Viridiplantae,
-    so Metazoa is the first priority-list match.
+    AUTO_NARROW_PRIORITY is domain-level only — no Metazoa or Opisthokonta
+    tiers.  Human gets the same Eukaryota ceiling as all other eukaryotes.
     """
     ceiling = resolver_narrow.resolve_ceiling(HUMAN_TAXID)
     name = resolver_narrow.ceiling_name(ceiling)
-    assert name == "Metazoa", (
-        f"Expected Metazoa ceiling for human (9606), got {name!r} "
+    assert name == "Eukaryota", (
+        f"Expected Eukaryota ceiling for human (9606) in auto-narrow, got {name!r} "
         f"(taxid={ceiling})"
     )
 
 
-def test_auto_narrow_yeast_fungi(resolver_narrow):
-    """auto-narrow: Saccharomyces cerevisiae (4932) should get Fungi ceiling.
+def test_auto_narrow_yeast_eukaryota(resolver_narrow):
+    """auto-narrow: Saccharomyces cerevisiae (4932) should get Eukaryota ceiling.
 
-    Fungi (4751) is the first entry in the narrow priority list and
-    S. cerevisiae is a canonical fungal species (not a microsporidian).
+    AUTO_NARROW_PRIORITY is domain-level only — Fungi is not in the list.
+    Yeast gets Eukaryota ceiling, same as all other eukaryotes.
     """
     ceiling = resolver_narrow.resolve_ceiling(YEAST_TAXID)
     name = resolver_narrow.ceiling_name(ceiling)
-    assert name == "Fungi", (
-        f"Expected Fungi ceiling for S. cerevisiae (4932), got {name!r} "
+    assert name == "Eukaryota", (
+        f"Expected Eukaryota ceiling for S. cerevisiae (4932) in auto-narrow, got {name!r} "
         f"(taxid={ceiling})"
     )
 
@@ -226,47 +226,46 @@ def test_auto_broad_yeast_fungi(resolver_broad):
 # to Eukaryota.
 # ---------------------------------------------------------------------------
 
-def test_narrow_vs_broad_monosiga_diverges(resolver_narrow, resolver_broad):
-    """Monosiga brevicollis (81824) gets Opisthokonta (narrow) vs Eukaryota (broad).
+def test_narrow_vs_broad_monosiga_both_eukaryota(resolver_narrow, resolver_broad):
+    """Monosiga brevicollis (81824) gets Eukaryota in both auto-narrow and auto-broad.
 
-    Monosiga is a choanoflagellate: it is in Opisthokonta (33154) but NOT in
-    Metazoa (33208) or Fungi (4751).  auto-narrow has Opisthokonta in its
-    priority list; auto-broad does not, so it falls through to Eukaryota.
+    Monosiga is a choanoflagellate: in Opisthokonta (33154) but NOT in
+    Metazoa (33208) or Fungi (4751).  auto-narrow uses domain-level priority
+    [Eukaryota, Prokaryota] so Monosiga gets Eukaryota.  auto-broad has no
+    Opisthokonta tier, so it also falls through to Eukaryota.
 
-    This is the primary case where the two modes produce different ceilings,
-    confirming they are not equivalent for non-plant/non-animal/non-fungal seeds.
+    Both modes agree for Monosiga — the two modes diverge only for organisms
+    within Metazoa, Viridiplantae, or Fungi (auto-broad gives the sub-kingdom
+    ceiling; auto-narrow gives Eukaryota).
     """
     narrow_ceiling = resolver_narrow.resolve_ceiling(MONOSIGA_TAXID)
     broad_ceiling = resolver_broad.resolve_ceiling(MONOSIGA_TAXID)
-    assert resolver_narrow.ceiling_name(narrow_ceiling) == "Opisthokonta", (
-        f"auto-narrow: expected Opisthokonta for Monosiga, got "
+    assert resolver_narrow.ceiling_name(narrow_ceiling) == "Eukaryota", (
+        f"auto-narrow: expected Eukaryota for Monosiga, got "
         f"{resolver_narrow.ceiling_name(narrow_ceiling)!r}"
     )
     assert resolver_broad.ceiling_name(broad_ceiling) == "Eukaryota", (
         f"auto-broad: expected Eukaryota for Monosiga, got "
         f"{resolver_broad.ceiling_name(broad_ceiling)!r}"
     )
-    assert narrow_ceiling != broad_ceiling, (
-        "auto-narrow and auto-broad must produce DIFFERENT ceilings for Monosiga"
-    )
 
 
-def test_narrow_vs_broad_microsporidia_diverges(resolver_narrow, resolver_broad):
-    """Encephalitozoon cuniculi (6035) gets Opisthokonta (narrow) vs Eukaryota (broad).
+def test_narrow_vs_broad_microsporidia_both_eukaryota(resolver_narrow, resolver_broad):
+    """Encephalitozoon cuniculi (6035) gets Eukaryota in both auto-narrow and auto-broad.
 
     E. cuniculi is a Microsporidian: its NCBI lineage passes through Fungi (4751)
     but Microsporidia (6029) are explicitly excluded from the Fungi set in both
-    modes.  With Fungi excluded:
-    - auto-narrow: falls through Viridiplantae, Metazoa to Opisthokonta (33154) ✓
-    - auto-broad:  falls through Metazoa, Viridiplantae, Fungi to Eukaryota (2759) ✓
+    modes.  auto-narrow is domain-level [Eukaryota, Prokaryota] so Microsporidia
+    falls through to Eukaryota.  auto-broad also falls through Metazoa/Viridiplantae/
+    Fungi (excluded) to Eukaryota.
 
-    This confirms the Microsporidia exclusion works correctly and that both modes
-    diverge for this class (rather than both silently treating them as Fungi).
+    Both modes agree on Eukaryota.  The Microsporidia exclusion from Fungi still
+    applies in both modes — Microsporidia are NOT assigned to the Fungi ceiling.
     """
     narrow_ceiling = resolver_narrow.resolve_ceiling(ENCEPHALITOZOON_TAXID)
     broad_ceiling = resolver_broad.resolve_ceiling(ENCEPHALITOZOON_TAXID)
-    assert resolver_narrow.ceiling_name(narrow_ceiling) == "Opisthokonta", (
-        f"auto-narrow: expected Opisthokonta for Microsporidia, got "
+    assert resolver_narrow.ceiling_name(narrow_ceiling) == "Eukaryota", (
+        f"auto-narrow: expected Eukaryota for Microsporidia, got "
         f"{resolver_narrow.ceiling_name(narrow_ceiling)!r} — "
         "Microsporidia must not be assigned to Fungi ceiling"
     )
@@ -274,8 +273,27 @@ def test_narrow_vs_broad_microsporidia_diverges(resolver_narrow, resolver_broad)
         f"auto-broad: expected Eukaryota for Microsporidia, got "
         f"{resolver_broad.ceiling_name(broad_ceiling)!r}"
     )
+
+
+def test_narrow_vs_broad_diverge_for_metazoa(resolver_narrow, resolver_broad):
+    """Human (9606) gets Eukaryota (narrow) vs Metazoa (broad) — modes diverge.
+
+    AUTO_NARROW_PRIORITY is domain-level only: human gets Eukaryota.
+    AUTO_BROAD_PRIORITY starts with Metazoa: human gets Metazoa.
+    This is the canonical divergence case for the two modes.
+    """
+    narrow_ceiling = resolver_narrow.resolve_ceiling(HUMAN_TAXID)
+    broad_ceiling = resolver_broad.resolve_ceiling(HUMAN_TAXID)
+    assert resolver_narrow.ceiling_name(narrow_ceiling) == "Eukaryota", (
+        f"auto-narrow: expected Eukaryota for human, got "
+        f"{resolver_narrow.ceiling_name(narrow_ceiling)!r}"
+    )
+    assert resolver_broad.ceiling_name(broad_ceiling) == "Metazoa", (
+        f"auto-broad: expected Metazoa for human, got "
+        f"{resolver_broad.ceiling_name(broad_ceiling)!r}"
+    )
     assert narrow_ceiling != broad_ceiling, (
-        "auto-narrow and auto-broad must produce DIFFERENT ceilings for Microsporidia"
+        "auto-narrow and auto-broad must produce DIFFERENT ceilings for human"
     )
 
 
