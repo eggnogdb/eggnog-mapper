@@ -226,7 +226,9 @@ class Emapper:
                     dropped_file=pjoin(self._current_dir, self.dropped_file),
                 )
         else:
-            annotated_hits = ((hit, None) for hit in hits)  # hits generator without annotations
+            # --no_annot: wrap hits as (hit, None) pairs, or yield nothing if
+            # no search was run (e.g. -m no_search --no_annot is a no-op).
+            annotated_hits = ((hit, None) for hit in hits) if hits is not None else iter([])
 
         return annotated_hits
 
