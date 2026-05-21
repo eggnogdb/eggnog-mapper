@@ -221,16 +221,23 @@ def timeit(f):
 # stored in a temp file within a specified tempdir
 # CPCantalapiedra 2021
 def translate_cds_to_prots(source, outfile, table):
-    import gzip
+    import bz2, gzip
     from pathlib import Path
     from Bio import SeqIO
     from Bio.SeqRecord import SeqRecord
-    
+
     if os.path.isfile(source) or Path(source).is_file():
-        if source.endswith('.gz'):
-            _source = gzip.open(source, "rt")
+        try:
+            with open(source, 'rb') as _fh:
+                _magic = _fh.read(3)
+        except OSError:
+            _magic = b''
+        if _magic[:2] == b'\x1f\x8b':
+            _source = gzip.open(source, 'rt')
+        elif _magic[:3] == b'BZh':
+            _source = bz2.open(source, 'rt')
         else:
-            _source = open(source, "r")
+            _source = open(source, 'r')
     else:
         _source = iter(source.split("\n"))
 

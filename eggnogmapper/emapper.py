@@ -8,7 +8,8 @@ from os.path import exists as pexists
 from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm, ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS, get_data_path
+from .common import silent_rm, decompress_input, detect_compression, \
+    ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS, get_data_path
 from .emapperException import EmapperException
 
 from .genepred.genepred_modes import GENEPRED_MODE_SEARCH, GENEPRED_MODE_PRODIGAL, get_predictor
@@ -326,30 +327,46 @@ class Emapper:
     ##
     def run(self, args, infile, annotate_hits_table=None):
 
-        ##
-        # Step 0. Gene prediction
-        predictor = self.gene_prediction(args, infile)
+        _tmp_infile = None
+        try:
+            ##
+            # Decompress compressed input transparently (gzip or bzip2, by magic bytes)
+            if infile is not None:
+                ctype = detect_compression(infile)
+                if ctype:
+                    print(colorify(
+                        f"Detected {ctype} compressed input — decompressing to temp file...",
+                        'blue'), file=stderr)
+                    infile, _tmp_infile = decompress_input(infile, args.temp_dir)
 
-        ##
-        # Step 1. Sequence search
-        searcher, searcher_name, hits, queries_file = self.search(args, infile, predictor)
+            ##
+            # Step 0. Gene prediction
+            predictor = self.gene_prediction(args, infile)
 
-        ##
-        # Step 2. Annotation
-        annotated_hits = self.annotate(args, hits, annotate_hits_table, queries_file)
+            ##
+            # Step 1. Sequence search
+            searcher, searcher_name, hits, queries_file = self.search(args, infile, predictor)
 
-        ##
-        # step 3. Decorate GFF
-        annotated_hits = self.decorate_gff_f(args, predictor, searcher_name, annotated_hits)
+            ##
+            # Step 2. Annotation
+            annotated_hits = self.annotate(args, hits, annotate_hits_table, queries_file)
 
-        ##
-        # Run the generators
-        n, elapsed_time = self.run_generator(annotated_hits)
+            ##
+            # Step 3. Decorate GFF
+            annotated_hits = self.decorate_gff_f(args, predictor, searcher_name, annotated_hits)
 
-        ##
-        # Finish
-        self.wrap_up(predictor, searcher)
-        
+            ##
+            # Run the generators
+            n, elapsed_time = self.run_generator(annotated_hits)
+
+            ##
+            # Finish
+            self.wrap_up(predictor, searcher)
+
+        finally:
+            if _tmp_infile is not None:
+                silent_rm(_tmp_infile)
+
         return n, elapsed_time
 
 ## END

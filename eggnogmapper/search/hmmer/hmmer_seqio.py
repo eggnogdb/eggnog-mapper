@@ -1,11 +1,30 @@
 ##
 
-import os, sys
-import re
+import bz2
 import gzip
+import os
+import re
+import sys
 
 CLEAN_SEQ = re.compile("[\s\-\.]+")
-def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):    
+
+def _fasta_open(source):
+    """Open a FASTA source for text reading, auto-detecting gzip/bzip2."""
+    from pathlib import Path
+    if not (os.path.isfile(source) or Path(source).is_file()):
+        return iter(source.split("\n"))
+    try:
+        with open(source, 'rb') as fh:
+            magic = fh.read(3)
+    except OSError:
+        return open(source, 'r')
+    if magic[:2] == b'\x1f\x8b':
+        return gzip.open(source, 'rt')
+    if magic[:3] == b'BZh':
+        return bz2.open(source, 'rt')
+    return open(source, 'r')
+
+def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
     """Iter seq records in a FASTA file"""
 
     if silent == False:
@@ -16,16 +35,8 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
             from Bio.Alphabet import generic_dna
         except ImportError:
             generic_dna = None
-            
-    from pathlib import Path
-    
-    if os.path.isfile(source) or Path(source).is_file():
-        if source.endswith('.gz'):
-            _source = gzip.open(source, "rt")
-        else:
-            _source = open(source, "r")
-    else:
-        _source = iter(source.split("\n"))
+
+    _source = _fasta_open(source)
 
     seq_chunks = []
     seq_name = None

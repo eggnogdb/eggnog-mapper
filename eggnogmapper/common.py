@@ -2,12 +2,14 @@
 
 import sys
 import os
-import time
-from os.path import join as pjoin
-from os.path import exists as pexists
+import bz2
 import gzip
 import shutil
 import errno
+import tempfile
+import time
+from os.path import join as pjoin
+from os.path import exists as pexists
 from subprocess import Popen, PIPE, run, CalledProcessError
 
 from .utils import colorify
@@ -318,11 +320,51 @@ unrestricted reuse, distribution, and reproduction in any medium, provided the
 original work is properly cited.
 """
 
+def detect_compression(path: str) -> str:
+    """Return 'gz', 'bz2', or '' based on magic bytes."""
+    try:
+        with open(path, 'rb') as fh:
+            magic = fh.read(3)
+    except OSError:
+        return ''
+    if magic[:2] == b'\x1f\x8b':
+        return 'gz'
+    if magic[:3] == b'BZh':
+        return 'bz2'
+    return ''
+
+
 def gopen(fname):
-    if fname.endswith('.gz'):
+    """Open a file for text reading, auto-detecting gzip/bzip2 by magic bytes."""
+    ctype = detect_compression(fname)
+    if ctype == 'gz':
         return gzip.open(fname, 'rt')
-    else:
-        return open(fname)
+    if ctype == 'bz2':
+        return bz2.open(fname, 'rt')
+    return open(fname)
+
+
+def decompress_input(path: str, temp_dir: str) -> tuple:
+    """Decompress a compressed FASTA to a temp file; return (path, tmp_path_or_None).
+
+    If the file is not compressed, returns (path, None) with no I/O.
+    The caller is responsible for deleting tmp_path when it is not None.
+    Supported formats: gzip, bzip2 (detected by magic bytes, not extension).
+    """
+    ctype = detect_compression(path)
+    if not ctype:
+        return path, None
+
+    opener = gzip.open if ctype == 'gz' else bz2.open
+    fd, tmp_path = tempfile.mkstemp(suffix='.fa', prefix='emapper_input_', dir=temp_dir)
+    os.close(fd)
+    try:
+        with opener(path, 'rb') as fin, open(tmp_path, 'wb') as fout:
+            shutil.copyfileobj(fin, fout)
+    except Exception:
+        silent_rm(tmp_path)
+        raise
+    return tmp_path, tmp_path
 
 def silent_rm(f):
     if pexists(f):
