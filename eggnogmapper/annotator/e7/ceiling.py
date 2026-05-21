@@ -5,7 +5,7 @@ logic with an ``ev_lca ≤ ceiling`` gate applied per speciation event.
 
 Two built-in auto modes are provided:
 
-- ``auto-narrow`` (default): Eukaryota ceiling for all eukaryotes;
+- ``auto`` (default): Eukaryota ceiling for all eukaryotes;
   Prokaryota (Bacteria ∪ Archaea) for all prokaryotes. No sub-kingdom
   tiers — avoids over-narrow ceilings for fungi, plants, metazoans.
 - ``auto-broad``: broad → narrow, Metazoa-first for eukaryotes.
@@ -54,7 +54,7 @@ PROKARYOTA_SYNTHETIC: str = "_prokaryota"
 # resolve_ceiling() walks the seed's lineage and returns the FIRST entry
 # in this list that is present in that lineage.
 
-# auto-narrow (default): domain-level only — Eukaryota or Prokaryota.
+# auto (default): domain-level only — Eukaryota or Prokaryota.
 # No sub-kingdom tiers: a fungal seed gets Eukaryota ceiling, not Fungi;
 # a mammalian seed gets Eukaryota, not Metazoa. This maximises ortholog
 # recall at the cost of including more distant (but still same-domain)
@@ -96,7 +96,7 @@ class TaxScopeCeilingResolver:
     called per-seed inside ``AnnotationEngine._annotate_batch_inproc``.
 
     Attributes:
-        mode: ``"auto-narrow"``, ``"auto-broad"``, or a fixed taxid/name.
+        mode: ``"auto"``, ``"auto-broad"``, or a fixed taxid/name.
         _priority: Ordered list of ceiling candidates used in auto modes.
         _prokaryota_taxids: Frozenset of all prokaryotic species taxids.
         _fungi_minus_microsporidia: Frozenset of Fungi species taxids
@@ -156,7 +156,7 @@ class TaxScopeCeilingResolver:
 
         Args:
             lineage_cache: Loaded ``LineageCache`` instance.
-            mode: ``"auto-narrow"``, ``"auto-broad"``, or a clade name /
+            mode: ``"auto"``, ``"auto-broad"``, or a clade name /
                 numeric taxid string for a fixed ceiling.
             taxa_db_path: Path to ``eggnog.taxa.db`` — used only when
                 ``mode`` is a named clade (not purely numeric).
@@ -173,10 +173,10 @@ class TaxScopeCeilingResolver:
         prokaryota_taxids = cls._compute_prokaryota(lineage_cache)
         fungi_minus_microsporidia = cls._compute_fungi_minus_microsporidia(lineage_cache)
 
-        is_auto = mode in ("auto-narrow", "auto-broad")
+        is_auto = mode in ("auto", "auto-broad")
         priority = (
             AUTO_NARROW_PRIORITY
-            if mode == "auto-narrow"
+            if mode == "auto"
             else AUTO_BROAD_PRIORITY
             if mode == "auto-broad"
             else []

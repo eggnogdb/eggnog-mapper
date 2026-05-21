@@ -163,8 +163,8 @@ class MMseqs2Searcher:
                 change_seeds_coords = True
                 
             hits_generator = output_seeds(cmds, hits_generator,
-                                          seed_orthologs_file, 
-                                          self.no_file_comments, False,
+                                          seed_orthologs_file,
+                                          self.no_file_comments,
                                           change_seeds_coords)
 
         except Exception as e:

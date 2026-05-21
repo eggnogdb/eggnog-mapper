@@ -4,11 +4,7 @@ import os, sys, time, traceback
 import argparse, multiprocessing
 
 if sys.version_info < (3, 9):
-    # 3.9 floor: argparse.BooleanOptionalAction (used for --scope_strict_og)
-    # was introduced in 3.9. Older Pythons would import-fail at flag-parse
-    # time with a less helpful message; we surface it here.
-    sys.exit('Sorry, Python < 3.9 is not supported '
-             '(argparse.BooleanOptionalAction requires 3.9+)')
+    sys.exit('Sorry, Python < 3.9 is not supported.')
     
 # get the path of this script and add it to the "pythonpath"
 SCRIPT_PATH = os.path.split(os.path.realpath(os.path.abspath(__file__)))[0]
@@ -42,7 +38,7 @@ from eggnogmapper.deco.decoration import \
     DECORATE_GFF_NONE, DECORATE_GFF_GENEPRED, DECORATE_GFF_FIELD_DEFAULT
 
 # Ceiling-mode constants for --tax_scope
-TAX_SCOPE_AUTO_NARROW = "auto-narrow"
+TAX_SCOPE_AUTO_NARROW = "auto"
 TAX_SCOPE_AUTO_BROAD = "auto-broad"
 
 from eggnogmapper.common import existing_file, existing_dir, get_data_path, set_data_path, pexists, \
@@ -294,13 +290,6 @@ def create_arg_parser():
                                   "the seed by a non-bitscore criterion (pident / qcov tie-break). "
                                   "No effect for genome/metagenome itype runs."))
 
-    pg_diamond.add_argument('--outfmt_short', action="store_true",
-                            help=(
-                                "Diamond output will include only qseqid sseqid evalue and score. "
-                                "This could help obtain better performance, if also no --pident, --query_cover or --subject_cover thresholds are used. "
-                                "This option is ignored when the diamond search is run in blastx mode for gene prediction (see --genepred)."
-                            ))
-
     pg_diamond.add_argument('--dmnd_ignore_warnings', action="store_true",
                             help=(
                                 "Diamond --ignore-warnings option. "
@@ -444,12 +433,10 @@ def create_arg_parser():
             "Taxonomic ceiling for annotation: only speciation events whose "
             "ev_lca is at or below this ceiling are used for functional "
             "transfer. "
-            f"'{TAX_SCOPE_AUTO_NARROW}' (default): per-seed narrow-first "
-            "ceiling — Fungi (excl. Microsporidia), Viridiplantae, Metazoa, "
-            "Opisthokonta, Eukaryota, Prokaryota. "
-            f"'{TAX_SCOPE_AUTO_BROAD}': per-seed broad-first ceiling — "
-            "Metazoa, Viridiplantae, Fungi (excl. Microsporidia), Eukaryota, "
-            "Prokaryota. "
+            f"'{TAX_SCOPE_AUTO_NARROW}' (default): per-seed automatic ceiling "
+            "— Eukaryota for all eukaryotes, Prokaryota for all prokaryotes. "
+            f"'{TAX_SCOPE_AUTO_BROAD}': broad-first variant — tries Metazoa "
+            "before Eukaryota for animal seeds. "
             "A clade name (e.g. 'Metazoa') or numeric NCBI taxid: fixed "
             "ceiling for all seeds; hard-fails if the name cannot be resolved."
         ),
@@ -473,12 +460,6 @@ def create_arg_parser():
     pg_annot.add_argument("--report_orthologs", action="store_true",
                           help="Output the list of orthologs found for each query to a .orthologs file")
     
-    pg_annot.add_argument('--go_evidence', type=str, choices=('experimental', 'non-electronic', 'all'),
-                          default='non-electronic',
-                          help='Defines what type of GO terms should be used for annotation. '
-                          'experimental = Use only terms inferred from experimental evidence. '
-                          'non-electronic = Use only non-electronically curated terms')
-
     pg_annot.add_argument('--pfam_realign', type=str,
                           choices=(PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO),
                           default=PFAM_REALIGN_NONE,
@@ -669,22 +650,6 @@ def parse_args(parser):
         if args.excluded_taxa is not None:
             args.excluded_taxa = args.excluded_taxa.split(",")
         
-    # Sets GO evidence bases
-    if args.go_evidence == 'experimental':
-        args.go_evidence = set(["EXP","IDA","IPI","IMP","IGI","IEP"])
-        args.go_excluded = set(["ND", "IEA"])
-
-    elif args.go_evidence == 'non-electronic':
-        args.go_evidence = None
-        args.go_excluded = set(["ND", "IEA"])
-
-    elif args.go_evidence == 'all':
-        args.go_evidence = None
-        args.go_excluded = None
-        
-    else:
-        raise ValueError('Invalid --go_evidence value')
-
     # PFAM annotation options
     
     if args.pfam_realign == PFAM_REALIGN_NONE:

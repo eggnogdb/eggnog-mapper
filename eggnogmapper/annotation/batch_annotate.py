@@ -161,8 +161,6 @@ def annotate_batch(
     target_orthologs: str,
     target_taxa,
     excluded_taxa,
-    go_evidence,
-    go_excluded,
     seed_ortholog_score,
     seed_ortholog_evalue,
     ceiling_resolver: TaxScopeCeilingResolver,
@@ -181,8 +179,6 @@ def annotate_batch(
             etc.).
         target_taxa: Optional set of taxids to include.
         excluded_taxa: Optional set of taxids to exclude.
-        go_evidence: GO evidence filter set (or ``None``).
-        go_excluded: GO evidence exclusion set (or ``None``).
         seed_ortholog_score: Minimum bit-score threshold.
         seed_ortholog_evalue: Maximum E-value threshold.
         ceiling_resolver: Pre-built ``TaxScopeCeilingResolver`` for

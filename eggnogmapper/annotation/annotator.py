@@ -34,7 +34,6 @@ class Annotator:
     seed_ortholog_score = seed_ortholog_evalue = None
     target_taxa = target_orthologs = excluded_taxa = None
 
-    go_evidence = go_excluded = None
     pfam_realign = trans_table = temp_dir = None
     md5 = None
 
@@ -65,7 +64,7 @@ class Annotator:
         self.seed_ortholog_score = args.seed_ortholog_score
         self.seed_ortholog_evalue = args.seed_ortholog_evalue
 
-        # --tax_scope: "auto-narrow" | "auto-broad" | <clade_name_or_taxid>
+        # --tax_scope: "auto" | "auto-broad" | <clade_name_or_taxid>
         self.tax_scope = args.tax_scope
 
         # --donor_pool: "closest" | "union"
@@ -74,9 +73,6 @@ class Annotator:
         self.target_taxa = args.target_taxa
         self.target_orthologs = args.target_orthologs
         self.excluded_taxa = args.excluded_taxa
-
-        self.go_evidence = args.go_evidence
-        self.go_excluded = args.go_excluded
 
         self.pfam_realign = args.pfam_realign
 
@@ -114,8 +110,6 @@ class Annotator:
             "excluded_taxa": self.excluded_taxa,
             "seed_ortholog_evalue": self.seed_ortholog_evalue,
             "seed_ortholog_score": self.seed_ortholog_score,
-            "go_evidence": self.go_evidence,
-            "go_excluded": self.go_excluded,
             "pfam_realign": self.pfam_realign,
         }
 
@@ -402,8 +396,6 @@ class Annotator:
                         target_orthologs=self.target_orthologs,
                         target_taxa=self.target_taxa,
                         excluded_taxa=self.excluded_taxa,
-                        go_evidence=self.go_evidence,
-                        go_excluded=self.go_excluded,
                         seed_ortholog_score=self.seed_ortholog_score,
                         seed_ortholog_evalue=self.seed_ortholog_evalue,
                         ceiling_resolver=ceiling_resolver,
@@ -421,8 +413,6 @@ class Annotator:
                     target_orthologs=self.target_orthologs,
                     target_taxa=self.target_taxa,
                     excluded_taxa=self.excluded_taxa,
-                    go_evidence=self.go_evidence,
-                    go_excluded=self.go_excluded,
                     seed_ortholog_score=self.seed_ortholog_score,
                     seed_ortholog_evalue=self.seed_ortholog_evalue,
                     ceiling_resolver=ceiling_resolver,
@@ -493,8 +483,8 @@ class Annotator:
 
         Yields:
             Tuple ``(hit, annot, seed_ortholog_score, seed_ortholog_evalue,
-            target_taxa, target_orthologs, excluded_taxa, go_evidence,
-            go_excluded, data_path, annotation)`` where ``annotation`` is
+            target_taxa, target_orthologs, excluded_taxa,
+            data_path, annotation)`` where ``annotation`` is
             the previously computed annotation (or ``None``).
         """
         curr_annot = None
@@ -524,8 +514,6 @@ class Annotator:
                 self.target_taxa,
                 self.target_orthologs,
                 self.excluded_taxa,
-                self.go_evidence,
-                self.go_excluded,
                 get_data_path(),
                 annotation,
             )

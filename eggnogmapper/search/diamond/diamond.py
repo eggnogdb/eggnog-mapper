@@ -139,9 +139,6 @@ class DiamondSearcher:
     # Filters
     pident_thr = score_thr = evalue_thr = query_cov = subject_cov = None
 
-    # Output format from diamond
-    outfmt_short = False
-
     in_file = None
     itype = None
     translate = None
@@ -202,8 +199,6 @@ class DiamondSearcher:
         self.score_thr = args.dmnd_score
         # self.excluded_taxa = args.excluded_taxa if args.excluded_taxa else None
 
-        self.outfmt_short = args.outfmt_short
-        
         self.temp_dir = mkdtemp(prefix='emappertmp_dmdn_', dir=args.temp_dir)
         self.no_file_comments = args.no_file_comments
 
@@ -261,8 +256,8 @@ class DiamondSearcher:
                 change_seeds_coords = True
                 
             hits_generator = output_seeds(cmds, hits_generator,
-                                          seed_orthologs_file, 
-                                          self.no_file_comments, self.outfmt_short,
+                                          seed_orthologs_file,
+                                          self.no_file_comments,
                                           change_seeds_coords)
 
         except Exception as e:
@@ -348,21 +343,8 @@ class DiamondSearcher:
 
         ##
         # output format
-        OUTFMT_SHORT = " --outfmt 6 qseqid sseqid evalue bitscore"
         OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
-        if self.itype == ITYPE_GENOME or self.itype == ITYPE_META: # i.e. gene prediction
-            cmd += OUTFMT_LONG
-        else:
-            if self.outfmt_short == True:
-                cmd += OUTFMT_SHORT
-            else:
-                cmd += OUTFMT_LONG
-
-        # NOTE about short output format:
-        # diamond should run faster if no pident, qcov, scov values are used either as filter or to be output
-        # This is because it needs to compute them, whereas using only evalue and score does not need to recompute.
-        # Therefore, the fastest way to obtain diamond alignments is using the OUTFMT_SHORT format and
-        # not using --id, --query-cover, --subject-cover thresholds. Of course, does not always fit our needs.
+        cmd += OUTFMT_LONG
 
         ##
         # run command
@@ -389,11 +371,9 @@ class DiamondSearcher:
                     continue
 
                 fields = list(map(str.strip, line.split('\t')))
-                # fields are defined in run_diamond
-                # OUTFMT_SHORT = " --outfmt 6 qseqid sseqid evalue bitscore"
-                # OUTFMT_LONG = " --outfmt 6 qseqid sseqid pident length mismatch
-                # gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp"
-                
+                # OUTFMT_LONG fields:
+                # qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp
+
                 query = fields[0]
 
                 # only one result per query
@@ -401,26 +381,20 @@ class DiamondSearcher:
                     continue
                 else:
                     prev_query = query
-                
+
                 target = fields[1]
+                pident = float(fields[2])
+                qstart = int(fields[6])
+                qend = int(fields[7])
+                sstart = int(fields[8])
+                send = int(fields[9])
+                evalue = float(fields[10])
+                score = float(fields[11])
+                qcov = float(fields[12])
+                scov = float(fields[13])
+                hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
 
-                if self.outfmt_short == True:
-                    evalue = float(fields[2])
-                    score = float(fields[3])
-                    hit = [query, target, evalue, score]
-                else:
-                    pident = float(fields[2])
-                    qstart = int(fields[6])
-                    qend = int(fields[7])
-                    sstart = int(fields[8])
-                    send = int(fields[9])
-                    evalue = float(fields[10])
-                    score = float(fields[11])
-                    qcov = float(fields[12])
-                    scov = float(fields[13])
-                    hit = [query, target, evalue, score, qstart, qend, sstart, send, pident, qcov, scov]
-
-                yield hit # hit
+                yield hit
         return
 
     ##

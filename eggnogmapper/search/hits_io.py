@@ -36,7 +36,7 @@ def parse_seeds(filename):
 ##
 # Receives an iterable of hits to output
 # and also returns a generator object of hits
-def output_seeds(cmds, hits, out_file, no_file_comments, outfmt_short, change_seeds_coords = False):
+def output_seeds(cmds, hits, out_file, no_file_comments, change_seeds_coords = False):
     start_time = time.time()
 
     with open(out_file, 'w') as OUT:
@@ -49,11 +49,8 @@ def output_seeds(cmds, hits, out_file, no_file_comments, outfmt_short, change_se
                     print('##'+cmd, file=OUT)
 
         # header
-        if outfmt_short == True:
-            print('#'+"\t".join("qseqid sseqid evalue bitscore".split(" ")), file=OUT)
-        else:
-            print('#'+"\t".join(("qseqid sseqid evalue bitscore qstart qend "
-                                 "sstart send pident qcov scov").split(" ")), file=OUT)
+        print('#'+"\t".join(("qseqid sseqid evalue bitscore qstart qend "
+                             "sstart send pident qcov scov").split(" ")), file=OUT)
             
             
         qn = 0
