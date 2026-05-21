@@ -127,10 +127,10 @@ class MMseqs2Searcher:
         try:
             cmds = None
 
-            # 1) either resume from previous hits or run diamond to generate the hits
+            # 1) either resume from previous hits or run mmseqs to generate the hits
             if self.resume == True:
                 if pisfile(hits_file):
-                    pass
+                    print(f"[resume] Skipping MMseqs2 search — reusing: {hits_file}", file=sys_stderr)
                 else:
                     raise EmapperException(f"Couldn't find hits file {hits_file} to resume.")
             else:

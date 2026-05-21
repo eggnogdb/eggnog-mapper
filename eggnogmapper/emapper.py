@@ -141,6 +141,9 @@ class Emapper:
         # --resume skips gene prediction to resume from diamond/mmseqs/hmmer hits directly
         if predictor is not None and self.resume == False:
             predictor.predict(infile)
+        elif predictor is not None:
+            print(colorify("[resume] Skipping gene prediction — reusing existing files.", "blue"),
+                  file=stderr)
         
         return predictor
 
@@ -198,6 +201,7 @@ class Emapper:
     ##
     def annotate(self, args, hits, annotate_hits_table, queries_file):
         annotated_hits = None
+        _resumed_ref = [0]
 
         if self.annot == True or self.report_orthologs:
             annot_in = None  # a generator of hits to annotate
@@ -217,7 +221,7 @@ class Emapper:
             annotator = Annotator(args, self.annot, self.excel, self.report_orthologs)
 
             if annot_in is not None and annotator is not None:
-                annotated_hits = annotator.annotate(
+                annotated_hits, _resumed_ref = annotator.annotate(
                     annot_in,
                     pjoin(self._current_dir, self.annot_file),
                     pjoin(self._current_dir, self.excel_file),
@@ -231,7 +235,7 @@ class Emapper:
             # no search was run (e.g. -m no_search --no_annot is a no-op).
             annotated_hits = ((hit, None) for hit in hits) if hits is not None else iter([])
 
-        return annotated_hits
+        return annotated_hits, _resumed_ref
 
     
     ##
@@ -258,36 +262,45 @@ class Emapper:
 
 
     ##
-    def _print_progress(self, n, start_time, mem_monitor):
+    def _print_progress(self, n, n_new, start_time, mem_monitor):
         total_time = time.time() - start_time
         percen_mem = psutil.virtual_memory().percent
         percen_avail = psutil.virtual_memory().available * 100 / psutil.virtual_memory().total
-                
+
         if total_time > 0.005:
-            msg = f"{n} {total_time} {(float(n) / total_time):.2f} q/s "
-            if mem_monitor == True:
-                msg += f"(% mem usage: {percen_mem:.2f}, % mem avail: {percen_avail:.2f})"
+            rate = (float(n_new) / total_time) if total_time > 0 else 0.0
+            n_resumed = n - n_new
+            if n_resumed:
+                msg = f"{n} ({n_new} new, {n_resumed} resumed) {total_time:.1f}s {rate:.2f} q/s"
+            else:
+                msg = f"{n} {total_time:.1f}s {rate:.2f} q/s"
+            if mem_monitor:
+                msg += f" (mem {percen_mem:.1f}% used, {percen_avail:.1f}% avail)"
             print(msg, file=stderr)
 
         stderr.flush()
-        
+
         return total_time
-    
+
     ##
-    def run_generator(self, generator, CHUNK_SIZE = 500, mem_monitor = True):
-        
+    def run_generator(self, generator, resumed_ref=None, CHUNK_SIZE=500, mem_monitor=True):
+
         n = 0
         start_time = time.time()
-        
-        total_time = self._print_progress(n, start_time, mem_monitor)
-        
+
+        _n_skipped = resumed_ref if resumed_ref is not None else [0]
+
+        self._print_progress(0, 0, start_time, mem_monitor)
+
         for item in generator:
             n += 1
-            if n and (n % CHUNK_SIZE == 0):
-                self._print_progress(n, start_time, mem_monitor)
+            if n % CHUNK_SIZE == 0:
+                n_new = n - _n_skipped[0]
+                self._print_progress(n, n_new, start_time, mem_monitor)
 
-        total_time = self._print_progress(n, start_time, mem_monitor)
-        
+        n_new = n - _n_skipped[0]
+        total_time = self._print_progress(n, n_new, start_time, mem_monitor)
+
         return n, total_time
 
     ##
@@ -349,7 +362,7 @@ class Emapper:
 
             ##
             # Step 2. Annotation
-            annotated_hits = self.annotate(args, hits, annotate_hits_table, queries_file)
+            annotated_hits, _resumed_ref = self.annotate(args, hits, annotate_hits_table, queries_file)
 
             ##
             # Step 3. Decorate GFF
@@ -357,7 +370,7 @@ class Emapper:
 
             ##
             # Run the generators
-            n, elapsed_time = self.run_generator(annotated_hits)
+            n, elapsed_time = self.run_generator(annotated_hits, _resumed_ref)
 
             ##
             # Finish

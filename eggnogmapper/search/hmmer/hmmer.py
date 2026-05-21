@@ -241,10 +241,11 @@ class HmmerSearcher:
         # Cache previous results if resuming is enabled
         VISITED = set()
         if self.resume and pisfile(hits_file):
-            print(colorify("Resuming previous run. Reading computed output from %s" % hits_file, 'yellow'))
             VISITED = set([line.split('\t')[0].strip()
                            for line in open(hits_file) if not line.startswith('#')])
-            print(str(len(VISITED)) + ' queries skipped')
+            print(colorify(
+                f"[resume] Skipping HMMER search for {len(VISITED)} queries"
+                f" — reusing: {hits_file}", 'blue'))
             OUT = open(hits_file, 'a')
         else:
             OUT = open(hits_file, 'w')

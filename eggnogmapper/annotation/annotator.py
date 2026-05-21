@@ -120,6 +120,7 @@ class Annotator:
 
         annots_generator = None
         ncbi = None
+        _resumed_ref = [0]
         # Phase 7.1c: opt-in drop log. Opened once here and threaded into
         # `_annotate_batched`; the file is closed via try/finally so a
         # crash mid-run still leaves a valid (partial) .dropped file.
@@ -184,13 +185,20 @@ class Annotator:
                     if not pisfile(_resume_file):
                         print(
                             colorify(
-                                f"WARNING --resume: {_resume_file} not found;"
+                                f"[resume] WARNING: {_resume_file} not found;"
                                 " annotating all hits from scratch.",
                                 "yellow",
                             ),
                             file=sys.stderr,
                         )
                     else:
+                        print(
+                            colorify(
+                                f"[resume] Reusing existing annotations: {_resume_file}",
+                                "blue",
+                            ),
+                            file=sys.stderr,
+                        )
                         annots_parser = parse_annotations(self.annot, annot_file,
                                                           self.report_orthologs, orthologs_file)
                 
@@ -251,9 +259,13 @@ class Annotator:
                                                                self.no_file_comments,
                                                                eggnog_db=_eggnog_db)
 
+                # Count resumed (skip=True) items before stripping the flag.
+                # The counter is a mutable [int] so run_generator can read it
+                # after the generator is exhausted to compute accurate q/s.
+                annots_generator = _count_resumed(annots_generator, _resumed_ref)
+
                 # unpack the annotations removing the "exists" or "skip"
                 # boolean used when --resume
-
                 annots_generator = unpack_annotations(annots_generator)
 
         finally:
@@ -264,7 +276,7 @@ class Annotator:
         if self._dropped_handle is not None:
             annots_generator = self._close_dropped_after(annots_generator)
 
-        return annots_generator
+        return annots_generator, _resumed_ref
 
     def _close_dropped_after(self, gen):
         """Wrap a generator so the drop-log file is closed only after the
@@ -526,6 +538,13 @@ class Annotator:
 def unpack_annotations(annots):
     for (hit, annotation), skip in annots:
         yield hit, annotation
+
+def _count_resumed(annots, counter):
+    """Pass-through wrapper that counts skip=True (resumed) items."""
+    for (hit, annotation), skip in annots:
+        if skip:
+            counter[0] += 1
+        yield (hit, annotation), skip
 
 ##
 def parse_annotations(annot, annot_file, report_orthologs, orthologs_file):
