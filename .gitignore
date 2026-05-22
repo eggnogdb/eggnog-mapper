@@ -21,3 +21,4 @@ build/
 
 # Test scratch output
 tests/integration/out/
+tests/integration/out_v7/
