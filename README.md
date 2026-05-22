@@ -19,15 +19,20 @@ eggNOG-mapper is also available as a public web server: http://mapper.eggnogdb.o
 v3 is a major release targeting the **eggNOG v7** database and a completely
 redesigned annotation engine.
 
-- **eggNOG v7 database** — integer-encoded orthology, phylogeny-aware speciation
+- **eggNOG v7 database** with integer-encoded orthology, phylogeny-aware speciation
   events, and ~12M proteins across ~10k taxa. eggNOG v5 databases are no longer
   supported.
-- **Per-seed taxonomic ceiling** — replaces the old `--tax_scope` predefined
+- **Curated-only functional donors**: only manually curated functional terms
+  (from SwissProt and equivalent curated sources) are used as annotation donors.
+  This stops the propagation of misannotations inherited from automated pipelines.
+  Despite the stricter source requirements, v3 achieves better annotation coverage
+  than v2.
+- **Per-seed taxonomic ceiling** replaces the old `--tax_scope` predefined
   scope lists. Each query seed gets its own `ev_lca`-based ceiling automatically
   narrowed to the most informative phylogenetic level (`--tax_scope auto`,
   default). Fixed clades (`Metazoa`, `33208`, etc.) are still accepted.
-- **Cascade annotation engine** — for each functional source (GO, KEGG, Pfam,
-  EC, …) donors are walked from closest+best-typed first, with the seed's own
+- **Cascade annotation engine**: for each functional source (GO, KEGG, Pfam,
+  EC, ...) donors are walked from closest and best-typed first, with the seed's own
   curated annotation as the strongest tier-0 donor.
 - **No bundled binaries** — DIAMOND, HMMER, MMseqs2, and Prodigal must be
   installed externally (see Requirements below). The wheel shrinks from ~150 MB

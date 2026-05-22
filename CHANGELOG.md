@@ -56,9 +56,14 @@ Not compatible with eggNOG v5 — use eggNOG-mapper 2.x for v5 databases.
 
 ### Added
 
-- **eggNOG v7 database support** — integer-encoded orthology with
+- **eggNOG v7 database support** with integer-encoded orthology and
   phylogeny-based speciation events across ~12 M proteins and ~10 k taxa.
   v5 databases are rejected at startup with an actionable error.
+- **Curated-only functional donors**: only manually curated terms (SwissProt
+  and equivalent curated sources) are used as annotation donors. This avoids
+  propagating misannotations that were inherited from automated pipelines in
+  earlier database versions. v3 achieves better annotation coverage than v2
+  despite the stricter source filtering.
 - **Per-seed taxonomic ceiling** (`--tax_scope auto`): each query seed
   gets its own `ev_lca`-derived ceiling automatically narrowed to the most
   informative phylogenetic level. Plant seeds resolve to `Viridiplantae`,
