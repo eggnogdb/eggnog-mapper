@@ -132,9 +132,14 @@ Please also cite the search tool used:
            BMC Bioinformatics 11, 119. https://doi.org/10.1186/1471-2105-11-119
 ```
 
-## Legacy v2
+## Legacy v2 (eggNOG v5)
 
-Users of eggNOG-mapper v2 (eggNOG v5 database) should use the
-[`master` branch](https://github.com/eggnogdb/eggnog-mapper/tree/master)
-or install `eggnog-mapper==2.1.15` from PyPI.
-v2 and v3 are not database-compatible — v3 requires the eggNOG v7 database.
+If you are working with eggNOG v5 databases, use the
+[v2 branch](https://github.com/eggnogdb/eggnog-mapper/tree/v2)
+or install the last v2 release from PyPI:
+
+```bash
+pip install eggnog-mapper==2.1.15
+```
+
+v2 and v3 databases are not interchangeable. v3 only works with eggNOG v7.
