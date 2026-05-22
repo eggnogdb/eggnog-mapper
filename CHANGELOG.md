@@ -1,396 +1,169 @@
+# Changelog
+
+All notable changes to eggNOG-mapper are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
 ## [Unreleased]
 
 ### Changed
 
-- **Replaced `--tax_scope` + `--tax_scope_mode` with per-seed `ev_lca` ceiling
-  model.** The old flags accepted predefined scopes (`auto`, `bacteria`,
-  `eukaryota`, etc.) and a mode (`inner_narrowest`, `broadest`, etc.) that
-  controlled clade-level collapsing. This led to counterintuitive behaviour
-  where `--tax_scope eukaryota` with `inner_narrowest` would collapse plant
-  seeds to Streptophyta (narrower than expected). The new model replaces both
-  flags with a single `--tax_scope` that sets an `ev_lca` ceiling: only
-  speciation events whose ev_lca is at or below the ceiling are used. This lets
-  the cascade find the closest donors within that scope. `--tax_scope` now
-  accepts: `auto-narrow` (default), `auto-broad`, or a fixed `<clade_name_or_taxid>`
-  (e.g. `Metazoa`, `33208`). Dropped: `--tax_scope_mode`,
-  `--scope_strict_og`/`--no-scope_strict_og`, file-path tax scopes, and all
-  predefined scope names. Deleted: `eggnogmapper/annotation/tax_scopes/` directory.
-- **Added `--donor_pool {closest,union}` flag.** Controls how annotation donors
-  are drawn across tier buckets. `closest` (default) walks priority tiers and
-  stops at the first non-empty bucket (preserves previous behaviour). `union`
-  walks all tiers and takes consensus across all tiers; confidence is set to
-  the best (smallest) tier among contributors.
-- **Renamed output column `tax_scope_used` → `tax_ceiling`.** Reflects the new
-  semantics: the resolved ceiling clade name for each seed (e.g. `Viridiplantae`).
-- **Added output columns `farthest_donor_taxid` and `farthest_donor_lineage`.**
-  The taxid and semicolon-separated lineage (root→leaf) of the most distant
-  donor ortholog used in annotation transfer. Falls back to the seed's own
-  values when no ortholog donors are available.
+- **`--tax_scope` now accepts `auto` (default), `auto-broad`, or a fixed
+  clade name/taxid** (e.g. `Metazoa`, `33208`). The old predefined scope
+  list files (`bacteria`, `eukaryota`, `all_narrow`, etc.) are removed.
+  Each seed gets an individual `ev_lca`-based ceiling: only speciation
+  events whose `ev_lca` is at or below the ceiling are used.
+  Dropped: `--tax_scope_mode`, `--scope_strict_og`, file-path scopes.
+- **`--donor_pool {closest,union}`** (default `closest`). `union` takes
+  consensus across all priority tiers rather than stopping at the first
+  non-empty tier.
+- **Output column `tax_scope_used` renamed to `tax_ceiling`** — reflects
+  the resolved ceiling clade per seed (e.g. `Viridiplantae`).
+- **New output columns `farthest_donor_taxid` and `farthest_donor_lineage`**
+  — taxid and full lineage of the most distant donor used in annotation
+  transfer.
 
-### Biological validation
+---
 
-- Arabidopsis thaliana seeds with `--tax_scope auto-narrow` resolve to
-  `tax_ceiling = Viridiplantae` ✓
-- GO annotation coverage on Arabidopsis: ~92.8%; on tomato: ~77.9%. Matches
-  v3.4 baseline.
+## [3.0.0-beta2] — 2026-05-04
 
-## [v3.0.0] — 2026-05-04
+### Added
 
-First cut of the v3 lineage. eggnog-mapper is now a single self-contained
-PyPI-publishable package: the former `eggnog-annotator` library merged in
-as `eggnogmapper.annotator` (with its full git history preserved), and
-the bundled binary tools left the wheel.
+- **Compressed FASTA input**: gzip (`.gz`) and bzip2 (`.bz2`) query files
+  are autodetected by magic bytes — no flag needed.
+- **`--resume` improvements**: all skipped search steps now emit `[resume]`
+  log lines; skipped hits are excluded from the reported query/seed rates.
+- **Apptainer/Singularity image**: `apptainer/build.sh` builds a
+  self-contained HPC image with DIAMOND, MMseqs2, HMMER, and Prodigal
+  bundled. See `apptainer/` for usage.
 
-### Architecture
+### Changed
 
-- **`eggnog-annotator` merged into `eggnogmapper.annotator`** (commit
-  `d370ef5` brings in 25 annotator commits with original
-  authors/dates). Cascade engine, tax-scope filter, lineage cache,
-  delta-varint codec, schema constants — all live inside the mapper
-  package now. Consumer imports rewrite from `eggnog_annotator.X` to
-  `eggnogmapper.annotator.X`. The `eggnog-annotator` repo is archived.
-- **No more bundled CLI binaries**. The 47 pre-built Linux x86_64
-  binaries in `eggnogmapper/bin/` (~150 MB: diamond, hmmer suite,
-  esl-* tools, mmseqs2, prodigal) are removed. Install via:
-  `conda install -c bioconda diamond hmmer mmseqs2 prodigal`.
-  Wheel size drops from ~150 MB to ~5 MB. Cross-platform install on
-  macOS/Windows now works for the first time.
-- **`common.py`**: switched from deprecated
-  `distutils.spawn.find_executable` to `shutil.which`; each tool
-  constant is the absolute path or `None`. New `require_tool(path,
-  name, conda_pkg)` helper raises `EmapperException` with an
-  actionable install hint when a tool is missing.
+- **CLI simplified**:
+  - `--go_evidence` / `--go_excluded` removed (dead code since v3.0).
+  - `--outfmt_short` removed.
+  - `--tax_scope auto-narrow` renamed to `--tax_scope auto` (default).
+- **`--resume` safety**: existing output files are now validated before
+  reuse; corrupted or incomplete hits files are rejected with a clear error.
 
-### Annotation engine (folded in from former `eggnog-annotator`)
+---
 
-The cascade-engine work that landed across annotator v3.0 → v3.4 is now
-part of the mapper. Highlights:
+## [3.0.0-beta1] — 2026-04-29
 
-- **Per-source closest-ev_lca + ortholog-type-priority cascade** for
-  annotation transfer. For each functional source (KEGG_ko, GOs, Pfam,
-  ...) independently, donors are walked from closest+best-typed first.
-  The first bucket with any donor that has a non-empty value wins, and
-  consensus is taken across only that bucket. Cascade key
-  `(in_seed_lineage, -ev_lca_depth, type_tier)`.
-- **Seed-as-self tier-0 donor** (HIGH-13): the diamond hit's curated
-  annotation is the cascade's strongest tier-0 donor for every source
-  it has. Earlier behaviour silently replaced SwissProt-curated GO/EC
-  values with OG-paralog inferences. araport biology consistency
-  vs seed source row: GOs Jaccard 0.524 → 0.896, EC 0.785 → 0.945,
-  KEGG_ko 0.724 → 0.905, PFAM 0.967 → 1.000.
-- **`--scope_strict_og` filter** (default ON, opt out via
-  `--no-scope_strict_og`). Skips speciation events whose OG `og_lca`
-  is broader than the seed's tax-scope ceiling. ~2× faster on plant
-  proteomes; biology consistent with `--tax_scope auto`.
-- **`--cpu N` parallelizes the annotation phase** via fork-context
-  multiprocessing pool sharing the loaded engine state via COW. Workers
+First public beta of the v3 lineage. Requires **eggNOG v7** database.
+Not compatible with eggNOG v5 — use eggNOG-mapper 2.x for v5 databases.
+
+### Added
+
+- **eggNOG v7 database support** — integer-encoded orthology with
+  phylogeny-based speciation events across ~12 M proteins and ~10 k taxa.
+  v5 databases are rejected at startup with an actionable error.
+- **Per-seed taxonomic ceiling** (`--tax_scope auto`): each query seed
+  gets its own `ev_lca`-derived ceiling automatically narrowed to the most
+  informative phylogenetic level. Plant seeds resolve to `Viridiplantae`,
+  bacterial seeds to their phylum, etc. Fixed clades still accepted.
+- **Cascade annotation engine**: for each functional source (GO, KEGG_ko,
+  Pfam, EC, …) independently, donors are walked from closest and
+  best-typed first. The seed's own curated annotation is the strongest
+  tier-0 donor, preventing paralog inferences from overwriting
+  SwissProt-curated values.
+- **`annotation_confidence` output column**: per-field confidence tier
+  (`high` = 1:1 donor, `medium` = 1:many or many:1, `low` = many:many).
+- **`tax_ceiling` output column**: resolved ceiling clade name per seed.
+- **`--cpu N` parallelises the annotation phase** via fork-context
+  multiprocessing. Workers share the loaded engine state via COW and
   reopen their own SQLite connection post-fork.
-- **Cython hot loops**: `_codec` (delta-varint encode/decode) and
-  `_collect_inner` (`OrthologCollector` cdef class backed by
-  `unordered_map<int64, OrthEntry>`) compiled at install time. Drops
-  the Phase A codec step from ~25 min to ~30 s on full e7;
-  `_collect_orthologs` from ~185 s to ~9 s on plant batches.
+- **Cython-accelerated inner loops**: `_codec` (delta-varint encode/decode)
+  and `_collect_inner` (`OrthologCollector`). Annotation phase: ~25 min →
+  ~30 s on a full eggNOG v7 run; `_collect_orthologs`: ~185 s → ~9 s on
+  plant batches.
+- **`--dmnd_top {1,3}`** (default `1`): uses `--max-target-seqs 1` for a
+  free ~20–30 % faster DIAMOND pass with no biological impact.
+- **DIAMOND auto-tune**: `block_size`, `index_chunks`, and `--algo`
+  selected automatically from host RAM and query size. User overrides take
+  precedence.
+- **`missing taxa.db` error**: raises `EmapperException` with the expected
+  path when `eggnog.taxa.db` is absent, replacing a silent failure.
+- **`require_tool()` helper**: raises `EmapperException` with a
+  `conda install` hint when a required external binary is not on PATH.
 
-### Diamond search
+### Changed
 
-- **`--dmnd_top {1,3}`** (default `1`). Switches to `--max-target-seqs 1`;
-  emapper only consumes the bitscore-best hit, so this is a free
-  ~20-30 % faster diamond pass with no biological impact.
-- **Auto-tune** of `block_size`, `index_chunks`, `--algo` from host RAM
-  and query input size. User overrides take precedence.
-- **`--sensmode`** clarified as the *iterate-ceiling* sensitivity.
+- **`--target_orthologs` is now a cascade floor**, not a post-filter:
+  `one2one` accepts only 1:1 events; seeds without matching donor types
+  emit no annotations rather than silently widening to all types.
+- **`--sensmode`** is the *iterate-ceiling* sensitivity (default
+  `sensitive`); divergent queries escalate, easy ones do not.
+- **`python_requires >= 3.9`** enforced in `setup.cfg`.
 
-### Removed (legacy purge)
+### Removed
 
-- `--mode cache` and the `-c/--cache <FILE>` argument
-- `--mode novel_fams` and the parallel novel-fams chain
-- `--dbmem` flag and the `_annotate_dbmem` per-hit path
-- 11 dead `db_sqlite.py` methods + v5/legacy schema branches
-- Modules: `cache_annotator.py`, `annotator_novel_fams.py`,
-  `annotator_worker_novel_fams.py`, `output_novel_fams.py`,
-  `annota.py`, `annota_mongo.py`, `orthologs.py`,
-  `annotator_worker.py`
+- **Bundled binaries** (~150 MB: DIAMOND, HMMER suite, MMseqs2, Prodigal)
+  removed from the package. Install via conda or your system package manager.
+  Wheel size: ~150 MB → ~5 MB. macOS/Windows installs now work.
+- **`eggnog-annotator` merged** into `eggnogmapper.annotator` (imports
+  rewritten from `eggnog_annotator.X` → `eggnogmapper.annotator.X`).
+  The `eggnog-annotator` repo is archived.
+- `--mode cache` / `-c` / `--cache`
+- `--mode novel_fams` and the novel-fams search/annotation chain
+- `--dbmem`
+- `--go_evidence`, `--go_excluded`
+- Predefined tax-scope files (`bacteria`, `eukaryota`, `all_narrow`, etc.)
+- `eggnogmapper/annotation/tax_scopes/` directory
 
-### Removed (v5 database support)
+### Fixed
 
-v3 is **v7-database-only**. Use eggnog-mapper 2.x for v5 databases.
+- `scope_strict_og` was silently dropped on every full 1000-hit batch,
+  causing proteomes >1000 hits to run in hybrid strict/permissive mode.
+  Fix: `--scope_strict_og` now defaults to `True` and is threaded
+  consistently through all batch calls.
+- Seed IDs that are not integers now emit a warning instead of silently
+  continuing.
 
-- `eggnogmapper/annotator/e5/` (3 placeholder stubs that raised
-  `NotImplementedError` — never had a real implementation)
-- `eggnogmapper/annotation/tax_scopes/tax_scopes.py` (282 LoC) plus
-  its `vars.py` lookup tables — pre-v3 tax-scope module. The v3
-  cascade uses `eggnogmapper.annotator.e7.tax_scope.LineageFilter`.
-- `eggnogmapper/annotation/annotators.py` 11-line factory shim;
-  `emapper.py` now imports `Annotator` directly.
-- `db_sqlite.AnnotDB._int_mode` flag and the v5-vs-v7 conditional
-  branches it gated. `AnnotDB.__init__` now raises
-  `EmapperException` if a non-v7 schema is opened (no `event_index`
-  table).
-- `output.py`: legacy 10-element annotation-tuple unpacking and the
-  `int_mode` toggle that handled v5 string-encoded protein IDs.
-  `output_orthologs_row` shrank from 145 → 89 LoC.
-
-### Search backends — unchanged in v3
-
-- DIAMOND (default), MMseqs2, HMMER, no_search are all still supported
-- Genomic / metagenomic / blastx / ORF prediction (prodigal) — all kept
-- Pfam search functionality kept (uses HMMER)
-- HMMER mode currently downloads eggnog 5.0-era per-clade HMM bundles;
-  v7-era HMM databases are not yet built. Once they ship, `-m hmmer`
-  routes through them automatically — no code changes needed in the
-  mapper. Until then, `-m hmmer` against the v7 `eggnog.db` is
-  best-effort (HMM hit names need to resolve in the v7 `protein_names`
-  table).
-
-### CLI breaking changes
-
-- `--mode {cache, novel_fams}` → removed
-- `--cache`, `--dbmem` → removed
-- Bundled binaries → must be on PATH (`conda install -c bioconda ...`)
-- DB version compatibility: requires `__DB_VERSION__ >= 5.0.2` (v7-int_mode)
-
-### Migration
+### Migration from v2
 
 ```bash
+# 1. Install external tools (no longer bundled)
 conda install -c bioconda diamond hmmer mmseqs2 prodigal
-pip install --upgrade eggnog-mapper
-emapper.py --version  # 3.0.0
+
+# 2. Upgrade eggNOG-mapper
+pip install --upgrade eggnog-mapper   # or: pip install eggnog-mapper==3.0.0b2
+
+# 3. Download eggNOG v7 database  (v5 databases are not compatible)
+download_eggnog_data.py --data_dir /path/to/eggnog-data
+
+# 4. Run
+emapper.py --version  # should print 3.0.0-beta2
+emapper.py -m diamond -i proteins.fa --itype proteins \
+    --data_dir /path/to/eggnog-data -o out --output_dir results/ --cpu 20
 ```
 
-For DB downloads, `download_eggnog_data.py` is unchanged in this cut;
-manifest+checksum verification lands in 3.0.1.
+**CLI changes from v2:**
 
-## [v3.4 — post-review fixes + diamond auto-tune] — 2026-04-29
+| v2 flag | v3 equivalent |
+|---------|--------------|
+| `--tax_scope bacteria` | `--tax_scope Bacteria` (taxid or clade name) |
+| `--tax_scope auto` + `--tax_scope_mode inner_narrowest` | `--tax_scope auto` (default) |
+| `--tax_scope auto` + `--tax_scope_mode broadest` | `--tax_scope auto-broad` |
+| `--mode cache` | removed |
+| `--mode novel_fams` | removed |
+| `--dbmem` | removed |
+| `--go_evidence` | removed |
 
-Follow-ons to the v3.4 cut, after parallel code review surfaced silent
-correctness bugs and a real-case full-pipeline test exposed
-diamond-step hardware asymmetries.
+---
 
-### Fixed (silent correctness bugs)
+## [2.1.15] — 2026-05-22
 
-- **HIGH-1** `e318247`: `scope_strict_og` was silently dropped on every
-  full 1000-hit batch — `_annotate_batched` made two `annotate_batch(...)`
-  calls, only the trailing one passed the kwarg, and
-  `batch_annotate.annotate_batch` defaulted to `False`. Proteomes >1000
-  hits ran in *hybrid* mode. Two-line fix; default-sync. araport
-  re-bench: 600 s → 215 s wall; EC Jaccard 0.785 → 0.945, KEGG_ko
-  0.724 → 0.879.
-- **HIGH-3** `64ab6a1`: treating `args.scope_strict_og = None` (from
-  programmatic callers / tests / library use) as "use default" rather
-  than letting `bool(None)` flip silently to False.
+Final v2 release. Synced with all patches from the `master` branch.
+Use this version if you need eggNOG v5 database compatibility.
 
-### Added
+- Fixed download URL for eggNOG database files
+  ([#591](https://github.com/eggnogdb/eggnog-mapper/pull/591))
 
-- **`--dmnd_top {1,3}`** flag in `d795118` (default `1` after
-  `21c0a74`). Switches the protein/CDS path between `--max-target-seqs 1`
-  (single best hit, default) and `--top 3` (legacy: hits within 3 % of
-  top score). emapper only consumes the bitscore-best hit, so this is
-  ~20-30 % faster diamond pass with no biological impact.
-- **`--scope_strict_og` in the `## applied filters:` output header**
-  (`1117d32`) so resumed runs and reproducibility checks can
-  disambiguate strict vs permissive output by reading the header alone.
-- **`--sensmode` help text** (`b96137d`) makes explicit that the flag
-  is the *iterate-ceiling* sensitivity (default `sensitive` —
-  divergent queries escalate, easy queries don't).
+---
 
-### Changed
+## [2.1.13] — 2024-xx-xx
 
-- **`python_requires = >=3.9`** in `setup.cfg` (`1117d32`). Matches the
-  `argparse.BooleanOptionalAction` requirement; previously implicit.
-- **`__VERSION__ = '2.1.14'`** in `1117d32`.
-- **`batch_annotate.annotate_batch`** default for `scope_strict_og`
-  flipped from `False` to `True` to match the mapper-side and
-  engine-side defaults (in `e318247`).
-
-### Auto-tune
-
-`_auto_dmnd_resources()` in eggnog-mapper picks `block_size`,
-`index_chunks`, and `--algo` from host RAM and query input size:
-
-| Host RAM | block_size | index_chunks |
-|---|---:|---:|
-| <32 GB | diamond default (2) | diamond default (4) |
-| 32–64 GB | 4 | 2 |
-| 64–96 GB | 6 | 2 |
-| ≥96 GB | 8 | 1 |
-
-Plus: query FASTA <5 MB → `--algo 1` (query-indexed, faster startup).
-User overrides (`--block_size`, `--index_chunks`, `--dmnd_algo`) take
-precedence over the auto-pick.
-
-### Real-case full-pipeline benchmarks
-
-araport / itag4 from raw FASTA (`-m diamond --sensmode fast --cpu 10`):
-
-| | araport | itag4 |
-|---|---:|---:|
-| Sequences | 27,596 | 32,696 |
-| FASTA size | 14 MB | 12 MB |
-| Diamond wall | ~30 min | ~31 min |
-| Annotation wall | 5.3 min | 6.1 min |
-| **Total** | **36 min** | **37 min** |
-
-On this VM diamond is disk-bound (~30 MB/s sustained from `vda1`).
-On SSD-class storage the same auto-tune should give diamond ~5 min
-each. See task #18 for a disk-aware refinement.
-
-Biology consistency vs each query's seed source row in `prots`:
-
-| Field | araport | itag4 |
-|---|---:|---:|
-| pfam Jaccard | 0.913 | 0.928 |
-| ec | 0.923 | 0.889 |
-| gos | 0.505 | 0.713 |
-| kegg_ko | 0.852 | 0.798 |
-
-## [v3.4] — 2026-04-28
-
-Annotation phase performance + biology pass. The annotation pipeline
-is now CPU-bound rather than dict-and-string bound, parallel across
-sub-batches, and biologically consistent with the auto-tax-scope
-intent the user already asked for.
-
-### Added
-
-- **`--scope_strict_og` CLI flag** (default ON; opt out via
-  `--no-scope_strict_og`). Skips speciation events whose containing
-  OG (`sp_events.og_lca`) is broader than the seed's resolved
-  tax-scope ceiling. On auto-scope plant proteomes this discards
-  cross-kingdom paralog noise that the legacy permissive path was
-  letting through to the per-protein species filter. Materially
-  faster (~2× on plant proteomes) and more biologically consistent
-  with what `--tax_scope auto` asks for. Use the opt-out for legacy
-  reproducibility.
-- **`--cpu N` now parallelizes the annotation phase**, not just
-  DIAMOND search. `_annotate_batched` creates one fork-context
-  `multiprocessing.Pool` for the full mapper run, registers the
-  parent's loaded `AnnotationEngine` on a module global before fork,
-  and passes the Pool to each `annotate_batch` call. Workers inherit
-  the engine's loaded state (`taxid_array` ~226 MB, lineage_cache,
-  og_cache) via fork copy-on-write and reopen their own SQLite
-  connection in the post-fork initializer.
-
-### Changed
-
-- `Annotator.scope_strict_og` attribute (default `True`) — set from
-  the `--scope_strict_og`/`--no-scope_strict_og` flag and threaded
-  through to `engine.annotate_batch(scope_strict_og=…)`.
-- `annotate_batch(pool=…)` is no longer ignored — it's passed through
-  to the engine, which slices the batch and dispatches.
-
-### Performance (real-case test on `/app/test_proteomes/`)
-
-| | araport11 (27,596 hits) | itag4 (32,692 hits) |
-|---|---:|---:|
-| Wall (`--cpu 10`) | **10 min** | **10.5 min** |
-| Reported throughput | 48 q/s | 54 q/s |
-| Speedup vs v3.3 single-thread permissive | ~15× | ~15× |
-| Speedup vs Python baseline (1000-seed bench) | 9.3× total / ~36× annotation-only | — |
-
-### Biology
-
-End-to-end consistency vs each query's seed ortholog source row in
-`prots`:
-
-| Field | araport mean Jaccard | itag4 mean Jaccard |
-|---|---:|---:|
-| `pfam` | 0.967 | 0.939 |
-| `ec` | 0.785 | 0.734 |
-| `gos` | 0.524 | 0.719 |
-| `kegg_ko` | 0.724 | 0.649 |
-
-High-confidence disagreements localise to close-paralog substitutions
-within the same enzyme family or protein complex (PsbB/PsbD,
-PsaB/PsaC, related phosphatases / methyltransferases / terpene
-synthases). These would carry a `low` confidence label and reflect
-honest cascade behaviour on divergent paralogs, not regressions.
-
-## [v3] — 2026-04-27
-
-Production cut. Three themes: legacy purge (mapper is now a thin shim
-over `eggnog_annotator.e7.AnnotationEngine`), per-source closest-ev_lca
-+ ortholog-type-priority cascade for annotation transfer with
-confidence labels, and a builder that's self-contained and uniformly
-SQLite-tuned for slow-disk machines.
-
-### Removed (Phase 2 — legacy purge)
-
-- `--mode cache` and the `-c/--cache <FILE>` argument.
-- `--mode novel_fams` and the parallel novel-fams search/annotation chain.
-- `--dbmem` flag and the `_annotate_dbmem` per-hit path.
-- Modules unreachable from the v7 batch path:
-  `cache_annotator.py`, `annotator_novel_fams.py`,
-  `annotator_worker_novel_fams.py`, `output_novel_fams.py`,
-  `annota.py`, `annota_mongo.py`, `orthologs.py`,
-  `annotator_worker.py` (its only live helper, `filter_out`, was
-  inlined into `batch_annotate.py`).
-- `db_sqlite.py`: 11 dead methods removed
-  (`get_member_ogs`, `get_ogs_description`, `get_annotations`,
-  `get_pfam_annotations`, `get_taxid`, `get_protein_id`,
-  `bulk_get_protein_ids`, `get_member_events`, `bulk_get_ogs`,
-  `bulk_get_event_indices`, `bulk_get_events` and the v5/legacy
-  schema branches inside them); kept `get_eggnog_db`,
-  `get_fresh_eggnog_db`, `AnnotDB.__init__`, `close`,
-  `get_db_version`, `decode_protein_ids`, `get_protein_name`.
-- `Annotator._annotate_ondisk` (per-hit path for non-v7 DBs) and
-  `_annotate_dbmem`; `Annotator._annotate` now raises
-  `EmapperException` when the open DB is not v7-int_mode.
-
-Net delta: 16 files changed, +151/-1727 LoC; e2e output identical to
-the v3-baseline reference on `data/e7/sample` after Phase 2.
-
-### Changed (Phase 3 — cascade engine)
-
-- **`--tax_scope auto` semantics** are now per-functional-source. For
-  each source (KEGG_ko, GOs, Pfam, Preferred_name, EC, KEGG_Pathway,
-  …) independently, the engine walks orthologs in priority order
-  `(in_seed_lineage, -ev_lca_depth, type_tier)`. The first bucket with
-  any donor that has a non-empty value for that source wins, and the
-  consensus is taken across only the donors in that winning bucket.
-  Annotations from lower-priority buckets are never mixed in. The
-  cascade halts per-source — common sources may resolve at the 1:1 tier
-  while rare ones fall through to many:many.
-- **`--target_orthologs` is now a floor on the cascade**, not a
-  post-filter. `one2one` accepts only 1:1 events; `one2many` accepts
-  1:1 + 1:many; `many2one` accepts 1:1 + many:1; `all` / `many2many`
-  accept everything. If no donors of an allowed type cover a source,
-  the source is silently omitted (no fall-through to disallowed types).
-  Effect: `--target_orthologs one2one` on a seed without 1:1 donors now
-  emits no annotations, instead of silently widening to all donors.
-- **New TSV column** `annotation_confidence` in `.emapper.annotations`,
-  serialized as `field=tier;field=tier;...` (sorted, semicolon-separated).
-  Tier is `high` (1:1 winner), `medium` (1:many or many:1), `low`
-  (many:many). Seed-derived `Preferred_name` (when the seed itself has
-  an informative gene symbol) is labelled `high`. Empty when nothing was
-  emitted.
-- **Annotation tuple grew from 10 to 11 elements** (element[10] =
-  `annotations_confidence: dict`). `output_orthologs_row` and
-  `output_annotations_row` accept either size for back-compat.
-- The collapse `1:many ≡ many:1 ≡ medium` matches the user's biological
-  spec; the four ortholog types remain available end-to-end via
-  `--target_orthologs` for users who want to discriminate.
-
-### Added (Phases 1 + 3)
-
-- `eggnog_annotator/lineage.py`: `LineageCache.depth(taxid)` returns
-  the lineage size — used by the cascade to rank events by taxonomic
-  specificity.
-- `eggnog_annotator/e7/annotate.py`: `_pre_parse_batch` (Phase 4
-  optimization) parses each ortholog's annotation comma-strings once
-  per batch ahead of the cascade walk; the cascade winning-bucket scan
-  now reads pre-parsed tuples and dedupes with `set` (not Counter).
-  Measured **2.3× speedup** on `phase 6 build_results` on a 30-query
-  bacterial benchmark; plant proteomes (with ~8× more orthologs/seed)
-  scale into the targeted 3–5× range.
-- 16 new property tests in eggnog-builder + eggnog-annotator audit
-  the sp_events round-trip, the cascade priority key, target_orthologs
-  floor, missing-source fall-through, and bucket-only consensus.
-
-### Phase 0 baseline (CHANGELOG `[Unreleased]` items below) — already in v3 lineage
-
-- **C1** (batch_annotate.py): Annotation tuple element[5] is now a proper `(og_name, cat, desc)` 3-tuple and element[9] is the filtered ortholog list, preventing column misalignment in output files.
-- **C2** (batch_annotate.py): `--target-orthologs` filtering is now applied in the v7 batch path; all five orthology type keys (`one2one`, `one2many`, `many2one`, `many2many`, `all`) are populated per event before filtering.
-- **C3** (batch_annotate.py): `all_ogs` now carries the full OG hierarchy across all levels rather than only the narrowest OG, ensuring correct `eggNOG_OGs` output for multi-level assignments.
-- **H1** (batch_annotate.py): Non-integer seed IDs now emit `logger.warning` instead of silently continuing, making malformed input visible in logs.
-- **H2** (batch_annotate.py): Missing `taxa.db` file now raises `EmapperException` with an actionable message identifying the missing path, replacing a silent failure.
-- **H3** (batch_annotate.py): Scope key derivation logic in `_get_engine()` is now documented inline for maintainability.
+See the [`master` branch](https://github.com/eggnogdb/eggnog-mapper/tree/master)
+for the full v2 changelog.
