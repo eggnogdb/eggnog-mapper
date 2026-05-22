@@ -264,13 +264,11 @@ If you use this software, please cite:
         EXAMPLE += " based on novel families from [2]."
     else:
         CITATION += """
-[2] eggNOG 5.0: a hierarchical, functionally and phylogenetically annotated
-      orthology resource based on 5090 organisms and 2502 viruses. Jaime
-      Huerta-Cepas, Damian Szklarczyk, Davide Heller, Ana Hernandez-Plaza,
-      Sofia K Forslund, Helen Cook, Daniel R Mende, Ivica Letunic, Thomas
-      Rattei, Lars J Jensen, Christian von Mering and Peer Bork. Nucleic Acids
-      Research, Volume 47, Issue D1, 8 January 2019, Pages D309-D314,
-      https://doi.org/10.1093/nar/gky1085 
+[2] eggNOG v7: phylogeny-based orthology predictions and functional
+      annotations. Ana Hernández-Plaza, Ziqi Deng, Fabian Robledo-Yagüe,
+      Damian Szklarczyk, Christian von Mering, Peer Bork, Jaime Huerta-Cepas.
+      Nucleic Acids Research, Volume 54, Issue D1, 6 January 2026, Pages
+      D402-D408. https://doi.org/10.1093/nar/gkaf1249
 """
         EXAMPLE += " based on eggNOG orthology data [2]."
 

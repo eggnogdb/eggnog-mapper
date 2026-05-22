@@ -1,11 +1,14 @@
 Bootstrap: docker
-From: ubuntu:24.04
+From: python:3.12-slim-bookworm
 
 # Build arguments — override via: apptainer build --build-arg KEY=VALUE
 # Requires Apptainer >= 1.1
 %arguments
     EMAPPER_VERSION=3.0.0
     DIAMOND_VERSION=2.1.24
+    MMSEQS_VERSION=latest
+    HMMER_VERSION=3.4
+    PRODIGAL_VERSION=2.6.3
 
 %labels
     org.opencontainers.image.title       eggNOG-mapper
@@ -14,62 +17,99 @@ From: ubuntu:24.04
     org.opencontainers.image.source      https://github.com/eggnogdb/eggnog-mapper
     maintainer                           j.huerta@upm.es
     diamond_version                      {{ DIAMOND_VERSION }}
+    mmseqs2_version                      {{ MMSEQS_VERSION }}
+    hmmer_version                        {{ HMMER_VERSION }}
+    prodigal_version                     {{ PRODIGAL_VERSION }}
 
 %files
     # build.sh creates this archive from git HEAD before calling apptainer build
     /tmp/emapper-src.tar.gz /opt/emapper-src.tar.gz
 
 %environment
-    export PATH=/opt/diamond:/opt/emapper-venv/bin:$PATH
+    export PATH=/opt/diamond:/opt/mmseqs/bin:/opt/hmmer/bin:/opt/prodigal:$PATH
     export LANG=C.UTF-8
     export LC_ALL=C.UTF-8
 
 %post
     set -eu
     export DEBIAN_FRONTEND=noninteractive
+    export HOME=/root
+    export TMPDIR=/tmp
 
-    # ── base system + Python 3.12 (native in Ubuntu 24.04) ───────────────────
+    # ── base system (Python 3.12 already present in base image) ─────────────
     apt-get update -qq
     apt-get install -y --no-install-recommends \
         ca-certificates \
-        wget \
-        gcc g++ \
+        curl \
+        gcc g++ make \
         zlib1g-dev \
-        libgomp1 \
-        python3.12 python3.12-dev python3.12-venv
+        libgomp1
     rm -rf /var/lib/apt/lists/*
 
     # ── Diamond {{ DIAMOND_VERSION }} ────────────────────────────────────────
     mkdir -p /opt/diamond
-    wget -qO- \
+    curl -sL \
         https://github.com/bbuchfink/diamond/releases/download/v{{ DIAMOND_VERSION }}/diamond-linux64.tar.gz \
         | tar -xz -C /opt/diamond
     chmod +x /opt/diamond/diamond
 
-    # ── Python venv + Cython ─────────────────────────────────────────────────
-    python3.12 -m venv /opt/emapper-venv
-    /opt/emapper-venv/bin/pip install --quiet --upgrade pip wheel
-    /opt/emapper-venv/bin/pip install --quiet "cython>=3.0"
+    # ── MMseqs2 {{ MMSEQS_VERSION }} ─────────────────────────────────────────
+    mkdir -p /opt/mmseqs
+    if [ "{{ MMSEQS_VERSION }}" = "latest" ]; then
+        curl -sL https://mmseqs.com/latest/mmseqs-linux-avx2.tar.gz \
+            | tar -xz -C /opt
+    else
+        curl -sL \
+            https://github.com/soedinglab/MMseqs2/releases/download/{{ MMSEQS_VERSION }}/mmseqs-linux-avx2.tar.gz \
+            | tar -xz -C /opt
+    fi
 
-    # ── eggNOG-mapper {{ EMAPPER_VERSION }} ──────────────────────────────────
-    # Extract the git archive created by build.sh and install (compiles .pyx)
+    # ── HMMER {{ HMMER_VERSION }} (compiled from source) ─────────────────────
+    mkdir -p /tmp/hmmer-build
+    curl -sL http://eddylab.org/software/hmmer/hmmer-{{ HMMER_VERSION }}.tar.gz \
+        | tar -xz -C /tmp/hmmer-build --strip-components=1
+    cd /tmp/hmmer-build && \
+        ./configure --prefix=/opt/hmmer > /dev/null 2>&1 && \
+        make -j$(nproc) > /dev/null 2>&1 && \
+        make install > /dev/null 2>&1
+    cd /
+    rm -rf /tmp/hmmer-build
+
+    # ── Prodigal {{ PRODIGAL_VERSION }} ──────────────────────────────────────
+    mkdir -p /opt/prodigal
+    curl -sL \
+        https://github.com/hyattpd/Prodigal/releases/download/v{{ PRODIGAL_VERSION }}/prodigal.linux \
+        -o /opt/prodigal/prodigal
+    chmod +x /opt/prodigal/prodigal
+
+    # ── Cython + eggNOG-mapper {{ EMAPPER_VERSION }} ─────────────────────────
+    # Install directly into the system Python (--break-system-packages is safe
+    # and idiomatic inside a container where we own the whole system).
+    python3.12 -m pip install --break-system-packages --no-cache-dir "cython>=3.0"
+
     mkdir -p /opt/emapper-src
     tar -xzf /opt/emapper-src.tar.gz -C /opt/emapper-src
-    /opt/emapper-venv/bin/pip install /opt/emapper-src
+    python3.12 -m pip install --break-system-packages --no-cache-dir /opt/emapper-src
     rm -rf /opt/emapper-src /opt/emapper-src.tar.gz
 
     # ── smoke test ───────────────────────────────────────────────────────────
-    export PATH=/opt/diamond:/opt/emapper-venv/bin:$PATH
+    export PATH=/opt/diamond:/opt/mmseqs/bin:/opt/hmmer/bin:/opt/prodigal:$PATH
     emapper.py --version
     diamond --version
+    mmseqs version
+    hmmsearch -h 2>&1 | head -2
+    prodigal -v 2>&1 | head -2
 
 %runscript
-    exec /opt/emapper-venv/bin/emapper.py "$@"
+    exec emapper.py "$@"
 
 %test
-    export PATH=/opt/diamond:/opt/emapper-venv/bin:$PATH
+    export PATH=/opt/diamond:/opt/mmseqs/bin:/opt/hmmer/bin:/opt/prodigal:$PATH
     emapper.py --version
     diamond --version
+    mmseqs version
+    hmmsearch -h 2>&1 | head -2
+    prodigal -v 2>&1 | head -2
     python3.12 -c "
 import eggnogmapper.annotator._codec as c
 import eggnogmapper.annotator._collect_inner as ci

@@ -73,7 +73,7 @@ def _make_engine_result(
     }
 
 
-def _make_ceiling_resolver(mode: str = "auto-narrow"):
+def _make_ceiling_resolver(mode: str = "auto"):
     """Build a mock TaxScopeCeilingResolver with the required interface."""
     mock_resolver = MagicMock()
     mock_resolver.mode = mode
@@ -129,8 +129,6 @@ class TestTargetOrthologs:
                     target_orthologs="one2one",
                     target_taxa=None,
                     excluded_taxa=None,
-                    go_evidence=None,
-                    go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
                     ceiling_resolver=ceiling_resolver,
@@ -183,8 +181,6 @@ class TestTargetOrthologs:
                     target_orthologs="all",
                     target_taxa=None,
                     excluded_taxa=None,
-                    go_evidence=None,
-                    go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
                     ceiling_resolver=ceiling_resolver,
@@ -223,8 +219,6 @@ class TestInvalidSeedId:
                     target_orthologs="all",
                     target_taxa=None,
                     excluded_taxa=None,
-                    go_evidence=None,
-                    go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
                     ceiling_resolver=ceiling_resolver,
@@ -277,8 +271,6 @@ class TestAnnotationTupleStructure:
                     target_orthologs=target_orthologs,
                     target_taxa=None,
                     excluded_taxa=None,
-                    go_evidence=None,
-                    go_excluded=None,
                     seed_ortholog_score=60.0,
                     seed_ortholog_evalue=1e-3,
                     ceiling_resolver=ceiling_resolver,

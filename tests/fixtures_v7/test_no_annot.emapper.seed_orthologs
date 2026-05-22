@@ -1,0 +1,29 @@
+## Thu May 21 09:17:29 2026
+## emapper-v3.0.0-beta2
+## ./emapper.py -m diamond -i tests/fixtures/test_queries_v7.fa --db e7-sample --no_annot --output_dir tests/fixtures_v7 -o test_no_annot --override
+##
+##/eggnog-eco/bin/diamond blastp -d '/eggnog-eco/data/e7/sample/final/mapper/eggnog_proteins.dmnd' -q '/eggnog-eco/eggnog-mapper/tests/fixtures/test_queries_v7.fa' --threads 1 -o '/eggnog-eco/eggnog-mapper/tests/fixtures_v7/test_no_annot.emapper.hits' --tmpdir '/eggnog-eco/eggnog-mapper/emappertmp_dmdn_grqdv0n6' --sensitive --iterate --algo 1 -e 0.001 --block-size 4.0 -c 2 --top 0  --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp
+#qseqid	sseqid	evalue	bitscore	qstart	qend	sstart	send	pident	qcov	scov
+8364.ENSXETP00000006050	14	0.0	868.0	1	431	1	431	100.0	100.0	100.0
+444158.MmarC6_0803	65	8.16e-211	573.0	1	292	1	292	100.0	100.0	100.0
+181472.ENSSFAP00005012771	115	2.9e-256	694.0	1	359	1	359	100.0	100.0	100.0
+426368.MmarC7_1147	169	1.11e-208	568.0	1	292	1	292	100.0	100.0	100.0
+61622.ENSRROP00000026843	1951	1.01e-283	768.0	1	393	41	433	99.2	100.0	90.8
+272568.GDI0436	226	4.53e-211	574.0	1	298	1	298	100.0	100.0	100.0
+51154.ENSCWAP00000014715	243	0.0	1248.0	1	595	1	595	100.0	100.0	100.0
+9749.Q8SPZ3	2880	6.82e-276	746.0	1	387	1	387	99.7	100.0	100.0
+9555.ENSPANP00000033477	283	5e-297	800.0	1	402	1	402	100.0	100.0	100.0
+8022.A0A060XN97	300	8.44e-286	771.0	1	387	1	387	100.0	100.0	100.0
+1137095.NIES2130_33015	341	4.2e-213	580.0	1	301	1	301	100.0	100.0	100.0
+1492.ATN24_18575	347	4.17e-199	542.0	1	273	1	273	100.0	100.0	100.0
+9739.ENSTTRP00000013539	356	0.0	910.0	1	551	1	551	100.0	100.0	100.0
+5786.F0Z7P1	371	3.32e-267	722.0	1	369	1	369	100.0	100.0	100.0
+27687.ENSECRP00000015713	381	1.46e-303	818.0	1	416	1	416	100.0	100.0	100.0
+9371.ENSETEP00000002729	484	0.0	919.0	1	553	1	553	100.0	100.0	100.0
+42254.ENSSARP00000001763	496	1.25e-307	834.0	1	485	1	485	100.0	100.0	100.0
+591936.ENSPTEP00000010553	521	2.72e-285	770.0	1	393	1	393	100.0	100.0	100.0
+8508.ENSSPUP00000015626	543	0.0	1168.0	1	561	1	561	100.0	100.0	100.0
+8508.ENSSPUP00000015963	545	0.0	895.0	1	444	1	444	100.0	100.0	100.0
+## 20 queries scanned
+## Total time (seconds): 0.009832382202148438
+## Rate: 2034.10 q/s

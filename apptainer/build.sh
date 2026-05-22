@@ -2,7 +2,7 @@
 # Build the eggnog-mapper Apptainer image.
 #
 # Usage:
-#   ./build.sh [--local] [EMAPPER_VERSION] [DIAMOND_VERSION]
+#   ./build.sh [--local] [EMAPPER_VERSION] [DIAMOND_VERSION] [MMSEQS_VERSION] [HMMER_VERSION] [PRODIGAL_VERSION]
 #
 #   --local   Bundle the working directory as-is (includes uncommitted changes).
 #             Useful for testing dev builds before committing.
@@ -12,8 +12,11 @@
 #             Use this for release images.
 #             Output is named eggnog-mapper-VERSION.sif.
 #
-# EMAPPER_VERSION defaults to the version in eggnogmapper/version.py.
-# DIAMOND_VERSION defaults to 2.1.24.
+# EMAPPER_VERSION  defaults to the version in eggnogmapper/version.py.
+# DIAMOND_VERSION  defaults to 2.1.24.
+# MMSEQS_VERSION   defaults to latest (always resolved at build time).
+# HMMER_VERSION    defaults to 3.4.
+# PRODIGAL_VERSION defaults to 2.6.3.
 #
 # Requires: apptainer >= 1.1, git
 
@@ -35,6 +38,9 @@ set -- "${POSITIONAL[@]+"${POSITIONAL[@]}"}"
 
 EMAPPER_VERSION="${1:-$(grep "__VERSION__" "$REPO_ROOT/eggnogmapper/version.py" | cut -d"'" -f2)}"
 DIAMOND_VERSION="${2:-2.1.24}"
+MMSEQS_VERSION="${3:-latest}"
+HMMER_VERSION="${4:-3.4}"
+PRODIGAL_VERSION="${5:-2.6.3}"
 SRC_ARCHIVE="/tmp/emapper-src.tar.gz"
 
 if [[ "$LOCAL" == "1" ]]; then
@@ -46,10 +52,13 @@ else
 fi
 
 echo "=== eggnog-mapper Apptainer build ==="
-echo "  emapper : ${EMAPPER_VERSION}"
-echo "  diamond : ${DIAMOND_VERSION}"
-echo "  source  : ${SRC_LABEL}"
-echo "  output  : ${OUT}"
+echo "  emapper  : ${EMAPPER_VERSION}"
+echo "  diamond  : ${DIAMOND_VERSION}"
+echo "  mmseqs2  : ${MMSEQS_VERSION}"
+echo "  hmmer    : ${HMMER_VERSION}"
+echo "  prodigal : ${PRODIGAL_VERSION}"
+echo "  source   : ${SRC_LABEL}"
+echo "  output   : ${OUT}"
 
 # ── create source archive ────────────────────────────────────────────────────
 if [[ "$LOCAL" == "1" ]]; then
@@ -77,6 +86,9 @@ echo ""
 apptainer build \
     --build-arg EMAPPER_VERSION="${EMAPPER_VERSION}" \
     --build-arg DIAMOND_VERSION="${DIAMOND_VERSION}" \
+    --build-arg MMSEQS_VERSION="${MMSEQS_VERSION}" \
+    --build-arg HMMER_VERSION="${HMMER_VERSION}" \
+    --build-arg PRODIGAL_VERSION="${PRODIGAL_VERSION}" \
     "${OUT}" \
     "${SCRIPT_DIR}/eggnog-mapper.def"
 
@@ -94,4 +106,4 @@ echo "    --bind /path/to/eggnog-data:/data \\"
 echo "    --bind \$(pwd):/work \\"
 echo "    ${OUT} \\"
 echo "    -i /work/query.fa --itype proteins -m diamond \\"
-echo "    --data_dir /data --output my_run --output_dir /work --cpu 20"
+echo "    --data_dir /data -o my_run --output_dir /work --cpu 20"

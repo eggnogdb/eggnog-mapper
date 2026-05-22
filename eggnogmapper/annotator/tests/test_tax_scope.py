@@ -31,11 +31,11 @@ def lineage_cache(taxa_db_path):
 
 @pytest.fixture(scope="module")
 def ceiling_resolver(lineage_cache, taxa_db_path):
-    """TaxScopeCeilingResolver built in auto-narrow mode on the sample DB."""
+    """TaxScopeCeilingResolver built in auto (domain-level) mode on the sample DB."""
     from eggnogmapper.annotator.e7.ceiling import TaxScopeCeilingResolver
     return TaxScopeCeilingResolver.build(
         lineage_cache=lineage_cache,
-        mode="auto-narrow",
+        mode="auto",
         taxa_db_path=taxa_db_path,
     )
 

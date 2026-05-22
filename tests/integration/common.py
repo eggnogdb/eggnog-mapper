@@ -5,11 +5,19 @@ import os, subprocess, sys
 
 def run(cmd):
     '''
-    Runs eggnog-mapper with the arguments specified
+    Runs eggnog-mapper with the arguments specified.
+    Replaces leading ./emapper.py / ./hmm_mapper.py with the current Python
+    interpreter so that tests always run inside the active venv.
     '''
-    
+    for script in ("./emapper.py", "./hmm_mapper.py"):
+        if cmd.startswith(script):
+            cmd = sys.executable + " " + cmd[2:]
+            break
+    env = os.environ.copy()
+    env["PATH"] = "/eggnog-eco/bin:" + env.get("PATH", "")
+    env.setdefault("EGGNOG_DATA_ROOT", "/eggnog-eco/data")
     # process = subprocess.Popen(cmd.split(" "), stdout=sys.stdout, stderr=sys.stderr)
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, env=env)
     out, err = process.communicate()
     if not out:
         out = b''
