@@ -12,7 +12,7 @@ annotation transfer from close paralogs.
 Common uses include annotation of novel genomes, transcriptomes, and metagenomic
 gene catalogs.
 
-eggNOG-mapper is also available as a public web server: http://eggnog-mapper.embl.de
+eggNOG-mapper is also available as a public web server: http://mapper.eggnogdb.org
 
 ## What's new in v3
 
