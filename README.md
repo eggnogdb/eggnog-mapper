@@ -2,6 +2,10 @@
 
 # eggNOG-mapper v3
 
+> **Warning**: v3 is currently under heavy testing and has not been officially released.
+> For production use, install the stable v2 release: `pip install eggnog-mapper==2.1.15`
+> (see [v2 branch](https://github.com/eggnogdb/eggnog-mapper/tree/v2)).
+
 **eggNOG-mapper** is a tool for fast functional annotation of novel sequences using
 precomputed orthologous groups and phylogenies from the
 [eggNOG database](https://doi.org/10.1093/nar/gkaf1249).
