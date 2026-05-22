@@ -3,7 +3,6 @@
 import sys
 import os
 import time
-from distutils.spawn import find_executable
 from os.path import join as pjoin
 from os.path import exists as pexists
 import gzip
@@ -41,19 +40,19 @@ TIMEOUT_LOAD_SERVER = 10
 
 BASE_PATH = os.path.abspath(os.path.split(os.path.abspath(__file__))[0] + '/..')
 
-HMMSEARCH = find_executable('hmmsearch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmsearch')
-HMMSCAN = find_executable('hmmscan') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmscan')
-HMMSTAT = find_executable('hmmstat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmstat')
-HMMPGMD = find_executable('hmmpgmd') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpgmd')
-PHMMER = find_executable('phmmer') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'phmmer')
-HMMFETCH = find_executable('hmmfetch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmfetch')
-HMMPRESS = find_executable('hmmpress') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpress')
-ESL_REFORMAT = find_executable('esl-reformat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'esl-reformat')
+HMMSEARCH = shutil.which('hmmsearch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmsearch')
+HMMSCAN = shutil.which('hmmscan') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmscan')
+HMMSTAT = shutil.which('hmmstat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmstat')
+HMMPGMD = shutil.which('hmmpgmd') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpgmd')
+PHMMER = shutil.which('phmmer') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'phmmer')
+HMMFETCH = shutil.which('hmmfetch') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmfetch')
+HMMPRESS = shutil.which('hmmpress') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'hmmpress')
+ESL_REFORMAT = shutil.which('esl-reformat') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'esl-reformat')
 LOCAL_DIAMOND = pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'diamond')
-DIAMOND = find_executable('diamond') or LOCAL_DIAMOND
+DIAMOND = shutil.which('diamond') or LOCAL_DIAMOND
 LOCAL_MMSEQS2 = pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'mmseqs')
-MMSEQS2 = find_executable('mmseqs') or LOCAL_MMSEQS2
-PRODIGAL = find_executable('prodigal') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'prodigal.linux')
+MMSEQS2 = shutil.which('mmseqs') or LOCAL_MMSEQS2
+PRODIGAL = shutil.which('prodigal') or pjoin(BASE_PATH, 'eggnogmapper', 'bin', 'prodigal.linux')
 
 DATA_PATH = pjoin(BASE_PATH, "data")
 def get_data_path(): return DATA_PATH
