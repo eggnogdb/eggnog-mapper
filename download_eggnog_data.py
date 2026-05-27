@@ -186,7 +186,7 @@ def download_hmm_database(level, dbname, dbpath):
         'for file in $(find ./ | grep ".faa.gz$"); do '
         'curr=$((curr+1)); '
         'echo "processing FASTAs...  ${file} (${curr}/${numf})"; '
-        'outf=$(echo "$file" | sed "s/\.raw_alg\.faa\.gz/\.fa/"); '
+        'outf=$(echo "$file" | sed "s/.raw_alg.faa.gz/.fa/"); '
         'zcat "$file" | awk \'/^>/{print; next}{gsub("-", ""); print}\' > "$outf" && '
         'rm "$file"; '
         'done'
