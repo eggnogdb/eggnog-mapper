@@ -11,7 +11,7 @@ from sys import stderr as sys_stderr
 from tempfile import mkdtemp, NamedTemporaryFile
 
 from ..emapperException import EmapperException
-from ..common import PRODIGAL, ITYPE_GENOME, ITYPE_META
+from ..common import PRODIGAL, ITYPE_GENOME, ITYPE_META, detect_compression
 from ..utils import colorify
 
 # This class handles prediction of genes
@@ -103,12 +103,14 @@ class ProdigalPredictor:
     #
     def run_prodigal(self, in_file, outdir):
 
-        # Prodigal doesnt handle gzipped files
-        # so if the input file it is a .gz one
-        # uncompress it first
-        if in_file.endswith(".gz"):
-            decomp_fn = pjoin(self.outdir, in_file+'.decomp')
-            with gzip.open(in_file, 'rb') as f_in:
+        # Prodigal doesnt handle compressed files, so if the input is gzip or
+        # bzip2 (detected by magic bytes, not extension) uncompress it first.
+        ctype = detect_compression(in_file)
+        if ctype:
+            import bz2
+            opener = gzip.open if ctype == 'gz' else bz2.open
+            decomp_fn = pjoin(self.outdir, "input.decomp")
+            with opener(in_file, 'rb') as f_in:
                 with open(decomp_fn, 'wb') as f_out:
                     shutil.copyfileobj(f_in, f_out)
 

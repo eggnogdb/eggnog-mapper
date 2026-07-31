@@ -6,6 +6,7 @@ import bz2
 import gzip
 import shutil
 import errno
+import struct
 import tempfile
 import time
 from os.path import join as pjoin
@@ -363,6 +364,45 @@ def decompress_input(path: str, temp_dir: str) -> tuple:
         silent_rm(tmp_path)
         raise
     return tmp_path, tmp_path
+
+
+def resolve_input_for_tool(path: str, temp_dir: str, streams_gzip: bool = False) -> tuple:
+    """Resolve a (possibly compressed) input for feeding to an external tool.
+
+    Compression is detected by magic bytes (not extension). Gzip is passed
+    through untouched when ``streams_gzip`` is True (the tool reads ``.gz``
+    natively and streams it, so no temp file is written); otherwise — and
+    always for bzip2, which no search tool streams — the input is decompressed
+    to a temp file. Returns ``(usable_path, tmp_path_or_None)``; the caller
+    must delete ``tmp_path`` when it is not None.
+    """
+    ctype = detect_compression(path)
+    if not ctype:
+        return path, None
+    if ctype == 'gz' and streams_gzip:
+        return path, None
+    return decompress_input(path, temp_dir)
+
+
+def gz_uncompressed_size(path: str):
+    """Best-effort uncompressed size in bytes, for input-size heuristics.
+
+    For gzip, reads the 4-byte ISIZE trailer (modulo 2**32 — exact for
+    inputs below 4 GiB, which is all the size heuristics here care about).
+    For any other input, returns the on-disk size. Returns None on error.
+    """
+    if detect_compression(path) == 'gz':
+        try:
+            with open(path, 'rb') as fh:
+                fh.seek(-4, os.SEEK_END)
+                return struct.unpack('<I', fh.read(4))[0]
+        except (OSError, struct.error):
+            pass
+    try:
+        return os.path.getsize(path)
+    except OSError:
+        return None
+
 
 def silent_rm(f):
     if pexists(f):

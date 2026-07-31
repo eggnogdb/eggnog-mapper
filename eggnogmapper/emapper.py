@@ -8,7 +8,7 @@ from os.path import exists as pexists
 from os.path import join as pjoin
 
 from .utils import colorify
-from .common import silent_rm, decompress_input, detect_compression, \
+from .common import silent_rm, \
     ITYPE_GENOME, ITYPE_META, ITYPE_PROTS, ITYPE_CDS, get_data_path
 from .emapperException import EmapperException
 
@@ -216,7 +216,14 @@ class Emapper:
             elif hits is not None:
                 annot_in = hits
             else:
-                raise EmapperException("Could not find hits to annotate.")
+                # Search wrote seed_orthologs eagerly; read from the
+                # completed file so annotation is fully decoupled from search.
+                seed_file = pjoin(self._current_dir, self.seed_orthologs_file)
+                if not pexists(seed_file):
+                    raise EmapperException(
+                        f"No hits to annotate and seed orthologs file not found: {seed_file}"
+                    )
+                annot_in = parse_seeds(seed_file)
 
             annotator = Annotator(args, self.annot, self.excel, self.report_orthologs)
 
@@ -340,45 +347,37 @@ class Emapper:
     ##
     def run(self, args, infile, annotate_hits_table=None):
 
-        _tmp_infile = None
-        try:
-            ##
-            # Decompress compressed input transparently (gzip or bzip2, by magic bytes)
-            if infile is not None:
-                ctype = detect_compression(infile)
-                if ctype:
-                    print(colorify(
-                        f"Detected {ctype} compressed input — decompressing to temp file...",
-                        'blue'), file=stderr)
-                    infile, _tmp_infile = decompress_input(infile, args.temp_dir)
+        ##
+        # Compressed input (gzip/bzip2, detected by magic bytes) is NOT
+        # eagerly inflated to a temp file here. Each consumer handles it at
+        # the point of use: the FASTA iterators (iter_fasta_seqs/gopen) read
+        # gz+bz2 transparently, and the search tools stream gzip natively
+        # (decompressing only bzip2). This avoids materialising the whole
+        # decompressed input on disk for large gzipped FASTAs.
 
-            ##
-            # Step 0. Gene prediction
-            predictor = self.gene_prediction(args, infile)
+        ##
+        # Step 0. Gene prediction
+        predictor = self.gene_prediction(args, infile)
 
-            ##
-            # Step 1. Sequence search
-            searcher, searcher_name, hits, queries_file = self.search(args, infile, predictor)
+        ##
+        # Step 1. Sequence search
+        searcher, searcher_name, hits, queries_file = self.search(args, infile, predictor)
 
-            ##
-            # Step 2. Annotation
-            annotated_hits, _resumed_ref = self.annotate(args, hits, annotate_hits_table, queries_file)
+        ##
+        # Step 2. Annotation
+        annotated_hits, _resumed_ref = self.annotate(args, hits, annotate_hits_table, queries_file)
 
-            ##
-            # Step 3. Decorate GFF
-            annotated_hits = self.decorate_gff_f(args, predictor, searcher_name, annotated_hits)
+        ##
+        # Step 3. Decorate GFF
+        annotated_hits = self.decorate_gff_f(args, predictor, searcher_name, annotated_hits)
 
-            ##
-            # Run the generators
-            n, elapsed_time = self.run_generator(annotated_hits, _resumed_ref)
+        ##
+        # Run the generators
+        n, elapsed_time = self.run_generator(annotated_hits, _resumed_ref)
 
-            ##
-            # Finish
-            self.wrap_up(predictor, searcher)
-
-        finally:
-            if _tmp_infile is not None:
-                silent_rm(_tmp_infile)
+        ##
+        # Finish
+        self.wrap_up(predictor, searcher)
 
         return n, elapsed_time
 
