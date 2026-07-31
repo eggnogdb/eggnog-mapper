@@ -739,11 +739,14 @@ class AnnotationEngine:
             fetched = self.db.get_og_info_bulk(missing)
             for p in missing:
                 self._og_cache[p] = fetched.get(p)  # may be None (miss)
-            if len(self._og_cache) > self._OG_CACHE_MAX:
-                evict_n = len(self._og_cache) // 2
-                for k in list(self._og_cache)[:evict_n]:
-                    del self._og_cache[k]
-        return {p: self._og_cache[p] for p in pairs if self._og_cache[p] is not None}
+        # Every p in `pairs` is guaranteed present now — read the result out
+        # BEFORE evicting, so eviction can never drop a key this call needs.
+        result = {p: v for p in pairs if (v := self._og_cache[p]) is not None}
+        if len(self._og_cache) > self._OG_CACHE_MAX:
+            evict_n = len(self._og_cache) // 2
+            for k in list(self._og_cache)[:evict_n]:
+                del self._og_cache[k]
+        return result
 
     def _get_seed_taxid_str(self, seed_id: int) -> str:
         """Return the species taxid string for ``seed_id``, or ``""``."""
