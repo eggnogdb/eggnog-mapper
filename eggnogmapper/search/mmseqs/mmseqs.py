@@ -16,7 +16,7 @@ from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import output_seeds
+from ..hits_io import output_seeds, seed_orthologs_complete
 from ..diamond.diamond import hit_does_overlap, ALLOW_OVERLAPS_ALL
 
 def create_mmseqs_db(dbprefix, in_fasta):
@@ -127,6 +127,16 @@ class MMseqs2Searcher:
         
         try:
             cmds = None
+
+            # 0) On resume, if the parsed seeds file is already complete, reuse
+            # it directly and skip both the MMseqs2 search and the seed-writing
+            # pass. Limited to proteins/CDS (see diamond.py for rationale).
+            if (self.resume == True
+                    and (self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS)
+                    and seed_orthologs_complete(seed_orthologs_file)):
+                print(f"[resume] Skipping seed_orthologs generation — reusing complete file: {seed_orthologs_file}",
+                      file=sys_stderr)
+                return None  # annotation reads from the completed seeds file
 
             # 1) either resume from previous hits or run mmseqs to generate the hits
             if self.resume == True:

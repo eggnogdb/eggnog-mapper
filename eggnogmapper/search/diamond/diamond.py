@@ -15,7 +15,7 @@ from ...utils import colorify, translate_cds_to_prots
 
 from ..hmmer.hmmer_seqio import iter_fasta_seqs
 
-from ..hits_io import output_seeds
+from ..hits_io import output_seeds, seed_orthologs_complete
 
 SENSMODE_FAST = "fast"
 SENSMODE_DEFAULT = "default"
@@ -229,7 +229,20 @@ class DiamondSearcher:
         
         try:
             cmds = None
-            
+
+            # 0) On resume, if the parsed seeds file is already complete, reuse
+            # it directly and skip both the DIAMOND search and the seed-writing
+            # pass (which would otherwise re-parse the whole .hits file).
+            # Limited to proteins/CDS: for genome/meta the seed-writing pass
+            # also returns the contig-relative orig_hits consumed downstream for
+            # GFF/FASTA creation, which cannot be reconstructed from the file.
+            if (self.resume == True
+                    and (self.itype == ITYPE_CDS or self.itype == ITYPE_PROTS)
+                    and seed_orthologs_complete(seed_orthologs_file)):
+                print(f"[resume] Skipping seed_orthologs generation — reusing complete file: {seed_orthologs_file}",
+                      file=sys_stderr)
+                return None  # annotation reads from the completed seeds file
+
             # 1) either resume from previous hits or run diamond to generate the hits
             if self.resume == True:
                 if pisfile(hits_file):
