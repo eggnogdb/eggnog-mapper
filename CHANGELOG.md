@@ -26,6 +26,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.0.0-beta4] — 2026-07-31
+
+### Added
+
+- **`--resume` skips seed_orthologs regeneration when the file is complete**:
+  on resume, if `.seed_orthologs` is already fully written (detected via the
+  `## N queries scanned` footer sentinel), both the DIAMOND/MMseqs2 search and
+  the seed-writing/`.hits` re-parse are skipped and annotation reads the
+  existing file directly. Incomplete or unmarked files (e.g. written with
+  `--no_file_comments`) fall back to full regeneration, so the check can never
+  reuse a truncated file. Proteins/CDS only — genome/meta still regenerate
+  because the seed pass also yields the contig-relative hits used downstream
+  for GFF/FASTA.
+
+### Fixed
+
+- **Search/annotation pipeline decoupling**: the `.seed_orthologs` file is now
+  written completely before the annotation phase begins. Previously,
+  `output_seeds` was a lazy generator that wrote to the file as the annotation
+  workers consumed hits, leaving the file incomplete until the full run
+  finished. The file is now generated in a single sequential pass immediately
+  after the search tool (DIAMOND or MMseqs2) exits.
+- **Annotation crash on large runs (`KeyError` from OG-info cache)**: on runs
+  with more than ~100k unique orthologous groups, the OG-description cache
+  evicted its oldest half *before* the current lookup had read its results,
+  so a group carried over from an earlier batch could be dropped while still
+  needed — aborting the whole run mid-way (observed at ~5.5M queries). The
+  result is now read before eviction. This also closes a latent correctness
+  gap where an evicted-but-needed group would have silently lost its
+  description and COG category.
+
+### Changed
+
+- **Compressed input is now streamed, not pre-decompressed**: gzipped query
+  files are passed straight to DIAMOND/MMseqs2 (both read `.gz` natively) and
+  to the FASTA iterators, instead of first inflating the whole file to a temp
+  copy on disk. This removes the full on-disk decompression step for large
+  gzipped inputs (e.g. UniProt). bzip2 is still decompressed (no search tool
+  streams it), and Prodigal now detects compression by magic bytes rather than
+  the `.gz` extension. Annotations are identical to plain-input runs.
+
+---
+
 ## [3.0.0-beta2] — 2026-05-04
 
 ### Added
@@ -139,7 +182,7 @@ pip install --upgrade eggnog-mapper   # or: pip install eggnog-mapper==3.0.0b2
 download_eggnog_data.py --data_dir /path/to/eggnog-data
 
 # 4. Run
-emapper.py --version  # should print 3.0.0-beta2
+emapper.py --version  # should print 3.0.0-beta3
 emapper.py -m diamond -i proteins.fa --itype proteins \
     --data_dir /path/to/eggnog-data -o out --output_dir results/ --cpu 20
 ```
