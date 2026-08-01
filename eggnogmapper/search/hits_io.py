@@ -6,31 +6,38 @@ import sys
 import time
 
 from ..common import get_call_info
+from ..emapperException import EmapperException
 
 ##
 # Generator of hits from filename
 def parse_seeds(filename):
-    for line in open(filename, 'r'):
-        if line.startswith('#') or not line.strip():
+    for lineno, raw in enumerate(open(filename, 'r'), 1):
+        if raw.startswith('#') or not raw.strip():
             continue
 
-        line = list(map(str.strip, line.split('\t')))
+        line = list(map(str.strip, raw.split('\t')))
 
-        # short hits
-        # query, target, evalue, score
-        if len(line) == 4:
-
-            hit = [line[0], line[1], float(line[2]), float(line[3])]
-
-        # full hits
-        # query, target, evalue, score,
-        # qstart, qend, sstart, send
-        # pident, qcov, scov
-        elif len(line) == 11:
-
-            hit = [line[0], line[1], float(line[2]), float(line[3]),
-                   int(line[4]), int(line[5]), int(line[6]), int(line[7]),
-                   float(line[8]), float(line[9]), float(line[10])]
+        try:
+            # short hits: query, target, evalue, score
+            if len(line) == 4:
+                hit = [line[0], line[1], float(line[2]), float(line[3])]
+            # full hits: query, target, evalue, score, qstart, qend,
+            # sstart, send, pident, qcov, scov
+            elif len(line) == 11:
+                hit = [line[0], line[1], float(line[2]), float(line[3]),
+                       int(line[4]), int(line[5]), int(line[6]), int(line[7]),
+                       float(line[8]), float(line[9]), float(line[10])]
+            else:
+                # Fail loudly instead of silently re-yielding the previous
+                # line's hit (which would misattribute its annotation).
+                raise EmapperException(
+                    f"Malformed hits table: {filename} line {lineno} has "
+                    f"{len(line)} tab-separated fields, expected 4 or 11: "
+                    f"{raw.rstrip()!r}")
+        except (ValueError, IndexError) as exc:
+            raise EmapperException(
+                f"Could not parse hits table {filename} line {lineno}: {exc} "
+                f"(line: {raw.rstrip()!r})") from exc
 
         yield hit
     return

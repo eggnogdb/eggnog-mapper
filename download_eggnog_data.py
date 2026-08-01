@@ -172,6 +172,34 @@ def download_annotations(base_url, data_path, manifest, verify, force):
     gunzip_in_place(p, force=force)
 
 
+# Fallback source when the DB server does not ship a build-time OBO. GO
+# namespaces (MF/BP/CC) are stable across releases, so the current OBO Foundry
+# release is a safe namespace map.
+GO_OBO_FALLBACK_URL = "http://purl.obolibrary.org/obo/go/go-basic.obo"
+
+
+def download_go_obo(base_url, data_path, manifest, verify, force):
+    """Fetch the GO namespace OBO used for the MF/BP/CC GO cascade.
+
+    Without it, annotation silently falls back to the legacy combined-GO
+    output. Prefers the checksum-verified build-time artifact from the eggNOG
+    download server (``go-basic.obo.gz`` in the manifest); falls back to the
+    current OBO Foundry release when the server does not ship it. Written to
+    ``<data_path>/go-basic.obo`` where the annotator looks for it first.
+    """
+    dest = os.path.join(data_path, "go-basic.obo")
+    try:
+        p = download_artifact(base_url, "go-basic.obo.gz", data_path, manifest, verify)
+        gunzip_in_place(p, force=force)
+        return
+    except Exception as exc:
+        print(colorify(
+            f"  go-basic.obo.gz not available from the DB server ({exc}); "
+            f"falling back to {GO_OBO_FALLBACK_URL}", "yellow"))
+    _http_get(GO_OBO_FALLBACK_URL, dest_path=dest)
+    print(colorify(f"  downloaded {dest}", "green"))
+
+
 def download_taxa(base_url, data_path, manifest, verify, force):
     p = download_artifact(base_url, "eggnog.taxa.tar.gz", data_path, manifest, verify)
     untar_gz(p, data_path)
@@ -365,6 +393,18 @@ def main():
             print("Skipping")
     elif not args.quiet:
         print(colorify("Skipping eggnog.db (already present). Use -f to force.", "lblue"))
+
+    # ---- GO namespace OBO (needed for the MF/BP/CC GO cascade) ----
+    obo_dest = os.path.join(data_path, "go-basic.obo")
+    if args.force or not pexists(obo_dest):
+        if args.allyes or ask("Download GO namespace OBO (go-basic.obo, ~35 MB)?") == "y":
+            print(colorify(f"Downloading go-basic.obo at {data_path}…", "green"))
+            download_go_obo(base_url, data_path, manifest, verify, args.force)
+        else:
+            print(colorify("Skipping go-basic.obo — GO output will use the legacy "
+                           "combined cascade (no MF/BP/CC split).", "yellow"))
+    elif not args.quiet:
+        print(colorify("Skipping go-basic.obo (already present). Use -f to force.", "lblue"))
 
     # ---- NCBI taxa ----
     if args.force or not pexists(get_ncbitaxadb_file()):

@@ -104,6 +104,13 @@ class Annotator:
 
         return
 
+    def _go_namespace_split(self) -> bool:
+        """Whether GO will be cascaded per-namespace (MF/BP/CC) rather than in
+        the legacy combined mode. True iff a go-basic.obo is resolvable."""
+        from .batch_annotate import resolve_go_obo_path
+        obo = resolve_go_obo_path()
+        return bool(obo) and pisfile(obo)
+
     def _applied_filters(self) -> dict:
         """Return a dict of the resolved annotation-stage filter values.
 
@@ -126,6 +133,10 @@ class Annotator:
             "seed_ortholog_score": self.seed_ortholog_score,
             "pfam_realign": self.pfam_realign,
             "sort_entries": self.sort_entries,
+            # Records whether GO used the per-namespace (MF/BP/CC) cascade or
+            # the legacy combined fallback, so the two modes are reproducibly
+            # distinguishable from the output file alone (not just a log line).
+            "go_namespace_split": self._go_namespace_split(),
         }
 
 
@@ -333,6 +344,13 @@ class Annotator:
         paths were removed in Phase 2.
         """
         print(colorify("Functional annotation of hits...", "lgreen"), file=sys.stderr)
+        if not self._go_namespace_split():
+            print(colorify(
+                "  WARNING: go-basic.obo not found — GO terms will use the LEGACY "
+                "combined cascade (no MF/BP/CC namespace split). This differs from "
+                "reference GO output. Fix: place go-basic.obo in --data_dir or set "
+                "EGGNOG_GO_OBO. Mode recorded as go_namespace_split=False in the "
+                "output header.", "red"), file=sys.stderr)
         eggnog_db = get_eggnog_db()
         return self._annotate_batched(hits_gen_func, annots_parser, eggnog_db)
 
@@ -622,8 +640,11 @@ def parse_annotations(annot, annot_file, report_orthologs, orthologs_file):
             for line in orth_f:
                 if line.startswith("#"): continue
 
-                # just yield that query already exists in file
-                query_name = line[0]
+                # just yield that query already exists in file.
+                # NB: the query is the first TAB-separated column, not line[0]
+                # (which is the first character) — the latter broke the resume
+                # lockstep and duplicated every ortholog row on --resume.
+                query_name = line.split('\t', 1)[0].strip()
                 if prev_query is not None and query_name != prev_query:
                     annotation = (prev_query, None, None, None,
                                   None, None, None, None, None)
