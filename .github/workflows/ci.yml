@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+
+jobs:
+  test:
+    name: tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install build + runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "cython>=3.0"
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Import smoke test
+        run: |
+          python -c "import eggnogmapper.emapper; import eggnogmapper.annotator.e7.annotate"
+
+      - name: Cascade byte-identity unit test
+        run: python tests/unit/test_lazy_cascade.py
