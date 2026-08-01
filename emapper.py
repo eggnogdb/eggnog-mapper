@@ -415,6 +415,20 @@ def create_arg_parser():
         ),
     )
 
+    pg_annot.add_argument(
+        "--lazy_cascade",
+        action="store_true",
+        default=False,
+        help=(
+            "Fetch and parse only the ortholog annotations the closest "
+            "cascade actually consumes (tier by tier), instead of every "
+            "ortholog of every seed up front. Byte-identical output; can "
+            "cut annotation-fetch volume when close orthologs already "
+            "cover all fields. No effect with --donor_pool union. Can also "
+            "be enabled with EGGNOG_LAZY_CASCADE=1."
+        ),
+    )
+
     pg_annot.add_argument('--seed_ortholog_evalue', default=0.001, type=float, metavar='MIN_E-VALUE',
                            help='Min E-value expected when searching for seed eggNOG ortholog.'
                            ' Queries not having a significant'
@@ -475,6 +489,21 @@ def create_arg_parser():
     
     pg_annot.add_argument("--md5", action="store_true",
                           help="Adds the md5 hash of each query as an additional field in annotations output files.")
+
+    pg_annot.add_argument("--annot_batch_size", type=int, default=125, metavar='N',
+                          help=("Number of seed orthologs annotated per worker task (sub-batch). Each pool "
+                                "task bulk-queries this many seeds at once; the outer batch is sized to give "
+                                "every worker ~2 sub-batches. With --sort_entries the outer batch is measured "
+                                "in distinct seeds so all workers stay fed even on highly redundant inputs. "
+                                "Default: 125."))
+
+    pg_annot.add_argument("--sort_entries", action="store_true",
+                          help=("Before annotation, sort the seed_orthologs entries by seed ortholog id so that "
+                                "queries sharing the same seed are annotated as a single block (each unique seed "
+                                "is resolved once instead of once per query). Recommended for very large, "
+                                "redundant inputs (e.g. millions of proteins). Note: the .annotations output is "
+                                "written in seed-sorted order rather than input order (each row is still "
+                                "self-identified by its query name)."))
 
     ##
     pg_out = parser.add_argument_group('Output options')

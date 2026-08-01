@@ -404,6 +404,51 @@ def gz_uncompressed_size(path: str):
         return None
 
 
+def sort_seeds_file(in_file, out_file, temp_dir=None, parallel=None):
+    """Sort a seed_orthologs file by seed ortholog id (column 2).
+
+    Comment lines are stripped (annotation's ``parse_seeds`` ignores them
+    anyway) and the remaining data lines are sorted numerically by the seed
+    id (column 2), with the query id (column 1) as a deterministic tiebreak
+    so the order is stable across runs — required for ``--resume`` to line
+    the sorted seeds up with the previously written annotations.
+
+    Uses GNU ``sort`` (external merge sort) so files far larger than RAM sort
+    in bounded memory. ``LC_ALL=C`` disables locale collation for speed.
+
+    Args:
+        in_file: Path to the source seed_orthologs file.
+        out_file: Path to write the sorted, comment-stripped data lines to.
+        temp_dir: Spill directory for sort (needs ~1x the file size free).
+        parallel: Number of sort threads (typically the CPU count).
+
+    Returns:
+        ``out_file``.
+    """
+    import shlex
+    par = f"--parallel={int(parallel)} " if parallel else ""
+    tmp = f"-T {shlex.quote(temp_dir)} " if temp_dir else ""
+    # Sort to a temp file and atomically rename, so a killed sort never leaves
+    # a partial out_file behind — a present out_file always means a completed
+    # sort (which --resume relies on to safely reuse it).
+    tmp_out = out_file + ".tmp"
+    # $'\t' yields a real tab under bash; -k2,2n = numeric on seed id.
+    cmd = (
+        f"grep -v '^#' {shlex.quote(in_file)} | "
+        f"LC_ALL=C sort -t $'\\t' -k2,2n -k1,1 -S 60% {par}{tmp}"
+        f"> {shlex.quote(tmp_out)}"
+    )
+    try:
+        run(cmd, shell=True, check=True, executable="/bin/bash")
+        os.replace(tmp_out, out_file)
+    except CalledProcessError as exc:
+        silent_rm(tmp_out)
+        raise EmapperException(
+            f"Failed to sort seed orthologs file {in_file}: {exc}"
+        ) from exc
+    return out_file
+
+
 def silent_rm(f):
     if pexists(f):
         os.remove(f)

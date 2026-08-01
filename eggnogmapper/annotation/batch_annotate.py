@@ -10,11 +10,13 @@ only the hit parsing and the emapper-specific tuple packaging.
 """
 
 import logging
+import sys
 
 from eggnogmapper.annotator.e7 import AnnotationEngine, EggnogDB, LineageFilter
 from eggnogmapper.annotator.e7.ceiling import TaxScopeCeilingResolver
 
 from ..emapperException import EmapperException
+from ..utils import colorify
 
 logger = logging.getLogger(__name__)
 
@@ -123,24 +125,26 @@ def _get_engine(
     annot_db,
     ceiling_resolver: TaxScopeCeilingResolver,
     donor_pool: str,
+    lazy_cascade: bool = False,
 ) -> AnnotationEngine:
     """Return the singleton AnnotationEngine bound to this DB connection.
 
     Reuses emapper's already-open sqlite3 connection and its pre-loaded
     taxid array, so no memory is duplicated.  Recreated when the
-    ceiling resolver mode or donor_pool changes.
+    ceiling resolver mode, donor_pool or lazy_cascade toggle changes.
 
     Args:
         annot_db: Open annotation DB object with ``.conn`` and
             ``._taxids`` attributes.
         ceiling_resolver: Pre-built ``TaxScopeCeilingResolver``.
         donor_pool: ``"closest"`` or ``"union"``.
+        lazy_cascade: Enable the tier-staged lazy cascade (closest only).
 
     Returns:
         Singleton ``AnnotationEngine`` instance.
     """
     global _engine, _engine_conn_id, _engine_scope_key
-    scope_key = (ceiling_resolver.mode, donor_pool)
+    scope_key = (ceiling_resolver.mode, donor_pool, bool(lazy_cascade))
     if (
         _engine is None
         or _engine_conn_id != id(annot_db.conn)
@@ -148,7 +152,17 @@ def _get_engine(
     ):
         db = EggnogDB.from_connection(annot_db.conn, taxid_array=annot_db._taxids)
         lf = _build_lineage_filter(ceiling_resolver, annot_db._taxids)
-        _engine = AnnotationEngine(db, lineage_filter=lf, donor_pool=donor_pool)
+        _engine = AnnotationEngine(
+            db,
+            lineage_filter=lf,
+            donor_pool=donor_pool,
+            lazy_cascade=lazy_cascade,
+        )
+        # Build the per-protein field-presence mask once, up front, so it is
+        # COW-shared across fork workers (like the taxid array). On failure the
+        # engine silently uses the byte-identical tier-staged fallback.
+        if lazy_cascade and donor_pool == "closest":
+            _engine.load_field_presence()
         _engine_conn_id = id(annot_db.conn)
         _engine_scope_key = scope_key
     return _engine
@@ -165,8 +179,10 @@ def annotate_batch(
     seed_ortholog_evalue,
     ceiling_resolver: TaxScopeCeilingResolver,
     donor_pool: str = "closest",
+    lazy_cascade: bool = False,
     pool=None,
     dropped_writer=None,
+    sub_batch_size: int = 125,
 ):
     """Annotate a batch of hits using eggnog-annotator.
 
@@ -184,6 +200,9 @@ def annotate_batch(
         ceiling_resolver: Pre-built ``TaxScopeCeilingResolver`` for
             per-seed ev_lca ceiling resolution.
         donor_pool: ``"closest"`` (default) or ``"union"``.
+        lazy_cascade: Enable the tier-staged lazy closest cascade
+            (byte-identical output, fewer ortholog fetches). Ignored for
+            ``donor_pool="union"``. Default ``False``.
         pool: Optional ``multiprocessing.Pool`` (fork start method).
             When set, the engine slices each batch into sub-batches and
             dispatches them to pool workers.  Caller-managed lifecycle.
@@ -245,8 +264,19 @@ def annotate_batch(
     if not valid_hits:
         return
 
-    engine = _get_engine(eggnog_db, ceiling_resolver, donor_pool)
+    engine = _get_engine(eggnog_db, ceiling_resolver, donor_pool, lazy_cascade)
     seed_ids = [s for _, _, s, _, _ in valid_hits]
+    # Report the seed dedup ratio for this batch: how many query lines map to
+    # how many unique seed orthologs (the engine computes each unique seed
+    # once and fans the result back to its duplicates). The ratio is ~1x
+    # without --sort_entries (scattered duplicates rarely share a batch) and
+    # approaches the global redundancy with it (adjacent duplicates collapse).
+    _n_queries = len(seed_ids)
+    _n_unique = len(set(seed_ids))
+    if _n_unique:
+        print(colorify(
+            f"  batch: {_n_queries} queries → {_n_unique} unique seeds "
+            f"({_n_queries / _n_unique:.1f}x dedup)", "blue"), file=sys.stderr)
     # ``target_orthologs`` is a *floor* on the cascade — the engine
     # restricts which donor types contribute annotations.
     results = engine.annotate_batch(
@@ -255,6 +285,7 @@ def annotate_batch(
         excluded_taxa=excluded_taxa,
         target_orthologs=target_orthologs,
         pool=pool,
+        sub_batch_size=sub_batch_size,
     )
 
     # Re-shape engine results into the tuple consumed by output.py

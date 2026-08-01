@@ -15,11 +15,12 @@ Usage:
     # }
 """
 
+import array
 import logging
 import os
 import time
 from collections import Counter, defaultdict
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Any
 
 from .db import EggnogDB
 from ..codec import decode_intlist
@@ -28,6 +29,25 @@ logger = logging.getLogger(__name__)
 
 # Enable per-phase timing by setting EGGNOG_ANNOTATOR_PROFILE=1
 _PROFILE = os.environ.get("EGGNOG_ANNOTATOR_PROFILE", "0") == "1"
+
+# Lazy cascade (``donor_pool="closest"`` only): fetch and parse ortholog
+# annotations tier by tier and stop as soon as every annotation field has a
+# cascade winner, instead of fetching every ortholog of every seed up front
+# (the current phase-4 bottleneck). Output is byte-for-byte identical to the
+# eager path; the toggle exists purely to A/B the fetch-volume reduction and
+# to fall back instantly. Off by default. Enable with the ``--lazy_cascade``
+# CLI flag or ``EGGNOG_LAZY_CASCADE=1``.
+_LAZY_CASCADE_ENV = "EGGNOG_LAZY_CASCADE"
+# Cap on the number of tier-staged fetch rounds before the remaining
+# orthologs of every still-undecided seed are fetched in a single bulk query.
+# Bounds DB round-trips on deep bucket stacks (a seed whose orthologs span
+# many ev_lca depths with a universally-absent field would otherwise trigger
+# one round per depth). Fetching the tail eagerly is always output-safe —
+# extra parsed rows never change a cascade winner.
+try:
+    _LAZY_MAX_ROUNDS = max(1, int(os.environ.get("EGGNOG_LAZY_MAX_ROUNDS", "8")))
+except ValueError:
+    _LAZY_MAX_ROUNDS = 8
 
 # GO namespace cascade — env var overrides the default OBO path. When the
 # file is missing we fall back to the legacy combined-GO cascade (one
@@ -204,6 +224,158 @@ def _worker_annotate_subbatch(args):
     )
 
 
+class _LazySeedCascade:
+    """Per-seed cascade state for the tier-staged lazy ``closest`` walk.
+
+    Drives one seed's cascade bucket by bucket in priority order under the
+    control of :meth:`AnnotationEngine._lazy_cascade_summarize_batch`. Each
+    field is decided at its first non-empty bucket (identical to the eager
+    walk); the seed is ``done`` once every field is decided or the buckets are
+    exhausted. GO sub-namespace winners are recorded separately and merged in
+    ``_GO_NS_FIELDS`` order at :meth:`finalize`, so the merged ``"GOs"`` set is
+    built with the same insertion order — and therefore the same iteration
+    order — as the eager path.
+
+    This class holds no annotation data of its own: it reads the shared
+    ``parsed`` cache passed to each method, exactly like the eager cascade.
+    """
+
+    __slots__ = (
+        "candidate_buckets",
+        "priority_order",
+        "engine",
+        "pointer",
+        "undecided",
+        "annotations",
+        "confidence",
+        "_go_values",
+        "_go_tier",
+        "done",
+    )
+
+    def __init__(
+        self,
+        candidate_buckets: Dict[Tuple[int, int, int], List[int]],
+        priority_order: List[Tuple[int, int, int]],
+        plan_fields: List[str],
+        engine: "AnnotationEngine",
+    ) -> None:
+        """Initialise the per-seed state.
+
+        Args:
+            candidate_buckets: ``{priority_key: [oid, ...]}`` in ortholog_meta
+                iteration order, before the parsed-membership filter.
+            priority_order: Sorted ``candidate_buckets`` keys (best first).
+            plan_fields: The internal field names to cascade, in the same
+                order the eager walk uses.
+            engine: Owning :class:`AnnotationEngine` (for ``_aggregate_field``,
+                ``_cascade_output_field`` and ``TIER_CONFIDENCE``).
+        """
+        self.candidate_buckets = candidate_buckets
+        self.priority_order = priority_order
+        self.engine = engine
+        self.pointer = 0
+        self.undecided: List[str] = list(plan_fields)
+        self.annotations: Dict[str, Any] = {}
+        self.confidence: Dict[str, str] = {}
+        # GO sub-namespace winners, kept separate so they merge in
+        # _GO_NS_FIELDS order at finalize (matching eager set construction).
+        self._go_values: Dict[str, List[str]] = {}
+        self._go_tier: Dict[str, int] = {}
+        self.done: bool = not priority_order
+
+    def current_bucket_oids(self) -> List[int]:
+        """Candidate oids of the bucket the seed will evaluate next."""
+        if self.pointer >= len(self.priority_order):
+            return []
+        return self.candidate_buckets[self.priority_order[self.pointer]]
+
+    def all_remaining_oids(self) -> List[int]:
+        """Candidate oids of every not-yet-evaluated bucket (collapse tail)."""
+        out: List[int] = []
+        for key in self.priority_order[self.pointer:]:
+            out.extend(self.candidate_buckets[key])
+        return out
+
+    def advance_one_bucket(
+        self, parsed: Dict[int, Dict[str, Tuple[str, ...]]]
+    ) -> None:
+        """Evaluate the current bucket and advance the pointer by one."""
+        self._eval_bucket(self.pointer, parsed)
+        self.pointer += 1
+        if not self.undecided or self.pointer >= len(self.priority_order):
+            self.done = True
+
+    def run_to_completion(
+        self, parsed: Dict[int, Dict[str, Tuple[str, ...]]]
+    ) -> None:
+        """Evaluate all remaining buckets in order (collapse tail path)."""
+        n = len(self.priority_order)
+        while self.pointer < n and self.undecided:
+            self._eval_bucket(self.pointer, parsed)
+            self.pointer += 1
+        self.done = True
+
+    def _eval_bucket(
+        self, idx: int, parsed: Dict[int, Dict[str, Tuple[str, ...]]]
+    ) -> None:
+        """Resolve any still-undecided field that wins at bucket ``idx``."""
+        key = self.priority_order[idx]
+        members = [
+            oid for oid in self.candidate_buckets[key] if oid in parsed
+        ]
+        if not members:
+            return
+        eng = self.engine
+        tier = key[2]
+        still: List[str] = []
+        for field in self.undecided:
+            contributors = [oid for oid in members if field in parsed[oid]]
+            if not contributors:
+                still.append(field)
+                continue
+            values = eng._aggregate_field(field, contributors, parsed)
+            if not values:
+                still.append(field)
+                continue
+            if field in _GO_NS_FIELDS:
+                # Record the sub-namespace winner; merge order is applied at
+                # finalize in _GO_NS_FIELDS order, not tier order.
+                self._go_values[field] = values
+                self._go_tier[field] = tier
+            else:
+                output_field = eng._cascade_output_field(field)
+                self.annotations[output_field] = values
+                self.confidence[output_field] = eng.TIER_CONFIDENCE[tier]
+            # decided -> not carried into `still`
+        self.undecided = still
+
+    def finalize(self) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        """Materialise merged GO output and return ``(annotations, confidence)``.
+
+        The merged ``"GOs"`` set is built by unioning sub-namespace winners in
+        ``_GO_NS_FIELDS`` order (mf, bp, cc) — identical to the eager path's
+        ``merged_values`` construction — so ``list(set)`` iterates identically.
+        Confidence is the best (smallest) contributing tier.
+        """
+        eng = self.engine
+        merged: Set[str] = set()
+        best_tier: Optional[int] = None
+        for field in _GO_NS_FIELDS:
+            vals = self._go_values.get(field)
+            if vals is None:
+                continue
+            merged.update(vals)
+            tier = self._go_tier[field]
+            if best_tier is None or tier < best_tier:
+                best_tier = tier
+        if merged:
+            output_field = eng._cascade_output_field(_GO_NS_FIELDS[0])
+            self.annotations[output_field] = list(merged)
+            self.confidence[output_field] = eng.TIER_CONFIDENCE[best_tier]
+        return self.annotations, self.confidence
+
+
 class AnnotationEngine:
     """Unified annotation engine for v7+ eggNOG databases.
 
@@ -256,6 +428,7 @@ class AnnotationEngine:
         lineage_cache=None,
         go_obo_path: Optional[str] = None,
         donor_pool: str = "closest",
+        lazy_cascade: Optional[bool] = None,
     ):
         """Initialize annotation engine.
 
@@ -288,10 +461,30 @@ class AnnotationEngine:
                 - ``"union"``: walk *all* tiers, union values across every
                   tier; confidence is the best (smallest) tier seen for
                   that source.
+            lazy_cascade: Enable the tier-staged lazy cascade for
+                ``donor_pool="closest"`` (see :data:`_LAZY_CASCADE_ENV`).
+                ``None`` (default) resolves from the ``EGGNOG_LAZY_CASCADE``
+                environment variable (``"1"`` → on, anything else → off).
+                Pass ``True``/``False`` to override the environment. Has no
+                effect for ``donor_pool="union"`` (always eager) — the lazy
+                path is a byte-identical, faster variant of the closest
+                cascade only.
         """
         self.db = db
         self.lineage_filter = lineage_filter
         self.donor_pool = donor_pool
+        self.lazy_cascade = (
+            (os.environ.get(_LAZY_CASCADE_ENV, "0") == "1")
+            if lazy_cascade is None
+            else bool(lazy_cascade)
+        )
+        # Optional per-protein field-presence bitmask (``array.array('H')``,
+        # index = protein id). When set (see :meth:`load_field_presence`), the
+        # lazy closest cascade locates every field's winning bucket from the
+        # masks alone — with zero ortholog fetches for absent fields — and
+        # then fetches full annotations only for the winning-bucket donors.
+        # ``None`` (default) → the lazy path uses the tier-staged fallback.
+        self.field_presence: Optional["array.array"] = None
         self.lineage_cache = lineage_cache or (
             lineage_filter.lineage_cache if lineage_filter is not None else None
         )
@@ -448,6 +641,15 @@ class AnnotationEngine:
         if not seed_ids:
             return {}
 
+        # Deduplicate seed_ids: many query lines share the same seed ortholog.
+        # Every result is keyed by seed_id and fanned back out to all of that
+        # seed's queries by the caller (batch_annotate), so computing each
+        # unique seed once instead of once per occurrence is a pure win —
+        # identical output, less CPU and fewer DB rows. With --sort_entries the
+        # input is seed-sorted, so duplicates are adjacent and (aside from the
+        # rare seed straddling a batch boundary) this collapses them all.
+        seed_ids = list(dict.fromkeys(seed_ids))
+
         # Parallel path — slice and dispatch to the pool. Each worker
         # owns its own SQLite connection (fork-safe via the post-fork
         # initializer); the heavy in-memory state (taxid_array,
@@ -468,7 +670,9 @@ class AnnotationEngine:
             # for ALL results with no escape; apply_async lets us set a
             # per-task deadline and let the caller's finally block clean up.
             import multiprocessing as _mp
-            _TASK_TIMEOUT = 120  # seconds — generous for a 125-seed sub-batch
+            # Scale the per-task deadline with the sub-batch size so a large
+            # --annot_batch_size (slower per task) doesn't trip a false timeout.
+            _TASK_TIMEOUT = max(120, sub_batch_size * 2)  # seconds
             pending = [
                 pool.apply_async(_worker_annotate_subbatch, (a,))
                 for a in args_list
@@ -479,7 +683,7 @@ class AnnotationEngine:
                 except _mp.TimeoutError:
                     raise RuntimeError(
                         f"Annotation worker timed out after {_TASK_TIMEOUT}s "
-                        "on a 125-seed sub-batch — pool will be terminated."
+                        f"on a {sub_batch_size}-seed sub-batch — pool will be terminated."
                     )
             return merged
 
@@ -564,11 +768,26 @@ class AnnotationEngine:
         # cascade walk is O(seeds × buckets × fields), so re-splitting
         # comma-strings inside that loop dominated phase 6 on plant proteomes.
         t0 = time.time()
-        annot_cache = {}
-        all_to_fetch = all_orthologs | set(seed_ids)
-        if all_to_fetch:
-            annot_cache = self.db.get_protein_annotations_bulk(list(all_to_fetch))
-        parsed_cache = self._pre_parse_batch(annot_cache)
+        # Lazy cascade applies only to the closest cascade (union must walk
+        # every tier, so there is nothing to skip). When on, we fetch only
+        # the seed rows now; ortholog rows are fetched on demand, tier by
+        # tier, by the staged cascade below (phase 6-prep).
+        lazy = self.lazy_cascade and self.donor_pool == "closest"
+        fetched_ids: Set[int] = set()
+        if lazy:
+            seed_id_set = set(seed_ids)
+            annot_cache = self.db.get_protein_annotations_bulk(list(seed_id_set))
+            parsed_cache = self._pre_parse_batch(annot_cache)
+            # Every seed row is now fetched (present or provably absent); mark
+            # them so the staged fetch never re-requests a seed that also
+            # appears as another seed's ortholog.
+            fetched_ids = set(seed_id_set)
+        else:
+            annot_cache = {}
+            all_to_fetch = all_orthologs | set(seed_ids)
+            if all_to_fetch:
+                annot_cache = self.db.get_protein_annotations_bulk(list(all_to_fetch))
+            parsed_cache = self._pre_parse_batch(annot_cache)
         # The seed contributes every functional source through the cascade
         # except pname — pname stays on the post-cascade promotion path
         # below so an uninformative seed pname (locus IDs, multi-aliases,
@@ -614,6 +833,38 @@ class AnnotationEngine:
                 "in_seed_lineage": True,
             }
 
+        # Phase 4b (lazy only): run the tier-staged cascade now. It fetches
+        # ortholog rows on demand (growing annot_cache / parsed_cache) and
+        # returns each seed's (annotations, confidence) — byte-identical to
+        # what the eager `_summarize_annotations` would produce in phase 6.
+        lazy_results: Dict[int, Tuple[Dict[str, Any], Dict[str, str]]] = {}
+        if lazy:
+            t0 = time.time()
+            if self.field_presence is not None:
+                # Mask-gated: absent fields cost zero fetches; a single bulk
+                # query pulls only the winning-bucket donors.
+                lazy_results = self._masked_cascade_summarize_batch(
+                    seed_ids,
+                    seed_ortholog_meta,
+                    target_orthologs,
+                    annot_cache,
+                    parsed_cache,
+                    fetched_ids,
+                )
+                _t("p4b masked_cascade", t0)
+            else:
+                # Tier-staged fallback (no masks): byte-identical, but a
+                # universally-absent field forces a full descent.
+                lazy_results = self._lazy_cascade_summarize_batch(
+                    seed_ids,
+                    seed_ortholog_meta,
+                    target_orthologs,
+                    annot_cache,
+                    parsed_cache,
+                    fetched_ids,
+                )
+                _t("p4b lazy_cascade", t0)
+
         # Phase 5: Bulk fetch OG info from prots.ogs field
         t0 = time.time()
         ogs_map = self.db.get_protein_ogs_bulk(seed_ids)
@@ -638,25 +889,39 @@ class AnnotationEngine:
         for seed_id in seed_ids:
             orthologs = seed_orthologs.get(seed_id, set())
 
-            # Filter annot_cache to this seed's orthologs PLUS the seed itself.
-            # The seed enters the cascade as a synthetic tier-0 self-donor (see
-            # phase 4 above); for every source the seed has, its bucket wins
-            # the cascade with confidence "high" and overrides consensus that
-            # would otherwise be drawn from OG-paralog inference.
-            cascade_ids = orthologs | {seed_id} if seed_id in annot_cache else orthologs
-            seed_annots = {oid: annot_cache[oid] for oid in cascade_ids if oid in annot_cache}
             seed_meta = seed_ortholog_meta.get(seed_id, {})
-            annotations, annotations_confidence = (
-                self._summarize_annotations(
-                    seed_annots,
-                    seed_meta,
-                    target_orthologs,
-                    parsed=parsed_cache,
-                    donor_pool=self.donor_pool,
+            if lazy:
+                # The staged cascade (phase 4b) already produced this seed's
+                # summary from exactly the orthologs it consumed.
+                annotations, annotations_confidence = lazy_results.get(
+                    seed_id, ({}, {})
                 )
-                if seed_annots
-                else ({}, {})
-            )
+            else:
+                # Filter annot_cache to this seed's orthologs PLUS the seed
+                # itself. The seed enters the cascade as a synthetic tier-0
+                # self-donor (see phase 4 above); for every source the seed
+                # has, its bucket wins the cascade with confidence "high" and
+                # overrides consensus that would otherwise be drawn from
+                # OG-paralog inference.
+                cascade_ids = (
+                    orthologs | {seed_id} if seed_id in annot_cache else orthologs
+                )
+                seed_annots = {
+                    oid: annot_cache[oid]
+                    for oid in cascade_ids
+                    if oid in annot_cache
+                }
+                annotations, annotations_confidence = (
+                    self._summarize_annotations(
+                        seed_annots,
+                        seed_meta,
+                        target_orthologs,
+                        parsed=parsed_cache,
+                        donor_pool=self.donor_pool,
+                    )
+                    if seed_annots
+                    else ({}, {})
+                )
 
             # Preferred_name: use the seed's own pname when it is an informative
             # gene name. The direct DIAMOND hit is the most specific reference;
@@ -1455,6 +1720,467 @@ class AnnotationEngine:
 
         return annotations, confidence
 
+    def _lazy_cascade_summarize_batch(
+        self,
+        seed_ids: List[int],
+        seed_ortholog_meta: Dict[int, Dict[int, Dict[str, Any]]],
+        target_orthologs: str,
+        annot_cache: Dict[int, dict],
+        parsed_cache: Dict[int, Dict[str, Tuple[str, ...]]],
+        fetched_ids: Set[int],
+    ) -> Dict[int, Tuple[Dict[str, Any], Dict[str, str]]]:
+        """Tier-staged lazy cascade for ``donor_pool="closest"``.
+
+        Produces, for every seed, the *identical* ``(annotations,
+        confidence)`` that :meth:`_summarize_annotations` would produce in
+        ``closest`` mode — but fetches and parses only the ortholog rows the
+        cascade actually consumes, rather than every ortholog of every seed.
+
+        Design — bulk amortization preserved. The cascade is driven bucket
+        level by bucket level *across the whole sub-batch*: on each round,
+        every still-undecided seed contributes the candidate ortholog ids of
+        its next-priority bucket; their union is fetched in a single bulk
+        query (orthologs shared between seeds are fetched exactly once, into
+        the shared ``parsed_cache``); then each seed evaluates that bucket and
+        drops the fields that just found a winner. A seed finishes as soon as
+        every field is decided, so seeds whose close orthologs already cover
+        all their fields never fetch their deep orthologs. The number of DB
+        round-trips is bounded by :data:`_LAZY_MAX_ROUNDS`; once exceeded, the
+        remaining orthologs of every still-active seed are fetched in one bulk
+        query (output-safe — extra parsed rows never change a winner).
+
+        Exactness. Buckets are built by iterating ``ortholog_meta`` in the
+        same order as :meth:`_summarize_annotations`, so per-bucket contributor
+        lists match member-for-member *and in order* (the order matters for
+        ``pname`` tie-breaking). Each field's winning bucket is its first
+        non-empty bucket in priority order — identical to the eager walk,
+        because fields are independent. The three GO sub-namespaces are merged
+        into ``"GOs"`` in ``_GO_NS_FIELDS`` order at finalisation (never in
+        tier order), so the merged set is built with the same insertion order
+        as the eager path and ``list(set)`` iterates identically.
+
+        Args:
+            seed_ids: Seeds to summarise (order preserved for round batching).
+            seed_ortholog_meta: Per-seed ``{oid: meta}`` including the injected
+                tier-0 self-donor.
+            target_orthologs: Cascade type floor (see
+                ``TARGET_ORTHOLOGS_FLOORS``).
+            annot_cache: Raw-row cache, grown in place as rows are fetched.
+            parsed_cache: Pre-parsed cache, grown in place; membership
+                (``oid in parsed_cache``) is the exact bucket filter — an oid
+                is present iff the DB returned a ``prots`` row for it.
+            fetched_ids: Set of oids already requested (present *or* absent),
+                grown in place so absent rows are never re-requested.
+
+        Returns:
+            ``{seed_id: (annotations, confidence)}``.
+        """
+        allowed_types = self.TARGET_ORTHOLOGS_FLOORS.get(
+            target_orthologs, self.TARGET_ORTHOLOGS_FLOORS["all"]
+        )
+        # Field plan mirrors the eager closest walk: per-namespace GO fields
+        # when the OBO map is present, else the legacy combined "gos" field.
+        if self._go_namespace_map is None:
+            plan_fields = [
+                f for f in self.ANNOTATION_FIELDS if f not in _GO_NS_FIELDS
+            ]
+            plan_fields.append(self.LEGACY_GO_FIELD)
+        else:
+            plan_fields = list(self.ANNOTATION_FIELDS)
+
+        states: Dict[int, Optional["_LazySeedCascade"]] = {}
+        for seed_id in seed_ids:
+            meta = seed_ortholog_meta.get(seed_id)
+            if not meta:
+                states[seed_id] = None
+                continue
+            # Candidate buckets, built in ortholog_meta iteration order and
+            # BEFORE the parsed-membership filter (which is applied per bucket
+            # once the rows are fetched). This reproduces the eager bucket
+            # membership *and order* exactly.
+            candidate_buckets: Dict[Tuple[int, int, int], List[int]] = defaultdict(
+                list
+            )
+            for oid, m in meta.items():
+                if m["type"] not in allowed_types:
+                    continue
+                key = (
+                    0 if m["in_seed_lineage"] else 1,
+                    -m["depth"],
+                    m["type_tier"],
+                )
+                candidate_buckets[key].append(oid)
+            if not candidate_buckets:
+                states[seed_id] = None
+                continue
+            states[seed_id] = _LazySeedCascade(
+                candidate_buckets,
+                sorted(candidate_buckets.keys()),
+                plan_fields,
+                self,
+            )
+
+        active = [
+            s for s in seed_ids if states[s] is not None and not states[s].done
+        ]
+        rounds = 0
+        while active:
+            collapse = rounds >= _LAZY_MAX_ROUNDS
+            needed: Set[int] = set()
+            for s in active:
+                st = states[s]
+                needed.update(
+                    st.all_remaining_oids() if collapse else st.current_bucket_oids()
+                )
+            missing = [oid for oid in needed if oid not in fetched_ids]
+            if missing:
+                rows = self.db.get_protein_annotations_bulk(missing)
+                annot_cache.update(rows)
+                parsed_cache.update(self._pre_parse_batch(rows))
+                fetched_ids.update(missing)
+            for s in active:
+                st = states[s]
+                if collapse:
+                    st.run_to_completion(parsed_cache)
+                else:
+                    st.advance_one_bucket(parsed_cache)
+            active = [s for s in active if not states[s].done]
+            rounds += 1
+
+        results: Dict[int, Tuple[Dict[str, Any], Dict[str, str]]] = {}
+        for seed_id in seed_ids:
+            st = states[seed_id]
+            results[seed_id] = ({}, {}) if st is None else st.finalize()
+        return results
+
+    # ---------------------------------------------------------------- #
+    # Field-presence mask: build / load
+    # ---------------------------------------------------------------- #
+    def _presence(self, oid: int) -> int:
+        """Return the presence mask for ``oid`` (0 when unknown/out of range)."""
+        pres = self.field_presence
+        if pres is not None and 0 <= oid < len(pres):
+            return pres[oid]
+        return 0
+
+    def _fill_presence_masks(
+        self, masks: "array.array", annot_rows: Dict[int, dict]
+    ) -> None:
+        """Parse a chunk of raw ``prots`` rows and set their presence masks.
+
+        Uses the engine's own :meth:`_pre_parse_batch` (and therefore the same
+        GO namespace map) so the mask matches the cascade's membership test
+        exactly.
+
+        Args:
+            masks: Target ``array.array('H')`` indexed by protein id.
+            annot_rows: ``{oid: raw_row}`` chunk.
+        """
+        parsed = self._pre_parse_batch(annot_rows)
+        n = len(masks)
+        for oid, row in parsed.items():
+            if 0 <= oid < n:
+                masks[oid] = _presence_mask_from_parsed(row)
+
+    def build_field_presence(
+        self, row_iter: Iterable[dict], n_proteins: int
+    ) -> "array.array":
+        """Build the per-protein presence mask array from a row iterator.
+
+        Streams ``row_iter`` (each a raw ``prots`` row dict with an ``"id"``
+        key) in chunks so the full table is never materialised in memory.
+
+        Args:
+            row_iter: Iterable of raw ``prots`` rows.
+            n_proteins: ``MAX(id) + 1`` — the array length.
+
+        Returns:
+            ``array.array('H')`` of length ``n_proteins``; index = protein id,
+            value = presence bitmask.
+        """
+        masks = array.array("H", bytes(2 * max(0, n_proteins)))
+        chunk: Dict[int, dict] = {}
+        for row in row_iter:
+            chunk[row["id"]] = row
+            if len(chunk) >= 50_000:
+                self._fill_presence_masks(masks, chunk)
+                chunk.clear()
+        if chunk:
+            self._fill_presence_masks(masks, chunk)
+        return masks
+
+    def load_field_presence(self, cache_path: Optional[str] = None) -> bool:
+        """Populate :attr:`field_presence` from the DB (with a binary cache).
+
+        Mirrors :meth:`EggnogDB._load_taxid_array`: one scan of ``prots`` on a
+        cold start, then a flat ``array.array('H')`` cache (~119 MB for 59.4 M
+        proteins) so warm restarts load in seconds. The cache is keyed by row
+        count *and* a GO-OBO signature so a changed namespace map (which would
+        change the ``gos_mf/bp/cc`` bits) transparently rebuilds.
+
+        Any failure leaves :attr:`field_presence` as ``None`` and returns
+        ``False`` — the lazy cascade then uses the (still byte-identical)
+        tier-staged fallback. Call this once, before forking the worker pool,
+        so the array is COW-shared like the taxid array.
+
+        Args:
+            cache_path: Override for the cache file path (default: alongside the
+                DB, suffixed with the OBO signature).
+
+        Returns:
+            ``True`` if the mask array is now loaded, else ``False``.
+        """
+        try:
+            cur = self.db.conn.execute("SELECT MAX(id) FROM prots")
+            row = cur.fetchone()
+            max_id = (row[0] if row else 0) or 0
+            n = max_id + 1
+            expected = 2 * n
+
+            sig = self._field_presence_signature()
+            if cache_path is None:
+                cache_path = self._field_presence_cache_path(sig)
+
+            if cache_path and os.path.exists(cache_path):
+                try:
+                    if os.path.getsize(cache_path) == expected:
+                        a = array.array("H")
+                        with open(cache_path, "rb") as fh:
+                            a.fromfile(fh, n)
+                        self.field_presence = a
+                        logger.info(
+                            "load_field_presence: loaded %d masks from %s",
+                            n, cache_path,
+                        )
+                        return True
+                except Exception as exc:  # pragma: no cover - cache corruption
+                    logger.warning(
+                        "load_field_presence: cache read failed (%s); "
+                        "rebuilding", exc,
+                    )
+
+            logger.info(
+                "load_field_presence: scanning prots to build presence masks "
+                "(n=%d) …", n,
+            )
+            cursor = self.db.conn.execute("SELECT * FROM prots")
+            masks = self.build_field_presence(
+                (dict(r) for r in cursor), n
+            )
+            self.field_presence = masks
+
+            if cache_path:
+                try:
+                    with open(cache_path, "wb") as fh:
+                        masks.tofile(fh)
+                    logger.info(
+                        "load_field_presence: cache written to %s", cache_path
+                    )
+                except Exception as exc:  # pragma: no cover - fs errors
+                    logger.warning(
+                        "load_field_presence: could not write cache %s: %s",
+                        cache_path, exc,
+                    )
+            return True
+        except Exception as exc:
+            logger.warning(
+                "load_field_presence: build failed (%s); lazy cascade will "
+                "use the tier-staged fallback", exc,
+            )
+            self.field_presence = None
+            return False
+
+    def _field_presence_signature(self) -> str:
+        """Return a short signature that changes when the GO map changes."""
+        import hashlib
+
+        obo = self.go_obo_path if self._go_namespace_map is not None else "nomap"
+        mtime = ""
+        try:
+            if self._go_namespace_map is not None and os.path.exists(obo):
+                mtime = str(int(os.path.getmtime(obo)))
+        except OSError:
+            mtime = ""
+        raw = f"{obo}|{mtime}|{','.join(_PRESENCE_FIELDS)}".encode("utf-8")
+        return hashlib.sha1(raw).hexdigest()[:12]
+
+    def _field_presence_cache_path(self, sig: str) -> Optional[str]:
+        """Return the cache path next to the DB, or ``None`` if unknowable."""
+        db_path = getattr(self.db, "db_path", None)
+        if not db_path:
+            return None
+        return f"{db_path}.fieldpresence.{sig}.bin"
+
+    # ---------------------------------------------------------------- #
+    # Field-presence mask: the gated cascade
+    # ---------------------------------------------------------------- #
+    def _eff_mask(self, oid: int, seed_id_set: Set[int]) -> int:
+        """Presence mask for a *donor*, honouring the seed pname pop.
+
+        The seed's own ``pname`` is popped from ``parsed`` before the cascade
+        (a seed never donates its own pname through the cascade — that goes
+        through the separate promotion path). Because the pop is applied to the
+        shared parsed cache, it affects *every* batch seed wherever it appears
+        as a donor. This mirrors that by clearing the pname bit for any oid
+        that is a seed in the current sub-batch.
+        """
+        m = self._presence(oid)
+        if oid in seed_id_set:
+            m &= ~(1 << _PNAME_BIT)
+        return m
+
+    def _masked_cascade_summarize_batch(
+        self,
+        seed_ids: List[int],
+        seed_ortholog_meta: Dict[int, Dict[int, Dict[str, Any]]],
+        target_orthologs: str,
+        annot_cache: Dict[int, dict],
+        parsed_cache: Dict[int, Dict[str, Tuple[str, ...]]],
+        fetched_ids: Set[int],
+    ) -> Dict[int, Tuple[Dict[str, Any], Dict[str, str]]]:
+        """Mask-gated lazy closest cascade — byte-identical, minimal fetch.
+
+        Requires :attr:`field_presence`. Runs in three phases:
+
+        1. **Locate winners from masks alone (no ortholog fetch).** For each
+           seed and each field, walk the priority buckets and take the first
+           bucket that contains a donor whose presence bit for that field is
+           set — that is the field's winning bucket, identical to the eager
+           walk (a set bit ⇔ the donor contributes to ``_aggregate_field``, so
+           the aggregate is non-empty). Fields whose bit is set in no bucket
+           stay empty and cost zero fetches — this is what stops sparse/absent
+           fields (CAZy, BiGG, KEGG modules, …) from dragging the descent to
+           the deepest bucket.
+        2. **One bulk fetch** of exactly the winning-bucket donors across the
+           whole sub-batch (shared donors fetched once), preserving the eager
+           path's single-round-trip amortization.
+        3. **Aggregate** each field over its winning-bucket contributors,
+           re-derived from ``parsed`` for exactness (identical membership and
+           order to the eager cascade), merging the GO sub-namespaces in
+           ``_GO_NS_FIELDS`` order.
+
+        Args mirror :meth:`_lazy_cascade_summarize_batch`.
+
+        Returns:
+            ``{seed_id: (annotations, confidence)}``, byte-identical to the
+            eager ``closest`` cascade.
+        """
+        allowed_types = self.TARGET_ORTHOLOGS_FLOORS.get(
+            target_orthologs, self.TARGET_ORTHOLOGS_FLOORS["all"]
+        )
+        if self._go_namespace_map is None:
+            plan_fields = [
+                f for f in self.ANNOTATION_FIELDS if f not in _GO_NS_FIELDS
+            ]
+            plan_fields.append(self.LEGACY_GO_FIELD)
+        else:
+            plan_fields = list(self.ANNOTATION_FIELDS)
+        field_bits = [(f, 1 << _FIELD_BIT[f]) for f in plan_fields]
+        seed_id_set = set(seed_ids)
+
+        # Phase 1: winners + contributor oids from masks only.
+        # seed -> {field: (winning_key, [contributor_oids])}
+        seed_plans: Dict[
+            int, Optional[Dict[str, Tuple[Tuple[int, int, int], List[int]]]]
+        ] = {}
+        fetch_needed: Set[int] = set()
+        for seed_id in seed_ids:
+            meta = seed_ortholog_meta.get(seed_id)
+            if not meta:
+                seed_plans[seed_id] = None
+                continue
+            candidate_buckets: Dict[Tuple[int, int, int], List[int]] = defaultdict(
+                list
+            )
+            for oid, m in meta.items():
+                if m["type"] not in allowed_types:
+                    continue
+                key = (
+                    0 if m["in_seed_lineage"] else 1,
+                    -m["depth"],
+                    m["type_tier"],
+                )
+                candidate_buckets[key].append(oid)
+            if not candidate_buckets:
+                seed_plans[seed_id] = None
+                continue
+            priority_order = sorted(candidate_buckets.keys())
+            # Cache effective masks for this seed's donors once.
+            eff = {
+                oid: self._eff_mask(oid, seed_id_set)
+                for oids in candidate_buckets.values()
+                for oid in oids
+            }
+            plan: Dict[str, Tuple[Tuple[int, int, int], List[int]]] = {}
+            for field, bit in field_bits:
+                for key in priority_order:
+                    contributors = [
+                        oid for oid in candidate_buckets[key] if eff[oid] & bit
+                    ]
+                    if contributors:
+                        plan[field] = (key, contributors)
+                        fetch_needed.update(contributors)
+                        break
+            seed_plans[seed_id] = plan
+
+        # Phase 2: single bulk fetch of exactly the consumed donors.
+        missing = [oid for oid in fetch_needed if oid not in fetched_ids]
+        if missing:
+            rows = self.db.get_protein_annotations_bulk(missing)
+            annot_cache.update(rows)
+            parsed_cache.update(self._pre_parse_batch(rows))
+            fetched_ids.update(missing)
+
+        # Phase 3: aggregate per seed, exactly as the eager cascade would.
+        results: Dict[int, Tuple[Dict[str, Any], Dict[str, str]]] = {}
+        for seed_id in seed_ids:
+            plan = seed_plans[seed_id]
+            if not plan:
+                results[seed_id] = ({}, {})
+                continue
+            annotations: Dict[str, Any] = {}
+            confidence: Dict[str, str] = {}
+            go_values: Dict[str, List[str]] = {}
+            go_tier: Dict[str, int] = {}
+            for field, (key, contributors) in plan.items():
+                tier = key[2]
+                # Re-derive contributors from parsed for exact membership and
+                # order (identical to eager; bit ⇔ parsed-membership, so this
+                # keeps the same oids in the same order).
+                real = [
+                    oid for oid in contributors if field in parsed_cache.get(oid, ())
+                ]
+                if not real:
+                    continue
+                values = self._aggregate_field(field, real, parsed_cache)
+                if not values:
+                    continue
+                if field in _GO_NS_FIELDS:
+                    go_values[field] = values
+                    go_tier[field] = tier
+                else:
+                    output_field = self._cascade_output_field(field)
+                    annotations[output_field] = values
+                    confidence[output_field] = self.TIER_CONFIDENCE[tier]
+            # Merge GO sub-namespaces in _GO_NS_FIELDS order (matches eager
+            # set-construction order → identical list() iteration).
+            merged: Set[str] = set()
+            best_tier: Optional[int] = None
+            for field in _GO_NS_FIELDS:
+                vals = go_values.get(field)
+                if vals is None:
+                    continue
+                merged.update(vals)
+                t = go_tier[field]
+                if best_tier is None or t < best_tier:
+                    best_tier = t
+            if merged:
+                output_field = self._cascade_output_field(_GO_NS_FIELDS[0])
+                annotations[output_field] = list(merged)
+                confidence[output_field] = self.TIER_CONFIDENCE[best_tier]
+            results[seed_id] = (annotations, confidence)
+        return results
+
     def _cascade_output_field(self, field: str) -> str:
         """Map an internal annotation field name to the output key the
         cascade emits.
@@ -1651,6 +2377,47 @@ class AnnotationEngine:
                         "level": og.get("level"),
                     }
         return None
+
+
+# --------------------------------------------------------------------------- #
+# Field-presence bitmask (lazy-cascade gate)
+# --------------------------------------------------------------------------- #
+# One bit per cascade field, derived *from* the pre-parsed row so that
+# "bit set" is, by construction, exactly equivalent to "field present in the
+# parsed row" — i.e. exactly the condition under which the field contributes
+# to :meth:`AnnotationEngine._aggregate_field`. This equivalence is what makes
+# gating on the mask byte-identical. The legacy combined ``gos`` field gets its
+# own bit (used only when the OBO namespace map is unavailable). 16 bits total
+# → ``array.array('H')`` (2 bytes/protein).
+_PRESENCE_FIELDS: Tuple[str, ...] = tuple(AnnotationEngine.ANNOTATION_FIELDS) + (
+    AnnotationEngine.LEGACY_GO_FIELD,
+)
+_FIELD_BIT: Dict[str, int] = {f: i for i, f in enumerate(_PRESENCE_FIELDS)}
+_PNAME_BIT: int = _FIELD_BIT["pname"]
+assert len(_PRESENCE_FIELDS) <= 16, "field-presence mask must fit in uint16"
+
+
+def _presence_mask_from_parsed(row: Mapping[str, Tuple[str, ...]]) -> int:
+    """Derive the 16-bit presence mask from a pre-parsed annotation row.
+
+    ``bit(field)`` is set iff ``field`` is a key of ``row`` — which
+    :meth:`AnnotationEngine._pre_parse_batch` sets iff the field has at least
+    one clean, non-empty value. This is the single source of truth for the
+    mask, so the mask can never disagree with the cascade's own membership
+    test (``field in parsed[oid]``).
+
+    Args:
+        row: A parsed row (``{field: (value, ...)}``) from ``_pre_parse_batch``.
+
+    Returns:
+        The presence bitmask.
+    """
+    m = 0
+    for key in row:
+        bit = _FIELD_BIT.get(key)
+        if bit is not None:
+            m |= 1 << bit
+    return m
 
 
 # Convenience function for simple use cases

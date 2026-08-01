@@ -74,7 +74,8 @@ def _fix_truncated_tail(path):
 # Orthologs
 
 ##
-def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db=None):
+def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db=None,
+                     applied_filters=None):
     start_time = time.time()
 
     ncbi = get_ncbi(usemem = True)
@@ -86,7 +87,8 @@ def output_orthologs(annots, orthologs_file, resume, no_file_comments, eggnog_db
         file_mode = 'w'
 
     with open(orthologs_file, file_mode, encoding="utf-8", newline="\n") as ORTHOLOGS_OUT:
-        output_orthologs_header(ORTHOLOGS_OUT, no_file_comments, not resume)
+        output_orthologs_header(ORTHOLOGS_OUT, no_file_comments, not resume,
+                                applied_filters=applied_filters)
 
         qn = 0
         for ((hit, annotation), exists) in annots:
@@ -208,10 +210,12 @@ def output_orthologs_row(out, annotation, ncbi, eggnog_db=None):
     return
 
 ##
-def output_orthologs_header(out, no_file_comments, print_header):
+def output_orthologs_header(out, no_file_comments, print_header, applied_filters=None):
     if print_header:
         if not no_file_comments:
             print(get_call_info(), file=out)
+            if applied_filters:
+                print(format_applied_filters(applied_filters), file=out)
         header = ["#query", "orth_type", "species", "orthologs"]
         print('\t'.join(header), file=out)
     return
@@ -442,6 +446,29 @@ def format_applied_filters(filters: dict) -> str:
             rendered = str(value)
         lines.append(f"##   {key}={rendered}")
     return "\n".join(lines)
+
+
+def read_recorded_sort_entries(path):
+    """Read the ``sort_entries`` mode recorded in a file's applied-filters
+    header block.
+
+    Scans only the leading comment header (stops at the first data line).
+    Returns ``True``/``False`` when ``##   sort_entries=...`` is present, or
+    ``None`` when it is absent (e.g. the file was written with
+    ``--no_file_comments``, or predates this marker) — in which case the
+    caller cannot verify the mode and should not block resume.
+    """
+    try:
+        with open(path, "r") as fh:
+            for line in fh:
+                if not line.startswith("#"):
+                    break  # header ended, data begins
+                stripped = line.strip()
+                if stripped.startswith("##   sort_entries="):
+                    return stripped.split("=", 1)[1].strip() == "True"
+    except OSError:
+        return None
+    return None
 
 
 

@@ -70,6 +70,11 @@ class Annotator:
         # --donor_pool: "closest" | "union"
         self.donor_pool = getattr(args, "donor_pool", "closest") or "closest"
 
+        # --lazy_cascade: tier-staged lazy cascade for closest donor_pool.
+        # Byte-identical output; fetches only the orthologs the cascade
+        # consumes. No effect under donor_pool="union".
+        self.lazy_cascade = bool(getattr(args, "lazy_cascade", False))
+
         self.target_taxa = args.target_taxa
         self.target_orthologs = args.target_orthologs
         self.excluded_taxa = args.excluded_taxa
@@ -86,6 +91,14 @@ class Annotator:
         # Phase 7.1c: opt-in drop log. When True, Annotator opens
         # dropped_file and writes one row per filtered hit.
         self.report_dropped = bool(getattr(args, "report_dropped", False))
+
+        # Whether entries were sorted by seed ortholog id before annotation.
+        # Recorded in the output header so a --resume run can refuse to
+        # continue a file written in the other mode (query order differs).
+        self.sort_entries = bool(getattr(args, "sort_entries", False))
+
+        # Seeds annotated per worker sub-batch (bulk-queried together).
+        self.annot_batch_size = max(1, int(getattr(args, "annot_batch_size", 125) or 125))
 
         self.resume = args.resume
 
@@ -105,12 +118,14 @@ class Annotator:
         return {
             "tax_scope": self.tax_scope,
             "donor_pool": self.donor_pool,
+            "lazy_cascade": self.lazy_cascade,
             "target_orthologs": self.target_orthologs,
             "target_taxa": self.target_taxa,
             "excluded_taxa": self.excluded_taxa,
             "seed_ortholog_evalue": self.seed_ortholog_evalue,
             "seed_ortholog_score": self.seed_ortholog_score,
             "pfam_realign": self.pfam_realign,
+            "sort_entries": self.sort_entries,
         }
 
 
@@ -192,6 +207,24 @@ class Annotator:
                             file=sys.stderr,
                         )
                     else:
+                        # Refuse to continue a file written in the other
+                        # --sort_entries mode: sorted and unsorted runs emit
+                        # queries in different orders, so the resume lockstep
+                        # (which pairs seeds and prior annotations positionally)
+                        # would silently misalign. None = mode not recorded
+                        # (e.g. --no_file_comments), in which case we cannot
+                        # verify and proceed as before.
+                        recorded = output.read_recorded_sort_entries(_resume_file)
+                        if recorded is not None and recorded != self.sort_entries:
+                            raise EmapperException(
+                                f"Cannot --resume: {_resume_file} was produced with "
+                                f"sort_entries={recorded}, but this run uses "
+                                f"sort_entries={self.sort_entries}. Sorted and unsorted "
+                                "runs write queries in different orders and are not "
+                                "resume-compatible. Re-run with the original "
+                                f"--sort_entries setting (={recorded}), or start fresh "
+                                "with --override."
+                            )
                         print(
                             colorify(
                                 f"[resume] Reusing existing annotations: {_resume_file}",
@@ -257,7 +290,8 @@ class Annotator:
                                                                orthologs_file,
                                                                self.resume,
                                                                self.no_file_comments,
-                                                               eggnog_db=_eggnog_db)
+                                                               eggnog_db=_eggnog_db,
+                                                               applied_filters=self._applied_filters())
 
                 # Count resumed (skip=True) items before stripping the flag.
                 # The counter is a mutable [int] so run_generator can read it
@@ -348,7 +382,9 @@ class Annotator:
                 _worker_init_after_fork,
             )
 
-            engine = _get_engine(eggnog_db, ceiling_resolver, self.donor_pool)
+            engine = _get_engine(
+                eggnog_db, ceiling_resolver, self.donor_pool, self.lazy_cascade
+            )
             _register_worker_engine(engine)
             ctx = multiprocessing.get_context("fork")
             # Workers are long-lived (no maxtasksperchild) to avoid
@@ -384,54 +420,73 @@ class Annotator:
                 # Not in main thread — skip signal forwarding.
                 pass
 
-        # Batch large enough to keep all workers continuously fed.
-        # AnnotationEngine.annotate_batch uses sub_batch_size=125;
-        # 2× headroom keeps all workers busy while limiting the number of
-        # apply_async tasks in flight and the sequential write phase length.
-        batch_size = max(1000, n_workers * 250)
+        # Per-worker sub-batch size (seeds bulk-queried per pool task), tunable
+        # via --annot_batch_size. The outer batch is sized to give every worker
+        # ~2 sub-batches so the pool stays saturated.
+        sub_batch_size = self.annot_batch_size
+        target = max(1000, n_workers * sub_batch_size * 2)
         batch = []
 
+        def _dispatch(b):
+            return annotate_batch(
+                b,
+                eggnog_db,
+                annot=self.annot,
+                target_orthologs=self.target_orthologs,
+                target_taxa=self.target_taxa,
+                excluded_taxa=self.excluded_taxa,
+                seed_ortholog_score=self.seed_ortholog_score,
+                seed_ortholog_evalue=self.seed_ortholog_evalue,
+                ceiling_resolver=ceiling_resolver,
+                donor_pool=self.donor_pool,
+                lazy_cascade=self.lazy_cascade,
+                pool=pool,
+                dropped_writer=self._dropped_writer,
+                sub_batch_size=sub_batch_size,
+            )
+
         try:
-            for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
-                # Pass through resumed hits immediately
-                if args_tuple[-1] is not None:  # already annotated
-                    yield ((args_tuple[0], args_tuple[-1]), True)
-                    continue
-
-                batch.append(args_tuple)
-
-                if len(batch) >= batch_size:
-                    yield from annotate_batch(
-                        batch,
-                        eggnog_db,
-                        annot=self.annot,
-                        target_orthologs=self.target_orthologs,
-                        target_taxa=self.target_taxa,
-                        excluded_taxa=self.excluded_taxa,
-                        seed_ortholog_score=self.seed_ortholog_score,
-                        seed_ortholog_evalue=self.seed_ortholog_evalue,
-                        ceiling_resolver=ceiling_resolver,
-                        donor_pool=self.donor_pool,
-                        pool=pool,
-                        dropped_writer=self._dropped_writer,
-                    )
-                    batch = []
+            if self.sort_entries:
+                # Sorted input: seeds arrive in contiguous blocks, so size the
+                # batch by the number of DISTINCT seeds (cutting only at block
+                # boundaries) rather than by line count. On redundant inputs a
+                # line-count batch can dedup down to a handful of unique seeds
+                # and leave most workers idle; counting distinct seeds keeps
+                # every worker fed with ~sub_batch_size seeds.
+                distinct = 0
+                last_seed = None
+                # Cap the batch's line count too, so a very redundant input
+                # (many queries per seed) can't balloon a single batch's memory
+                # while it waits to reach the distinct-seed target.
+                line_cap = target * 20
+                for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
+                    if args_tuple[-1] is not None:  # already annotated (resume)
+                        yield ((args_tuple[0], args_tuple[-1]), True)
+                        continue
+                    seed = args_tuple[0][1]
+                    if seed != last_seed:
+                        # New seed block. Flush a full batch before starting it
+                        # so a block is never split across batches.
+                        if distinct >= target or len(batch) >= line_cap:
+                            yield from _dispatch(batch)
+                            batch = []
+                            distinct = 0
+                        distinct += 1
+                        last_seed = seed
+                    batch.append(args_tuple)
+            else:
+                # Unsorted input: size the batch by line count (original path).
+                for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
+                    if args_tuple[-1] is not None:  # already annotated (resume)
+                        yield ((args_tuple[0], args_tuple[-1]), True)
+                        continue
+                    batch.append(args_tuple)
+                    if len(batch) >= target:
+                        yield from _dispatch(batch)
+                        batch = []
 
             if batch:
-                yield from annotate_batch(
-                    batch,
-                    eggnog_db,
-                    annot=self.annot,
-                    target_orthologs=self.target_orthologs,
-                    target_taxa=self.target_taxa,
-                    excluded_taxa=self.excluded_taxa,
-                    seed_ortholog_score=self.seed_ortholog_score,
-                    seed_ortholog_evalue=self.seed_ortholog_evalue,
-                    ceiling_resolver=ceiling_resolver,
-                    donor_pool=self.donor_pool,
-                    pool=pool,
-                    dropped_writer=self._dropped_writer,
-                )
+                yield from _dispatch(batch)
 
         except EmapperException:
             raise
