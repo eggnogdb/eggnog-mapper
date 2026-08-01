@@ -7,8 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`--sort_entries`**: sort the `.seed_orthologs` entries by seed ortholog id
+  before annotation, so queries sharing a seed form contiguous blocks and each
+  unique seed is annotated once (its result fanned out to the duplicates). On
+  full UniProt this removes ~3× redundancy. The sort is atomic and reused on
+  `--resume`; a mode marker is recorded in the output header so a resume
+  refuses to continue a file written in the other (sorted/unsorted) order.
+- **`--lazy_cascade`**: opt-in, byte-identical tier-lazy annotation cascade for
+  the default `donor_pool=closest`. A per-protein field-presence mask (built
+  once from `prots`, cached, and shared across workers) lets the cascade select
+  each field's winning donor bucket and skip absent/sparse fields with zero
+  ortholog fetches, then fetch only the winning donors. Falls back to the eager
+  path for `donor_pool=union`. Verified byte-identical by a fuzz + real-data
+  parity test.
+- **`--annot_batch_size N`**: tune the number of seed orthologs annotated per
+  worker task (bulk-queried together); with `--sort_entries` the outer batch is
+  sized by distinct seeds so all workers stay fed on redundant inputs.
+- **`go-basic.obo` is now shipped by `download_eggnog_data.py`** and the active
+  GO mode is recorded in the output header as `go_namespace_split` — so a run
+  using the per-namespace (MF/BP/CC) cascade vs the legacy combined fallback is
+  reproducibly distinguishable from the file alone, not just a log line.
+
 ### Changed
 
+- **Annotation throughput** on proteome/UniProt-scale runs is substantially
+  higher (≈90–300 → ≈800+ q/s on full UniProt) via seed-sorted global dedup,
+  distinct-seed batching, and the opt-in lazy cascade — all producing
+  byte-identical output.
 - **`--tax_scope` now accepts `auto` (default), `auto-broad`, or a fixed
   clade name/taxid** (e.g. `Metazoa`, `33208`). The old predefined scope
   list files (`bacteria`, `eukaryota`, `all_narrow`, etc.) are removed.
@@ -23,6 +50,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **New output columns `farthest_donor_taxid` and `farthest_donor_lineage`**
   — taxid and full lineage of the most distant donor used in annotation
   transfer.
+- **`go-basic.obo` is resolved relative to `--data_dir`** (`$EGGNOG_GO_OBO` →
+  `<data_dir>/go-basic.obo` → `<data_dir>/e7/full/source/reference/go-basic.obo`)
+  instead of a hardcoded path, so shipping the OBO with the database works for
+  any data dir.
+- **Progress `q/s` is measured from the first produced result**, excluding the
+  one-time setup (DB load, worker fork, sort), so it reflects real annotation
+  throughput instead of being diluted by startup.
+- **CI migrated from Travis to GitHub Actions** (Python 3.9–3.11); the
+  `biopython` floor in `requirements.txt` was raised to `>=1.79` to match
+  `setup.cfg`. The README no longer directs production users to install v2.
+
+### Fixed
+
+- **Malformed `--annotate_hits_table` lines** now raise a clear error naming
+  the file/line/content, instead of silently re-emitting the previous line's
+  hit (which misattributed its annotation) or raising `UnboundLocalError`.
+- **`--resume` in report-orthologs mode** matched on the first *character* of
+  each line rather than the query column, so the resume lockstep never matched:
+  every query was re-annotated and every ortholog row was duplicated (append
+  mode). It now matches on the query column.
+- **Stale binary caches after an in-place DB rebuild**: the `taxid` array and
+  the lazy-cascade field-presence caches were validated by protein count only,
+  so a rebuild that kept the same count could silently reuse a stale cache
+  (wrong taxonomy / dropped or misplaced annotation fields). Both are now keyed
+  on a DB size+mtime fingerprint; an archived older DB keeps its own cache.
 
 ---
 
