@@ -13,6 +13,21 @@ import tempfile
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 from ..codec import decode_intlist
 
+
+def db_file_fingerprint(db_path) -> str:
+    """Short size+mtime fingerprint of the DB file, for cache invalidation.
+
+    Changes when the DB is rebuilt in place (so a stale ``.bin`` cache is never
+    reused), and is stable for an archived/older DB kept for reproducibility —
+    each DB build resolves to its own cache. Returns ``"nodb"`` when the path
+    is missing/unusable so the cache simply disables rather than crashing.
+    """
+    try:
+        st = os.stat(db_path)
+        return hashlib.md5(f"{st.st_size}-{int(st.st_mtime)}".encode()).hexdigest()[:10]
+    except (OSError, TypeError):
+        return "nodb"
+
 logger = logging.getLogger(__name__)
 
 
@@ -138,11 +153,12 @@ class EggnogDB:
         Tries a sibling file alongside the DB first. Falls back to /tmp
         when the DB directory is not writable (e.g. a read-only Docker mount).
         """
-        preferred = db_path + ".taxids.bin"
+        fp = db_file_fingerprint(db_path)
+        preferred = f"{db_path}.taxids.{fp}.bin"
         db_dir = os.path.dirname(db_path) or "."
         if os.access(db_dir, os.W_OK):
             return preferred
-        md5 = hashlib.md5(db_path.encode()).hexdigest()[:12]
+        md5 = hashlib.md5(f"{db_path}|{fp}".encode()).hexdigest()[:12]
         return os.path.join(tempfile.gettempdir(), f"eggnog_taxids_{md5}.bin")
 
     def _load_taxid_array(self):

@@ -22,7 +22,7 @@ import time
 from collections import Counter, defaultdict
 from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Any
 
-from .db import EggnogDB
+from .db import EggnogDB, db_file_fingerprint
 from ..codec import decode_intlist
 
 logger = logging.getLogger(__name__)
@@ -1991,7 +1991,9 @@ class AnnotationEngine:
             return False
 
     def _field_presence_signature(self) -> str:
-        """Return a short signature that changes when the GO map changes."""
+        """Return a short signature that changes when the GO map OR the DB
+        build changes, so a mask cache from a different (e.g. rebuilt-in-place)
+        DB is never reused."""
         import hashlib
 
         obo = self.go_obo_path if self._go_namespace_map is not None else "nomap"
@@ -2001,7 +2003,8 @@ class AnnotationEngine:
                 mtime = str(int(os.path.getmtime(obo)))
         except OSError:
             mtime = ""
-        raw = f"{obo}|{mtime}|{','.join(_PRESENCE_FIELDS)}".encode("utf-8")
+        db_fp = db_file_fingerprint(getattr(self.db, "db_path", None))
+        raw = f"{obo}|{mtime}|{db_fp}|{','.join(_PRESENCE_FIELDS)}".encode("utf-8")
         return hashlib.sha1(raw).hexdigest()[:12]
 
     def _field_presence_cache_path(self, sig: str) -> Optional[str]:
