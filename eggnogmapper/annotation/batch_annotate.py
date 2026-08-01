@@ -10,17 +10,57 @@ only the hit parsing and the emapper-specific tuple packaging.
 """
 
 import logging
+import os
 import sys
 
 from eggnogmapper.annotator.e7 import AnnotationEngine, EggnogDB, LineageFilter
 from eggnogmapper.annotator.e7.ceiling import TaxScopeCeilingResolver
 
 from ..emapperException import EmapperException
+from ..common import get_data_path
 from ..utils import colorify
 
 logger = logging.getLogger(__name__)
 
 from . import output as output_mod
+
+
+# Relative locations (under the resolved --data_dir) where go-basic.obo is
+# looked up, in order. The flat location matches "shipped next to the DB
+# files"; the source-subtree matches the builder/dev layout.
+_GO_OBO_REL_CANDIDATES = (
+    "go-basic.obo",
+    os.path.join("e7", "full", "source", "reference", "go-basic.obo"),
+)
+
+
+def resolve_go_obo_path():
+    """Resolve the go-basic.obo path for the current run.
+
+    Precedence: the ``EGGNOG_GO_OBO`` env var (explicit override) wins;
+    otherwise look under the resolved data dir (``--data_dir``) at the
+    candidate locations and return the first that exists. When none exists,
+    return the primary data-dir location anyway so the engine's "not found"
+    warning points the user at where to drop the file.
+
+    Returns:
+        An absolute path string, or ``None`` when the data dir is unknown
+        (the engine then falls back to its own default / legacy GO cascade).
+    """
+    env = os.environ.get("EGGNOG_GO_OBO")
+    if env:
+        return env
+    try:
+        data_dir = get_data_path()
+    except Exception:
+        return None
+    if not data_dir:
+        return None
+    candidates = [os.path.join(data_dir, rel) for rel in _GO_OBO_REL_CANDIDATES]
+    for cand in candidates:
+        if os.path.isfile(cand):
+            return cand
+    return candidates[0]
 
 
 def filter_out(
@@ -157,6 +197,7 @@ def _get_engine(
             lineage_filter=lf,
             donor_pool=donor_pool,
             lazy_cascade=lazy_cascade,
+            go_obo_path=resolve_go_obo_path(),
         )
         # Build the per-protein field-presence mask once, up front, so it is
         # COW-shared across fork workers (like the taxid array). On failure the
