@@ -238,10 +238,11 @@ def get_db_present(level):
     db_present = all([pexists(dbpath + "." + ext) for ext in 'h3f h3i h3m h3p idmap'.split()])
     return db_present
 
-def get_citation(addons=['hmmer']):
+def get_citation(addons=['hmmer'], db_version=None):
+    _db = f"; eggNOG DB version {db_version}" if db_version else ""
     EXAMPLE = """
-e.g. Functional annotation was performed using eggNOG-mapper (version %s) [1]
-"""%get_version()
+e.g. Functional annotation was performed using eggNOG-mapper (version %s%s) [1]
+""" % (get_version(), _db)
     
     CITATION = """
 ================================================================================

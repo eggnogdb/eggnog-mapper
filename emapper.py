@@ -43,7 +43,7 @@ TAX_SCOPE_AUTO_BROAD = "auto-broad"
 
 from eggnogmapper.common import existing_file, existing_dir, get_data_path, set_data_path, pexists, \
     get_eggnogdb_file, get_eggnog_mmseqs_db, \
-    get_version, get_full_version_info, get_citation, get_call_info, \
+    get_version, get_full_version_info, get_citation, get_call_info, get_db_version, \
     ITYPE_CDS, ITYPE_PROTS, ITYPE_GENOME, ITYPE_META, \
     MP_START_METHOD_DEFAULT, MP_START_METHOD_FORK, MP_START_METHOD_SPAWN, MP_START_METHOD_FORKSERVER, \
     TIMEOUT_LOAD_SERVER
@@ -417,15 +417,14 @@ def create_arg_parser():
 
     pg_annot.add_argument(
         "--lazy_cascade",
-        action="store_true",
-        default=False,
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help=(
-            "Fetch and parse only the ortholog annotations the closest "
-            "cascade actually consumes (tier by tier), instead of every "
-            "ortholog of every seed up front. Byte-identical output; can "
-            "cut annotation-fetch volume when close orthologs already "
-            "cover all fields. No effect with --donor_pool union. Can also "
-            "be enabled with EGGNOG_LAZY_CASCADE=1."
+            "Fetch and parse only the ortholog annotations the closest cascade "
+            "actually consumes, instead of every ortholog of every seed up front "
+            "(byte-identical output, large speedup on big runs). ON by default; "
+            "active only with --donor_pool closest (the default) and a no-op with "
+            "--donor_pool union. Use --no-lazy_cascade to force the eager path."
         ),
     )
 
@@ -493,17 +492,17 @@ def create_arg_parser():
     pg_annot.add_argument("--annot_batch_size", type=int, default=125, metavar='N',
                           help=("Number of seed orthologs annotated per worker task (sub-batch). Each pool "
                                 "task bulk-queries this many seeds at once; the outer batch is sized to give "
-                                "every worker ~2 sub-batches. With --sort_entries the outer batch is measured "
-                                "in distinct seeds so all workers stay fed even on highly redundant inputs. "
+                                "every worker ~2 sub-batches. With sorted seeds (the default) the outer batch "
+                                "is measured in distinct seeds so all workers stay fed even on highly redundant inputs. "
                                 "Default: 125."))
 
-    pg_annot.add_argument("--sort_entries", action="store_true",
-                          help=("Before annotation, sort the seed_orthologs entries by seed ortholog id so that "
-                                "queries sharing the same seed are annotated as a single block (each unique seed "
-                                "is resolved once instead of once per query). Recommended for very large, "
-                                "redundant inputs (e.g. millions of proteins). Note: the .annotations output is "
-                                "written in seed-sorted order rather than input order (each row is still "
-                                "self-identified by its query name)."))
+    pg_annot.add_argument("--unsorted_seeds", dest="sort_entries", action="store_false", default=True,
+                          help=("Annotate the seed_orthologs entries in input order. By DEFAULT entries are "
+                                "sorted by seed ortholog id so that queries sharing a seed form contiguous "
+                                "blocks and each unique seed is annotated once instead of once per query (large "
+                                "speedup on redundant inputs such as full proteomes). Sorting reorders the "
+                                ".annotations output by seed (each row is still self-identified by its query "
+                                "name). Pass this to keep input order; rarely needed."))
 
     ##
     pg_out = parser.add_argument_group('Output options')
@@ -721,7 +720,11 @@ if __name__ == "__main__":
         elapsed_time = time.time() - start_time
 
         addons = [args.mode, args.genepred]
-        print(get_citation(addons))
+        try:
+            db_version = get_db_version()
+        except Exception:
+            db_version = None
+        print(get_citation(addons, db_version=db_version))
         print(f'Total hits processed: {n}')
         print(f'Total time: {elapsed_time:.0f} secs')
         
