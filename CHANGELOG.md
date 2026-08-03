@@ -9,33 +9,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- **`--sort_entries`**: sort the `.seed_orthologs` entries by seed ortholog id
-  before annotation, so queries sharing a seed form contiguous blocks and each
-  unique seed is annotated once (its result fanned out to the duplicates). On
-  full UniProt this removes ~3× redundancy. The sort is atomic and reused on
-  `--resume`; a mode marker is recorded in the output header so a resume
-  refuses to continue a file written in the other (sorted/unsorted) order.
-- **`--lazy_cascade`**: opt-in, byte-identical tier-lazy annotation cascade for
-  the default `donor_pool=closest`. A per-protein field-presence mask (built
-  once from `prots`, cached, and shared across workers) lets the cascade select
-  each field's winning donor bucket and skip absent/sparse fields with zero
-  ortholog fetches, then fetch only the winning donors. Falls back to the eager
-  path for `donor_pool=union`. Verified byte-identical by a fuzz + real-data
-  parity test.
+- **Seed sorting is now the default** (opt out with **`--unsorted_seeds`**): the
+  `.seed_orthologs` entries are sorted by seed ortholog id before annotation, so
+  queries sharing a seed form contiguous blocks and each unique seed is
+  annotated once (its result fanned out to the duplicates). On full UniProt this
+  removes ~3× redundancy. The sort is atomic and reused on `--resume`; a mode
+  marker is recorded in the output header so a resume refuses to continue a file
+  written in the other (sorted/unsorted) order.
+- **The lazy closest-cascade is now on by default** (disable with
+  **`--no-lazy_cascade`**): a byte-identical tier-lazy annotation cascade for
+  `donor_pool=closest` (the default; automatically a no-op under `union`). A
+  per-protein field-presence mask (built once from `prots`, cached, and shared
+  across workers) lets the cascade select each field's winning donor bucket and
+  skip absent/sparse fields with zero ortholog fetches, then fetch only the
+  winning donors. Verified byte-identical by a fuzz + real-data parity test.
 - **`--annot_batch_size N`**: tune the number of seed orthologs annotated per
-  worker task (bulk-queried together); with `--sort_entries` the outer batch is
-  sized by distinct seeds so all workers stay fed on redundant inputs.
+  worker task (bulk-queried together); with sorted seeds (the default) the outer
+  batch is sized by distinct seeds so all workers stay fed on redundant inputs.
 - **`go-basic.obo` is now shipped by `download_eggnog_data.py`** and the active
   GO mode is recorded in the output header as `go_namespace_split` — so a run
   using the per-namespace (MF/BP/CC) cascade vs the legacy combined fallback is
   reproducibly distinguishable from the file alone, not just a log line.
+- **The example-citation printed at the end of a run now includes the eggNOG DB
+  version used** (e.g. `eggNOG-mapper (version X; eggNOG DB version 7.0.0)`).
 
 ### Changed
 
 - **Annotation throughput** on proteome/UniProt-scale runs is substantially
   higher (≈90–300 → ≈800+ q/s on full UniProt) via seed-sorted global dedup,
-  distinct-seed batching, and the opt-in lazy cascade — all producing
-  byte-identical output.
+  distinct-seed batching, and the lazy cascade (all on by default) — all
+  producing byte-identical output.
 - **`--tax_scope` now accepts `auto` (default), `auto-broad`, or a fixed
   clade name/taxid** (e.g. `Metazoa`, `33208`). The old predefined scope
   list files (`bacteria`, `eukaryota`, `all_narrow`, etc.) are removed.
