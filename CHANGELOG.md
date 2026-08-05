@@ -7,15 +7,52 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed / renamed (pre-stable CLI cleanup)
+
+- **`--db BACKEND` removed.** Data location is set exclusively via `--data_dir`
+  or the `EGGNOG_DATA_DIR` environment variable (both `emapper.py` and
+  `download_eggnog_data.py`). The internal default backend still resolves when
+  neither is set.
+- **`--translate` removed; translation is now automatic.** `--itype cds`
+  always translates before the protein search (previously required
+  `--translate`); `--itype genome`/`metagenome` gene prediction is unchanged
+  (predicted ORFs remain in their existing default representation).
+- **`--mp_start_method` removed.** The annotation pool hard-codes the fork
+  start method (already the effective default for eggNOG-mapper). Standalone
+  `hmm_server.py` / `hmm_worker.py` still expose the flag.
+- **`--unsorted_seeds` removed; file-based seed inputs are always sorted** by
+  seed ortholog id before annotation. Byte-identical to the previous default;
+  the sort-vs-unsorted resume mode guard was removed. The in-memory
+  (genome/metagenome) hits path is unchanged. The `go_namespace_split` output
+  header marker stays.
+- **HMMER as a search mode removed** (`-m hmmer` no longer accepted). The
+  associated HMMER-search-only options were removed: `-d/--database`,
+  `--servers_list`, `--qtype`, `--dbtype`, `--usemem`, `--Z`, `--cut_ga`,
+  `--clean_overlaps`, `--hmm_maxhits`, `--report_no_hits`, `--hmm_maxseqlen`,
+  plus the `hmm_mapper.py` entrypoint. `--pfam_realign` (realign / denovo) is
+  unaffected — it drives its own hmmpgmd server internally, and the
+  `--port`, `--end_port`, `--num_servers`, `--num_workers`,
+  `--timeout_load_server` options were moved into the Annotation group where
+  they now serve `--pfam_realign` only. The standalone `hmm_server.py` /
+  `hmm_worker.py` scripts (for pre-starting an hmmpgmd server) are kept.
+- **Diamond flags renamed to a consistent `--dmnd_*` prefix** (flag == dest):
+  `--sensmode`→`--dmnd_sensmode`, `--matrix`→`--dmnd_matrix`,
+  `--gapopen`→`--dmnd_gapopen`, `--gapextend`→`--dmnd_gapextend`,
+  `--block_size`→`--dmnd_block_size`, `--index_chunks`→`--dmnd_index_chunks`.
+  `--dmnd_top` is unchanged.
+- **Annotation-stage thresholds renamed for clarity**:
+  `--seed_ortholog_evalue`→`--annot_evalue`,
+  `--seed_ortholog_score`→`--annot_score`. The search-stage `--evalue` /
+  `--score` (shared by diamond + mmseqs) are unchanged.
+
 ### Added
 
-- **Seed sorting is now the default** (opt out with **`--unsorted_seeds`**): the
-  `.seed_orthologs` entries are sorted by seed ortholog id before annotation, so
-  queries sharing a seed form contiguous blocks and each unique seed is
-  annotated once (its result fanned out to the duplicates). On full UniProt this
-  removes ~3× redundancy. The sort is atomic and reused on `--resume`; a mode
-  marker is recorded in the output header so a resume refuses to continue a file
-  written in the other (sorted/unsorted) order.
+- **Seed sorting is the default** (and now the only mode for file-based seed
+  inputs): the `.seed_orthologs` entries are sorted by seed ortholog id before
+  annotation, so queries sharing a seed form contiguous blocks and each unique
+  seed is annotated once (its result fanned out to the duplicates). On full
+  UniProt this removes ~3× redundancy. The sort is atomic and reused on
+  `--resume`.
 - **The lazy closest-cascade is now on by default** (disable with
   **`--no-lazy_cascade`**): a byte-identical tier-lazy annotation cascade for
   `donor_pool=closest` (the default; automatically a no-op under `union`). A
