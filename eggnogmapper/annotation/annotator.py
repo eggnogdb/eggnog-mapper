@@ -31,7 +31,7 @@ class Annotator:
     # options for pfam hmmpgmd searches
     num_servers = num_workers = timeout_load_server = cpus_per_worker = port = end_port = None
 
-    seed_ortholog_score = seed_ortholog_evalue = None
+    annot_score = annot_evalue = None
     target_taxa = target_orthologs = excluded_taxa = None
 
     pfam_realign = trans_table = temp_dir = None
@@ -61,8 +61,8 @@ class Annotator:
         self.cpus_per_worker = args.cpus_per_worker
         self.port = args.port
         self.end_port = args.end_port
-        self.seed_ortholog_score = args.seed_ortholog_score
-        self.seed_ortholog_evalue = args.seed_ortholog_evalue
+        self.annot_score = args.annot_score
+        self.annot_evalue = args.annot_evalue
 
         # --tax_scope: "auto" | "auto-broad" | <clade_name_or_taxid>
         self.tax_scope = args.tax_scope
@@ -92,10 +92,11 @@ class Annotator:
         # dropped_file and writes one row per filtered hit.
         self.report_dropped = bool(getattr(args, "report_dropped", False))
 
-        # Whether entries were sorted by seed ortholog id before annotation.
-        # Recorded in the output header so a --resume run can refuse to
-        # continue a file written in the other mode (query order differs).
-        self.sort_entries = bool(getattr(args, "sort_entries", False))
+        # File-based seed inputs are ALWAYS sorted by seed ortholog id
+        # before annotation (byte-identical to the previous default; the
+        # opt-out `--unsorted_seeds` was removed). The `sort_entries` flag
+        # is retained in the output header for provenance.
+        self.sort_entries = True
 
         # Seeds annotated per worker sub-batch (bulk-queried together).
         self.annot_batch_size = max(1, int(getattr(args, "annot_batch_size", 125) or 125))
@@ -129,8 +130,8 @@ class Annotator:
             "target_orthologs": self.target_orthologs,
             "target_taxa": self.target_taxa,
             "excluded_taxa": self.excluded_taxa,
-            "seed_ortholog_evalue": self.seed_ortholog_evalue,
-            "seed_ortholog_score": self.seed_ortholog_score,
+            "annot_evalue": self.annot_evalue,
+            "annot_score": self.annot_score,
             "pfam_realign": self.pfam_realign,
             "sort_entries": self.sort_entries,
             # Records whether GO used the per-namespace (MF/BP/CC) cascade or
@@ -218,24 +219,6 @@ class Annotator:
                             file=sys.stderr,
                         )
                     else:
-                        # Refuse to continue a file written in the other
-                        # --sort_entries mode: sorted and unsorted runs emit
-                        # queries in different orders, so the resume lockstep
-                        # (which pairs seeds and prior annotations positionally)
-                        # would silently misalign. None = mode not recorded
-                        # (e.g. --no_file_comments), in which case we cannot
-                        # verify and proceed as before.
-                        recorded = output.read_recorded_sort_entries(_resume_file)
-                        if recorded is not None and recorded != self.sort_entries:
-                            raise EmapperException(
-                                f"Cannot --resume: {_resume_file} was produced with "
-                                f"sort_entries={recorded}, but this run uses "
-                                f"sort_entries={self.sort_entries}. Sorted and unsorted "
-                                "runs write queries in different orders and are not "
-                                "resume-compatible. Re-run with the original "
-                                f"--sort_entries setting (={recorded}), or start fresh "
-                                "with --override."
-                            )
                         print(
                             colorify(
                                 f"[resume] Reusing existing annotations: {_resume_file}",
@@ -453,8 +436,8 @@ class Annotator:
                 target_orthologs=self.target_orthologs,
                 target_taxa=self.target_taxa,
                 excluded_taxa=self.excluded_taxa,
-                seed_ortholog_score=self.seed_ortholog_score,
-                seed_ortholog_evalue=self.seed_ortholog_evalue,
+                seed_ortholog_score=self.annot_score,
+                seed_ortholog_evalue=self.annot_evalue,
                 ceiling_resolver=ceiling_resolver,
                 donor_pool=self.donor_pool,
                 lazy_cascade=self.lazy_cascade,
@@ -464,44 +447,32 @@ class Annotator:
             )
 
         try:
-            if self.sort_entries:
-                # Sorted input: seeds arrive in contiguous blocks, so size the
-                # batch by the number of DISTINCT seeds (cutting only at block
-                # boundaries) rather than by line count. On redundant inputs a
-                # line-count batch can dedup down to a handful of unique seeds
-                # and leave most workers idle; counting distinct seeds keeps
-                # every worker fed with ~sub_batch_size seeds.
-                distinct = 0
-                last_seed = None
-                # Cap the batch's line count too, so a very redundant input
-                # (many queries per seed) can't balloon a single batch's memory
-                # while it waits to reach the distinct-seed target.
-                line_cap = target * 20
-                for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
-                    if args_tuple[-1] is not None:  # already annotated (resume)
-                        yield ((args_tuple[0], args_tuple[-1]), True)
-                        continue
-                    seed = args_tuple[0][1]
-                    if seed != last_seed:
-                        # New seed block. Flush a full batch before starting it
-                        # so a block is never split across batches.
-                        if distinct >= target or len(batch) >= line_cap:
-                            yield from _dispatch(batch)
-                            batch = []
-                            distinct = 0
-                        distinct += 1
-                        last_seed = seed
-                    batch.append(args_tuple)
-            else:
-                # Unsorted input: size the batch by line count (original path).
-                for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
-                    if args_tuple[-1] is not None:  # already annotated (resume)
-                        yield ((args_tuple[0], args_tuple[-1]), True)
-                        continue
-                    batch.append(args_tuple)
-                    if len(batch) >= target:
+            # Seeds arrive sorted (always): size the batch by the number of
+            # DISTINCT seeds (cutting only at block boundaries) rather than by
+            # line count. On redundant inputs a line-count batch can dedup down
+            # to a handful of unique seeds and leave most workers idle; counting
+            # distinct seeds keeps every worker fed with ~sub_batch_size seeds.
+            distinct = 0
+            last_seed = None
+            # Cap the batch's line count too, so a very redundant input
+            # (many queries per seed) can't balloon a single batch's memory
+            # while it waits to reach the distinct-seed target.
+            line_cap = target * 20
+            for args_tuple in self.iter_hit_lines(hits_gen_func, annots_parser):
+                if args_tuple[-1] is not None:  # already annotated (resume)
+                    yield ((args_tuple[0], args_tuple[-1]), True)
+                    continue
+                seed = args_tuple[0][1]
+                if seed != last_seed:
+                    # New seed block. Flush a full batch before starting it
+                    # so a block is never split across batches.
+                    if distinct >= target or len(batch) >= line_cap:
                         yield from _dispatch(batch)
                         batch = []
+                        distinct = 0
+                    distinct += 1
+                    last_seed = seed
+                batch.append(args_tuple)
 
             if batch:
                 yield from _dispatch(batch)
@@ -567,7 +538,7 @@ class Annotator:
                 ``--resume`` mode, or ``None``.
 
         Yields:
-            Tuple ``(hit, annot, seed_ortholog_score, seed_ortholog_evalue,
+            Tuple ``(hit, annot, annot_score, annot_evalue,
             target_taxa, target_orthologs, excluded_taxa,
             data_path, annotation)`` where ``annotation`` is
             the previously computed annotation (or ``None``).
@@ -594,8 +565,8 @@ class Annotator:
             yield_tuple = (
                 hit,
                 self.annot,
-                self.seed_ortholog_score,
-                self.seed_ortholog_evalue,
+                self.annot_score,
+                self.annot_evalue,
                 self.target_taxa,
                 self.target_orthologs,
                 self.excluded_taxa,

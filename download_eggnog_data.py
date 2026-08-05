@@ -35,7 +35,7 @@ from eggnogmapper.common import (
     pexists,
     set_data_path,
 )
-from eggnogmapper.backends import DEFAULT_BACKEND, get_backend_names, resolve_backend
+from eggnogmapper.backends import DEFAULT_BACKEND, resolve_backend
 from eggnogmapper.search.search_modes import (
     SEARCH_MODE_DIAMOND,
     get_eggnog_dmnd_db,
@@ -240,10 +240,6 @@ def main():
     parser.add_argument("-q", action="store_true", dest="quiet",
                         help="Quiet mode")
 
-    parser.add_argument("--db", dest="db_backend", metavar="BACKEND", type=str,
-                        default=DEFAULT_BACKEND, choices=get_backend_names(),
-                        help=("Database backend. Overridden by --data_dir "
-                              "and EGGNOG_DATA_DIR."))
     parser.add_argument("--data_dir", metavar="", type=existing_dir,
                         help="Directory to use for DATA_PATH.")
 
@@ -258,7 +254,7 @@ def main():
 
     args = parser.parse_args()
 
-    set_data_path(resolve_backend(args.db_backend))
+    set_data_path(resolve_backend(DEFAULT_BACKEND))
     if "EGGNOG_DATA_DIR" in os.environ:
         set_data_path(os.environ["EGGNOG_DATA_DIR"])
     if args.data_dir:

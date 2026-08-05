@@ -62,7 +62,6 @@ class MMseqs2Searcher:
 
     in_file = None
     itype = None
-    translate = None
     translation_table = None
 
     allow_overlaps = None
@@ -74,7 +73,6 @@ class MMseqs2Searcher:
     def __init__(self, args):
 
         self.itype = args.itype
-        self.translate = args.translate
         self.translation_table = args.trans_table
 
         self.allow_overlaps = args.allow_overlaps
@@ -198,7 +196,8 @@ class MMseqs2Searcher:
         handle = None
         tmp_query = None
         try:
-            if self.itype == ITYPE_CDS and self.translate == True:
+            if self.itype == ITYPE_CDS:
+                # CDS always translated to proteins before search (protein dbtype path)
                 handle, query_file = mkstemp(dir = self.temp_dir, text = True)
                 translate_cds_to_prots(fasta_file, query_file, self.translation_table)
             else:
@@ -234,10 +233,11 @@ class MMseqs2Searcher:
         cmd = (
             f'{MMSEQS2} createdb \'{fasta_file}\' \'{querydb}\''
         )
-        if self.itype == ITYPE_PROTS or (self.itype == ITYPE_CDS and self.translate == True):
+        if self.itype == ITYPE_PROTS or self.itype == ITYPE_CDS:
+            # CDS is always pre-translated to proteins; use protein dbtype
             cmd += ' --dbtype 1' # aas queries (proteins)
         else:
-            cmd += ' --dbtype 2' # nts queries (CDS, contig, ...)
+            cmd += ' --dbtype 2' # nts queries (genome, metagenome contigs)
             
         print(colorify('  '+cmd, 'yellow'))
         try:

@@ -141,7 +141,6 @@ class DiamondSearcher:
 
     in_file = None
     itype = None
-    translate = None
     query_gencode = None
 
     allow_overlaps = None
@@ -153,7 +152,6 @@ class DiamondSearcher:
     def __init__(self, args, dmnd_db):
         
         self.itype = args.itype
-        self.translate = args.translate
         self.query_gencode = args.trans_table
 
         self.allow_overlaps = args.allow_overlaps
@@ -163,7 +161,7 @@ class DiamondSearcher:
 
         self.cpu = args.cpu
 
-        self.sensmode = args.sensmode
+        self.sensmode = args.dmnd_sensmode
         self.iterate = args.dmnd_iterate
         self.ignore_warnings = args.dmnd_ignore_warnings
         # `self.algo` is overwritten in the search command builder once
@@ -175,10 +173,10 @@ class DiamondSearcher:
         self.query_cov = args.query_cover
         self.subject_cov = args.subject_cover
 
-        self.matrix = args.matrix
+        self.matrix = args.dmnd_matrix
         self.frameshift = args.dmnd_frameshift
-        self.gapopen = args.gapopen
-        self.gapextend = args.gapextend
+        self.gapopen = args.dmnd_gapopen
+        self.gapextend = args.dmnd_gapextend
         # Auto-tune at __init__ runs only RAM-driven decisions
         # (block_size, index_chunks). The algo decision is deferred to
         # search-time because it depends on the query file size which
@@ -294,11 +292,12 @@ class DiamondSearcher:
         tmp_query = None
         ##
         # search type
-        if self.itype == ITYPE_CDS and self.translate == True:
+        if self.itype == ITYPE_CDS:
+            # CDS always translated to proteins before search (blastp path)
             tool = 'blastp'
             handle, query_file = mkstemp(dir = self.temp_dir, text = True)
             translate_cds_to_prots(fasta_file, query_file, self.query_gencode)
-        elif self.itype == ITYPE_CDS or self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
+        elif self.itype == ITYPE_GENOME or self.itype == ITYPE_META:
             tool = 'blastx'
             # diamond streams gzipped queries natively; bzip2 is decompressed.
             query_file, tmp_query = resolve_input_for_tool(

@@ -448,30 +448,6 @@ def format_applied_filters(filters: dict) -> str:
     return "\n".join(lines)
 
 
-def read_recorded_sort_entries(path):
-    """Read the ``sort_entries`` mode recorded in a file's applied-filters
-    header block.
-
-    Scans only the leading comment header (stops at the first data line).
-    Returns ``True``/``False`` when ``##   sort_entries=...`` is present, or
-    ``None`` when it is absent (e.g. the file was written with
-    ``--no_file_comments``, or predates this marker) — in which case the
-    caller cannot verify the mode and should not block resume.
-    """
-    try:
-        with open(path, "r") as fh:
-            for line in fh:
-                if not line.startswith("#"):
-                    break  # header ended, data begins
-                stripped = line.strip()
-                if stripped.startswith("##   sort_entries="):
-                    return stripped.split("=", 1)[1].strip() == "True"
-    except OSError:
-        return None
-    return None
-
-
-
 ##
 def output_annotations_footer(out, no_file_comments, qn, elapsed_time):
     if not no_file_comments:

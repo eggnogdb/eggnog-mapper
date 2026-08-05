@@ -158,7 +158,6 @@ class Emapper:
             queries_file = infile
         else:
             queries_file = predictor.outprots
-            args.translate = False
             args.itype = ITYPE_PROTS
 
         # search
@@ -188,12 +187,9 @@ class Emapper:
                 print(colorify("Crafting fasta file of CDS ...", "lgreen"))
                 fasta_file = pjoin(self._current_dir, self.genepred_fasta_file)
                 silent_rm(fasta_file)
-                hits = create_prots_file(queries_file, hits, fasta_file, args.translate, args.trans_table)
+                hits = create_prots_file(queries_file, hits, fasta_file, False, args.trans_table)
                 queries_file = fasta_file
-                if args.translate == True:
-                    args.itype = ITYPE_PROTS
-                else:
-                    args.itype = ITYPE_CDS
+                args.itype = ITYPE_CDS
                 
         return searcher, searcher_name, hits, queries_file
     
@@ -206,13 +202,11 @@ class Emapper:
         if self.annot == True or self.report_orthologs:
             annot_in = None  # a generator of hits to annotate
 
-            # --sort_entries: sort a file-based seed input by seed ortholog id
+            # File-based seed inputs are always sorted by seed ortholog id
             # so shared seeds form contiguous blocks and each unique seed is
             # annotated once (see AnnotationEngine.annotate_batch dedup). Only
             # applies to file inputs; the in-memory blastx path is left as-is.
             def _sorted_seed_input(path):
-                if not getattr(args, "sort_entries", False):
-                    return path
                 sorted_path = path + ".sorted"
                 # On --resume, reuse an existing sorted file instead of
                 # re-sorting the whole (potentially huge) input. It is written
@@ -227,7 +221,7 @@ class Emapper:
                         "blue"), file=stderr)
                     return sorted_path
                 print(colorify(
-                    f"[--sort_entries] Sorting {path} by seed ortholog id...",
+                    f"Sorting {path} by seed ortholog id...",
                     "blue"), file=stderr)
                 sort_seeds_file(path, sorted_path,
                                 temp_dir=args.temp_dir, parallel=args.cpu)
