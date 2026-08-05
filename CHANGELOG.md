@@ -82,6 +82,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   The query input fixtures are committed; the subsampled DB and goldens ship as
   a downloadable bundle (paired with the reference full DB, which can change),
   rebuilt reproducibly by `make_test_dataset.py` + `gen_golden.py`.
+- **`emapper.py --selftest`**: one-command installation check. Downloads the
+  reference self-test bundle (from
+  `data.cgmlab.org/eggnog-mapper/emapper-<release>/selftest/`, overridable via
+  `$EGGNOG_SELFTEST_URL`) and verifies the build reproduces the expected
+  annotations for every input type, exiting non-zero on any mismatch. Runs
+  inside emapper, so from the Apptainer image the bundled DIAMOND/prodigal are
+  used with no extra setup; `--data_dir` pointing at an already-downloaded
+  bundle skips the download.
 
 ### Changed
 

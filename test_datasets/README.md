@@ -45,17 +45,37 @@ richness (GO / KEGG KO / EC / pathway / PFAM / BiGG) and taxonomic spread:
 
 ## Running the self-test
 
-Requires a DIAMOND binary on `PATH` (the repo ships one under
-`/eggnog-eco/bin`) and the project venv.
+### The easy way — `emapper.py --selftest`
+
+Downloads this dataset (if not already local) and verifies the installation
+reproduces the reference annotations for every input type, then exits non-zero
+on any mismatch. It runs *inside* emapper, so from the Apptainer image the
+bundled DIAMOND/prodigal are already on `PATH` — nothing else to install:
 
 ```bash
-# from the eggnog-mapper repo root, with data/ fixtures/ golden/ present:
-pytest test_datasets/test_selftest.py -v
+# from the built image (".sif"):
+apptainer run eggnog-mapper-3.0.0-beta5.sif --selftest
+
+# or a normal install / source checkout (needs DIAMOND on PATH):
+emapper.py --selftest
+
+# skip the download and use an already-downloaded bundle:
+emapper.py --selftest --data_dir /path/to/test_datasets
 ```
 
-Six checks run: the live `.annotations` for each of the four `--itype` modes
-must match `golden/`, and the nifH query must recover the `Fer4_NifH` OG from
-both protein and CDS input.
+The bundle is fetched from
+`https://data.cgmlab.org/eggnog-mapper/emapper-<release>/selftest/eggnog-mapper-selftest.tar.gz`
+(override with `$EGGNOG_SELFTEST_URL`).
+
+### For maintainers — pytest
+
+Runs the same four itype checks plus two nifH biological assertions against a
+local `data/ fixtures/ golden/`, without downloading (DIAMOND must be on `PATH`;
+the repo ships one under `/eggnog-eco/bin`):
+
+```bash
+pytest test_datasets/test_selftest.py -v
+```
 
 ## Regenerating (maintainers)
 

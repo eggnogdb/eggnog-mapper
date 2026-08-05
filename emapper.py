@@ -65,6 +65,14 @@ def create_arg_parser():
     parser.add_argument('--list_taxa', action="store_true",
                         help="List taxa available for --tax_scope, and exit")
 
+    parser.add_argument('--selftest', action="store_true",
+                        help=("Download the small reference self-test dataset and verify "
+                              "this installation reproduces the expected annotations for "
+                              "every input type (proteins/CDS/genome/metagenome), then exit. "
+                              "If --data_dir already contains the dataset (data/, fixtures/, "
+                              "golden/) it is used directly and nothing is downloaded. "
+                              "Exit status is non-zero if any check fails."))
+
     ##
     pg_exec = parser.add_argument_group('Execution Options')
     
@@ -466,6 +474,10 @@ def parse_args(parser):
             version = get_version()
         print(version)
         sys.exit(0)
+
+    if args.selftest:
+        from eggnogmapper.selftest import run_selftest
+        sys.exit(run_selftest(bundle_dir=args.data_dir, cpu=args.cpu))
 
     if args.data_dir:
         set_data_path(args.data_dir)
