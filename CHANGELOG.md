@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [3.0.0-beta5] — 2026-08-05
+
 ### Removed / renamed (pre-stable CLI cleanup)
 
 - **`--db BACKEND` removed.** Data location is set exclusively via `--data_dir`
