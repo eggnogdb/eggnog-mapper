@@ -69,6 +69,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   reproducibly distinguishable from the file alone, not just a log line.
 - **The example-citation printed at the end of a run now includes the eggNOG DB
   version used** (e.g. `eggNOG-mapper (version X; eggNOG DB version 7.0.0)`).
+- **Offline self-test dataset** (`test_datasets/`): a self-consistent subsample
+  of the final v7 mapper DB — nif-operon query seeds spanning Archaea and
+  Bacteria together with their full annotation-transfer closure
+  (`event_index` → `sp_events` → ortholog donors) — plus per-`--itype` query
+  fixtures (proteins, CDS, genome, metagenome) and golden outputs. A `pytest`
+  runner (`test_selftest.py`) exercises the whole option surface offline against
+  the mini DB, including auto-translate (CDS) and prodigal gene prediction
+  (genome/metagenome), and checks the nifH query recovers the `Fer4_NifH` OG.
+  The query input fixtures are committed; the subsampled DB and goldens ship as
+  a downloadable bundle (paired with the reference full DB, which can change),
+  rebuilt reproducibly by `make_test_dataset.py` + `gen_golden.py`.
 
 ### Changed
 

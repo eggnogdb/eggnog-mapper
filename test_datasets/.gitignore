@@ -1,0 +1,10 @@
+# The subsampled DB and golden outputs are downloadable (they pair with the
+# reference full DB, which can change), so they are NOT committed. The query
+# input fixtures ARE committed; builder / golden-gen / runner / README too.
+data/
+golden/
+*.tar.gz
+
+# runtime caches (regenerated on first run)
+*.fieldpresence.*.bin
+*.taxids.bin
