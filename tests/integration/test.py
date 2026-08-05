@@ -28,7 +28,13 @@ PFAM_SUFFIX = '.emapper.pfam'
 # v7 test data paths
 V7_DATA_DIR = "tests/fixtures_v7"
 V7_QUERY_FILE = "tests/fixtures/test_queries_v7.fa"
-V7_DB = "e7-sample"
+# Resolve the e7-sample backend to a filesystem path — the CLI no longer
+# accepts --db BACKEND_NAME; data location is set via --data_dir (or the
+# EGGNOG_DATA_DIR env). The auto-discovered backend depends on
+# EGGNOG_DATA_ROOT, which common.run() also sets for the child process.
+os.environ.setdefault("EGGNOG_DATA_ROOT", "/eggnog-eco/data")
+from eggnogmapper.backends import resolve_backend
+V7_DB = resolve_backend("e7-sample")
 
 
 class Test(unittest.TestCase):
@@ -55,7 +61,7 @@ class Test(unittest.TestCase):
         exp_seed = os.path.join(V7_DATA_DIR, 'test_diamond.emapper.seed_orthologs')
         exp_annot = os.path.join(V7_DATA_DIR, 'test_diamond.emapper.annotations')
 
-        cmd = (f'./emapper.py -m diamond -i {V7_QUERY_FILE} --db {V7_DB} '
+        cmd = (f'./emapper.py -m diamond -i {V7_QUERY_FILE} --data_dir {V7_DB} '
                f'--output_dir {self.outdir} -o {outprefix}')
         st, out, err = run(cmd)
         if st != 0:
@@ -80,7 +86,7 @@ class Test(unittest.TestCase):
         exp_ortho = os.path.join(V7_DATA_DIR, 'test_no_search.emapper.orthologs')
 
         cmd = (f'./emapper.py -m no_search --annotate_hits_table {hits_table} '
-               f'--db {V7_DB} --output_dir {self.outdir} -o {outprefix} '
+               f'--data_dir {V7_DB} --output_dir {self.outdir} -o {outprefix} '
                f'--report_orthologs --target_orthologs one2one')
         st, out, err = run(cmd)
         if st != 0:
@@ -103,7 +109,7 @@ class Test(unittest.TestCase):
         exp_annot = os.path.join(V7_DATA_DIR, 'test_diamond.emapper.annotations')
 
         # Step 1: search only
-        cmd = (f'./emapper.py -m diamond -i {V7_QUERY_FILE} --db {V7_DB} '
+        cmd = (f'./emapper.py -m diamond -i {V7_QUERY_FILE} --data_dir {V7_DB} '
                f'--output_dir {self.outdir} -o {outprefix} --no_annot')
         st, out, err = run(cmd)
         if st != 0:
@@ -116,7 +122,7 @@ class Test(unittest.TestCase):
 
         # Step 2: annotate from seeds
         cmd2 = (f'./emapper.py -m no_search --annotate_hits_table {seeds_file} '
-                f'--db {V7_DB} --output_dir {self.outdir} -o {step2prefix}')
+                f'--data_dir {V7_DB} --output_dir {self.outdir} -o {step2prefix}')
         st2, out2, err2 = run(cmd2)
         if st2 != 0:
             print(out2.decode("utf-8"))
@@ -137,7 +143,7 @@ class Test(unittest.TestCase):
         exp_seed = os.path.join(V7_DATA_DIR, 'test_diamond.emapper.seed_orthologs')
         exp_annot = os.path.join(V7_DATA_DIR, 'test_diamond.emapper.annotations')
 
-        base_cmd = (f'./emapper.py -m diamond -i {V7_QUERY_FILE} --db {V7_DB} '
+        base_cmd = (f'./emapper.py -m diamond -i {V7_QUERY_FILE} --data_dir {V7_DB} '
                     f'--output_dir {self.outdir} -o {outprefix}')
 
         # Run 1: produce hits file
@@ -183,7 +189,7 @@ class Test(unittest.TestCase):
             with gzip.open(gz_path, 'wb') as f_out:
                 f_out.write(f_in.read())
 
-        cmd = (f'./emapper.py -m diamond -i {gz_path} --db {V7_DB} '
+        cmd = (f'./emapper.py -m diamond -i {gz_path} --data_dir {V7_DB} '
                f'--output_dir {self.outdir} -o {outprefix}')
         st, out, err = run(cmd)
         if st != 0:
@@ -212,7 +218,7 @@ class Test(unittest.TestCase):
             with bz2.open(bz2_path, 'wb') as f_out:
                 f_out.write(f_in.read())
 
-        cmd = (f'./emapper.py -m diamond -i {bz2_path} --db {V7_DB} '
+        cmd = (f'./emapper.py -m diamond -i {bz2_path} --data_dir {V7_DB} '
                f'--output_dir {self.outdir} -o {outprefix}')
         st, out, err = run(cmd)
         if st != 0:
