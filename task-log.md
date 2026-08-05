@@ -1,3 +1,134 @@
+# task-log.md — pre-stable CLI-cleanup refactor
+
+## Session: 2026-08-05 (orchestrator)
+
+### Task: pre-stable CLI cleanup (7 items, maintainer-decided, scope locked)
+Maintainer pre-decided all scope; treat the request as the SPEC CONTRACT.
+Commit directly to `main`, conventional commits, trailer
+`Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+
+HARD CONSTRAINTS:
+- Annotation output byte-identical; do NOT alter cascade/dedup/sort/lazy semantics.
+- Parity test `tests/unit/test_lazy_cascade.py` MUST still pass. Baseline: PASS
+  (verified 2026-08-05 with PYTHONPATH=repo root).
+- `--pfam_realign` must keep working (hmmpgmd server via annotation/pfam/).
+  KEEP --port/--end_port/--num_servers/--num_workers/--timeout_load_server.
+- No runtime env (no DB/venv/psutil). Verify via py_compile + parity test +
+  grep audits + argparse-level checks. Report what could not be verified.
+
+THE 7 CHANGES:
+1. diamond flags → --dmnd_ prefix, flag==dest (sensmode/matrix/gapopen/gapextend/
+   block_size/index_chunks). Keep --dmnd_top.
+2. remove --db/db_backend (emapper.py + download_eggnog_data.py); data via
+   --data_dir / EGGNOG_DATA_DIR only; default path = resolve_backend(DEFAULT_BACKEND).
+3. rename --seed_ortholog_evalue→--annot_evalue, --seed_ortholog_score→--annot_score
+   (flag+dest+readers+_applied_filters keys). Leave search-stage --evalue/--score.
+4. remove --translate; translation AUTOMATIC (itype==CDS ⇒ translate; genome/meta
+   ⇒ ORF prediction unchanged).
+5. remove --mp_start_method + set_start_method call; pool already hardcodes fork.
+6. remove --unsorted_seeds; ALWAYS sort file-based seed inputs; drop sort-vs-unsorted
+   resume guard/marker; KEEP go_namespace_split header field. In-memory hits path unchanged.
+7. remove HMMER as a SEARCH mode + search-only CLI/options/code, but KEEP hmmpgmd
+   server pieces pfam_realign needs. Move server opts into Annotation group.
+
+### Codebase audit findings (2026-08-05, orchestrator direct reads + Explore agents)
+
+CRITICAL pfam↔hmmer coupling:
+- `eggnogmapper/annotation/pfam/pfam.py:12-14` imports `HmmerSearcher` (hmmer.py),
+  SCANTYPE_*/QUERY_TYPE_*/DB_TYPE_* (hmmer_search.py), DEFAULT_PORT/END_PORT (hmmer_setup.py).
+- `PfamAligner.align_whole_pfam` calls `HmmerSearcher(self.args).search_hmm_matches(...)`.
+  pfam builds its OWN argparse.Namespace (db/servers_list/usemem/dbtype/qtype/maxhits/
+  report_no_hits/maxseqlen/cut_ga/clean_overlaps/Z...) — so removing those CLI flags is
+  safe, but HmmerSearcher + the entire search/hmmer/ package must STAY (reachable from
+  search_hmm_matches). `annotator.py:12` also imports iter_fasta_seqs from hmmer_seqio (SHARED).
+- => Item 7 removes only: `hmmer` from -m choices, HMMER-search CLI options, the
+  get_searcher HMMER branch, and the HMMER-search-only entrypoint hmm_mapper.py
+  (+ eggnogmapper/hmm_mapper.py HmmMapper; nobody else imports HmmMapper). KEEP
+  hmm_server.py/hmm_worker.py (user-facing hmmpgmd server scripts pfam --usemem connects to)
+  and the whole search/hmmer/ package. setup.cfg scripts list must drop hmm_mapper.py.
+
+Translate/itype wiring (item 4):
+- top emapper.py: --translate at ~102; itype==CDS⇒translate at ~641 (hmmer block, being removed);
+  args.dmnd_evalue/score fanout ~666.
+- eggnogmapper/emapper.py search(): predictor path sets args.translate=False,itype=PROTS (160-162);
+  blastx genepred path uses args.translate in create_prots_file + itype flip (191-196) — PRESERVE.
+
+Sort/resume (item 6):
+- eggnogmapper/emapper.py:213 `_sorted_seed_input` gated on args.sort_entries.
+- annotator.py:98 sort_entries; :221-238 resume guard (REMOVE); :467 branch (collapse to sorted).
+- output.py:451 read_recorded_sort_entries (becomes dead → remove); go_namespace_split field STAYS.
+
+Baseline: parity test PASS; working tree clean; main is 3 commits ahead of origin.
+
+### Execution (2026-08-05)
+
+1. python-coder produced the code changes (single-agent pass because scope
+   was fully locked and interdependent).
+2. Orchestrator self-review (all diffs inspected; scope + spec + constraints
+   verified line-by-line — no delegated code-reviewer step because the
+   spec's correctness contract is machine-checkable and the reviewer would
+   have no additional context).
+3. Verification:
+   - `python3 -m py_compile` on every changed .py → OK.
+   - Cascade parity test `tests/unit/test_lazy_cascade.py` → ALL 17
+     sub-checks pass (400-seed fuzz + 60 multiseed sub-batches
+     byte-identical eager vs staged vs mask-gated).
+   - Grep audit for all removed/renamed symbols → clean (only intentional
+     references remain: pfam builds its own Namespace with the removed
+     HMMER fields; `create_dbs.py` still has its own `--db` which is out
+     of scope; `hmmer.py:98,275` still reads `args.translate` but is now
+     only reached via `PfamAligner`, which fills that field itself).
+   - Argparse smoke test (with psutil/Bio stubs): all renamed dests
+     present, all removed dests/flags rejected, `-m hmmer` rejected, new
+     `--dmnd_*` / `--annot_*` flags accepted with correct types, pfam
+     opts `--port/--end_port/--num_servers/--num_workers/
+     --timeout_load_server` still work, `args.translate/db_backend/
+     sort_entries/mp_start_method` no longer exist on parsed args.
+   - pfam import chain intact: `PfamAligner`, `HmmerSearcher`,
+     `run_pfam_mode`, `pfam_align_denovo`, `pfam_align_parallel_scan`,
+     `get_pfam_args`, `get_hmmscan_args`, `get_hmmsearch_args` all import
+     cleanly.
+4. Deleted (`git rm`) — HMMER-search-only entrypoints:
+   - `hmm_mapper.py`
+   - `eggnogmapper/hmm_mapper.py`
+   - `tests/integration/test_hmm_mapper.py`
+5. Test-suite migration to keep integration tests parseable under the new
+   CLI (they still cannot run in this env due to no DB/venv):
+   - `tests/integration/common.py`: dropped the `./hmm_mapper.py` script
+     substitution.
+   - `tests/integration/test.py`: `V7_DB` resolved via
+     `resolve_backend("e7-sample")` at test-import time (pre-sets
+     `EGGNOG_DATA_ROOT`); every `--db {V7_DB}` swapped to
+     `--data_dir {V7_DB}`.
+
+Deferred / could NOT verify without a runtime env:
+- The full pipeline against a real database (no venv, no DIAMOND, no DB).
+- The `--pfam_realign realign|denovo` end-to-end path (requires hmmpgmd +
+  a Pfam database). The pfam→HmmerSearcher import chain is verified
+  syntactically and by grep, and pfam builds its own Namespace, so the
+  CLI-side changes are non-invasive to that path.
+- Behavior change note (intended, per spec): with `--translate` removed,
+  `--itype cds` + `-m mmseqs` used to default to `--dbtype 2` (nucleotide
+  search); it now uses `--dbtype 1` (protein), matching diamond's
+  translate-then-blastp behavior. `--itype genome`/`metagenome` output is
+  preserved because the coder passes `False` for translate to
+  `create_prots_file` (the previous default when `--translate` was
+  omitted).
+
+### Commit plan
+Logical groups so the history reads cleanly (all on `main`):
+1. `refactor(cli): drop --db backend flag; data via --data_dir/EGGNOG_DATA_DIR only`
+2. `refactor(cli): translation is automatic for --itype cds (remove --translate)`
+3. `refactor(cli): drop --mp_start_method (pool hard-codes fork)`
+4. `refactor(cli): always sort file seed inputs (remove --unsorted_seeds and the sort-mode resume guard)`
+5. `refactor(cli): rename diamond flags to --dmnd_* (flag == dest)`
+6. `refactor(cli): rename --seed_ortholog_{evalue,score} → --annot_{evalue,score}`
+7. `refactor(search): remove HMMER seed-ortholog search mode (pfam server pieces kept)`
+8. `test(integration): migrate --db V7_DB → --data_dir V7_DB; drop dead hmm_mapper test`
+9. `docs(changelog): summarise pre-stable CLI cleanup under [Unreleased]`
+
+---
+
 # task-log.md — emapper tax_scope + cascade refactor
 
 ## Session: 2026-05-07 (orchestrator)
