@@ -153,12 +153,17 @@ class EggnogDB:
         Tries a sibling file alongside the DB first. Falls back to /tmp
         when the DB directory is not writable (e.g. a read-only Docker mount).
         """
-        fp = db_file_fingerprint(db_path)
-        preferred = f"{db_path}.taxids.{fp}.bin"
+        # Plain, stable name (no DB fingerprint): the taxid cache is SHIPPED
+        # prebuilt alongside the DB (data/eggnog.db.taxids.bin), and download
+        # changes the DB's mtime, so a fingerprinted name would never match the
+        # shipped file. Users fetch versioned bundles where DB+cache always
+        # agree; a maintainer rebuilding in place should clear stale caches.
+        # (The field-presence mask, which is NOT shipped, still fingerprints.)
+        preferred = db_path + ".taxids.bin"
         db_dir = os.path.dirname(db_path) or "."
         if os.access(db_dir, os.W_OK):
             return preferred
-        md5 = hashlib.md5(f"{db_path}|{fp}".encode()).hexdigest()[:12]
+        md5 = hashlib.md5(db_path.encode()).hexdigest()[:12]
         return os.path.join(tempfile.gettempdir(), f"eggnog_taxids_{md5}.bin")
 
     def _load_taxid_array(self):

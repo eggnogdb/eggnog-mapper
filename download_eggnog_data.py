@@ -14,11 +14,9 @@ novel_fams (-F) was removed in v3.0 (the search mode is gone).
 """
 
 import argparse
-import gzip
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tarfile
@@ -28,12 +26,10 @@ from urllib.request import Request, urlopen
 
 from eggnogmapper.common import (
     DATA_PATH,
-    HMMPRESS,
     existing_dir,
     get_data_path,
     get_eggnog_mmseqs_dbpath,
     get_eggnogdb_file,
-    get_hmmer_base_dbpath,
     get_ncbitaxadb_file,
     get_pfam_dbpath,
     pexists,
@@ -44,8 +40,8 @@ from eggnogmapper.search.search_modes import (
     SEARCH_MODE_DIAMOND,
     get_eggnog_dmnd_db,
 )
-from eggnogmapper.utils import ask, ask_name, colorify
-from eggnogmapper.version import __DB_VERSION__, __VERSION__
+from eggnogmapper.utils import ask, colorify
+from eggnogmapper.version import __VERSION__
 
 if sys.version_info < (3, 9):
     sys.exit("Python < 3.9 is not supported")
@@ -144,17 +140,6 @@ def download_artifact(base_url, name, dest_dir, manifest, verify=True):
     return dest
 
 
-def gunzip_in_place(path, force=False):
-    """gunzip path → strip .gz suffix; remove the .gz."""
-    out = path.with_suffix("")
-    if out.exists() and not force:
-        raise DownloadError(f"{out} already exists. Use -f to overwrite.")
-    with gzip.open(path, "rb") as src, open(out, "wb") as dst:
-        shutil.copyfileobj(src, dst)
-    path.unlink()
-    print(colorify(f"  extracted {out}", "green"))
-
-
 def untar_gz(path, dest_dir):
     """Extract a .tar.gz into dest_dir; remove the archive."""
     with tarfile.open(path, "r:gz") as tf:
@@ -167,47 +152,53 @@ def untar_gz(path, dest_dir):
 # Manifest-aware downloads (small, individually-named artifacts)
 # ---------------------------------------------------------------------------
 
+# The data server (data.cgmlab.org/eggnog-mapper/emapper-<release>/data/) serves
+# every artifact UNCOMPRESSED, so downloads stream straight into the data dir —
+# no gunzip/untar step. Multi-file databases (mmseqs, pfam) remain tarballs.
+
 def download_annotations(base_url, data_path, manifest, verify, force):
-    p = download_artifact(base_url, "eggnog.db.gz", data_path, manifest, verify)
-    gunzip_in_place(p, force=force)
+    download_artifact(base_url, "eggnog.db", data_path, manifest, verify)
+    # The prebuilt taxid cache is shipped next to the DB; grab it so first-run
+    # doesn't have to rebuild it (~1 min scan). Optional: skip if absent.
+    try:
+        download_artifact(base_url, "eggnog.db.taxids.bin", data_path, manifest, verify)
+    except DownloadError as exc:
+        print(colorify(f"  (optional) eggnog.db.taxids.bin not available ({exc}); "
+                       "it will be rebuilt on first run.", "yellow"))
 
 
-# Fallback source when the DB server does not ship a build-time OBO. GO
-# namespaces (MF/BP/CC) are stable across releases, so the current OBO Foundry
-# release is a safe namespace map.
+# Fallback source when the data server does not ship the OBO. GO namespaces
+# (MF/BP/CC) are stable across releases, so the current OBO Foundry release is a
+# safe namespace map.
 GO_OBO_FALLBACK_URL = "http://purl.obolibrary.org/obo/go/go-basic.obo"
 
 
 def download_go_obo(base_url, data_path, manifest, verify, force):
-    """Fetch the GO namespace OBO used for the MF/BP/CC GO cascade.
-
-    Without it, annotation silently falls back to the legacy combined-GO
-    output. Prefers the checksum-verified build-time artifact from the eggNOG
-    download server (``go-basic.obo.gz`` in the manifest); falls back to the
-    current OBO Foundry release when the server does not ship it. Written to
-    ``<data_path>/go-basic.obo`` where the annotator looks for it first.
+    """Fetch the GO namespace OBO (uncompressed) used for the MF/BP/CC GO
+    cascade. Without it, annotation silently falls back to legacy combined-GO.
+    Falls back to the current OBO Foundry release if the server lacks it.
+    Written to ``<data_path>/go-basic.obo`` where the annotator looks first.
     """
     dest = os.path.join(data_path, "go-basic.obo")
     try:
-        p = download_artifact(base_url, "go-basic.obo.gz", data_path, manifest, verify)
-        gunzip_in_place(p, force=force)
+        download_artifact(base_url, "go-basic.obo", data_path, manifest, verify)
         return
-    except Exception as exc:
+    except DownloadError as exc:
         print(colorify(
-            f"  go-basic.obo.gz not available from the DB server ({exc}); "
+            f"  go-basic.obo not on the data server ({exc}); "
             f"falling back to {GO_OBO_FALLBACK_URL}", "yellow"))
     _http_get(GO_OBO_FALLBACK_URL, dest_path=dest)
     print(colorify(f"  downloaded {dest}", "green"))
 
 
 def download_taxa(base_url, data_path, manifest, verify, force):
-    p = download_artifact(base_url, "eggnog.taxa.tar.gz", data_path, manifest, verify)
-    untar_gz(p, data_path)
+    # Served as two plain files (no tarball).
+    download_artifact(base_url, "eggnog.taxa.db", data_path, manifest, verify)
+    download_artifact(base_url, "eggnog.taxa.db.traverse.pkl", data_path, manifest, verify)
 
 
 def download_diamond_db(base_url, data_path, manifest, verify, force):
-    p = download_artifact(base_url, "eggnog_proteins.dmnd.gz", data_path, manifest, verify)
-    gunzip_in_place(p, force=force)
+    download_artifact(base_url, "eggnog_proteins.dmnd", data_path, manifest, verify)
 
 
 def download_mmseqs_db(base_url, data_path, manifest, verify, force):
@@ -218,79 +209,6 @@ def download_mmseqs_db(base_url, data_path, manifest, verify, force):
 def download_pfam_db(base_url, data_path, manifest, verify, force):
     p = download_artifact(base_url, "pfam.tar.gz", data_path, manifest, verify)
     untar_gz(p, data_path)
-
-
-# ---------------------------------------------------------------------------
-# HMMER recursive download (kept on wget; not in manifest scheme)
-# ---------------------------------------------------------------------------
-
-def download_hmm_database(level, dbname, dbpath, force, simulate):
-    """Per-clade HMMER DB build (recursive download + post-process).
-
-    Unchanged from v2.x — the per-OG hmm bundles are too many to list
-    individually in manifest.json. Verification happens via diamond
-    search backend's manifest path; HMMER mode users opt in here.
-    """
-    if not os.path.exists(dbpath):
-        os.makedirs(dbpath)
-
-    EGGNOG_URL = "https://data.cgmlab.org/eggnog-mapper/eggnog_5.0/per_tax_level"
-    baseurl = f"{EGGNOG_URL}/{level}/"
-    hmmsurl = f"{baseurl}/{level}_hmms.tar.gz"
-    seqsurl = f"{baseurl}/{level}_raw_algs.tar"
-    flag = "" if force else "-N"
-
-    cmd = (
-        f"cd {dbpath}; "
-        f"echo Downloading HMMs... && "
-        f"wget {flag} -nH --user-agent=Mozilla/5.0 --relative -r --no-parent "
-        f'--reject "index.html*" --cut-dirs=4 -e robots=off {hmmsurl} && '
-        f"echo Decompressing HMMs... && "
-        f"tar zxf {level}_hmms.tar.gz && "
-        f"echo {level}/* | xargs mv -t ./ && rm -r {level} && "
-        f"rm {level}_hmms.tar.gz; "
-        "numf=$(find ./ | grep -c \".hmm$\"); "
-        "curr=0; "
-        f"cat /dev/null > {dbname}.hmm_tmp; "
-        "for file in $(find ./ | grep \".hmm$\"); do "
-        "curr=$((curr+1)); "
-        'echo "merging HMMs... ${file} (${curr}/${numf})"; '
-        f'cat "${{file}}" | sed -e "s/.faa.final_tree.fa//" '
-        f'-e "s/.faa.final_tree//" >> {dbname}.hmm_tmp; '
-        'rm "${file}"; done; '
-        f"mv {dbname}.hmm_tmp {dbname}.hmm; "
-        f"(if [ -f {dbname}.hmm.h3i ]; then rm {dbname}.hmm.h3*; fi) && "
-        'echo "hmmpress-ing HMMs... " && '
-        f"{HMMPRESS} {dbname}.hmm && "
-        'echo "generating idmap file... " && '
-        f"cat {dbname}.hmm | grep \"^NAME\" | sed -e \"s/^NAME *//\" "
-        f'| awk \'{{print NR" "$0}}\' > {dbname}.hmm.idmap && '
-        'echo "removing single OG hmm files... " && '
-        "echo ./*hmm | xargs rm; "
-    )
-    if simulate:
-        print(colorify(cmd, "cyan"))
-    else:
-        subprocess.run(cmd, shell=True, check=True)
-
-    cmd = (
-        f"cd {dbpath}; "
-        f"echo Downloading FASTAs... && "
-        f"wget {flag} -nH --user-agent=Mozilla/5.0 --relative -r --no-parent "
-        f'--reject "index.html*" --cut-dirs=4 -e robots=off {seqsurl} && '
-        f"echo Decompressing FASTAs... && "
-        f"tar xf {level}_raw_algs.tar && "
-        f"echo {level}/* | xargs mv -t ./ && rm -r {level} && "
-        f"rm {level}_raw_algs.tar; "
-        "for file in $(find ./ | grep \".faa.gz$\"); do "
-        'outf=$(echo "$file" | sed "s/\\.raw_alg\\.faa\\.gz/\\.fa/"); '
-        'zcat "$file" | awk \'/^>/{print; next}{gsub("-", ""); print}\' > "$outf" && '
-        'rm "$file"; done'
-    )
-    if simulate:
-        print(colorify(cmd, "cyan"))
-    else:
-        subprocess.run(cmd, shell=True, check=True)
 
 
 # ---------------------------------------------------------------------------
@@ -312,12 +230,6 @@ def main():
                         help="Install the Pfam database (de novo / realign)")
     parser.add_argument("-M", action="store_true", dest="mmseqs",
                         help="Install the MMseqs2 database (-m mmseqs)")
-    parser.add_argument("-H", action="store_true", dest="hmmer",
-                        help='Install HMMER database for "-d TAXID"')
-    parser.add_argument("-d", type=str, dest="hmmer_dbs",
-                        help="HMMER tax ID (e.g. -H -d 2 for Bacteria)")
-    parser.add_argument("--dbname", type=str, dest="dbname",
-                        help="Name for the downloaded HMMER database dir")
 
     parser.add_argument("-y", action="store_true", dest="allyes",
                         help='Assume "yes" to all questions')
@@ -335,13 +247,14 @@ def main():
     parser.add_argument("--data_dir", metavar="", type=existing_dir,
                         help="Directory to use for DATA_PATH.")
 
-    # New in v3.0
-    parser.add_argument("--db_version", type=str, default=__DB_VERSION__,
-                        help=("DB version to download. Pins a specific server "
-                              "subdirectory (data.cgmlab.org/eggnog-mapper/emapperdb-X.Y.Z/)."))
+    # Release version pins the server subdirectory: emapper-<release>/data/.
+    parser.add_argument("--release", type=str, default=__VERSION__.split("-")[0],
+                        help=("eggNOG-mapper data release to download. Pins the server "
+                              "subdirectory data.cgmlab.org/eggnog-mapper/emapper-<release>/data/. "
+                              "Defaults to this emapper's release version."))
     parser.add_argument("--no-verify", action="store_true", dest="no_verify",
-                        help=("Skip manifest+checksum verification. Use only "
-                              "with mirrors that lack manifest.json. Will warn."))
+                        help=("Skip checksum verification when the server ships a "
+                              "manifest.json. Currently a no-op when no manifest is present."))
 
     args = parser.parse_args()
 
@@ -352,29 +265,30 @@ def main():
         set_data_path(args.data_dir)
     data_path = get_data_path()
 
-    base_url = f"https://data.cgmlab.org/eggnog-mapper/emapperdb-{args.db_version}"
-    print(colorify(f"DB version: {args.db_version}  base URL: {base_url}", "lblue"))
+    base_url = f"https://data.cgmlab.org/eggnog-mapper/emapper-{args.release}/data"
+    print(colorify(f"Release: {args.release}  base URL: {base_url}", "lblue"))
 
-    # Fetch manifest first (unless --no-verify)
+    # Optional integrity check: verify checksums only if the server ships a
+    # manifest.json. The data server currently serves plain files without one,
+    # so downloads proceed unverified (with a warning) rather than aborting.
     manifest = None
     verify = not args.no_verify
     if verify:
         try:
             manifest = fetch_manifest(base_url)
         except DownloadError as e:
-            sys.exit(f"failed to fetch manifest.json: {e}")
-        if manifest is None:
-            sys.exit(
-                f"server has no manifest.json at {base_url}. "
-                "Pass --no-verify to bypass (you will not be able to "
-                "detect corrupt downloads)."
-            )
-        check_compat(manifest)
-        print(colorify(
-            f"manifest OK: schema={manifest.get('schema_version')} "
-            f"build_date={manifest.get('build_date')} "
-            f"min_mapper={manifest.get('min_mapper_version')}",
-            "green"))
+            print(colorify(f"WARNING: could not fetch manifest.json ({e}); "
+                           "downloads will NOT be checksum-verified.", "yellow"))
+        if manifest is not None:
+            check_compat(manifest)
+            print(colorify(
+                f"manifest OK: schema={manifest.get('schema_version')} "
+                f"build_date={manifest.get('build_date')} "
+                f"min_mapper={manifest.get('min_mapper_version')}",
+                "green"))
+        else:
+            print(colorify("No manifest.json on the server; downloads will NOT be "
+                           "checksum-verified.", "yellow"))
     else:
         print(colorify("WARNING: --no-verify; downloads will NOT be checksum-verified",
                        "yellow"))
@@ -420,7 +334,7 @@ def main():
     # ---- Diamond DB ----
     if not args.skip_diamond and (args.force or not pexists(
             get_eggnog_dmnd_db(None, SEARCH_MODE_DIAMOND, data_path))):
-        if args.allyes or ask("Download diamond database (~4 GB after decompression)?") == "y":
+        if args.allyes or ask("Download diamond database (~22 GB)?") == "y":
             print(colorify(f"Downloading eggnog_proteins.dmnd at {data_path}…", "green"))
             download_diamond_db(base_url, data_path, manifest, verify, args.force)
         else:
@@ -429,56 +343,33 @@ def main():
         print(colorify("Skipping diamond DB (already present or -D). Use -f to force.",
                        "lblue"))
 
-    # ---- PFAM ----
+    # ---- PFAM (optional; may not be published for a given release) ----
     if args.pfam and (args.force or not pexists(get_pfam_dbpath())):
-        if args.allyes or ask("Download Pfam database (~3 GB after decompression)?") == "y":
+        if args.allyes or ask("Download Pfam database?") == "y":
             print(colorify(f"Downloading Pfam at {data_path}…", "green"))
-            download_pfam_db(base_url, data_path, manifest, verify, args.force)
+            try:
+                download_pfam_db(base_url, data_path, manifest, verify, args.force)
+            except DownloadError as exc:
+                print(colorify(f"  Pfam not available for release {args.release} "
+                               f"({exc}); skipping.", "yellow"))
         else:
             print("Skipping")
     elif not args.quiet:
         print(colorify("Skipping Pfam DB (already present). Use -P -f to force.", "lblue"))
 
-    # ---- MMseqs ----
+    # ---- MMseqs (optional; may not be published for a given release) ----
     if args.mmseqs and (args.force or not pexists(get_eggnog_mmseqs_dbpath())):
-        if args.allyes or ask("Download MMseqs2 database (~10 GB after decompression)?") == "y":
+        if args.allyes or ask("Download MMseqs2 database?") == "y":
             print(colorify(f"Downloading MMseqs2 at {data_path}…", "green"))
-            download_mmseqs_db(base_url, data_path, manifest, verify, args.force)
+            try:
+                download_mmseqs_db(base_url, data_path, manifest, verify, args.force)
+            except DownloadError as exc:
+                print(colorify(f"  MMseqs2 not available for release {args.release} "
+                               f"({exc}); skipping.", "yellow"))
         else:
             print("Skipping")
     elif not args.quiet:
         print(colorify("Skipping MMseqs2 DB (already present). Use -M -f to force.", "lblue"))
-
-    # ---- HMMER (recursive wget; no manifest entry) ----
-    if args.hmmer:
-        if args.allyes or ask(f"Download HMMER database of tax ID {args.hmmer_dbs}?") == "y":
-            if args.dbname:
-                dbname = args.dbname
-            elif args.allyes:
-                dbname = args.hmmer_dbs
-            else:
-                dbname = ask_name(
-                    "Specify a non-empty name for the database (e.g. Bacteria)",
-                    args.hmmer_dbs,
-                )
-            dbspath = get_hmmer_base_dbpath(dbname)
-            if args.force or not pexists(dbspath):
-                print(colorify(
-                    f"Downloading HMMER tax ID {args.hmmer_dbs} as {dbname!r} to {dbspath}",
-                    "green"))
-                print(colorify("This can take a long time for large clades", "red"))
-                download_hmm_database(args.hmmer_dbs, dbname, dbspath,
-                                      args.force, args.simulate)
-            elif not args.quiet:
-                print(colorify(
-                    f"HMMER database {dbname} already present at {dbspath}. "
-                    f"Use -f to force.", "lblue"))
-        else:
-            print(colorify("Skipping HMMER database", "lblue"))
-    else:
-        print(colorify(
-            "No HMMER database requested. Use '-H -d taxid' to download one.",
-            "lblue"))
 
     print(colorify("Finished.", "green"))
 
