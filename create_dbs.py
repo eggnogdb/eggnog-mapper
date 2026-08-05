@@ -17,7 +17,7 @@ if sys.version_info < (3,7):
 def get_eggnog_proteins_file(): return pjoin(get_data_path(), "e5.proteomes.faa")
 def get_eggnog_taxid_info_file(): return pjoin(get_data_path(), "e5.taxid_info.tsv")
 
-BASE_URL = f'https://downloads.eggnogdb.org/emapper/eggnog_5.0'
+BASE_URL = f'https://data.cgmlab.org/eggnog-mapper/eggnog_5.0'
 
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter,
                       argparse.RawDescriptionHelpFormatter):
@@ -186,7 +186,7 @@ if __name__ == "__main__":
 
     data_path = get_data_path()
 
-    # https://downloads.eggnogdb.org/emapper/eggnog_5.0/e5.proteomes.faa
+    # https://data.cgmlab.org/eggnog-mapper/eggnog_5.0/e5.proteomes.faa
     if not pexists(get_eggnog_proteins_file()):
         if args.allyes or ask(f"Download eggnog5 proteins to {data_path}? ~9GB (It is required to create new databases)") == 'y':
             print(colorify(f'Downloading eggnog5 proteins file to {data_path}...', 'green'))
@@ -197,7 +197,7 @@ if __name__ == "__main__":
     else:
         print(colorify(f'Using existing eggnog5 proteins file found at {get_eggnog_proteins_file()}', 'green'))
 
-    # https://downloads.eggnogdb.org/emapper/eggnog_5.0/e5.taxid_info.tsv
+    # https://data.cgmlab.org/eggnog-mapper/eggnog_5.0/e5.taxid_info.tsv
     if not pexists(get_eggnog_taxid_info_file()):
         if args.allyes or ask(f"Download eggnog5 taxid info table to {data_path}? (It is required to create new databases)") == 'y':
             print(colorify(f'Downloading eggnog5 taxid info table to {data_path}...', 'green'))

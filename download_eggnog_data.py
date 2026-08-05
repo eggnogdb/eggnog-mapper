@@ -234,7 +234,7 @@ def download_hmm_database(level, dbname, dbpath, force, simulate):
     if not os.path.exists(dbpath):
         os.makedirs(dbpath)
 
-    EGGNOG_URL = "https://downloads.eggnogdb.org/emapper/eggnog_5.0/per_tax_level"
+    EGGNOG_URL = "https://data.cgmlab.org/eggnog-mapper/eggnog_5.0/per_tax_level"
     baseurl = f"{EGGNOG_URL}/{level}/"
     hmmsurl = f"{baseurl}/{level}_hmms.tar.gz"
     seqsurl = f"{baseurl}/{level}_raw_algs.tar"
@@ -338,7 +338,7 @@ def main():
     # New in v3.0
     parser.add_argument("--db_version", type=str, default=__DB_VERSION__,
                         help=("DB version to download. Pins a specific server "
-                              "subdirectory (downloads.eggnogdb.org/.../emapperdb-X.Y.Z/)."))
+                              "subdirectory (data.cgmlab.org/eggnog-mapper/emapperdb-X.Y.Z/)."))
     parser.add_argument("--no-verify", action="store_true", dest="no_verify",
                         help=("Skip manifest+checksum verification. Use only "
                               "with mirrors that lack manifest.json. Will warn."))
@@ -352,7 +352,7 @@ def main():
         set_data_path(args.data_dir)
     data_path = get_data_path()
 
-    base_url = f"https://downloads.eggnogdb.org/emapper/emapperdb-{args.db_version}"
+    base_url = f"https://data.cgmlab.org/eggnog-mapper/emapperdb-{args.db_version}"
     print(colorify(f"DB version: {args.db_version}  base URL: {base_url}", "lblue"))
 
     # Fetch manifest first (unless --no-verify)
