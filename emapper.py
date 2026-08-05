@@ -279,7 +279,7 @@ def create_arg_parser():
                                   "from host RAM: <32 GB→diamond default (4), 32-96 GB→2, "
                                   ">=96 GB→1 (full DB resident). Smaller = faster but uses more RAM."))
 
-    pg_diamond.add_argument('--dmnd_top', dest='dmnd_top', type=int, default=1, metavar='PCT',
+    pg_diamond.add_argument('--dmnd_top', dest='dmnd_top', type=int, default=1, metavar='N',
                             choices=[1, 3],
                             help=("Diamond hit count per query for protein/CDS searches. "
                                   "Default 1 (=> `--max-target-seqs 1`): emapper only consumes the "
@@ -476,15 +476,15 @@ def create_arg_parser():
     pg_annot.add_argument('--pfam_realign', type=str,
                           choices=(PFAM_REALIGN_NONE, PFAM_REALIGN_REALIGN, PFAM_REALIGN_DENOVO),
                           default=PFAM_REALIGN_NONE,
-                          help=('Realign the queries to the PFAM domains. '
-                                f'{PFAM_REALIGN_NONE} = no realignment is performed. PFAM annotation will be '
-                                'that transferred as specify in the --pfam_transfer option. '
-                                f'{PFAM_REALIGN_REALIGN} = queries will be realigned to the PFAM domains '
-                                'found according to the --pfam_transfer option. '
-                                f'{PFAM_REALIGN_DENOVO} = queries will be realigned to the whole PFAM database, '
-                                'ignoring the --pfam_transfer option. '
-                                f'Check hmmer options (--num_servers, --num_workers, --port, --end_port) '
-                                'to change how the hmmpgmd server is run. '))
+                          help=(f'Realign queries to PFAM domains. '
+                                f'{PFAM_REALIGN_NONE} (default) = no realignment; PFAM domains are '
+                                'transferred from the seed orthologs. '
+                                f'{PFAM_REALIGN_REALIGN} = realign queries to the PFAM domains transferred '
+                                'from orthologs. '
+                                f'{PFAM_REALIGN_DENOVO} = realign queries against the whole PFAM database '
+                                '(de novo domain discovery). '
+                                'The realignment modes run an hmmpgmd server '
+                                '(see --num_servers, --num_workers, --port, --end_port).'))
     
     pg_annot.add_argument("--md5", action="store_true",
                           help="Adds the md5 hash of each query as an additional field in annotations output files.")
