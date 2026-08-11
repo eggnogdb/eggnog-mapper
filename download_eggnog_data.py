@@ -165,6 +165,14 @@ def download_annotations(base_url, data_path, manifest, verify, force):
     except DownloadError as exc:
         print(colorify(f"  (optional) eggnog.db.taxids.bin not available ({exc}); "
                        "it will be rebuilt on first run.", "yellow"))
+    # The prebuilt lazy-cascade field-presence mask is shipped next to the DB
+    # under a fixed name (no fingerprint), so it is recognised after download;
+    # grabbing it avoids the one-time ~full-prots scan on first annotation.
+    try:
+        download_artifact(base_url, "eggnog.db.fieldpresence.bin", data_path, manifest, verify)
+    except DownloadError as exc:
+        print(colorify(f"  (optional) eggnog.db.fieldpresence.bin not available ({exc}); "
+                       "it will be rebuilt on first run.", "yellow"))
 
 
 # Fallback source when the data server does not ship the OBO. GO namespaces

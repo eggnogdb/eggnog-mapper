@@ -90,6 +90,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   inside emapper, so from the Apptainer image the bundled DIAMOND/prodigal are
   used with no extra setup; `--data_dir` pointing at an already-downloaded
   bundle skips the download.
+- **The lazy-cascade field-presence mask can now ship prebuilt** under a fixed
+  name `eggnog.db.fieldpresence.bin` (next to the DB), so a fresh install loads
+  it in seconds instead of paying the one-time full-`prots` scan (~50 min on the
+  59 M-protein DB) on first annotation. `load_field_presence` now reads in
+  preference order: explicit override → fixed shipped name → DB-fingerprinted
+  name → rebuild; it only ever *writes* the fingerprinted (self-invalidating)
+  name, never the shipped one. This mirrors the shipped taxid cache
+  (`eggnog.db.taxids.bin`): the fixed name survives download (it does not depend
+  on the DB mtime, unlike the fingerprint). `download_eggnog_data.py` fetches it
+  (optional), and a new maintainer tool `create_field_presence.py --data_dir`
+  generates it for a released DB. Maintainers rebuilding a DB in place must
+  delete the fixed-name file (it carries no self-invalidation).
 
 ### Changed
 

@@ -1937,26 +1937,46 @@ class AnnotationEngine:
             n = max_id + 1
             expected = 2 * n
 
+            # Read-preference order:
+            #   1. an explicit cache_path override (used to *generate* the
+            #      shipped file), or otherwise
+            #   2. the fixed, shipped name  <db>.fieldpresence.bin  — recognised
+            #      after download regardless of the DB's mtime (same "option A"
+            #      model as the taxid cache), validated by exact byte size, then
+            #   3. the DB-fingerprinted name  <db>.fieldpresence.<sig>.bin  —
+            #      self-invalidating; produced by local/dev builds.
+            # On a build miss we only ever write the fingerprinted name, never
+            # the shipped one (that is a deliberate release artifact).
             sig = self._field_presence_signature()
-            if cache_path is None:
-                cache_path = self._field_presence_cache_path(sig)
+            fingerprinted = self._field_presence_cache_path(sig)
+            if cache_path is not None:
+                read_candidates = [cache_path]
+                write_path = cache_path
+            else:
+                read_candidates = [
+                    self._field_presence_shipped_path(),
+                    fingerprinted,
+                ]
+                write_path = fingerprinted
 
-            if cache_path and os.path.exists(cache_path):
+            for cand in read_candidates:
+                if not cand or not os.path.exists(cand):
+                    continue
                 try:
-                    if os.path.getsize(cache_path) == expected:
+                    if os.path.getsize(cand) == expected:
                         a = array.array("H")
-                        with open(cache_path, "rb") as fh:
+                        with open(cand, "rb") as fh:
                             a.fromfile(fh, n)
                         self.field_presence = a
                         logger.info(
                             "load_field_presence: loaded %d masks from %s",
-                            n, cache_path,
+                            n, cand,
                         )
                         return True
                 except Exception as exc:  # pragma: no cover - cache corruption
                     logger.warning(
                         "load_field_presence: cache read failed (%s); "
-                        "rebuilding", exc,
+                        "trying next candidate", exc,
                     )
 
             logger.info(
@@ -1969,17 +1989,17 @@ class AnnotationEngine:
             )
             self.field_presence = masks
 
-            if cache_path:
+            if write_path:
                 try:
-                    with open(cache_path, "wb") as fh:
+                    with open(write_path, "wb") as fh:
                         masks.tofile(fh)
                     logger.info(
-                        "load_field_presence: cache written to %s", cache_path
+                        "load_field_presence: cache written to %s", write_path
                     )
                 except Exception as exc:  # pragma: no cover - fs errors
                     logger.warning(
                         "load_field_presence: could not write cache %s: %s",
-                        cache_path, exc,
+                        write_path, exc,
                     )
             return True
         except Exception as exc:
@@ -2008,11 +2028,26 @@ class AnnotationEngine:
         return hashlib.sha1(raw).hexdigest()[:12]
 
     def _field_presence_cache_path(self, sig: str) -> Optional[str]:
-        """Return the cache path next to the DB, or ``None`` if unknowable."""
+        """Return the fingerprinted cache path next to the DB (self-invalidating),
+        or ``None`` if unknowable."""
         db_path = getattr(self.db, "db_path", None)
         if not db_path:
             return None
         return f"{db_path}.fieldpresence.{sig}.bin"
+
+    def _field_presence_shipped_path(self) -> Optional[str]:
+        """Return the fixed, release-shipped mask name alongside the DB
+        (``<db>.fieldpresence.bin``), or ``None`` if unknowable.
+
+        Unlike the fingerprinted name this does not depend on the DB's mtime, so
+        it survives download/extraction and is recognised on first run — the same
+        model as the shipped taxid cache (``<db>.taxids.bin``). It carries no
+        self-invalidation, so a maintainer who rebuilds the DB in place must
+        delete it (generate it with ``create_field_presence.py``)."""
+        db_path = getattr(self.db, "db_path", None)
+        if not db_path:
+            return None
+        return f"{db_path}.fieldpresence.bin"
 
     # ---------------------------------------------------------------- #
     # Field-presence mask: the gated cascade
