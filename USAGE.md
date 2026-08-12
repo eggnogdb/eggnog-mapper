@@ -528,7 +528,7 @@ python create_dbs.py -y --dbname my_custom --taxids 2,2157 -m mmseqs
 
 ## Annotation Output Columns
 
-The `*.emapper.annotations` file is a TSV with the following columns:
+The `*.emapper.annotations` file is a TSV with the following 22 columns:
 
 | # | Column | Description |
 |---|--------|-------------|
@@ -536,10 +536,10 @@ The `*.emapper.annotations` file is a TSV with the following columns:
 | 2 | `seed_ortholog` | Best matching eggNOG protein |
 | 3 | `evalue` | E-value of the seed ortholog hit |
 | 4 | `score` | Bit score of the seed ortholog hit |
-| 5 | `eggNOG_OGs` | Orthologous groups at different taxonomic levels |
-| 6 | `max_annot_lvl` | Broadest taxonomic level used for annotation |
-| 7 | `COG_category` | COG functional category letter(s) |
-| 8 | `Description` | Functional description from the best OG |
+| 5 | `eggNOG_OGs` | Orthologous groups at different taxonomic levels (comma-separated `OG@taxid|level`) |
+| 6 | `tax_ceiling` | Resolved taxonomic ceiling clade name for this seed |
+| 7 | `farthest_donor_lineage` | Lineage of the most distant donor ortholog used (semicolon-separated, root to leaf) |
+| 8 | `COG_category` | COG functional category letter(s) |
 | 9 | `Preferred_name` | Short gene name |
 | 10 | `GOs` | Gene Ontology terms (comma-separated) |
 | 11 | `EC` | Enzyme Commission numbers |
@@ -553,7 +553,4 @@ The `*.emapper.annotations` file is a TSV with the following columns:
 | 19 | `CAZy` | Carbohydrate-Active Enzymes |
 | 20 | `BiGG_Reaction` | BiGG metabolic reactions |
 | 21 | `PFAMs` | Pfam domain identifiers |
-| 22 | `annotation_confidence` | Confidence per field: `field=tier;...` (high/medium/low) |
-| 23 | `tax_ceiling` | Resolved taxonomic ceiling clade name for this seed |
-| 24 | `farthest_donor_taxid` | Taxid of most distant donor ortholog used |
-| 25 | `farthest_donor_lineage` | Lineage of that donor (semicolon-separated, root→leaf) |
+| 22 | `annotation_confidence` | Per-field annotation confidence: `field=tier;...` (high/medium/low) |

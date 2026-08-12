@@ -635,6 +635,29 @@ def parse_annotations(annot, annot_file, report_orthologs, orthologs_file):
     return
 
 def parse_annotation_line(line):
+    """Parse one data line from a 22-column *.emapper.annotations file.
+
+    Column layout (22-column schema, v3 2026-08-12):
+      0  query
+      1  seed_ortholog
+      2  evalue
+      3  score
+      4  eggNOG_OGs
+      5  tax_ceiling
+      6  farthest_donor_lineage
+      7  COG_category
+      8  Preferred_name … 20  PFAMs   (13 annotation-category fields)
+      21 annotation_confidence
+
+    NOTE: --resume across the schema boundary (a partial run written by an
+    older 25-column build resumed under this build) is NOT supported.
+    Resuming against an old 25-column file will misread columns silently.
+    Regenerate from scratch when upgrading.
+
+    Returns:
+        Tuple ``(hit, annotation)`` where ``annotation`` is the full
+        14-element tuple expected by ``output_annotations_row``.
+    """
     hit = None
     annotation = None
 
@@ -645,30 +668,32 @@ def parse_annotation_line(line):
     best_hit_evalue = float(data[2])
     best_hit_score = float(data[3])
     hit = [query_name, best_hit_name, best_hit_evalue, best_hit_score]
-    
+
     annotations = defaultdict(Counter)
-    
+
+    # Annotation-category fields start at data[8] (Preferred_name … PFAMs).
     for i, field in enumerate(data[8:]):
         if i < len(ANNOTATIONS_HEADER):
             field_name = ANNOTATIONS_HEADER[i]
             annotations[field_name] = field.split(",")
-        
-    og_cat_desc = ("-", data[6], data[7]) # ("-", data[5], data[6])
 
-    max_annot_lvl = data[5] # data[7]
-    
+    # data[5]=tax_ceiling, data[6]=farthest_donor_lineage, data[7]=COG_category.
+    # og_desc is no longer in the file; set to "-" to keep the 3-tuple shape.
+    tax_ceiling = data[5]
+    farthest_donor_lineage = data[6]
+    og_cat_desc = ("-", data[7], "-")
+
+    # max_annot_lvl is no longer emitted; use "-" as a neutral placeholder.
+    max_annot_lvl = "-"
+
     match_nog_names = data[4].split(",")
-    
+
     all_orthologies = None
     annot_orthologs = None
 
-    # Pad to the current 14-element shape so that --resume can replay
-    # lines from pre-refactor annotation files through output_annotations_row
-    # without hitting the 14-element `else` branch on a 10-element tuple.
+    # annotation_confidence is in data[21] when present.
     annotations_confidence = None
-    tax_ceiling = "-"
     farthest_donor_taxid = "-"
-    farthest_donor_lineage = "-"
 
     annotation = (query_name, best_hit_name, best_hit_evalue, best_hit_score,
                   annotations,

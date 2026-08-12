@@ -226,3 +226,64 @@ Commit: 8c8722f on v3-dev
 28 files changed, 2273 insertions(+), 1614 deletions(-)
 
 ---
+
+## Session: 2026-08-12 (orchestrator)
+
+### Task: annotations TSV column restructure (25 → 22 columns, e7-only)
+Maintainer pre-decided all scope; treat request as the SPEC CONTRACT.
+Commit directly to `main`, conventional commit, trailer
+`Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+
+HARD CONSTRAINTS:
+- Retained-column VALUES must be byte-identical (only order + 3 removals change).
+- Test golden regeneration required; pytest self-test MUST pass.
+- Scope-limited to annotations TSV: report GFF/Excel/orthologs consumers of
+  dropped fields, do NOT silently change them.
+
+FINAL LOCKED HEADER (22 columns):
+  1 query, 2 seed_ortholog, 3 evalue, 4 score, 5 eggNOG_OGs,
+  6 tax_ceiling, 7 farthest_donor_lineage, 8 COG_category,
+  9 Preferred_name, 10 GOs, 11 EC, 12 KEGG_ko, 13 KEGG_Pathway,
+  14 KEGG_Module, 15 KEGG_Reaction, 16 KEGG_rclass, 17 BRITE,
+  18 KEGG_TC, 19 CAZy, 20 BiGG_Reaction, 21 PFAMs,
+  22 annotation_confidence
+
+DROPPED:
+- Description (retained: Preferred_name is enough)
+- max_annot_lvl (v2-legacy; derivable as deepest @taxid in eggNOG_OGs)
+- farthest_donor_taxid (redundant with last node of farthest_donor_lineage)
+
+### Step 1: planner → SPEC CONTRACT (APPROVED BY PLANNER: YES)
+Locked 22-col header; 3 drops (Description, max_annot_lvl, farthest_donor_taxid).
+Retained values byte-identical; internal 14-elem tuple unchanged.
+Reported-only consumers: GFF em_max_annot_lvl / em_desc, integration fixtures under tests/fixtures_v7/.
+
+### Step 2: software-engineer → TECHNICAL DESIGN (APPROVED, opus for schema)
+Bar-raised adversarial audit surface added: dropped-field grep classification, positional-consumer audit, resume cross-format policy (documented as unsupported), test-file impact map. HIT_HEADER collapsed away (only used inside output.py).
+
+### Step 3: python-coder → IMPLEMENTATION
+- eggnogmapper/annotation/output.py: constants (HIT_HEADER removed; ANNOTATIONS_WHOLE_HEADER = 22-col flat list); output_annotations_row and output_excel_row rewritten to emit 22 cells (Excel path also fixes a pre-existing header/row mismatch by adding annotation_confidence).
+- eggnogmapper/annotation/annotator.py:parse_annotation_line: 22-col index remap; still returns 14-elem tuple; --resume across schema boundary documented as unsupported.
+- CHANGELOG.md [3.0.0-beta5]: new entry with drop rationale.
+- USAGE.md: "Annotation Output Columns" table rewritten to 22 rows.
+
+### Step 4: code-reviewer → APPROVED (opus)
+Column-by-column byte-identity trace verified; grep audit shows zero stale references in TSV-emission paths; internal tuple + AnnotationEngine dict contract unchanged. Pre-existing MINORs (not blocking): (a) tests/fixtures_v7/*.annotations still have OLD 25-col header — integration tests not run in this session; (b) leftover ANNOTATIONS_WHOLE_HEADER import in deco/decoration.py (dead); (c) 10-elem tuple-unpack in pfam_modes.py and deco/decoration.py:annotation_to_gff — LATENT PRE-EXISTING BUGS unrelated to this task, will crash --pfam_realign realign|denovo and --decorate_gff at runtime; must be fixed in a follow-up.
+
+### Step 5: tester → PASS (technical + biological)
+- py_compile OK on output.py + annotator.py.
+- test_datasets/golden regenerated (4 files, exit 0).
+- Header + row-length strict check: all 4 goldens pass (22 columns, 6 rows each, all 22 fields).
+- Byte-identity retained-value check (proteins itype): 132 cells checked, 0 mismatches. OLD golden projected to 22 retained columns == NEW golden.
+- pytest test_datasets/test_selftest.py: 6/6 passed (4 golden-diff + 2 nifH biological).
+- pytest tests/unit: 29 passed. pytest eggnogmapper/annotator/tests: 146 passed.
+- Grep proof: no max_annot_lvl / farthest_donor_taxid / HIT_HEADER / tax_scope_used in any TSV-emission code path.
+- nifH: Fer4_NifH OG + Fer4_NifH_3_261 PFAM correctly recovered.
+
+### Follow-ups (report to stakeholder — DO NOT commit as part of this task)
+1. tests/fixtures_v7/test_diamond.emapper.annotations + test_no_search.emapper.annotations still carry OLD 25-col header. Integration test suite (tests/integration/test.py, unittest-style) will need fixture regen when it's next run. Not blocking; not caused by this task.
+2. eggnogmapper/deco/decoration.py: unused `from ..annotation.output import ANNOTATIONS_WHOLE_HEADER` import (dead). Can be removed in a follow-up cleanup.
+3. eggnogmapper/annotation/pfam/pfam_modes.py L72-77 and L99-104: 10-element tuple unpacks that will raise ValueError against the current 14-element internal tuple. LATENT PRE-EXISTING BUG affecting --pfam_realign realign|denovo. Unrelated to this task; needs its own ticket.
+4. eggnogmapper/deco/decoration.py:annotation_to_gff (L360-365): same 10-element unpack; will raise ValueError against 14-element tuple. LATENT PRE-EXISTING BUG affecting --decorate_gff. Unrelated to this task; needs its own ticket.
+5. GFF em_max_annot_lvl / em_desc: unchanged (report-only, per SPEC). Intentional schema divergence between GFF and .annotations TSV — stakeholder decision pending.
+

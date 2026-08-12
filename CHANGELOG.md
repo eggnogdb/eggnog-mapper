@@ -105,6 +105,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- **`*.emapper.annotations` TSV reduced from 25 to 22 columns.** Column set and
+  order change; all retained field values are byte-identical to prior output.
+  - Dropped `Description`: not needed — `Preferred_name` is retained and is the
+    useful human-readable gene label for e7.
+  - Dropped `max_annot_lvl`: in the e7-only build this is derivable as the
+    deepest `@taxid` node inside `eggNOG_OGs` and adds no new information.
+  - Dropped `farthest_donor_taxid`: this is exactly the last node of
+    `farthest_donor_lineage` — redundant.
+  - `tax_ceiling` and `farthest_donor_lineage` promoted into the context block
+    (positions 6 and 7, immediately after `eggNOG_OGs`).
+  - `COG_category` moved to position 8 (heads the functional-sources block).
+  - `annotation_confidence` moved to the last column (position 22).
+  - The internal 14-element `annotate_batch` tuple is unchanged; upstream
+    computation is untouched.
+  - The `--excel` row builder was brought into alignment with the new 22-column
+    header (fixes a pre-existing header/row-length mismatch).
+  - NOTE: `--resume` across the schema boundary (a partial run written by an
+    older 25-column build resumed under this build) is NOT supported.
+    Regenerate from scratch when upgrading.
+
 - **Annotation throughput** on proteome/UniProt-scale runs is substantially
   higher (≈90–300 → ≈800+ q/s on full UniProt) via seed-sorted global dedup,
   distinct-seed batching, and the lazy cascade (all on by default) — all

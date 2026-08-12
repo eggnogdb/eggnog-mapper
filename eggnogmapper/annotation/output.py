@@ -235,43 +235,57 @@ def output_orthologs_footer(out, no_file_comments, qn, elapsed_time):
 
 ##
 
-HIT_HEADER = ["query",
-              "seed_ortholog",
-              "evalue",
-              "score",
-              "eggNOG_OGs",
-              "max_annot_lvl",
-              "COG_category",
-              "Description"]
+# ANNOTATIONS_HEADER: the 13 annotation-category fields, in order.
+# Used as a registry by row builders and the --resume parser; do not reorder.
+ANNOTATIONS_HEADER = [
+    'Preferred_name',
+    'GOs',
+    'EC',
+    'KEGG_ko',
+    'KEGG_Pathway',
+    'KEGG_Module',
+    'KEGG_Reaction',
+    'KEGG_rclass',
+    'BRITE',
+    'KEGG_TC',
+    'CAZy',
+    'BiGG_Reaction',
+    'PFAMs',
+]
 
-ANNOTATIONS_HEADER = ['Preferred_name',
-                      'GOs',
-                      'EC',
-                      'KEGG_ko',
-                      'KEGG_Pathway',
-                      'KEGG_Module',
-                      'KEGG_Reaction',
-                      'KEGG_rclass',
-                      'BRITE',
-                      'KEGG_TC',
-                      'CAZy',
-                      'BiGG_Reaction',
-                      'PFAMs']
-
-# Phase 3c: per-source confidence is appended as a single column. Format
-# is `field=tier;field=tier;...` listing only the fields that were
-# emitted (and therefore got a confidence label). Reading code can split
-# on `;` and `=` without ever quoting tabs.
-#
-# `tax_ceiling`: resolved per-seed ev_lca ceiling clade name (replaces
-# the old `tax_scope_used`).  `farthest_donor_taxid` / `farthest_donor_lineage`:
-# the taxid and full semicolon-separated lineage of the evolutionarily
-# most-distant donor ortholog used.
-ANNOTATIONS_WHOLE_HEADER = HIT_HEADER + ANNOTATIONS_HEADER + [
-    'annotation_confidence',
+# ANNOTATIONS_WHOLE_HEADER: the 22-column schema for *.emapper.annotations.
+# v3 change (2026-08-12): reduced from 25 to 22 columns.
+#   Dropped: Description (v2 legacy; Preferred_name suffices),
+#            max_annot_lvl (derivable as deepest @taxid inside eggNOG_OGs),
+#            farthest_donor_taxid (== last node of farthest_donor_lineage).
+#   tax_ceiling + farthest_donor_lineage promoted into the context block
+#   (positions 6, 7). COG_category heads the functional-sources block
+#   (position 8). annotation_confidence is the last column (position 22).
+#   Per-field confidence is a single column formatted as
+#   `field=tier;field=tier;...` — safe to split on ';' and '='.
+ANNOTATIONS_WHOLE_HEADER = [
+    'query',
+    'seed_ortholog',
+    'evalue',
+    'score',
+    'eggNOG_OGs',
     'tax_ceiling',
-    'farthest_donor_taxid',
     'farthest_donor_lineage',
+    'COG_category',
+    'Preferred_name',
+    'GOs',
+    'EC',
+    'KEGG_ko',
+    'KEGG_Pathway',
+    'KEGG_Module',
+    'KEGG_Reaction',
+    'KEGG_rclass',
+    'BRITE',
+    'KEGG_TC',
+    'CAZy',
+    'BiGG_Reaction',
+    'PFAMs',
+    'annotation_confidence',
 ]
 
 ##
@@ -384,9 +398,9 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
         str(best_hit_evalue),
         str(best_hit_score),
         ",".join(match_nog_names),
-        str(max_annot_lvl),
+        tax_ceiling or "-",
+        farthest_donor_lineage or "-",
         og_cat,
-        og_desc,
     ]
 
     for h in ANNOTATIONS_HEADER:
@@ -396,9 +410,6 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
             annot_columns.append("-")
 
     annot_columns.append(conf_str)
-    annot_columns.append(tax_ceiling or "-")
-    annot_columns.append(farthest_donor_taxid or "-")
-    annot_columns.append(farthest_donor_lineage or "-")
 
     if md5_field is True:
         annot_columns.append(md5_queries.get(query_name, "-"))
@@ -573,16 +584,32 @@ def output_excel_row(worksheet, row, annotation, md5_field, md5_queries):
          farthest_donor_taxid,
          farthest_donor_lineage) = annotation
 
-    annot_columns = [query_name, best_hit_name, str(best_hit_evalue), str(best_hit_score),
-                     ",".join(match_nog_names), str(max_annot_lvl),
-                     og_cat, og_desc]
-    
+    if annotations_confidence:
+        conf_str = ";".join(
+            f"{field}={tier}"
+            for field, tier in sorted(annotations_confidence.items())
+        )
+    else:
+        conf_str = "-"
+
+    annot_columns = [
+        query_name,
+        best_hit_name,
+        str(best_hit_evalue),
+        str(best_hit_score),
+        ",".join(match_nog_names),
+        tax_ceiling or "-",
+        farthest_donor_lineage or "-",
+        og_cat,
+    ]
+
     for h in ANNOTATIONS_HEADER:
         if h in annotations and annotations[h] is not None:
             annot_columns.append(",".join(sorted(list(annotations[h]))))
         else:
             annot_columns.append('-')
-                    
+    annot_columns.append(conf_str)
+
     if md5_field == True:
         query_name = annot_columns[0]
         if query_name in md5_queries:
