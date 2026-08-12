@@ -121,9 +121,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     computation is untouched.
   - The `--excel` row builder was brought into alignment with the new 22-column
     header (fixes a pre-existing header/row-length mismatch).
-  - NOTE: `--resume` across the schema boundary (a partial run written by an
-    older 25-column build resumed under this build) is NOT supported.
-    Regenerate from scratch when upgrading.
+  - `--resume` across the schema boundary is now **detected and refused
+    loudly**: resuming an annotations file whose column count differs from the
+    current 22-column schema (e.g. an older 25-column partial run) aborts with a
+    clear `EmapperException` (previously the positional parser would misread
+    columns silently). Rerun with `--override` to regenerate.
 
 - **Column 22 `annotation_confidence` reformatted from verbose to compact.** The
   field changed from `field=tier;...` (e.g.
@@ -152,9 +154,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   non-empty tier.
 - **Output column `tax_scope_used` renamed to `tax_ceiling`** — reflects
   the resolved ceiling clade per seed (e.g. `Viridiplantae`).
-- **New output columns `farthest_donor_taxid` and `farthest_donor_lineage`**
-  — taxid and full lineage of the most distant donor used in annotation
-  transfer.
+- **New output column `farthest_donor_lineage`** — full semicolon-separated
+  lineage of the most evolutionarily distant donor ortholog used in the
+  annotation transfer. (A companion `farthest_donor_taxid` column was folded
+  out in the 22-column change above — it is exactly the last node of this
+  lineage.)
 - **`go-basic.obo` is resolved relative to `--data_dir`** (`$EGGNOG_GO_OBO` →
   `<data_dir>/go-basic.obo` → `<data_dir>/e7/full/source/reference/go-basic.obo`)
   instead of a hardcoded path, so shipping the OBO with the database works for
