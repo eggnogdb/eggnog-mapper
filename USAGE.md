@@ -13,9 +13,22 @@ domains, EC numbers, and more — from known orthologs.
 ### 1. Install databases
 
 ```bash
-# Download the default eggNOG 5 databases (annotation DB + DIAMOND DB + taxonomy DB)
+# Download the default eggNOG 7 databases (annotation DB + DIAMOND DB + taxonomy DB)
 python download_eggnog_data.py -y
 ```
+
+Data is versioned by **MAJOR.MINOR** on the server
+(`data.cgmlab.org/eggnog-mapper/emapper-<MAJOR.MINOR>/`, e.g. `emapper-3.0/`):
+
+- **MAJOR** pins the eggNOG DB version — the **v3** series uses **eggNOG 7**.
+- A **MINOR** bump (`3.0` → `3.1`) means the DB structure or annotation sources
+  changed, so the databases must be re-downloaded.
+- **PATCH** releases (`3.0.0` → `3.0.1`) change emapper code only; the whole
+  `3.0.x` series reuses the same databases and self-test data.
+
+`download_eggnog_data.py` derives the folder from this emapper's MAJOR.MINOR
+automatically (override with `--release 3.0`). Downloadable AppImages live under
+the same `emapper-<MAJOR.MINOR>/` folder.
 
 ### 2. Annotate protein sequences
 

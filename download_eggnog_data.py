@@ -28,6 +28,7 @@ from eggnogmapper.common import (
     DATA_PATH,
     existing_dir,
     get_data_path,
+    get_data_release,
     get_eggnog_mmseqs_dbpath,
     get_eggnogdb_file,
     get_ncbitaxadb_file,
@@ -152,7 +153,7 @@ def untar_gz(path, dest_dir):
 # Manifest-aware downloads (small, individually-named artifacts)
 # ---------------------------------------------------------------------------
 
-# The data server (data.cgmlab.org/eggnog-mapper/emapper-<release>/data/) serves
+# The data server (data.cgmlab.org/eggnog-mapper/emapper-<MAJOR.MINOR>/data/) serves
 # every artifact UNCOMPRESSED, so downloads stream straight into the data dir —
 # no gunzip/untar step. Multi-file databases (mmseqs, pfam) remain tarballs.
 
@@ -251,11 +252,16 @@ def main():
     parser.add_argument("--data_dir", metavar="", type=existing_dir,
                         help="Directory to use for DATA_PATH.")
 
-    # Release version pins the server subdirectory: emapper-<release>/data/.
-    parser.add_argument("--release", type=str, default=__VERSION__.split("-")[0],
-                        help=("eggNOG-mapper data release to download. Pins the server "
-                              "subdirectory data.cgmlab.org/eggnog-mapper/emapper-<release>/data/. "
-                              "Defaults to this emapper's release version."))
+    # Data release pins the server subdirectory: emapper-<MAJOR.MINOR>/data/.
+    # It is keyed by MAJOR.MINOR (not the full version): every patch release in a
+    # series (e.g. all 3.0.x) reuses the same DBs; a MINOR bump (3.0 -> 3.1) means
+    # the databases changed and must be re-downloaded.
+    parser.add_argument("--release", type=str, default=get_data_release(),
+                        help=("eggNOG-mapper data release (MAJOR.MINOR, e.g. '3.0') to "
+                              "download. Pins the server subdirectory "
+                              "data.cgmlab.org/eggnog-mapper/emapper-<MAJOR.MINOR>/data/. "
+                              "Defaults to this emapper's MAJOR.MINOR; all 3.0.x builds "
+                              "share the 3.0 data."))
     parser.add_argument("--no-verify", action="store_true", dest="no_verify",
                         help=("Skip checksum verification when the server ships a "
                               "manifest.json. Currently a no-op when no manifest is present."))

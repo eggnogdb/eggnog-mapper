@@ -84,7 +84,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   rebuilt reproducibly by `make_test_dataset.py` + `gen_golden.py`.
 - **`emapper.py --selftest`**: one-command installation check. Downloads the
   reference self-test bundle (from
-  `data.cgmlab.org/eggnog-mapper/emapper-<release>/selftest/`, overridable via
+  `data.cgmlab.org/eggnog-mapper/emapper-<MAJOR.MINOR>/selftest/`, overridable via
   `$EGGNOG_SELFTEST_URL`) and verifies the build reproduces the expected
   annotations for every input type, exiting non-zero on any mismatch. Runs
   inside emapper, so from the Apptainer image the bundled DIAMOND/prodigal are
@@ -105,6 +105,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- **Downloadable data is versioned by MAJOR.MINOR** on the server
+  (`data.cgmlab.org/eggnog-mapper/emapper-<MAJOR.MINOR>/`, e.g. `emapper-3.0/`).
+  MAJOR pins the eggNOG DB version (v3 → eggNOG 7); a MINOR bump (`3.0`→`3.1`)
+  signals a DB-structure / annotation-source change that requires re-downloading
+  data; PATCH releases (`3.0.x`) change emapper code only and reuse the same DBs
+  and self-test data. `download_eggnog_data.py --release` and `emapper.py
+  --selftest` now derive the folder from the running emapper's MAJOR.MINOR (new
+  `common.get_data_release()`), so all `3.0.x` builds share `emapper-3.0/`.
+  AppImages are hosted under the same folder.
 - **`*.emapper.annotations` TSV reduced from 25 to 22 columns.** Column set and
   order change; all retained field values are byte-identical to prior output.
   - Dropped `Description`: not needed — `Preferred_name` is retained and is the

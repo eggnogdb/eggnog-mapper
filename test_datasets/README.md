@@ -64,8 +64,10 @@ emapper.py --selftest --data_dir /path/to/test_datasets
 ```
 
 The bundle is fetched from
-`https://data.cgmlab.org/eggnog-mapper/emapper-<release>/selftest/eggnog-mapper-selftest.tar.gz`
-(override with `$EGGNOG_SELFTEST_URL`).
+`https://data.cgmlab.org/eggnog-mapper/emapper-<MAJOR.MINOR>/selftest/eggnog-mapper-selftest.tar.gz`
+(e.g. `emapper-3.0/…`). The folder is keyed by **MAJOR.MINOR**, so every `3.0.x`
+build shares the same self-test data; emapper derives it automatically from its
+own version. Override the full URL with `$EGGNOG_SELFTEST_URL`.
 
 ### For maintainers — pytest
 

@@ -27,6 +27,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from .version import __VERSION__
+from .common import get_data_release
 from .utils import colorify
 from .emapperException import EmapperException
 
@@ -47,7 +48,10 @@ class SelfTestError(EmapperException):
 
 
 def _selftest_url(release):
-    """Return the bundle URL for a release (``$EGGNOG_SELFTEST_URL`` overrides)."""
+    """Return the bundle URL for a MAJOR.MINOR data release
+    (``$EGGNOG_SELFTEST_URL`` overrides). The self-test data lives next to the
+    DBs it was subsampled from, so it is pinned by the same ``emapper-<MAJOR.MINOR>/``
+    folder and shared across a patch series."""
     override = os.environ.get("EGGNOG_SELFTEST_URL")
     if override:
         return override
@@ -153,7 +157,7 @@ def run_selftest(bundle_dir=None, release=None, cpu=1):
     Returns:
         ``0`` if every itype reproduces its golden annotations, else ``1``.
     """
-    release = release or __VERSION__.split("-")[0]
+    release = release or get_data_release()
     base_cmd = _emapper_cmd()
 
     workdir = tempfile.mkdtemp(prefix="emapper_selftest_")

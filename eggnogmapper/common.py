@@ -158,6 +158,27 @@ def get_full_version_info():
     return version
 
 
+def get_data_release(version=None):
+    """Return the MAJOR.MINOR data-release key used to locate downloadable data.
+
+    The server groups artifacts by ``emapper-<MAJOR.MINOR>/`` (e.g.
+    ``data.cgmlab.org/eggnog-mapper/emapper-3.0/``). Semantics:
+
+    * MAJOR pins the eggNOG DB major version (v3 -> eggNOG 7).
+    * A MINOR bump (3.0 -> 3.1) signals a change in DB structure / annotation
+      sources: the databases (and self-test data) must be re-downloaded.
+    * PATCH releases within a MAJOR.MINOR series (3.0.x) change emapper code
+      only, so the whole series reuses the same DBs and self-test data.
+
+    Pre-release suffixes and build metadata are stripped, so ``3.0.0-beta6`` and
+    ``3.0.4`` both resolve to ``3.0``.
+    """
+    v = version or __VERSION__
+    base = v.split("-", 1)[0].split("+", 1)[0]
+    parts = base.split(".")
+    return ".".join(parts[:2]) if len(parts) >= 2 else base
+
+
 def get_version():
     _version = ''
     try:
