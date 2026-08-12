@@ -125,6 +125,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
     older 25-column build resumed under this build) is NOT supported.
     Regenerate from scratch when upgrading.
 
+- **Column 22 `annotation_confidence` reformatted from verbose to compact.** The
+  field changed from `field=tier;...` (e.g.
+  `BRITE=high;EC=high;GOs=low;...` ~130 chars) to a fixed-width 13-character
+  positional string over the ANNOTATIONS_HEADER in order: one char per
+  functional-annotation column. Codes: `h`=high, `m`=medium, `l`=low,
+  `-`=not annotated. Codes are derived at runtime from TIER_CONFIDENCE, so any
+  future tier renaming propagates automatically. When `--no_file_comments` is
+  OFF, three new header `##` legend lines document the encoding. Downstream
+  parsers using split/regex on `;` and `=` must switch to positional decoding
+  via `zip(ANNOTATIONS_HEADER, s)`. All 21 other columns are byte-identical;
+  column count stays 22.
+
 - **Annotation throughput** on proteome/UniProt-scale runs is substantially
   higher (≈90–300 → ≈800+ q/s on full UniProt) via seed-sorted global dedup,
   distinct-seed batching, and the lazy cascade (all on by default) — all

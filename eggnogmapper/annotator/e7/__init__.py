@@ -31,6 +31,7 @@ from .ceiling import (
 )
 from .db import EggnogDB, EggnogDBError
 from .annotate import AnnotationEngine, annotate_protein
+from .constants import TIER_CONFIDENCE
 from .orthologs import OrthologFinder, DonorTracker
 
 __all__ = [
@@ -58,6 +59,7 @@ __all__ = [
     # Annotation
     "AnnotationEngine",
     "annotate_protein",
+    "TIER_CONFIDENCE",
     # Orthologs
     "OrthologFinder",
     "DonorTracker",

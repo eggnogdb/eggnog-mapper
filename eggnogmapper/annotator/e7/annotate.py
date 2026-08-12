@@ -24,6 +24,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple, Any
 
 from .db import EggnogDB, db_file_fingerprint
 from ..codec import decode_intlist
+from .constants import TIER_CONFIDENCE as _TIER_CONFIDENCE_CANONICAL
 
 logger = logging.getLogger(__name__)
 
@@ -419,7 +420,7 @@ class AnnotationEngine:
         "many2one": 1,
         "many2many": 2,
     }
-    TIER_CONFIDENCE = {0: "high", 1: "medium", 2: "low"}
+    TIER_CONFIDENCE = _TIER_CONFIDENCE_CANONICAL
 
     def __init__(
         self,

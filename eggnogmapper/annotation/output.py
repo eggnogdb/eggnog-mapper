@@ -10,6 +10,12 @@ from ..common import get_call_info
 from .ncbitaxa.ncbiquery import get_ncbi
 from .db_sqlite import get_eggnog_db
 
+import logging
+
+from eggnogmapper.annotator.e7.constants import TIER_CONFIDENCE as _TIER_CONFIDENCE
+
+_logger = logging.getLogger(__name__)
+
 # Translation table: replace tab, CR, LF, and other ASCII control chars
 # with a single space so no field value can break TSV structure.
 _CTRL_CHARS = "".join(chr(i) for i in range(32) if i not in (9, 10, 13)) + chr(127)
@@ -253,6 +259,14 @@ ANNOTATIONS_HEADER = [
     'PFAMs',
 ]
 
+# Derived from TIER_CONFIDENCE — single source of truth for confidence chars.
+# Order = ascending tier key (0=high, 1=medium, 2=low) so the legend reads
+# high→low regardless of insertion order in the source dict.
+_TIER_LEGEND_ENTRIES: tuple[tuple[str, str], ...] = tuple(
+    (_TIER_CONFIDENCE[k][0].lower(), _TIER_CONFIDENCE[k])
+    for k in sorted(_TIER_CONFIDENCE)
+)
+
 # ANNOTATIONS_WHOLE_HEADER: the 22-column schema for *.emapper.annotations.
 # v3 change (2026-08-12): reduced from 25 to 22 columns.
 #   Dropped: Description (v2 legacy; Preferred_name suffices),
@@ -261,8 +275,9 @@ ANNOTATIONS_HEADER = [
 #   tax_ceiling + farthest_donor_lineage promoted into the context block
 #   (positions 6, 7). COG_category heads the functional-sources block
 #   (position 8). annotation_confidence is the last column (position 22).
-#   Per-field confidence is a single column formatted as
-#   `field=tier;field=tier;...` — safe to split on ';' and '='.
+#   Per-field confidence is a fixed-width positional string of
+#   len(ANNOTATIONS_HEADER) chars; codes h/m/l/- documented in the
+#   header legend (suppressed by --no_file_comments).
 ANNOTATIONS_WHOLE_HEADER = [
     'query',
     'seed_ortholog',
@@ -327,6 +342,94 @@ def output_annotations(annots, annot_file, resume, no_file_comments, md5_field, 
         output_annotations_footer(ANNOTATIONS_OUT, no_file_comments, qn, elapsed_time)
     return
 
+def _conf_char(field: str, conf_dict: dict) -> str:
+    """Return the single confidence character for one annotation field.
+
+    Looks up ``field`` in ``conf_dict`` (values are tier names such as
+    "high", "medium", "low") and returns the first letter lowercased.
+    Absent field → "-". Never raises.
+
+    Args:
+        field: Annotation field name (must be an entry of ANNOTATIONS_HEADER).
+        conf_dict: Mapping ``{field: tier_name}``.
+
+    Returns:
+        Single character in ``{h, m, l, -}`` (derived from tier name).
+    """
+    tier = conf_dict.get(field)
+    if not tier:
+        return "-"
+    return tier[0].lower()
+
+
+def encode_confidence(conf_dict, fields):
+    """Encode per-field annotation confidence as a fixed-width positional string.
+
+    Produces a string of exactly ``len(fields)`` characters, one per field,
+    in ``fields`` order. Character codes are derived from TIER_CONFIDENCE
+    via ``tier_name[0].lower()``. A field absent from ``conf_dict`` encodes
+    as ``-``.
+
+    Robustness invariants:
+      - Field order is dictated entirely by ``fields`` (single source of
+        truth — callers pass ``ANNOTATIONS_HEADER``).
+      - Tier chars derived only via ``tier_name[0].lower()`` from
+        ``TIER_CONFIDENCE``; no independent hardcoded mapping.
+      - ``None`` or empty ``conf_dict`` → ``"-" * len(fields)``.
+      - Unknown ``conf_dict`` keys → WARNING via ``eggnogmapper.annotation.output``
+        logger; never raises.
+
+    Args:
+        conf_dict: Mapping of annotation field name → tier name, e.g.
+            ``{"GOs": "low", "PFAMs": "high"}``. May be ``None`` or empty.
+        fields: Ordered list of field names defining output positions.
+            At runtime this is always ``ANNOTATIONS_HEADER``.
+
+    Returns:
+        String of length ``len(fields)`` composed of characters from
+        ``{h, m, l, -}``. Returns ``"-" * len(fields)`` when ``conf_dict`` is
+        falsy. Returns ``""`` when ``fields`` is empty.
+    """
+    if not conf_dict:
+        return "-" * len(fields)
+
+    encoded = "".join(_conf_char(f, conf_dict) for f in fields)
+
+    # Defensive check for future-dev safety: any key in conf_dict that is not
+    # in `fields` would be silently dropped. Warn so it's caught in review.
+    field_set = set(fields)
+    for key in conf_dict:
+        if key not in field_set:
+            _logger.warning(
+                "encode_confidence: unknown field %r in conf_dict "
+                "(not in ANNOTATIONS_HEADER); ignored",
+                key,
+            )
+
+    return encoded
+
+
+def _legend_lines(fields, tier_legend_entries):
+    """Build the three ``##`` legend comment lines for the confidence column.
+
+    Args:
+        fields: ``ANNOTATIONS_HEADER`` (or equivalent ordered field list).
+        tier_legend_entries: Ordered ``(char, label)`` pairs to render in the
+            codes line. Callers append ``("-", "not annotated")`` so the
+            hyphen sentinel is documented.
+
+    Returns:
+        List of exactly 3 strings, each starting with ``##`` and containing
+        no trailing newline.
+    """
+    codes = " ".join(f"{char}={label}" for char, label in tier_legend_entries)
+    return [
+        "## annotation_confidence: one char per annotation field",
+        f"## confidence codes: {codes}",
+        f"## confidence field order: {' '.join(fields)}",
+    ]
+
+
 ##
 def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=None):
     """Write one annotation row to ``out``.
@@ -384,13 +487,7 @@ def output_annotations_row(out, annotation, md5_field, md5_queries, eggnog_db=No
     # Translate integer seed_ortholog to display name.
     seed_display = eggnog_db.get_protein_name(best_hit_name)
 
-    if annotations_confidence:
-        conf_str = ";".join(
-            f"{field}={tier}"
-            for field, tier in sorted(annotations_confidence.items())
-        )
-    else:
-        conf_str = "-"
+    conf_str = encode_confidence(annotations_confidence, ANNOTATIONS_HEADER)
 
     annot_columns = [
         query_name,
@@ -424,12 +521,14 @@ def output_annotations_header(out, no_file_comments, md5_field, print_header,
     if print_header:
         if not no_file_comments:
             print(get_call_info(), file=out)
-            # Phase 7.1a — record the resolved values of every annotation-stage
-            # filter and threshold the run actually used. Closes the v3 docs gap
-            # where reproducibility relied on parsing the raw command line on
-            # line 3 (defaults were never expanded).
             if applied_filters:
                 print(format_applied_filters(applied_filters), file=out)
+            # Legend for the annotation_confidence positional encoding.
+            # Derived from ANNOTATIONS_HEADER + TIER_CONFIDENCE — single sources
+            # of truth. Suppressed by --no_file_comments (documented in USAGE).
+            _legend_entries = _TIER_LEGEND_ENTRIES + (("-", "not annotated"),)
+            for line in _legend_lines(ANNOTATIONS_HEADER, _legend_entries):
+                print(line, file=out)
         print("#", end="", file=out)
         annot_header = ANNOTATIONS_WHOLE_HEADER
         if md5_field == True:
@@ -584,13 +683,7 @@ def output_excel_row(worksheet, row, annotation, md5_field, md5_queries):
          farthest_donor_taxid,
          farthest_donor_lineage) = annotation
 
-    if annotations_confidence:
-        conf_str = ";".join(
-            f"{field}={tier}"
-            for field, tier in sorted(annotations_confidence.items())
-        )
-    else:
-        conf_str = "-"
+    conf_str = encode_confidence(annotations_confidence, ANNOTATIONS_HEADER)
 
     annot_columns = [
         query_name,

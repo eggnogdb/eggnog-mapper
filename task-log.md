@@ -287,3 +287,218 @@ Column-by-column byte-identity trace verified; grep audit shows zero stale refer
 4. eggnogmapper/deco/decoration.py:annotation_to_gff (L360-365): same 10-element unpack; will raise ValueError against 14-element tuple. LATENT PRE-EXISTING BUG affecting --decorate_gff. Unrelated to this task; needs its own ticket.
 5. GFF em_max_annot_lvl / em_desc: unchanged (report-only, per SPEC). Intentional schema divergence between GFF and .annotations TSV — stakeholder decision pending.
 
+---
+
+## Session: 2026-08-12 (orchestrator) — compact annotation_confidence
+
+### Task: replace verbose `annotation_confidence` with fixed-width positional string
+Stakeholder pre-decided all scope; treat request as SPEC CONTRACT + hand-off to
+the mandatory workflow (planner → software-engineer → coder → code-reviewer
+upgraded to opus for output-contract → tester). Commit on current branch,
+do NOT push.
+
+HARD CONSTRAINTS
+- Only the `annotation_confidence` VALUE changes + new header comment lines.
+  All other 21 columns stay byte-identical. Column count stays 22.
+- Legend + confidence chars MUST be derived at runtime from the SINGLE
+  canonical `ANNOTATIONS_HEADER` list (no second hardcoded field order).
+- Legend codes derived from `TIER_CONFIDENCE.values()` (or a single kept-in-sync
+  module constant), not independently hardcoded.
+- Defensive check for confidence keys not in `ANNOTATIONS_HEADER`.
+- Robustness unit test: reorder `fields`, verify positional string reorders in
+  lockstep AND generated legend reflects new order.
+- Apply to Excel path too.
+- `--no_file_comments` suppresses the legend (documented in USAGE).
+- `parse_annotation_line` already sets `annotations_confidence=None` (line 719)
+  — CONFIRMED no change needed; state in report.
+
+### Step 1: planner → SPEC CONTRACT
+Status: APPROVED BY PLANNER: YES
+
+Scope (locked):
+- Column 22 VALUE changes from `field=tier;...` to fixed-width 13-char
+  positional string over ANNOTATIONS_HEADER order; chars derived from
+  TIER_CONFIDENCE first-letter.
+- Three new legend `##` lines emitted from output_annotations_header
+  when --no_file_comments is OFF (fields joined from ANNOTATIONS_HEADER;
+  codes derived from tier names).
+- ONE encoder `encode_confidence(conf_dict, fields=ANNOTATIONS_HEADER) -> str`
+  used from BOTH TSV and Excel row builders.
+- Column count stays 22 (resume schema guard from a3fdb5b unaffected).
+- parse_annotation_line already sets confidence=None (annotator.py:719) —
+  CONFIRMED no change needed.
+
+Success criteria (SC-1..SC-7):
+- SC-1 strict shape: 22 tabs; confidence = 13 chars from [hml-].
+- SC-2 byte-identical projection on 21 other columns (old vs new goldens).
+- SC-3 decode-equivalence: new positional string parses back to the same
+  {field:tier} dict as the old verbose form.
+- SC-4 single source of truth (grep audit): no independent field-order or
+  tier-char hardcoding.
+- SC-5 legend lines present with `no_file_comments=False`, absent with True.
+- SC-6 warning on unknown conf_dict key (log; not raise).
+- SC-7 resume works transparently (already covered by parse_annotation_line).
+
+Robustness invariants RI-1..RI-6:
+- RI-1: field order derived only from ANNOTATIONS_HEADER.
+- RI-2: h/m/l derived only via `tier_name[0].lower()` from TIER_CONFIDENCE.
+- RI-3: TIER_CONFIDENCE imported from canonical location; software-engineer
+  resolves any circular import (may relocate the constant).
+- RI-4: None/empty conf_dict → 13 hyphens (not a bare "-") — preserves shape.
+- RI-5: unknown key → WARNING, not exception.
+- RI-6: engine internals untouched.
+
+Files to change:
+- eggnogmapper/annotation/output.py — encoder + row builders + header legend.
+- test_datasets/golden/{proteins,CDS,genome,metagenome}.annotations — regen.
+- tests/fixtures_v7/{test_diamond,test_no_search}.emapper.annotations — regen.
+- USAGE.md — document new format + legend + --no_file_comments caveat.
+- CHANGELOG.md — [3.0.0-beta5] entry.
+- New unit test file in tests/unit/.
+
+Tests required T-1..T-9:
+- T-1 basic encoder; T-2 reorder invariant (THE robustness ask); T-3 unknown
+  key warning; T-4 None input → 13 hyphens; T-5 legend present/absent under
+  --no_file_comments; T-6 legend field order == ANNOTATIONS_HEADER; T-7
+  decode-equivalence parametrized over fixture rows; T-8 regen goldens +
+  self-test passes; T-9 resume scenario safe.
+
+Out-of-scope (explicitly): column count, other column values, parse_annotation_line
+semantics, ANNOTATIONS_HEADER contents, TIER_CONFIDENCE dict itself, GFF/orthologs/hits.
+
+### Step 2: software-engineer → TECHNICAL DESIGN
+Status: TECHNICAL DESIGN APPROVED: YES
+
+Key design decisions:
+- NEW module eggnogmapper/annotator/e7/constants.py containing TIER_CONFIDENCE
+  as the single source of truth. AnnotationEngine.TIER_CONFIDENCE reassigned
+  to import from constants (byte-identical to existing callers).
+  Rationale: no circular import risk with a direct annotate.py→output.py
+  route, AND avoids pulling the whole AnnotationEngine (+ array/db/codec) into
+  output.py just to read a 3-entry dict.
+- encode_confidence(conf_dict, fields) with early return `"-" * len(fields)`
+  for falsy conf_dict (RI-4).
+- _conf_char returns tier_name[0].lower() or "-".
+- Module-level _TIER_LEGEND_ENTRIES derived from TIER_CONFIDENCE ordered by
+  key; the "-" pair appended at the call site.
+- _legend_lines returns 3 lines:
+  L0: `## annotation_confidence: one char per annotation field`
+  L1: `## confidence codes: h=high m=medium l=low -=not annotated`
+  L2: `## confidence field order: <space-joined fields>`
+- Legend inserted in output_annotations_header inside the `if not
+  no_file_comments:` block, after `## applied filters:`, before `#query...`.
+- Unknown-key WARNING via logger `eggnogmapper.annotation.output` (RI-5).
+- Excel path uses same encode_confidence call. Excel's per-column `x != ""
+  else "-"` fallback stays (it's a display normalisation, not confidence-specific).
+
+Grep-audit checklist for reviewer:
+- ZERO hits: `sorted(annotations_confidence.items())`, `f"{field}={tier}"`,
+  `conf_str\s*=\s*";"\.join`, any hardcoded `h=high|m=medium|l=low`.
+- Exactly one hit each: `TIER_CONFIDENCE\s*=\s*\{0:` in constants.py;
+  `ANNOTATIONS_HEADER\s*=\s*\[` in output.py; `encode_confidence` definition
+  in output.py.
+
+Test structure (tests/unit/test_encode_confidence.py):
+- T-1 shape+positions; T-2 REORDER lockstep; T-3 unknown-key WARNING via
+  caplog; T-4 None/{} → 13 hyphens (parametrized); T-5 legend present/absent
+  under --no_file_comments (StringIO capture on output_annotations_header);
+  T-6 legend field-list == " ".join(ANNOTATIONS_HEADER);
+  T-7 decode-equivalence against pre-change fixture captured from git.
+
+Files to change (coder):
+- eggnogmapper/annotator/e7/constants.py (NEW, 8 lines).
+- eggnogmapper/annotator/e7/annotate.py (TIER_CONFIDENCE class attr → import
+  from constants).
+- eggnogmapper/annotator/e7/__init__.py (re-export TIER_CONFIDENCE).
+- eggnogmapper/annotation/output.py (encoder + 2 row-builder swaps + legend
+  in header).
+- tests/unit/test_encode_confidence.py (NEW, ~120 lines).
+
+Cycle check confirmed by orchestrator: annotate.py imports only .db and
+..codec at top level; output.py has zero pre-existing import of annotate;
+constants.py has zero imports. No cycle possible either direction.
+
+### Step 3: python-coder → IMPLEMENTATION
+Status: COMPLETE
+Files:
+- NEW eggnogmapper/annotator/e7/constants.py — canonical TIER_CONFIDENCE.
+- MOD eggnogmapper/annotator/e7/annotate.py — L27 import, L423 class-attr
+  rebind. Every existing eng.TIER_CONFIDENCE[...] callsite unchanged.
+- MOD eggnogmapper/annotator/e7/__init__.py — re-export TIER_CONFIDENCE.
+- MOD eggnogmapper/annotation/output.py — imports; _TIER_LEGEND_ENTRIES;
+  _conf_char / encode_confidence / _legend_lines; stale docstring updated;
+  TSV & Excel conf_str lines swapped; legend emission in
+  output_annotations_header.
+- NEW tests/unit/test_encode_confidence.py — 7 tests (T-1..T-6 + tier
+  derivation lock).
+Deviation note: coder removed a "Phase 7.1a" narrative comment above
+`if applied_filters:` in output_annotations_header. Logic identical; docs-only
+drop. Reviewer classified as at most cosmetic.
+
+### Step 4: code-reviewer → REVIEW (opus, output-contract)
+Status: APPROVED
+
+Grep-audit results (under eggnogmapper/):
+- ZERO hits: `sorted(annotations_confidence.items())`, `f"{field}={tier}"`,
+  `conf_str = ";".join`, independent hardcoded `h=high|m=medium|l=low`.
+- Exactly one hit: TIER_CONFIDENCE literal in constants.py:10; ANNOTATIONS_HEADER
+  in output.py:246; def encode_confidence in output.py:365.
+- No cycle: constants.py is a leaf module; output.py→constants only.
+
+All 12 SPEC items + 6 RIs verified PASS.
+parse_annotation_line unedited; ANNOTATIONS_HEADER/ANNOTATIONS_WHOLE_HEADER
+untouched; goldens/fixtures/USAGE/CHANGELOG not modified by coder (as
+intended — those go to tester + documenter).
+
+### Step 5: tester → TECHNICAL + BIOLOGICAL VALIDATION
+Status: PASS
+
+- py_compile OK on 5 changed/new .py files.
+- Unit tests: 9/9 PASS in tests/unit/test_encode_confidence.py (7 designed +
+  2 legend variants).
+- Regen: 4 goldens + 2 integration fixtures, all exit 0; sidecar
+  .seed_orthologs.sorted removed.
+- Legend lines (verbatim from proteins.annotations):
+    ## annotation_confidence: one char per annotation field
+    ## confidence codes: h=high m=medium l=low -=not annotated
+    ## confidence field order: Preferred_name GOs EC KEGG_ko KEGG_Pathway
+       KEGG_Module KEGG_Reaction KEGG_rclass BRITE KEGG_TC CAZy BiGG_Reaction
+       PFAMs
+- Example row (17828_nifJ): col22 = `hlhhhh--h---h` (13 chars, [hml-]).
+- Strict shape: 6/6/6/6 golden rows + 20/20 integration rows; all rows have
+  22 tabs; every col22 value is 13 chars from [hml-].
+- Projection proof: cols 1..21 byte-identical old vs new — 0 diffs across
+  all 6 files (64 rows total).
+- Decode-equivalence proof: script scratchpad/decode_equiv.py; 64 rows
+  compared; 0 mismatches — old verbose and new positional strings decode to
+  the same {field: tier_char} dicts.
+- Suite results:
+    test_datasets/test_selftest.py    6 passed
+    tests/unit                        38 passed
+    eggnogmapper/annotator/tests      146 passed
+    tests/integration (diamond|no_search|no_annot|resume)
+                                      4 passed, 1 skipped (test_genepred_diamond
+                                      lacks resource — pre-existing skip)
+- Biological sanity: nifJ/nifD/nifH/nifK Preferred_name/KEGG_ko/PFAMs = `h`;
+  fields absent from OG chain map to `-` correctly; no all-hyphen rows on
+  well-annotated nitrogenase family (would flag as bio-fail); cross-check
+  against old verbose format matches ("GOs=low" → position 1 = `l`).
+
+### Step 6: documenter → DOCS UPDATE
+Status: COMPLETE
+- CHANGELOG.md — [3.0.0-beta5] "Changed" bullet describing the compact
+  format change, downstream-parser migration hint, and byte-identical
+  guarantee on other columns.
+- USAGE.md — column-22 row updated; new "annotation_confidence encoding"
+  subsection with decoding recipe + worked example (`hlhhhh--h---h` →
+  the 8-field dict).
+
+### Step 7: orchestrator → SANITY CHECKS BEFORE COMMIT
+- Stray tests/fixtures_v7/test_diamond.emapper.seed_orthologs.sorted
+  removed (tester regen created it; not part of the tracked fixtures).
+- test_no_search.emapper.orthologs shows 1113/1126 line diff. Sort-diff
+  verified: content is IDENTICAL between old and new (0 sorted-diff
+  lines); only per-query row ordering shifts due to a fresh no_search
+  regen. NOT related to confidence change; ships anyway (fresh fixture).
+- test_diamond.emapper.seed_orthologs diffs are only the header
+  timestamp + emapper version + timing metric. Data rows identical.

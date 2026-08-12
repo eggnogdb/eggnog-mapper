@@ -1,8 +1,8 @@
-## Thu May 21 09:16:06 2026
-## emapper-v3.0.0-beta2
-## ./emapper.py -m diamond -i tests/fixtures/test_queries_v7.fa --db e7-sample --output_dir tests/fixtures_v7 -o test_diamond --override
+## Wed Aug 12 11:04:08 2026
+## emapper-v3.0.0-beta5-2-ga3fdb5b
+## /eggnog-eco/eggnog-mapper/emapper.py -m diamond -i /eggnog-eco/eggnog-mapper/tests/fixtures/test_queries_v7.fa --data_dir /eggnog-eco/data/e7/sample/final/mapper --output_dir /tmp/intfix -o test --override
 ##
-##/eggnog-eco/bin/diamond blastp -d '/eggnog-eco/data/e7/sample/final/mapper/eggnog_proteins.dmnd' -q '/eggnog-eco/eggnog-mapper/tests/fixtures/test_queries_v7.fa' --threads 1 -o '/eggnog-eco/eggnog-mapper/tests/fixtures_v7/test_diamond.emapper.hits' --tmpdir '/eggnog-eco/eggnog-mapper/emappertmp_dmdn_kekj8b9y' --sensitive --iterate --algo 1 -e 0.001 --block-size 4.0 -c 2 --top 0  --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp
+##/eggnog-eco/bin/diamond blastp -d '/eggnog-eco/data/e7/sample/final/mapper/eggnog_proteins.dmnd' -q '/eggnog-eco/eggnog-mapper/tests/fixtures/test_queries_v7.fa' --threads 1 -o '/tmp/intfix/test.emapper.hits' --tmpdir '/eggnog-eco/eggnog-mapper/emappertmp_dmdn_bi1karkr' --sensitive --iterate --algo 1 -e 0.001 --block-size 4.0 -c 2 --top 0  --outfmt 6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore qcovhsp scovhsp
 #qseqid	sseqid	evalue	bitscore	qstart	qend	sstart	send	pident	qcov	scov
 8364.ENSXETP00000006050	14	0.0	868.0	1	431	1	431	100.0	100.0	100.0
 444158.MmarC6_0803	65	8.16e-211	573.0	1	292	1	292	100.0	100.0	100.0
@@ -25,5 +25,5 @@
 8508.ENSSPUP00000015626	543	0.0	1168.0	1	561	1	561	100.0	100.0	100.0
 8508.ENSSPUP00000015963	545	0.0	895.0	1	444	1	444	100.0	100.0	100.0
 ## 20 queries scanned
-## Total time (seconds): 0.009850025177001953
-## Rate: 2030.45 q/s
+## Total time (seconds): 0.012431144714355469
+## Rate: 1608.86 q/s

@@ -553,4 +553,69 @@ The `*.emapper.annotations` file is a TSV with the following 22 columns:
 | 19 | `CAZy` | Carbohydrate-Active Enzymes |
 | 20 | `BiGG_Reaction` | BiGG metabolic reactions |
 | 21 | `PFAMs` | Pfam domain identifiers |
-| 22 | `annotation_confidence` | Per-field annotation confidence: `field=tier;...` (high/medium/low) |
+| 22 | `annotation_confidence` | Fixed-width positional string (13 chars). One char per functional-annotation column in ANNOTATIONS_HEADER order. Codes: `h`=high, `m`=medium, `l`=low, `-`=not annotated. See "annotation_confidence encoding" below. |
+
+---
+
+### annotation_confidence encoding
+
+Column 22 uses a compact positional encoding where each character represents the
+confidence tier of one functional-annotation field, in the fixed order:
+`Preferred_name GOs EC KEGG_ko KEGG_Pathway KEGG_Module KEGG_Reaction KEGG_rclass BRITE KEGG_TC CAZy BiGG_Reaction PFAMs`
+
+**Confidence codes:**
+- `h` = high (1:1 ortholog or seed's own curated annotation)
+- `m` = medium (1:many or many:1 ortholog)
+- `l` = low (many:many ortholog)
+- `-` = field not annotated
+
+Codes are derived at runtime from `TIER_CONFIDENCE`, so future tier renaming
+propagates automatically without format changes.
+
+**When header legend is printed:**
+When `--no_file_comments` is OFF (default), three `##` comment lines in the
+output file document this encoding:
+```
+## annotation_confidence: one char per annotation field
+## confidence codes: h=high m=medium l=low -=not annotated
+## confidence field order: Preferred_name GOs EC KEGG_ko KEGG_Pathway KEGG_Module KEGG_Reaction KEGG_rclass BRITE KEGG_TC CAZy BiGG_Reaction PFAMs
+```
+
+Users who pass `--no_file_comments` should reference this section to decode the
+string.
+
+**Decoding example:**
+
+Fields and codes:
+```python
+ANNOTATIONS_HEADER = [
+    "Preferred_name", "GOs", "EC", "KEGG_ko", "KEGG_Pathway",
+    "KEGG_Module", "KEGG_Reaction", "KEGG_rclass", "BRITE",
+    "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs"
+]
+
+confidence_codes = {"h": "high", "m": "medium", "l": "low"}
+
+def decode_confidence(s):
+    """Decode a 13-char confidence string into a dict."""
+    return {
+        field: confidence_codes[code]
+        for field, code in zip(ANNOTATIONS_HEADER, s)
+        if code != "-"
+    }
+```
+
+For a row with `annotation_confidence = "hlhhhh--h---h"`:
+- Position 0 (Preferred_name): `h` (high)
+- Position 1 (GOs): `l` (low)
+- Position 2 (EC): `h` (high)
+- Position 3 (KEGG_ko): `h` (high)
+- Position 4 (KEGG_Pathway): `h` (high)
+- Position 5 (KEGG_Module): `h` (high)
+- Position 6 (KEGG_Reaction): `-` (not annotated)
+- Position 7 (KEGG_rclass): `-` (not annotated)
+- Position 8 (BRITE): `h` (high)
+- Positions 9–12: `-` (not annotated)
+- Position 12 (PFAMs): `h` (high)
+
+Result: `{Preferred_name: high, GOs: low, EC: high, KEGG_ko: high, KEGG_Pathway: high, KEGG_Module: high, BRITE: high, PFAMs: high}`
