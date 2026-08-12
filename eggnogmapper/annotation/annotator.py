@@ -594,10 +594,34 @@ def _count_resumed(annots, counter):
 def parse_annotations(annot, annot_file, report_orthologs, orthologs_file):
     
     if annot == True:
+        expected_ncols = len(output.ANNOTATIONS_WHOLE_HEADER)
+        checked = False
         with open(annot_file, 'r') as annot_f:
             for line in annot_f:
-                if line.startswith("#"): continue
-                
+                if line.startswith("#"):
+                    # Guard: refuse to resume a file written under a different
+                    # column schema (e.g. an older 25-column build); the
+                    # positional parser below would otherwise misread columns
+                    # silently. Fail loudly instead.
+                    if line.startswith("#query\t"):
+                        ncols = len(line.rstrip("\n").split("\t"))
+                        if ncols != expected_ncols:
+                            raise EmapperException(
+                                f"Cannot --resume '{annot_file}': it has a "
+                                f"{ncols}-column header but this build writes "
+                                f"{expected_ncols} columns (annotations schema "
+                                f"changed). Rerun with --override to regenerate.")
+                    continue
+                if not checked:
+                    ncols = len(line.rstrip("\n").split("\t"))
+                    if ncols != expected_ncols:
+                        raise EmapperException(
+                            f"Cannot --resume '{annot_file}': data rows have "
+                            f"{ncols} columns but this build writes "
+                            f"{expected_ncols} (annotations schema changed). "
+                            f"Rerun with --override to regenerate.")
+                    checked = True
+
                 hit, annotation = parse_annotation_line(line)
                 
                 # this assumes the annotated hit it is also present
