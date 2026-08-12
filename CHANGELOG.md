@@ -7,7 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [3.0.0-beta5] — 2026-08-05
+## [3.0.0-beta6] — 2026-08-12
 
 ### Removed / renamed (pre-stable CLI cleanup)
 
