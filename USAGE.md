@@ -203,12 +203,61 @@ into the output header:
 ## confidence field order: Preferred_name GOs EC KEGG_ko KEGG_Pathway KEGG_Module KEGG_Reaction KEGG_rclass BRITE KEGG_TC CAZy BiGG_Reaction PFAMs
 ```
 
-e.g. `hlhhhh--h---h` → `Preferred_name=high, GOs=low, EC=high, …, PFAMs=high`.
-Decode with `zip(field_order, string)`. Confidence reflects the cascade tier the
-value came from (closest donor = high).
+e.g. `hlhhhh--h---h` → `Preferred_name=high, GOs=low, EC=high, KEGG_ko=high,
+KEGG_Pathway=high, KEGG_Module=high, BRITE=high, PFAMs=high` (positions marked
+`-` have no annotation). Confidence reflects the cascade tier the value came from
+(closest donor = `high`).
+
+**Parsing it (Python).** The robust recipe reads the field order from the
+`## confidence field order:` header line, so your parser keeps working even if
+the column set ever changes:
+
+```python
+CODE = {"h": "high", "m": "medium", "l": "low", "-": None}
+
+def load_confidence_order(annotations_path):
+    """Read the field order from the file's header legend (fallback to the
+    documented default if the file was written with --no_file_comments)."""
+    with open(annotations_path) as fh:
+        for line in fh:
+            if line.startswith("## confidence field order:"):
+                return line.split(":", 1)[1].split()
+            if not line.startswith("#"):
+                break
+    return ["Preferred_name", "GOs", "EC", "KEGG_ko", "KEGG_Pathway",
+            "KEGG_Module", "KEGG_Reaction", "KEGG_rclass", "BRITE",
+            "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs"]
+
+def parse_confidence(s, order):
+    """'hlhhhh--h---h' -> {'Preferred_name':'high', 'GOs':'low', ...}"""
+    return {f: CODE[c] for f, c in zip(order, s) if CODE[c] is not None}
+
+order = load_confidence_order("run.emapper.annotations")
+parse_confidence("hlhhhh--h---h", order)
+# {'Preferred_name':'high','GOs':'low','EC':'high','KEGG_ko':'high',
+#  'KEGG_Pathway':'high','KEGG_Module':'high','BRITE':'high','PFAMs':'high'}
+```
+
+**One-liner (pandas), if you know the order:**
+
+```python
+order = ["Preferred_name","GOs","EC","KEGG_ko","KEGG_Pathway","KEGG_Module",
+         "KEGG_Reaction","KEGG_rclass","BRITE","KEGG_TC","CAZy","BiGG_Reaction","PFAMs"]
+conf = df["annotation_confidence"].apply(
+    lambda s: {f: c for f, c in zip(order, s) if c != "-"})
+# or explode into one boolean-ish column per field:
+for i, f in enumerate(order):
+    df[f"conf_{f}"] = df["annotation_confidence"].str[i].map(
+        {"h": "high", "m": "medium", "l": "low", "-": None})
+```
+
+The string is always exactly `len(field_order)` characters (currently 13) and
+uses only `[hml-]`; position *i* describes the annotation column at
+`field_order[i]` (the same order those columns appear in the row).
 
 > `--no_file_comments` suppresses all `##` header lines (including this legend);
-> the field order is fixed and documented here.
+> the field order is then only the documented default above, so pass a known
+> `order` explicitly.
 
 ---
 
