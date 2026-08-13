@@ -509,10 +509,3 @@ If you use eggNOG-mapper, please cite:
 
 The end-of-run message prints the exact emapper + eggNOG DB versions to cite for
 your run.
-
----
-
-<sub>Publishing this page on **GitHub Pages**: enable Pages in the repository
-settings (Source: your default branch, folder `/` or `/docs`). This file renders
-as-is; to make it the landing page, copy it to `docs/index.md` (or symlink
-`README`→`USAGE`). No Jekyll config is required for a single Markdown page.</sub>
