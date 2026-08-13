@@ -54,7 +54,7 @@ def _data_rows(path: str) -> set[str]:
     return rows
 
 
-def _run(itype: str, fixture: str, out_dir: str) -> str:
+def _run(itype: str, fixture: str, out_dir: str, extra=None) -> str:
     env = dict(os.environ)
     env["PATH"] = DIAMOND_BIN_DIR + os.pathsep + env.get("PATH", "")
     cmd = [
@@ -68,8 +68,23 @@ def _run(itype: str, fixture: str, out_dir: str) -> str:
         "--cpu", "1",
         "--override",
     ]
+    if extra:
+        cmd += list(extra)
     subprocess.run(cmd, check=True, env=env, cwd=out_dir)
     return pjoin(out_dir, f"{itype}.emapper.annotations")
+
+
+def _read_fasta(path: str) -> dict:
+    """Return {query_name: sequence} using the header's first whitespace token."""
+    seqs, name = {}, None
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith(">"):
+                name = line[1:].split()[0]
+                seqs[name] = ""
+            elif name is not None:
+                seqs[name] += line.strip()
+    return seqs
 
 
 @pytest.mark.parametrize("itype,fixture", list(CASES.items()))
@@ -98,3 +113,34 @@ def test_nifh_seed_annotated_correctly(itype, tmp_path):
     assert any("Fer4_NifH" in r for r in hits), (
         f"nifH query did not recover Fer4_NifH OG in {itype}: {hits}"
     )
+
+
+def test_md5_column(tmp_path):
+    """`--md5` appends a final `md5` column equal to md5(query sequence)."""
+    import hashlib
+
+    ann = _run("proteins", CASES["proteins"], str(tmp_path), extra=["--md5"])
+    seqs = _read_fasta(pjoin(FIX, CASES["proteins"]))
+
+    header, rows = None, []
+    with open(ann) as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            if not line or line.startswith("##"):
+                continue
+            if line.startswith("#query"):
+                header = line.split("\t")
+                continue
+            rows.append(line.split("\t"))
+
+    assert header is not None and header[-1] == "md5", (
+        f"--md5 did not add a trailing 'md5' header column: {header}"
+    )
+    assert rows, "no annotation rows produced with --md5"
+    for cols in rows:
+        query, got = cols[0], cols[-1]
+        assert query in seqs, f"query {query!r} not found in the input fixture"
+        want = hashlib.md5(seqs[query].encode()).hexdigest()
+        assert got == want, (
+            f"md5 mismatch for {query}: got {got}, expected md5(seq)={want}"
+        )
