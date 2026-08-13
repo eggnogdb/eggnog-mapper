@@ -1,634 +1,469 @@
-# eggnog-mapper Usage Guide
+# eggNOG-mapper v3 — Usage
 
-## Overview
+Fast functional annotation of novel sequences (proteins, CDS, genomes,
+metagenomes) using precomputed **eggNOG 7** orthology assignments. eggNOG-mapper
+transfers GO terms, KEGG orthologs/pathways/modules, EC numbers, PFAM domains,
+CAZy families, BiGG reactions and more from fine-grained orthologs, which is more
+precise than transferring annotations from best-match homologs.
 
-eggnog-mapper is a tool for functional annotation of novel sequences (proteins,
-CDS, genomes, or metagenomes) using precomputed eggNOG orthology assignments.
-It maps query sequences to eggNOG orthologous groups (OGs) via fast sequence
-searches, then transfers functional annotations — GO terms, KEGG pathways, Pfam
-domains, EC numbers, and more — from known orthologs.
+> **Version:** this document tracks eggNOG-mapper **v3** (eggNOG DB **v7**).
+> `v3` requires v7 databases; it does **not** work with eggNOG 5 data.
 
-## Quick Start
+## Contents
 
-### 1. Install databases
+- [Three ways to run](#three-ways-to-run)
+- [Basic usage](#basic-usage)
+- [Databases](#databases)
+- [Output files](#output-files)
+- [Verify your install (`--selftest`)](#verify-your-install---selftest)
+- [Apptainer / Singularity](#apptainer--singularity)
+- [Advanced usage](#advanced-usage)
+- [Maximum performance on HPC clusters](#maximum-performance-on-hpc-clusters)
+- [Data & image downloads](#data--image-downloads)
+- [Citation](#citation)
+
+---
+
+## Three ways to run
+
+| | Best for | Install | Compute |
+|---|---|---|---|
+| **① Free web service** | small jobs, no setup | none | on our servers |
+| **② Apptainer image** | reproducible / HPC | one `.sif` file | your machine/cluster |
+| **③ pip / source** | integration, dev | Python + deps + DBs | your machine/cluster |
+
+### ① Free cloud service — no install
+
+For small to moderate jobs, run online for free (no download, no install):
+
+**➡️ https://eggnog-mapper.cgmlab.org**
+
+Upload your FASTA, pick options, and download results. Ideal for a handful of
+genomes/proteomes when you don't want to host the ~45 GB database.
+
+### ② Apptainer image (recommended for clusters)
+
+A single self-contained image bundles emapper **and** all search tools
+(DIAMOND, MMseqs2, HMMER, Prodigal). See
+[Apptainer / Singularity](#apptainer--singularity).
 
 ```bash
-# Download the default eggNOG 7 databases (annotation DB + DIAMOND DB + taxonomy DB)
-python download_eggnog_data.py -y
+# get the image (see the downloads section for the exact URL)
+apptainer run eggnog-mapper-3.0.0.sif emapper.py --version
 ```
 
-Data is versioned by **MAJOR.MINOR** on the server
-(`data.cgmlab.org/eggnog-mapper/emapper-<MAJOR.MINOR>/`, e.g. `emapper-3.0/`):
+### ③ pip / from source
 
-- **MAJOR** pins the eggNOG DB version — the **v3** series uses **eggNOG 7**.
+```bash
+# from a source checkout
+python -m pip install .
+# or editable, for development
+python -m pip install -e .
+```
+Requires Python ≥ 3.9 and the search binaries on `PATH` (`diamond`, and
+optionally `mmseqs`, `prodigal`, `hmmer`). Then fetch the databases (below).
+
+---
+
+## Basic usage
+
+Every run needs an **input FASTA** (`-i`), an **output prefix** (`-o`), and the
+**databases** (via `--data_dir` or the `EGGNOG_DATA_DIR` environment variable).
+
+```bash
+# Proteins (the default input type)
+emapper.py -i proteins.faa -o my_run --data_dir /path/to/data --cpu 8
+```
+
+The input type is set with `--itype`:
+
+```bash
+# Coding sequences (CDS) — auto-translated before the protein search
+emapper.py -i cds.fna --itype CDS -o my_run --data_dir DATA --cpu 8
+
+# A genome — genes are predicted, then annotated
+emapper.py -i genome.fna --itype genome -o my_run --data_dir DATA --cpu 8
+
+# A metagenome assembly
+emapper.py -i contigs.fna --itype metagenome -o my_run --data_dir DATA --cpu 8
+```
+
+Common options:
+
+| option | meaning |
+|---|---|
+| `-i FILE` | input FASTA (proteins by default) |
+| `--itype {proteins,CDS,genome,metagenome}` | input type (default `proteins`) |
+| `-o PREFIX` | output file prefix (required) |
+| `--output_dir DIR` | where outputs go (default: current dir) |
+| `--data_dir DIR` | database directory (or set `EGGNOG_DATA_DIR`) |
+| `--cpu N` | threads (`--cpu 0` = all cores; default 1) |
+| `--resume` | continue a previous run, skipping finished work |
+| `--override` | overwrite existing output files |
+
+> **Tip — a genome or contigs, not proteins?** Use `--itype genome` (one
+> organism) or `--itype metagenome` (mixed community). Gene prediction runs
+> automatically.
+
+---
+
+## Databases
+
+Databases are versioned by **MAJOR.MINOR** on the server and pinned to the
+eggNOG DB version:
+
+- **MAJOR** = eggNOG DB version → **v3 uses eggNOG 7**.
 - A **MINOR** bump (`3.0` → `3.1`) means the DB structure or annotation sources
-  changed, so the databases must be re-downloaded.
-- **PATCH** releases (`3.0.0` → `3.0.1`) change emapper code only; the whole
-  `3.0.x` series reuses the same databases and self-test data.
+  changed — **you must re-download data**.
+- **PATCH** releases (`3.0.0` → `3.0.1`) change only emapper code; the whole
+  `3.0.x` series **reuses the same `emapper-3.0/` data**.
 
-`download_eggnog_data.py` derives the folder from this emapper's MAJOR.MINOR
-automatically (override with `--release 3.0`). Downloadable AppImages live under
-the same `emapper-<MAJOR.MINOR>/` folder.
-
-### 2. Annotate protein sequences
+### Download
 
 ```bash
-# Basic protein annotation using DIAMOND (default)
-python emapper.py -i my_proteins.fasta -o my_output
-
-# Use multiple CPUs
-python emapper.py -i my_proteins.fasta -o my_output --cpu 8
-```
-
-### 3. Annotate a genome
-
-```bash
-# Gene prediction + annotation from a genome FASTA
-python emapper.py -i genome.fna --itype genome -o my_output --cpu 8
-
-# Using Prodigal for gene prediction instead of the default blastx-based method
-python emapper.py -i genome.fna --itype genome --genepred prodigal -o my_output --cpu 8
-```
-
-### 4. Quick test run
-
-```bash
-# Run against the bundled test database (no downloads needed)
-python emapper.py --db e5-test -i tests/fixtures/test_queries.fa -o test_run --output_dir /tmp
-```
-
-### Output files
-
-| File                          | Contents                                          |
-|-------------------------------|---------------------------------------------------|
-| `*.emapper.seed_orthologs`    | Best hits (seed orthologs) from the search phase   |
-| `*.emapper.annotations`       | Full functional annotations (TSV)                  |
-| `*.emapper.orthologs`         | Orthologs per query (if `--report_orthologs`)      |
-| `*.emapper.pfam`              | Pfam domain predictions (if `--pfam_realign`)      |
-| `*.emapper.genepred.fasta`    | Predicted proteins (genome/metagenome input)       |
-| `*.emapper.genepred.gff`      | Gene prediction GFF (genome/metagenome input)      |
-| `*.emapper.decorated.gff`     | GFF with annotations (if `--decorate_gff`)         |
-
----
-
-## Detailed / Advanced Usage
-
-### Search Modes
-
-eggnog-mapper supports several search engines, selected with `-m`:
-
-```bash
-# DIAMOND (default, fast and sensitive)
-python emapper.py -m diamond -i seqs.fa -o out
-
-# MMseqs2 (fast, good for very large datasets)
-python emapper.py -m mmseqs -i seqs.fa -o out
-
-# HMMER (profile-based, most accurate for specific taxonomic groups)
-python emapper.py -m hmmer -i seqs.fa -d bact -o out
-
-# Novel families (for uncharacterized protein families)
-python emapper.py -m novel_fams -i seqs.fa -o out
-
-# No search: re-annotate a previous seed_orthologs file
-python emapper.py -m no_search --annotate_hits_table prev.emapper.seed_orthologs -o out
-
-# Cache-based annotation
-python emapper.py -m cache -i seqs.fa -c cache_file.txt -o out
-```
-
-### Database Backend Selection
-
-The `--db` option selects which database backend to use. This determines the
-data directory where all database files are looked up:
-
-```bash
-# Default: use the full eggNOG 5 databases in data/
-python emapper.py --db eggnog5 -i seqs.fa -o out
-
-# Use the bundled test database (tiny, for CI/testing)
-python emapper.py --db e5-test -i tests/fixtures/test_queries.fa -o out --output_dir /tmp
-```
-
-The precedence for database path resolution is:
-
-    --data_dir  >  EGGNOG_DATA_DIR env var  >  --db  >  default (eggnog5)
-
-You can always override with `--data_dir` to point to a custom database
-directory, regardless of `--db`:
-
-```bash
-python emapper.py --data_dir /path/to/my/custom/data -i seqs.fa -o out
-```
-
-### Input Types
-
-```bash
-# Protein sequences (default)
-python emapper.py -i proteins.fa --itype proteins -o out
-
-# CDS (coding DNA sequences)
-python emapper.py -i cds.fna --itype CDS -o out
-
-# CDS translated to proteins before search
-python emapper.py -i cds.fna --itype CDS --translate -o out
-
-# Genome
-python emapper.py -i genome.fna --itype genome -o out
-
-# Metagenome
-python emapper.py -i metagenome.fna --itype metagenome -o out
-```
-
-### Gene Prediction (for genome/metagenome inputs)
-
-When using `--itype genome` or `--itype metagenome`, genes must be predicted
-before annotation:
-
-```bash
-# Blastx-based gene prediction (default): infers genes from DIAMOND/MMseqs2 hits
-python emapper.py -i genome.fna --itype genome --genepred search -o out
-
-# Prodigal-based gene prediction
-python emapper.py -i genome.fna --itype genome --genepred prodigal -o out
-
-# Prodigal with a training genome
-python emapper.py -i genome.fna --itype genome --genepred prodigal \
-    --training_genome reference.fna -o out
-
-# Control overlap handling in blastx-based prediction
-python emapper.py -i genome.fna --itype metagenome --genepred search \
-    --allow_overlaps diff_frame --overlap_tol 0.5 -o out
-```
-
-### Taxonomic Scope and Ortholog Filtering
-
-Taxonomic scope controls which clades are used for functional transfer by
-setting an `ev_lca` ceiling on speciation events:
-
-```bash
-# Auto-narrow: walk seed's lineage from leaf up, use narrowest matching clade
-python emapper.py -i seqs.fa --tax_scope auto-narrow -o out
-
-# Auto-broad: walk seed's lineage, prioritize broad clades
-python emapper.py -i seqs.fa --tax_scope auto-broad -o out
-
-# Fix ceiling to a specific clade for all seeds
-python emapper.py -i seqs.fa --tax_scope Metazoa -o out
-python emapper.py -i seqs.fa --tax_scope 33208 -o out
-
-# Control donor pool strategy (default: closest; alternative: union)
-python emapper.py -i seqs.fa --donor_pool union -o out
-
-# Only use one-to-one orthologs for annotation
-python emapper.py -i seqs.fa --target_orthologs one2one -o out
-
-# Restrict annotation to specific target taxa
-python emapper.py -i seqs.fa --target_taxa 9606,10090 -o out
-
-# Exclude specific taxa from annotation
-python emapper.py -i seqs.fa --excluded_taxa 9606 -o out
-```
-
-### v7 Batch Annotation
-
-When eggnog-mapper uses the v7 annotation engine (`batch_annotate.py`), it
-delegates to `eggnog_annotator.e7.AnnotationEngine` for bulk ortholog lookup and
-functional annotation transfer. This path is active when the database backend
-is `eggnog5` (the default) and `--no_annot` is not set.
-
-#### `--target-orthologs`
-
-Controls which orthology relationship types are used for annotation transfer.
-
-| Value | Description |
-|-------|-------------|
-| `all` | Use all orthologs regardless of relationship type (default) |
-| `one2one` | Only strict one-to-one orthologs |
-| `one2many` | One-to-many orthologs (gene duplication on target side) |
-| `many2one` | Many-to-one orthologs (gene duplication on query side) |
-| `many2many` | Many-to-many orthologs |
-
-Orthology type is determined per speciation event from the unfiltered side
-sizes stored in `sp_events`. All five keys are classified for every event;
-`--target-orthologs` then filters the `annot_orthologs` output column to
-retain only events of the selected type.
-
-```bash
-# Annotate using only strict one-to-one orthologs
-python emapper.py -i seqs.fa --target_orthologs one2one -o out
-
-# Default: use all ortholog types
-python emapper.py -i seqs.fa --target_orthologs all -o out
-```
-
-### DIAMOND Tuning
-
-```bash
-# Ultra-sensitive search
-python emapper.py -i seqs.fa --sensmode ultra-sensitive -o out
-
-# Iterative search (starts fast, increases sensitivity)
-python emapper.py -i seqs.fa --dmnd_iterate yes --sensmode very-sensitive -o out
-
-# Small query optimization
-python emapper.py -i small_set.fa --dmnd_algo ctg -o out
-
-# Use a custom DIAMOND database
-python emapper.py -i seqs.fa --dmnd_db /path/to/custom.dmnd -o out
-
-# Enable frameshift-aware alignment (for error-prone sequences)
-python emapper.py -i seqs.fa --dmnd_frameshift 15 -o out
-
-# Tune memory/performance
-python emapper.py -i seqs.fa --block_size 4.0 --index_chunks 1 -o out --cpu 16
-```
-
-### MMseqs2 Tuning
-
-```bash
-# Custom sensitivity ramp
-python emapper.py -m mmseqs -i seqs.fa --start_sens 1 --sens_steps 5 --final_sens 9 -o out
-
-# Custom database and substitution matrix
-python emapper.py -m mmseqs -i seqs.fa --mmseqs_db /path/to/db --mmseqs_sub_mat blosum62.out -o out
-```
-
-### HMMER Usage
-
-```bash
-# Search against a specific taxonomic-level HMM database
-python emapper.py -m hmmer -i seqs.fa -d bact -o out
-
-# Load database into memory for faster searches
-python emapper.py -m hmmer -i seqs.fa -d bact --usemem -o out
-
-# Use a remote HMMER server
-python emapper.py -m hmmer -i seqs.fa -d mydb:hostname:51700 -o out
-
-# Multiple servers and workers
-python emapper.py -m hmmer -i seqs.fa -d bact --usemem \
-    --num_servers 2 --num_workers 4 --cpu 8 -o out
-```
-
-### Pfam Domain Annotation
-
-```bash
-# Realign queries to Pfam domains found via orthology transfer
-python emapper.py -i seqs.fa --pfam_realign realign -o out
-
-# De novo Pfam search against the entire Pfam database
-python emapper.py -i seqs.fa --pfam_realign denovo -o out
-```
-
-### Search Filtering
-
-```bash
-# Filter by identity and coverage
-python emapper.py -i seqs.fa --pident 40 --query_cover 60 --subject_cover 60 -o out
-
-# Stricter e-value and score thresholds
-python emapper.py -i seqs.fa --evalue 1e-10 --score 100 -o out
-
-# Adjust seed ortholog thresholds for annotation
-python emapper.py -i seqs.fa --seed_ortholog_evalue 1e-5 --seed_ortholog_score 60 -o out
-```
-
-### Output Options
-
-```bash
-# Also produce Excel output
-python emapper.py -i seqs.fa -o out --excel
-
-# Report orthologs used for annotation
-python emapper.py -i seqs.fa -o out --report_orthologs
-
-# Include MD5 hash of each query
-python emapper.py -i seqs.fa -o out --md5
-
-# No header/comment lines in output files
-python emapper.py -i seqs.fa -o out --no_file_comments
-
-# Use a scratch directory for faster I/O on network filesystems
-python emapper.py -i seqs.fa -o out --scratch_dir /local/scratch --output_dir /nfs/results
-
-# Decorate a GFF file with annotations
-python emapper.py -i genome.fna --itype genome --decorate_gff yes -o out
-```
-
-### Resuming and Overriding
-
-```bash
-# Resume a previous run (skip already-computed results)
-python emapper.py -i seqs.fa -o out --resume
-
-# Force overwrite of existing output files
-python emapper.py -i seqs.fa -o out --override
-```
-
-### Downloading Databases
-
-```bash
-# Download everything (annotation DB + DIAMOND + taxonomy)
-python download_eggnog_data.py -y
-
-# Skip DIAMOND database download
-python download_eggnog_data.py -y -D
-
-# Also install MMseqs2 database
-python download_eggnog_data.py -y -M
-
-# Also install Pfam database (required for --pfam_realign)
-python download_eggnog_data.py -y -P
-
-# Install novel families databases
-python download_eggnog_data.py -y -F
-
-# Install HMMER database for Bacteria
-python download_eggnog_data.py -y -H -d 2 --dbname Bacteria
-
-# Download to a custom directory
+# Core databases: annotation DB + DIAMOND DB + taxonomy (+ prebuilt caches)
 python download_eggnog_data.py -y --data_dir /path/to/data
-
-# Simulate (show commands without downloading)
-python download_eggnog_data.py -s
 ```
 
-### Creating Custom Databases
+`download_eggnog_data.py` derives the folder (`emapper-<MAJOR.MINOR>/`)
+automatically from your emapper version. Flags:
 
-Use `create_dbs.py` to build DIAMOND or MMseqs2 databases from a subset of
-eggNOG proteins filtered by taxonomy:
+| flag | effect |
+|---|---|
+| *(default)* | annotation DB, DIAMOND DB, taxonomy, GO OBO, prebuilt caches |
+| `-D` | **skip** the DIAMOND DB (e.g. you'll only use MMseqs2) |
+| `-M` | also install the **MMseqs2** DB (optional; large — see below) |
+| `-P` | also install the **Pfam** DB (for `--pfam_realign`) |
+| `-y` | assume "yes" |
+| `-f` | force re-download |
+| `--release 3.0` | pin a specific MAJOR.MINOR data release |
+| `--data_dir DIR` | where to install |
 
-```bash
-# Create a DIAMOND database for Bacteria and Archaea
-python create_dbs.py -y --dbname my_prok --taxa Bacteria,Archaea -m diamond
+**Approximate sizes (core):** annotation DB ~22 GB, DIAMOND DB ~23 GB,
+taxonomy + GO OBO + caches < 0.4 GB → **~45 GB total**. Optional MMseqs2 DB
+adds ~25 GB; Pfam is separate.
 
-# Create an MMseqs2 database for specific tax IDs
-python create_dbs.py -y --dbname my_custom --taxids 2,2157 -m mmseqs
-```
+The download includes two prebuilt caches placed next to `eggnog.db`
+(`eggnog.db.taxids.bin`, `eggnog.db.fieldpresence.bin`) so your **first run
+starts instantly** instead of rebuilding them.
 
 ---
 
-## Reference: All Options
+## Output files
 
-### General
+Written as `<output_dir>/<prefix>.emapper.<suffix>`:
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-v`, `--version` | | Show version and exit |
-| `--list_taxa` | | List available taxonomic scopes and exit |
+| file | contents |
+|---|---|
+| `.annotations` | the main functional-annotation table (TSV, 22 columns) |
+| `.annotations.xlsx` | same, as Excel (only with `--excel`) |
+| `.seed_orthologs` | the DIAMOND/MMseqs2 seed-ortholog hits |
+| `.hits` | raw search hits |
+| `.orthologs` | per-query ortholog list (only with `--report_orthologs`) |
+| `.gff` | gene predictions / decorated GFF (genome/metagenome, or `--decorate_gff`) |
+| `.dropped` | queries dropped + reason (only with `--report_dropped`) |
 
-### Execution
+### The `.annotations` columns
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--cpu NUM` | `1` | Number of CPUs (0 = all available) |
-| `--mp_start_method` | `spawn` | Python multiprocessing start method (`fork`, `spawn`, `forkserver`) |
-| `--resume` | off | Resume a previous run, skipping existing results |
-| `--override` | off | Overwrite existing output files |
-
-### Input Data
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-i FILE` | | Input FASTA file (required unless `-m no_search`) |
-| `--itype` | `proteins` | Input type: `proteins`, `CDS`, `genome`, `metagenome` |
-| `--translate` | off | Translate CDS to proteins before search |
-| `--annotate_hits_table FILE` | | Annotate an existing seed_orthologs file (requires `-m no_search`) |
-| `-c`, `--cache FILE` | | Cache file for `-m cache` mode |
-| `--db BACKEND` | `eggnog5` | Database backend (`eggnog5`, `e5-test`). Overridden by `--data_dir` |
-| `--data_dir DIR` | | Custom path to database directory. Overrides `--db` and `EGGNOG_DATA_DIR` |
-
-### Gene Prediction
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--genepred` | `search` | Gene prediction method: `search` (blastx-based) or `prodigal` |
-| `--trans_table CODE` | program default | Genetic code table for Prodigal / DIAMOND / MMseqs2 |
-| `--training_genome FILE` | | Genome for Prodigal training mode |
-| `--training_file FILE` | | Pre-existing Prodigal training file |
-| `--allow_overlaps` | `none` | Overlap handling: `none`, `strand`, `diff_frame`, `all` |
-| `--overlap_tol FLOAT` | `0.0` | Overlap tolerance (0.0–1.0) |
-
-### Search Mode
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-m MODE` | `diamond` | Search mode: `diamond`, `mmseqs`, `hmmer`, `no_search`, `cache`, `novel_fams` |
-
-### Search Filtering (DIAMOND / MMseqs2)
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--pident FLOAT` | none | Min percent identity (0–100) |
-| `--query_cover FLOAT` | none | Min query coverage (0–100) |
-| `--subject_cover FLOAT` | none | Min subject coverage (0–100) |
-| `--evalue FLOAT` | `0.001` | Max e-value threshold |
-| `--score FLOAT` | none | Min bit score threshold |
-
-### DIAMOND Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--dmnd_db FILE` | auto | Path to custom DIAMOND database |
-| `--sensmode` | `sensitive` | Sensitivity: `fast`, `default`, `mid-sensitive`, `sensitive`, `more-sensitive`, `very-sensitive`, `ultra-sensitive` |
-| `--dmnd_iterate` | `no` | Iterative search (`yes` / `no`) |
-| `--dmnd_algo` | `auto` | Algorithm: `auto`, `0`, `1`, `ctg` |
-| `--matrix` | none | Scoring matrix: `BLOSUM62`, `BLOSUM90`, `BLOSUM80`, `BLOSUM50`, `BLOSUM45`, `PAM250`, `PAM70`, `PAM30` |
-| `--dmnd_frameshift INT` | none | Frameshift penalty (recommended: 15) |
-| `--gapopen INT` | none | Gap open penalty |
-| `--gapextend INT` | none | Gap extend penalty |
-| `--block_size FLOAT` | diamond default | DIAMOND `-b` block size |
-| `--index_chunks INT` | diamond default | DIAMOND `-c` index chunks |
-| `--outfmt_short` | off | Minimal DIAMOND output (qseqid, sseqid, evalue, score only) |
-| `--dmnd_ignore_warnings` | off | Ignore DIAMOND warnings |
-
-### MMseqs2 Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--mmseqs_db FILE` | auto | Path to custom MMseqs2 database |
-| `--start_sens FLOAT` | `3` | Starting sensitivity |
-| `--sens_steps INT` | `3` | Number of sensitivity steps |
-| `--final_sens FLOAT` | `7` | Final sensitivity |
-| `--mmseqs_sub_mat` | mmseqs2 default | Substitution matrix |
-
-### HMMER Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-d`, `--database DB` | | HMMER database: `euk`, `bact`, `arch`, or `db.hmm:host:port` |
-| `--servers_list FILE` | | File with `host:port` entries for remote servers |
-| `--qtype` | `seq` | Query type: `seq` or `hmm` |
-| `--dbtype` | `hmmdb` | Database type: `hmmdb` or `seqdb` |
-| `--usemem` | off | Load HMMER database into memory |
-| `-p`, `--port PORT` | `51700` | Starting port for HMM server |
-| `--end_port PORT` | `53200` | Last port for HMM server |
-| `--num_servers INT` | `1` | Number of hmmpgmd servers |
-| `--num_workers INT` | `1` | Workers per server |
-| `--timeout_load_server INT` | `10` | Attempts to load a server on a port before trying the next |
-| `--hmm_maxhits INT` | `1` | Max hits to report (0 = all) |
-| `--report_no_hits` | off | Include queries without hits in output |
-| `--hmm_maxseqlen INT` | `5000` | Skip queries longer than this |
-| `--Z FLOAT` | `40000000` | Fixed database size for e-value calculation |
-| `--cut_ga` | off | Use Pfam gathering thresholds |
-| `--clean_overlaps` | none | Remove overlapping hits: `none`, `all`, `clans`, `hmmsearch_all`, `hmmsearch_clans` |
-
-### Annotation Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--no_annot` | off | Skip annotation, report search hits only |
-| `--dbmem` | off | Load `eggnog.db` into memory (~45 GB RAM) |
-| `--seed_ortholog_evalue FLOAT` | `0.001` | Min e-value for seed ortholog acceptance |
-| `--seed_ortholog_score FLOAT` | none | Min bit score for seed ortholog acceptance |
-| `--tax_scope` | `auto-narrow` | Tax ceiling: `auto-narrow` (default), `auto-broad`, or clade name/taxid (e.g. `Metazoa`, `33208`) |
-| `--donor_pool` | `closest` | Donor pool strategy: `closest` (first non-empty tier) or `union` (all tiers) |
-| `--target_orthologs` | `all` | Ortholog types: `one2one`, `many2one`, `one2many`, `many2many`, `all` |
-| `--target_taxa LIST` | none | Restrict to specific taxa (comma-separated tax IDs) |
-| `--excluded_taxa LIST` | none | Exclude specific taxa (comma-separated tax IDs) |
-| `--report_orthologs` | off | Output orthologs to a `.orthologs` file |
-| `--go_evidence` | `non-electronic` | GO evidence filter: `experimental`, `non-electronic`, `all` |
-| `--pfam_realign` | `none` | Pfam realignment: `none`, `realign`, `denovo` |
-| `--md5` | off | Add MD5 hash of each query to output |
-
-### Output Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-o`, `--output PREFIX` | | Base name for output files |
-| `--output_dir DIR` | current dir | Output directory |
-| `--scratch_dir DIR` | | Temporary scratch directory (for network filesystems) |
-| `--temp_dir DIR` | current dir | Directory for temporary files |
-| `--no_file_comments` | off | Omit header and stats from output files |
-| `--decorate_gff` | `no` | Decorate GFF: `no`, `yes` (from gene prediction), or path to GFF file |
-| `--decorate_gff_ID_field` | `ID` | GFF field used as feature ID |
-| `--excel` | off | Also output annotations in `.xlsx` format |
-
-### download_eggnog_data.py Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-D` | off | Skip DIAMOND database download |
-| `-F` | off | Install novel families databases |
-| `-P` | off | Install Pfam database |
-| `-M` | off | Install MMseqs2 database |
-| `-H` | off | Install HMMER database (requires `-d`) |
-| `-d TAXID` | | Tax ID for HMMER database download |
-| `--dbname NAME` | | Name for the HMMER database directory |
-| `--db BACKEND` | `eggnog5` | Database backend |
-| `--data_dir DIR` | | Custom data directory |
-| `-y` | off | Assume "yes" to all prompts |
-| `-f` | off | Force re-download |
-| `-s` | off | Simulate (print commands, don't download) |
-| `-q` | off | Quiet mode |
-
-### create_dbs.py Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `-m MODE` | `diamond` | Database type to create: `diamond` or `mmseqs` |
-| `--dbname NAME` | | Prefix name for the output database (required) |
-| `--taxids LIST` | | Comma-separated tax IDs to include |
-| `--taxa LIST` | | Comma-separated taxon names to include |
-| `-x` | off | Skip MMseqs2 index creation |
-| `--db BACKEND` | `eggnog5` | Database backend |
-| `--data_dir DIR` | | Custom data directory |
-| `-y` | off | Assume "yes" to all prompts |
-| `-s` | off | Simulate mode |
-
----
-
-## Annotation Output Columns
-
-The `*.emapper.annotations` file is a TSV with the following 22 columns:
-
-| # | Column | Description |
-|---|--------|-------------|
-| 1 | `query` | Query sequence name |
-| 2 | `seed_ortholog` | Best matching eggNOG protein |
-| 3 | `evalue` | E-value of the seed ortholog hit |
-| 4 | `score` | Bit score of the seed ortholog hit |
-| 5 | `eggNOG_OGs` | Orthologous groups at different taxonomic levels (comma-separated `OG@taxid|level`) |
-| 6 | `tax_ceiling` | Resolved taxonomic ceiling clade name for this seed |
-| 7 | `farthest_donor_lineage` | Lineage of the most distant donor ortholog used (semicolon-separated, root to leaf) |
-| 8 | `COG_category` | COG functional category letter(s) |
-| 9 | `Preferred_name` | Short gene name |
-| 10 | `GOs` | Gene Ontology terms (comma-separated) |
+| # | column | description |
+|--:|---|---|
+| 1 | `query` | your input sequence id |
+| 2 | `seed_ortholog` | best eggNOG hit (the seed) |
+| 3 | `evalue` | seed alignment e-value |
+| 4 | `score` | seed alignment bit-score |
+| 5 | `eggNOG_OGs` | orthologous groups the seed belongs to, at all levels |
+| 6 | `tax_ceiling` | resolved taxonomic ceiling used for the transfer |
+| 7 | `farthest_donor_lineage` | lineage of the most distant donor ortholog used |
+| 8 | `COG_category` | functional category |
+| 9 | `Preferred_name` | consensus gene name |
+| 10 | `GOs` | Gene Ontology terms |
 | 11 | `EC` | Enzyme Commission numbers |
-| 12 | `KEGG_ko` | KEGG orthology identifiers |
-| 13 | `KEGG_Pathway` | KEGG pathway maps |
+| 12 | `KEGG_ko` | KEGG orthologs |
+| 13 | `KEGG_Pathway` | KEGG pathways |
 | 14 | `KEGG_Module` | KEGG modules |
 | 15 | `KEGG_Reaction` | KEGG reactions |
 | 16 | `KEGG_rclass` | KEGG reaction classes |
-| 17 | `BRITE` | KEGG BRITE hierarchies |
-| 18 | `KEGG_TC` | Transporter Classification |
-| 19 | `CAZy` | Carbohydrate-Active Enzymes |
-| 20 | `BiGG_Reaction` | BiGG metabolic reactions |
-| 21 | `PFAMs` | Pfam domain identifiers |
-| 22 | `annotation_confidence` | Fixed-width positional string (13 chars). One char per functional-annotation column in ANNOTATIONS_HEADER order. Codes: `h`=high, `m`=medium, `l`=low, `-`=not annotated. See "annotation_confidence encoding" below. |
+| 17 | `BRITE` | KEGG BRITE |
+| 18 | `KEGG_TC` | transporter classification |
+| 19 | `CAZy` | carbohydrate-active enzymes |
+| 20 | `BiGG_Reaction` | BiGG model reactions |
+| 21 | `PFAMs` | PFAM domains |
+| 22 | `annotation_confidence` | per-field confidence (compact code — see below) |
 
----
+With `--md5` a final `md5` column (md5 of the query sequence) is appended.
 
-### annotation_confidence encoding
+**`annotation_confidence` — compact encoding.** To avoid repeating field names
+on every row, confidence is a **fixed positional string, one character per
+functional column** (columns 9–21, in order), decoded via the legend written
+into the output header:
 
-Column 22 uses a compact positional encoding where each character represents the
-confidence tier of one functional-annotation field, in the fixed order:
-`Preferred_name GOs EC KEGG_ko KEGG_Pathway KEGG_Module KEGG_Reaction KEGG_rclass BRITE KEGG_TC CAZy BiGG_Reaction PFAMs`
-
-**Confidence codes:**
-- `h` = high (1:1 ortholog or seed's own curated annotation)
-- `m` = medium (1:many or many:1 ortholog)
-- `l` = low (many:many ortholog)
-- `-` = field not annotated
-
-Codes are derived at runtime from `TIER_CONFIDENCE`, so future tier renaming
-propagates automatically without format changes.
-
-**When header legend is printed:**
-When `--no_file_comments` is OFF (default), three `##` comment lines in the
-output file document this encoding:
 ```
 ## annotation_confidence: one char per annotation field
 ## confidence codes: h=high m=medium l=low -=not annotated
 ## confidence field order: Preferred_name GOs EC KEGG_ko KEGG_Pathway KEGG_Module KEGG_Reaction KEGG_rclass BRITE KEGG_TC CAZy BiGG_Reaction PFAMs
 ```
 
-Users who pass `--no_file_comments` should reference this section to decode the
-string.
+e.g. `hlhhhh--h---h` → `Preferred_name=high, GOs=low, EC=high, …, PFAMs=high`.
+Decode with `zip(field_order, string)`. Confidence reflects the cascade tier the
+value came from (closest donor = high).
 
-**Decoding example:**
+> `--no_file_comments` suppresses all `##` header lines (including this legend);
+> the field order is fixed and documented here.
 
-Fields and codes:
-```python
-ANNOTATIONS_HEADER = [
-    "Preferred_name", "GOs", "EC", "KEGG_ko", "KEGG_Pathway",
-    "KEGG_Module", "KEGG_Reaction", "KEGG_rclass", "BRITE",
-    "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs"
-]
+---
 
-confidence_codes = {"h": "high", "m": "medium", "l": "low"}
+## Verify your install (`--selftest`)
 
-def decode_confidence(s):
-    """Decode a 13-char confidence string into a dict."""
-    return {
-        field: confidence_codes[code]
-        for field, code in zip(ANNOTATIONS_HEADER, s)
-        if code != "-"
-    }
+One command downloads a tiny reference dataset and checks that your build
+reproduces the expected annotations for every input type:
+
+```bash
+emapper.py --selftest
+# or, from the Apptainer image:
+apptainer run eggnog-mapper-3.0.0.sif emapper.py --selftest
 ```
 
-For a row with `annotation_confidence = "hlhhhh--h---h"`:
-- Position 0 (Preferred_name): `h` (high)
-- Position 1 (GOs): `l` (low)
-- Position 2 (EC): `h` (high)
-- Position 3 (KEGG_ko): `h` (high)
-- Position 4 (KEGG_Pathway): `h` (high)
-- Position 5 (KEGG_Module): `h` (high)
-- Position 6 (KEGG_Reaction): `-` (not annotated)
-- Position 7 (KEGG_rclass): `-` (not annotated)
-- Position 8 (BRITE): `h` (high)
-- Positions 9–12: `-` (not annotated)
-- Position 12 (PFAMs): `h` (high)
+It exits non-zero if anything mismatches. If you already have the bundle
+locally, point at it and skip the download: `emapper.py --selftest --data_dir /path/to/test_datasets`.
 
-Result: `{Preferred_name: high, GOs: low, EC: high, KEGG_ko: high, KEGG_Pathway: high, KEGG_Module: high, BRITE: high, PFAMs: high}`
+---
+
+## Apptainer / Singularity
+
+The image is fully self-contained: it bundles emapper **and** DIAMOND, MMseqs2,
+HMMER and Prodigal, so nothing else needs installing. Its run-script **is**
+`emapper.py`, so you pass emapper arguments straight through.
+
+### Run a prebuilt image
+
+```bash
+# annotate (bind your data dir + working dir as needed)
+apptainer run \
+  --bind /path/to/data:/data \
+  eggnog-mapper-3.0.0.sif \
+  -i proteins.faa -o my_run --itype proteins \
+  --data_dir /data --output_dir "$PWD" --cpu 8
+
+# verify the image end-to-end
+apptainer run eggnog-mapper-3.0.0.sif --selftest
+```
+
+Prebuilt images are published alongside the data — see
+[Data & image downloads](#data--image-downloads).
+
+### Build your own
+
+```bash
+cd apptainer
+./build.sh                 # release image from committed HEAD  -> eggnog-mapper-<version>.sif
+./build.sh --local         # dev image including uncommitted work -> eggnog-mapper-<version>-dev.sif
+```
+`build.sh` reads the version from `eggnogmapper/version.py` and can override tool
+versions (`./build.sh <emapper> <diamond> <mmseqs> <hmmer> <prodigal>`).
+Requires Apptainer ≥ 1.1.
+
+> Apptainer needs no root and honours cluster filesystems — ideal for HPC where
+> Docker isn't available. Bind your data dir and pass it with `--data_dir`.
+
+---
+
+## Advanced usage
+
+### Search backends
+
+```bash
+# DIAMOND (default) — fast, low memory, recommended
+emapper.py -i q.faa -m diamond -o out --data_dir DATA
+
+# MMseqs2 — optional; needs the MMseqs2 DB (download with -M)
+emapper.py -i q.faa -m mmseqs -o out --data_dir DATA
+
+# No search — annotate an existing seed-orthologs table
+emapper.py -m no_search --annotate_hits_table run.emapper.seed_orthologs \
+           -o out --data_dir DATA
+```
+
+> **DIAMOND vs MMseqs2:** both produce the same annotations. DIAMOND is
+> substantially **faster and lighter** at this DB scale and is the default;
+> MMseqs2 is provided for users who prefer it and must be downloaded separately.
+
+**Two-step (search once, annotate many ways):**
+
+```bash
+emapper.py -i q.faa -m diamond --no_annot -o step1 --data_dir DATA     # search only
+emapper.py -m no_search --annotate_hits_table step1.emapper.seed_orthologs \
+           -o step2 --data_dir DATA                                    # annotate
+```
+
+### Search sensitivity (DIAMOND)
+
+DIAMOND runs an **iterative** search by default: easy queries are caught fast,
+and only queries still unaligned escalate to higher sensitivity, up to a ceiling.
+
+```bash
+--dmnd_sensmode sensitive     # ceiling sensitivity (default); or fast / very-sensitive / …
+--dmnd_iterate {yes,no}       # iterative escalation (default yes); no = single pass
+--dmnd_algo ctg               # much faster for SMALL query sets (a few sequences)
+```
+
+### Gene prediction (genome / metagenome)
+
+```bash
+--genepred search             # default: genes inferred from blastx hits
+--genepred prodigal           # predict with Prodigal (supports training)
+--trans_table N               # genetic code
+--training_genome FILE / --training_file FILE   # Prodigal training
+```
+
+### Controlling the annotation transfer
+
+```bash
+--tax_scope auto              # per-seed ceiling (default): Eukaryota / Prokaryota
+--tax_scope Metazoa           # or a fixed clade name / NCBI taxid
+--tax_scope auto-broad        # broad-first (tries Metazoa before Eukaryota for animals)
+--donor_pool closest          # first non-empty cascade tier wins (default)
+--donor_pool union            # union across tiers
+--target_orthologs all        # one2one | many2one | one2many | many2many | all
+--target_taxa 2,2157          # restrict donors to these taxa (+descendants)
+--excluded_taxa 9606          # exclude donors from these taxa
+--annot_evalue 0.001          # seed significance thresholds
+--annot_score 60
+```
+
+### Extra outputs & QC
+
+```bash
+--report_orthologs            # write the per-query .orthologs file
+--md5                         # add md5(query sequence) column
+--excel                       # also write .xlsx (needs the xlsxwriter package)
+--report_dropped              # log dropped queries + reason (.dropped)
+--decorate_gff yes            # add hits/annotations to the GFF
+--no_file_comments            # omit ## header/stat lines
+```
+
+### PFAM realignment (optional, needs the Pfam DB `-P`)
+
+```bash
+--pfam_realign realign        # realign queries to domains transferred from orthologs
+--pfam_realign denovo         # realign against the whole Pfam DB
+```
+These spin up an internal `hmmpgmd` server (`--num_servers`, `--num_workers`,
+`--port`, `--end_port`).
+
+---
+
+## Maximum performance on HPC clusters
+
+eggNOG-mapper v3 is built for scale. A few facts drive the tuning below:
+
+- **Memory does not scale linearly with `--cpu`.** The large lookup structures
+  (the taxid array ~226 MB and the field-presence mask ~119 MB) are built once
+  and **copy-on-write shared** across worker processes (fork). Adding CPUs adds
+  little RAM.
+- **Redundant inputs are deduplicated.** Seeds are sorted and identical seeds
+  annotated once (result fanned out), removing ~3× redundant work on large
+  proteome/UniProt-scale sets. This is the default.
+- **Prebuilt caches ship with the DB** (`eggnog.db.taxids.bin`,
+  `eggnog.db.fieldpresence.bin`) so you don't pay the one-time mask build
+  (~50 min on the 59 M-protein DB) on first run.
+
+### 1. Use all cores, tune DIAMOND to node RAM
+
+```bash
+emapper.py -i q.faa -o out --data_dir DATA --cpu 0 \
+           --dmnd_block_size 8 --dmnd_index_chunks 1
+```
+`--dmnd_block_size`/`--dmnd_index_chunks` are **auto-picked from host RAM** when
+unset (bigger block + fewer chunks = faster, more RAM). On a high-memory node,
+forcing `--dmnd_block_size 8 --dmnd_index_chunks 1` keeps the whole DB resident.
+Rough DIAMOND peak RAM ≈ `block_size × 6 + db_size/index_chunks + threads × 0.5 GB`.
+
+### 2. Keep I/O off the network filesystem
+
+```bash
+--temp_dir  /local/scratch     # local SSD for temporary files
+--scratch_dir /local/scratch   # compute on local disk, move results to the final dir at the end
+```
+On NFS/Lustre this matters a lot. If you run many tasks per node, also consider
+copying the database to node-local scratch — the ~22 GB DB is memory-mapped and
+random reads over a network FS can dominate wall-time.
+
+### 3. Split huge inputs across array jobs
+
+```bash
+# split the FASTA, run one array task per chunk, then merge
+seqkit split2 -p 100 proteins.faa -O chunks/          # or any splitter
+# in each array task i:
+emapper.py -i chunks/part_$i.faa -o chunk_$i --data_dir DATA --cpu $SLURM_CPUS_ON_NODE
+# merge (keep a single header):
+head -n 100 chunk_1.emapper.annotations | grep '^#' > all.emapper.annotations
+grep -h -v '^#' chunk_*.emapper.annotations >> all.emapper.annotations
+```
+Alternatively, run the **search once** and fan out **annotation** with the
+two-step `no_search` workflow.
+
+### 4. Restart cheaply
+
+`--resume` continues an interrupted run, skipping already-written results (it
+refuses to resume across an output-schema change, telling you to `--override`).
+
+### 5. Containerised, no root
+
+Ship one `.sif` (all tools bundled), bind the data dir, and pass `--data_dir`.
+Great for schedulers where you can't install system packages:
+
+```bash
+apptainer run --bind $DATA:/data eggnog-mapper-3.0.0.sif \
+  -i q.faa -o out --data_dir /data --output_dir "$PWD" --cpu 0 \
+  --temp_dir /local/scratch --scratch_dir /local/scratch
+```
+
+---
+
+## Data & image downloads
+
+Everything lives under one MAJOR.MINOR folder:
+
+```
+https://data.cgmlab.org/eggnog-mapper/emapper-3.0/
+├── data/        # eggnog.db, eggnog_proteins.dmnd, taxonomy, go-basic.obo,
+│                #   prebuilt caches (taxids.bin, fieldpresence.bin),
+│                #   optional mmseqs.tar.gz
+├── selftest/    # eggnog-mapper-selftest.tar.gz  (used by --selftest)
+└── *.sif        # prebuilt Apptainer images (eggnog-mapper-3.0.x*.sif)
+```
+
+- Fetch databases with `download_eggnog_data.py` (it targets this folder
+  automatically for your version).
+- Fetch the image directly (e.g. `wget`/`curl`) and run it with `apptainer run`.
+- The self-test bundle is fetched automatically by `emapper.py --selftest`
+  (override the URL with `$EGGNOG_SELFTEST_URL`).
+
+> All `3.0.x` releases share the `emapper-3.0/` data. You only re-download data
+> when the **minor** version changes (e.g. `3.1`), which signals a database
+> update.
+
+---
+
+## Citation
+
+If you use eggNOG-mapper, please cite:
+
+- Cantalapiedra CP, Hernández-Plaza A, Letunic I, Bork P, Huerta-Cepas J.
+  **eggNOG-mapper v2: functional annotation, orthology assignments, and domain
+  prediction at the metagenomic scale.** *Mol Biol Evol* (2021).
+- Hernández-Plaza A, Deng Z, Robledo-Yagüe F, Szklarczyk D, von Mering C, Bork P,
+  Huerta-Cepas J. **eggNOG v7: phylogeny-based orthology predictions and
+  functional annotations.** *Nucleic Acids Res* (2026).
+- Buchfink B, Reuter K, Drost HG. **Sensitive protein alignments at tree-of-life
+  scale using DIAMOND.** *Nat Methods* (2021).
+
+The end-of-run message prints the exact emapper + eggNOG DB versions to cite for
+your run.
+
+---
+
+<sub>Publishing this page on **GitHub Pages**: enable Pages in the repository
+settings (Source: your default branch, folder `/` or `/docs`). This file renders
+as-is; to make it the landing page, copy it to `docs/index.md` (or symlink
+`README`→`USAGE`). No Jekyll config is required for a single Markdown page.</sub>
