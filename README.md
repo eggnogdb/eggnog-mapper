@@ -2,104 +2,109 @@
 
 # eggNOG-mapper v3
 
-**eggNOG-mapper** is a tool for fast functional annotation of novel sequences using
-precomputed orthologous groups and phylogenies from the
-[eggNOG database](https://doi.org/10.1093/nar/gkaf1249).
-Functional information is transferred exclusively from fine-grained orthologs,
-yielding higher precision than homology-based approaches (e.g. BLAST) by avoiding
-annotation transfer from close paralogs.
+**eggNOG-mapper** is a tool for fast functional annotation of novel sequences
+(proteins, CDS, genomes, metagenomes) using precomputed orthology data from the
+[eggNOG database](https://doi.org/10.1093/nar/gkaf1249). Functional terms — GO,
+KEGG orthologs/pathways/modules, EC numbers, PFAM domains, CAZy families, BiGG
+reactions and more — are transferred from fine-grained orthologs, which is more
+precise than best-hit/BLAST transfer because it avoids annotation from close
+paralogs.
 
-Common uses include annotation of novel genomes, transcriptomes, and metagenomic
-gene catalogs.
+> **v3 targets the eggNOG 7 database** (~59 million proteins across the tree of
+> life). It is **not** compatible with eggNOG 5 data. See **[USAGE.md](USAGE.md)**
+> for the complete manual (basic → advanced → HPC → containers).
 
-eggNOG-mapper is also available as a public web server: http://mapper.eggnogdb.org
+## Three ways to run
+
+| | Best for | Install |
+|---|---|---|
+| **① Free web service** — https://eggnog-mapper.cgmlab.org | small/moderate jobs, zero setup | none |
+| **② Apptainer/Singularity image** | reproducible runs, HPC clusters | one `.sif` (all tools bundled) |
+| **③ pip / from source** | pipelines, development | Python package + databases |
+
+Prebuilt images and databases: **https://data.cgmlab.org/eggnog-mapper/**
 
 ## What's new in v3
 
-v3 is a major release targeting the **eggNOG v7** database and a completely
-redesigned annotation engine.
+- **eggNOG 7 database** with integer-encoded orthology and phylogeny-aware
+  speciation events (~59M proteins). eggNOG 5 is no longer supported.
+- **Curated-only functional donors** — only manually curated terms are used as
+  annotation donors, stopping the propagation of automated misannotations, while
+  achieving better coverage than v2.
+- **Per-seed taxonomic ceiling** (`--tax_scope auto`, default) replaces the old
+  predefined scope lists; each seed narrows to its most informative level. Fixed
+  clades (`Metazoa`, `33208`, …) are still accepted.
+- **Cascade annotation engine** with a **lazy closest-cascade on by default** and
+  seed sorting + de-duplication — large speedups on redundant proteome/UniProt
+  scale inputs, byte-identical output.
+- **Compact 22-column output** with a positional `annotation_confidence` field
+  (per-source confidence, documented in the header). See
+  [USAGE › Output files](USAGE.md#output-files).
+- **`--selftest`** — one command downloads a tiny reference set and verifies the
+  install reproduces the expected annotations.
+- **Self-contained Apptainer image** bundling DIAMOND, MMseqs2, HMMER and
+  Prodigal (`apptainer/build.sh`).
+- **Optional MMseqs2 backend**, gzip/bzip2 input autodetection, Cython-accelerated
+  inner loops, and `--resume` for interrupted runs.
 
-- **eggNOG v7 database** with integer-encoded orthology, phylogeny-aware speciation
-  events, and ~12M proteins across ~10k taxa. eggNOG v5 databases are no longer
-  supported.
-- **Curated-only functional donors**: only manually curated functional terms
-  (from SwissProt and equivalent curated sources) are used as annotation donors.
-  This stops the propagation of misannotations inherited from automated pipelines.
-  Despite the stricter source requirements, v3 achieves better annotation coverage
-  than v2.
-- **Per-seed taxonomic ceiling** replaces the old `--tax_scope` predefined
-  scope lists. Each query seed gets its own `ev_lca`-based ceiling automatically
-  narrowed to the most informative phylogenetic level (`--tax_scope auto`,
-  default). Fixed clades (`Metazoa`, `33208`, etc.) are still accepted.
-- **Cascade annotation engine**: for each functional source (GO, KEGG, Pfam,
-  EC, ...) donors are walked from closest and best-typed first, with the seed's own
-  curated annotation as the strongest tier-0 donor.
-- **No bundled binaries** — DIAMOND, HMMER, MMseqs2, and Prodigal must be
-  installed externally (see Requirements below). The wheel shrinks from ~150 MB
-  to ~5 MB and cross-platform installs (macOS, Windows) now work.
-- **Compressed input** — gzip and bzip2 FASTA inputs are autodetected by magic
-  bytes.
-- **Parallel annotation** — `--cpu N` parallelises both search and annotation.
-- **Cython-accelerated inner loops** — `_codec` and `_collect_inner` extensions
-  give ~2–3× speedup on the annotation phase.
-- **`--resume`** — safely resumes an interrupted run, reusing the existing hits
-  file.
-- **Apptainer/Singularity image** — a self-contained HPC image is provided via
-  `apptainer/build.sh`.
-
-## Requirements
-
-- Python ≥ 3.9
-- At least one search backend:
-
-| Tool | Install |
-|------|---------|
-| [DIAMOND](https://github.com/bbuchfink/diamond) | `conda install -c bioconda diamond` |
-| [HMMER](http://hmmer.org) | `conda install -c bioconda hmmer` |
-| [MMseqs2](https://github.com/soedinglab/MMseqs2) | `conda install -c bioconda mmseqs2` |
-| [Prodigal](https://github.com/hyattpd/Prodigal) | `conda install -c bioconda prodigal` (gene prediction only) |
-
-## Installation
+## Install
 
 ```bash
 pip install eggnog-mapper
-```
-
-Or from source:
-
-```bash
+# or from source:
 git clone https://github.com/eggnogdb/eggnog-mapper.git
-cd eggnog-mapper
-pip install .
+cd eggnog-mapper && pip install .
 ```
 
-### Download the eggNOG v7 database
+Requires **Python ≥ 3.9** and the search tools on `PATH`:
+
+| tool | role | in v3 |
+|---|---|---|
+| [DIAMOND](https://github.com/bbuchfink/diamond) | seed search | **default backend** |
+| [MMseqs2](https://github.com/soedinglab/MMseqs2) | seed search | optional backend (`-m mmseqs`) |
+| [Prodigal](https://github.com/hyattpd/Prodigal) | gene prediction | genome/metagenome input |
+| [HMMER](http://hmmer.org) | domain realignment | only for `--pfam_realign` |
+
+Install e.g. `conda install -c bioconda diamond mmseqs2 prodigal hmmer`.
+**All of these are bundled in the Apptainer image** — nothing to install there.
+
+### Databases
 
 ```bash
-download_eggnog_data.py --data_dir /path/to/eggnog-data
+python download_eggnog_data.py -y --data_dir /path/to/data
 ```
+
+Data is versioned by **MAJOR.MINOR** (`emapper-3.0/`) and pinned to the eggNOG DB
+version: a **minor** bump (`3.0` → `3.1`) means the DB changed and must be
+re-downloaded; **patch** releases reuse the same data. Core download ≈ **45 GB**
+(annotation DB + DIAMOND DB + taxonomy + prebuilt caches); add `-M` for the
+optional MMseqs2 DB, `-P` for Pfam. Details:
+[USAGE › Databases](USAGE.md#databases).
 
 ## Quick start
 
 ```bash
-# Protein sequences against eggNOG v7 using DIAMOND
-emapper.py -m diamond -i proteins.fa --itype proteins \
-    --data_dir /path/to/eggnog-data \
-    -o my_annotation --output_dir results/ --cpu 20
+# Proteins (default input type)
+emapper.py -i proteins.fa -o my_run --data_dir /path/to/data --cpu 8
 
-# Two-step: search first, annotate later
-emapper.py -m diamond -i proteins.fa --itype proteins \
-    --data_dir /path/to/eggnog-data \
-    -o my_annotation --output_dir results/ --no_annot --cpu 20
+# CDS / genome / metagenome
+emapper.py -i cds.fna       --itype CDS        -o my_run --data_dir DATA --cpu 8
+emapper.py -i genome.fna    --itype genome     -o my_run --data_dir DATA --cpu 8
+emapper.py -i contigs.fna   --itype metagenome -o my_run --data_dir DATA --cpu 8
 
-emapper.py -m no_search --annotate_hits_table results/my_annotation.emapper.seed_orthologs \
-    --data_dir /path/to/eggnog-data \
-    -o my_annotation --output_dir results/
+# Verify your installation end-to-end
+emapper.py --selftest
 ```
+
+Output is written as `my_run.emapper.annotations` (22-column TSV) plus optional
+`.xlsx` / `.orthologs` / `.gff`. Full options, output-column reference, advanced
+usage and HPC performance tuning are in **[USAGE.md](USAGE.md)**.
 
 ## Documentation
 
-https://github.com/eggnogdb/eggnog-mapper/wiki
+**[USAGE.md](USAGE.md)** — the complete manual: basic usage, databases, output
+format, Apptainer, advanced options, and maximum-performance tips for HPC
+clusters.
 
 ## Citation
 
@@ -118,15 +123,13 @@ If you use eggNOG-mapper, please cite:
     https://doi.org/10.1093/nar/gkaf1249
 ```
 
-Please also cite the search tool used:
+Please also cite the search tool used (the end-of-run message prints the exact
+versions):
 
 ```
 [DIAMOND] Sensitive protein alignments at tree-of-life scale using DIAMOND.
           Buchfink B, Reuter K, Drost HG. 2021.
           Nature Methods 18, 366–368. https://doi.org/10.1038/s41592-021-01101-x
-
-[HMMER]   Accelerated Profile HMM Searches.
-          Eddy SR. 2011. PLoS Comput. Biol. 7:e1002195.
 
 [MMSEQS2] MMseqs2 enables sensitive protein sequence searching for the analysis
           of massive data sets. Steinegger M & Söding J. 2017.
@@ -137,14 +140,14 @@ Please also cite the search tool used:
            BMC Bioinformatics 11, 119. https://doi.org/10.1186/1471-2105-11-119
 ```
 
-## Legacy v2 (eggNOG v5)
+## Legacy v2 (eggNOG 5)
 
-If you are working with eggNOG v5 databases, use the
-[v2 branch](https://github.com/eggnogdb/eggnog-mapper/tree/v2)
-or install the last v2 release from PyPI:
+For eggNOG 5 databases, use the
+[v2 branch](https://github.com/eggnogdb/eggnog-mapper/tree/v2) or the last v2
+release:
 
 ```bash
 pip install eggnog-mapper==2.1.15
 ```
 
-v2 and v3 databases are not interchangeable. v3 only works with eggNOG v7.
+v2 and v3 databases are **not** interchangeable — v3 only works with eggNOG 7.
