@@ -2,9 +2,11 @@
 """Download eggnog-mapper databases.
 
 v3.0: refactored to fetch a `manifest.json` from the server first and
-verify each artifact's sha256 against it before unpacking. Use
-`--no-verify` to fall back to legacy unverified behaviour against
-mirrors that don't carry a manifest (warns loudly).
+verify each artifact's sha256 against it before unpacking. When the
+server carries no manifest (or with `--no-verify`), sha256 checks are
+skipped (warns loudly), but every download is still verified for
+completeness against the server's Content-Length, so truncated
+transfers are rejected instead of silently installed.
 
 The recursive HMMER-mode download path (-H / --hmmer) still uses
 wget for its directory recursion; the per-clade hmm bundles are not
@@ -69,6 +71,8 @@ def _http_get(url, dest_path=None):
             if dest_path is None:
                 return r.read()
             h = hashlib.sha256()
+            expected = r.headers.get("Content-Length")
+            written = 0
             with open(dest_path, "wb") as f:
                 while True:
                     buf = r.read(CHUNK)
@@ -76,6 +80,17 @@ def _http_get(url, dest_path=None):
                         break
                     h.update(buf)
                     f.write(buf)
+                    written += len(buf)
+            # Transfer-integrity check: a mismatch against the advertised
+            # Content-Length means a truncated/interrupted download, which
+            # would otherwise be installed silently when no manifest exists.
+            if expected and int(expected) > 0 and written != int(expected):
+                Path(dest_path).unlink(missing_ok=True)
+                raise DownloadError(
+                    f"{url} -> truncated download: got {written} bytes, "
+                    f"Content-Length says {expected}; partial file removed. "
+                    "Re-run to retry."
+                )
             return h.hexdigest()
     except HTTPError as e:
         raise DownloadError(f"{url} -> HTTP {e.code} {e.reason}") from e
@@ -263,16 +278,22 @@ def main():
                               "Defaults to this emapper's MAJOR.MINOR; all 3.0.x builds "
                               "share the 3.0 data."))
     parser.add_argument("--no-verify", action="store_true", dest="no_verify",
-                        help=("Skip checksum verification when the server ships a "
-                              "manifest.json. Currently a no-op when no manifest is present."))
+                        help=("Skip sha256 verification against the server's "
+                              "manifest.json (a no-op when no manifest is present). "
+                              "Content-Length transfer checks always apply."))
 
     args = parser.parse_args()
 
-    set_data_path(resolve_backend(DEFAULT_BACKEND))
-    if "EGGNOG_DATA_DIR" in os.environ:
-        set_data_path(os.environ["EGGNOG_DATA_DIR"])
+    # Resolve the data path in priority order (CLI flag > env var > package
+    # default), validating only the path actually selected. The packaged
+    # default (<package>/data) does not exist on pip installs, so resolving
+    # it eagerly would crash even when a valid --data_dir was given.
     if args.data_dir:
         set_data_path(args.data_dir)
+    elif "EGGNOG_DATA_DIR" in os.environ:
+        set_data_path(os.environ["EGGNOG_DATA_DIR"])
+    else:
+        set_data_path(resolve_backend(DEFAULT_BACKEND))
     data_path = get_data_path()
 
     base_url = f"https://data.cgmlab.org/eggnog-mapper/emapper-{args.release}/data"
@@ -297,11 +318,12 @@ def main():
                 f"min_mapper={manifest.get('min_mapper_version')}",
                 "green"))
         else:
-            print(colorify("No manifest.json on the server; downloads will NOT be "
-                           "checksum-verified.", "yellow"))
+            print(colorify("No manifest.json on the server; sha256 verification is "
+                           "unavailable. Downloads are only checked for completeness "
+                           "against Content-Length.", "yellow"))
     else:
-        print(colorify("WARNING: --no-verify; downloads will NOT be checksum-verified",
-                       "yellow"))
+        print(colorify("WARNING: --no-verify; sha256 not checked. Downloads are still "
+                       "checked for completeness against Content-Length.", "yellow"))
 
     if args.simulate:
         print(colorify("simulate mode: would download artifacts under", "cyan"),
