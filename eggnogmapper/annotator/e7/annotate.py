@@ -673,18 +673,47 @@ class AnnotationEngine:
             import multiprocessing as _mp
             # Scale the per-task deadline with the sub-batch size so a large
             # --annot_batch_size (slower per task) doesn't trip a false timeout.
+            # EGGNOG_ANNOT_TASK_TIMEOUT (seconds) overrides it for inputs whose
+            # seeds are unusually expensive to annotate.
+            _env_timeout = os.environ.get("EGGNOG_ANNOT_TASK_TIMEOUT", "").strip()
             _TASK_TIMEOUT = max(120, sub_batch_size * 2)  # seconds
+            if _env_timeout:
+                try:
+                    _TASK_TIMEOUT = max(30, int(_env_timeout))
+                except ValueError:
+                    logging.warning(
+                        "EGGNOG_ANNOT_TASK_TIMEOUT=%r is not an integer; "
+                        "falling back to the computed deadline of %ss",
+                        _env_timeout, _TASK_TIMEOUT,
+                    )
             pending = [
                 pool.apply_async(_worker_annotate_subbatch, (a,))
                 for a in args_list
             ]
-            for ar in pending:
+            for ar, sub_batch in zip(pending, sub_batches):
                 try:
                     merged.update(ar.get(timeout=_TASK_TIMEOUT))
                 except _mp.TimeoutError:
-                    raise RuntimeError(
-                        f"Annotation worker timed out after {_TASK_TIMEOUT}s "
-                        f"on a {sub_batch_size}-seed sub-batch — pool will be terminated."
+                    # A slow sub-batch must not discard an otherwise complete
+                    # run. Recompute it here instead: the in-process path is the
+                    # same code the workers execute, so the result is identical,
+                    # only slower. Aborting would lose every seed annotated so
+                    # far in this batch and, for callers that retry the whole
+                    # input, would fail again deterministically.
+                    logging.warning(
+                        "Annotation worker exceeded %ss on a %d-seed sub-batch; "
+                        "recomputing that sub-batch in-process. Raise the deadline "
+                        "with EGGNOG_ANNOT_TASK_TIMEOUT if this is frequent.",
+                        _TASK_TIMEOUT, len(sub_batch),
+                    )
+                    merged.update(
+                        self._annotate_batch_inproc(
+                            sub_batch,
+                            target_taxa=target_taxa,
+                            excluded_taxa=excluded_taxa,
+                            target_orthologs=target_orthologs,
+                            ceiling_override=ceiling_override,
+                        )
                     )
             return merged
 
