@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **FASTA input starting with `;` comment lines** (the original Pearson FASTA
+  comment convention, also used by FAIR-bioHeaders `;~` metadata headers)
+  no longer fails with `Error reading sequences: Wrong format.` in the
+  internal FASTA reader (`iter_fasta_seqs`, used e.g. by `--md5`). Such lines
+  before the first record are now skipped, as `#` lines already were. Any
+  other text before the first `>` still raises the error.
+
 ## [3.0.0-beta6] — 2026-08-12
 
 ### Removed / renamed (pre-stable CLI cleanup)
