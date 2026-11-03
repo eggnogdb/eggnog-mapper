@@ -69,6 +69,10 @@ def iter_fasta_seqs(source, translate=False, silent=False, trans_table = 1):
             seq_chunks = []
         else:
             if seq_name is None:
+                if line.startswith(';'):
+                    # Pearson-style ';' comment before the first record
+                    # (e.g. FAIR-bioHeaders ';~' metadata header lines)
+                    continue
                 raise Exception("Error reading sequences: Wrong format.")
             seq_chunks.append(re.sub(CLEAN_SEQ, '', line))
 
